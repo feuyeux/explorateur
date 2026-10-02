@@ -4,8 +4,10 @@ title: "多语言教学视频人物班底：人设与实现规划"
 description: "为十四个语种各设男女一位、共二十八位固定人物的班底规划：符合各语命名习惯的名字、实测锁定的 Neural 音色、token 化调色板、帧函数化动作与挂件；示范场景《问路与指路》开箱即用，换场景人物零改动；音色/用色/动作全链路高质量且幂等。"
 tags: [plan, character-design, multilingual, teaching-video, tts]
 generated: { by: dsh/fuyao-work, at: 2026-10-02 }
+updated: { by: dsh/fuyao-work, at: 2026-10-03, note: "§8.3 人物几何重设计（肩楔/肩同宽/臂内收）、§8.4 管线一落地实况、§8.5 降为备选、§9 里程碑对齐现状" }
 inputs:
   - requirement.md                      # 需求输入：界面布局 + 人物设定四模块
+  - adr-character-tech.md               # 人物生成技术选型裁定（§8.5 备选案的决策记录）
   - ../kb/arts-and-humanities/linguistics/comparative/example/asking-and-giving-directions.md   # 示范场景
   - ../kb/tech/media/                   # 技术参考：角色/口型/音频/教学片/Remotion
   - ../多邻国知识库/                     # 产品参考：角色工程方法论
@@ -389,7 +391,7 @@ requirement 的界面分区在两种画幅下同构落地（三区比例进主�
 
 ### 7.1 音色：高质量
 
-1. **实测在册才可用**：28 个 voiceId 全部经 edge-tts 7.2.8 `list_voices()` 实时核验（2026-10-02，快照见附录 A）；`voices-manifest.json` 随库入库，校验器逐 id 比对——声库下架/更名即报警，**禁止静默自动换音色**（固定音色原则：迁移必须人工决策并更新档案）。
+1. **实测在册才可用**：28 个 voiceId 全部经 edge-tts 7.2.8 `list_voices()` 实时核验（2026-10-02，快照见附录 A）；新增/更换 voiceId 时先 `edge_tts.list_voices()` 实时核验再入档（不建独立 manifest 文件，附录 A 即快照）——声库下架/更名即 tts 阶段报错，**禁止静默自动换音色**（固定音色原则：迁移必须人工决策并更新档案）。
 2. **声学多样性**：一语种两声互补（活泼=快/亮，沉稳=慢/厚），14 语种各自成对——学习者每课至少暴露两种语速/音区（多邻国"多样化声学特征训练"的直译）。
 3. **冷门语种的唯一正路**：希腊/印地/阿语本地声库大面积缺位（[speech-systems.md](../kb/tech/system-admin/speech-systems.md) §7.1 实测），视频端**只用离线烘焙音频**（[audio-narration.md](../kb/tech/media/audio-narration.md) 硬立场：渲染器逐帧截图时 Web Speech 无时钟语义）。
 4. **文本纯净隔离**：罗马字注音、中文释义永不入音；拉丁转写按既有分段体例（[kb/AGENTS.md](../kb/AGENTS.md)）。
@@ -427,7 +429,9 @@ requirement 的界面分区在两种画幅下同构落地（三区比例进主�
 
 ```
 une_usine_avec_des_machines_rugissantes/
+├─ CLAUDE.md / README.md             # 项目规则（简）· 项目说明（新人入口）
 ├─ requirement.md / plan.md          # 需求与本规划
+├─ adr-character-tech.md             # 人物生成技术选型裁定（§8.4 管线一续役的决策记录）
 ├─ self-introductions.md             # 28 × 10s 亮相卡内容种子（内容·语气·场景·分镜）
 ├─ render-handbook.md                # ★ 工程与调优手册（架构/参数地图/验收/踩坑实录/recipes）
 ├─ run.ps1                           # ★ 统一入口（tts/assets/render/qa，两解释器分工封装）
@@ -435,16 +439,14 @@ une_usine_avec_des_machines_rugissantes/
 ├─ qa_grid.py / qa_char.py / qa_all.py / qa_motion.py   # 验收工具（§9 与 self-introductions.md §3.2）
 ├─ personas/
 │  ├─ personas.json                  # ★ 28 人档案（唯一事实源，schema 见 §4）
-│  ├─ intro-cards.json               # ★ 亮相卡数据（moods 表 / cast / lines / close 动作）
-│  ├─ voices-manifest.json           # edge-tts 实测声库快照（附录 A 的机器可读版）
-│  └─ validate.py                    # 零依赖校验器（验收规则见 §9）
+│  └─ intro-cards.json               # ★ 亮相卡数据（moods 表 / cast / lines / close 动作）
 └─ build/intro/                      # 产物与缓存（.gitignore；音频缓存名=内容哈希）
    ├─ <id>.mp4                       # 28 × 10s 亮相卡（1080×1920@30fps，h264+aac）
    ├─ audio/                         # <key>.mp3 + <key>.json 词表缓存、<id>.m4a、<id>.timeline.json
    └─ text/                          # Edge headless 文字层（band/badge/pill/bubble 的 PNG+HTML）
 ```
 
-管线侧不新增运行时副本：现役 `make_video.py` 与 HTML 管线 `tts_page.py` 通过 `--personas <path>` 消费同一份档案（遵守 [kb/AGENTS.md](../kb/AGENTS.md) "禁止复制粘贴运行时代码"）。
+声库快照以 plan.md 附录 A 为准（edge-tts 7.2.8 实测；新增语种时先 `edge_tts.list_voices()` 核验再入档，不建独立 manifest 文件）。管线侧不新增运行时副本：现役 [make_video.py](../kb/arts-and-humanities/linguistics/comparative/example/scripts/make_video.py) 与 HTML 管线 [tts_page.py](../kb/arts-and-humanities/linguistics/comparative/example/scripts/tts_page.py) 通过 `--personas <path>` 消费同一份档案（遵守 [kb/AGENTS.md](../kb/AGENTS.md) "禁止复制粘贴运行时代码"）。
 
 ### 8.2 音频生成契约（两条渲染管线共用）
 
@@ -463,38 +465,42 @@ synthesize(text, persona, mood):
 ### 8.3 人物绘制规格（多邻国式头身，单一事实源 `intro_cards.face_geo()`）
 
 单位 = 头高 H（圆脸 356px / 长脸 396px；头宽 = 0.955H / 0.78H）。渲染与 qa 探针都从
-`face_geo()` 取派生几何，永不漂移：
+`face_geo()` 取派生几何，永不漂移。**躯干与肩同宽、臂嵌进躯干轮廓、肩楔填平头-肩缺口**
+（2026-10-03 重设计：剪影连续是硬要求，杜绝"头身手脱节/手像悬挂"——见 render-handbook.md §5 坑⑪）：
 
 | 部位 | 比例 | 说明 |
 |---|---|---|
-| 头占身高 | ~46% | 大头短身 |
-| 躯干宽 | 0.68×头宽 | **躯干明显窄于头**（宽高 0.50H，肩半宽 0.44H） |
+| 头占身高 | ~48% | 大头短身 |
+| 躯干宽 | 0.435×头宽 = 肩半宽 | **躯干与肩同宽**（宽高 0.52H）；肩楔三角衔接颈部两侧→肩峰 |
 | 眼位 | 头顶下 0.615H | 低位大眼；瞳距 ±0.30×头宽；巩膜 0.28×0.34×头宽 |
 | 眉位 | 巩膜顶 + 0.035H | 胶囊眉紧贴眼上（帽檐/发带一律不压眉） |
 | 嘴位 | 头顶下 0.815H | 张嘴半椭圆 + 舌；闭口为宽笑弧 |
 | 腮红 | 头顶下 0.700H | 仅活泼型（±0.42×头宽） |
-| 四肢 | 上臂 0.29H / 前臂 0.26H / 臂宽 0.125H / 手径 0.20H | 胶囊袖 + 袖口收边 |
-| 腿脚 | 腿宽 0.15H、腿距 ±0.16H；脚长 0.335H、外八字 +0.085H | 圆角鞋形 + 鞋头高光 |
+| 四肢 | 上臂 0.27H / 前臂 0.24H / 臂宽 0.155H / 手径 0.21H | 胶囊袖 + 袖口收边；**肩关节内收至躯干轮廓上**（`sh_hw − arm_w·0.30`），静止角 7° |
+| 腿脚 | 腿宽 0.185H、腿距 ±0.145H；脚长 0.335H、外八字 +0.085H | 圆角鞋形 + 鞋头高光 |
 
 画质工艺：**全链路 2x 超采样**（人物层、场景层、气泡尾、进度条按 2x 语义坐标绘制，
 BOX 精确降采样 = 全形状抗锯齿）；无描边纯平涂 + 双色发丝高光 + 耳朵/衣领/侧体积影细节。
 名牌/语言牌/气泡：药丸形 + 身份色/墨色描边 + 半透明投影（matte 双色抠像精确还原投影 alpha）。
 
-### 8.4 管线一（现役，近期落地）：卡片式短片
+### 8.4 管线一（现役）：亮相卡短片（`intro_cards.py`，已落地）
 
-扩展现役 [make_video.py](../kb/arts-and-humanities/linguistics/comparative/example/scripts/make_video.py)（9:16 卡片 + Headless Chrome 截帧 + ffmpeg 拼装）：
+**实际落地形态**与本节初稿（扩展 make_video.py + SVG 立绘）不同：28 × 10s 亮相卡由本仓库的
+[intro_cards.py](intro_cards.py) 独立成线（tts → Edge headless 文字层 → Pillow 帧渲染 → ffmpeg），
+工程决策与踩坑全部沉淀在 [render-handbook.md](render-handbook.md)。人物绘制规格见 §8.3
+（`face_geo()` 单一事实源）。make_video.py 的 `--personas` 接入（示范场景《问路与指路》九语种
+A/B 对话）仍按 §6 的 casting 设计推进，其音频契约走 §8.2，与亮相卡管线共用 personas.json。
 
-1. `--personas` 载入档案；`SentenceItem` 增加 `speaker`（A/B/旁白）；
-2. `synthesize_audio` 升级为 §8.2 契约（现行为无 speaker 时的兼容退化，`test_make_video.py` 保持全绿）；
-3. 卡模板按 §6.3 三区改版：文字区字幕、气泡区双气泡、人物区双人 SVG 立绘（静态立绘 + 说话者高亮描边）；
-4. 终幕对话 A/B 交替配音 + 名牌；幕五三档 = 同一 B 角三个 mood 渲染三遍（§6.2）。
+### 8.5 管线二（备选态）：Remotion 班底 + 生成式人物
 
-### 8.5 管线二（目标态）：Remotion 班底
-
+**裁定为备选**（非目标态）：技术选型详见 [adr-character-tech.md](adr-character-tech.md)——
+MiniMax-H3 reference-to-video 生成人物动态层 + Remotion 编排合成的迁移案经评审**暂缓**，
+Pillow 管线（§8.4）续役；本节规格保留，作为人物生成路线升级时的启动蓝图。
 按 [kb/tech/media](../kb/tech/media/README.md) 全套规范搭 Remotion 工程：
 
 - `characters/Character.tsx`：分层 SVG rig（torso/head/eyes/mouth/arms + 四锚点挂件层），`<Character persona={p} mood={m} talking={openness} />` 一组件渲全班底；
 - `generate-voice.ts`：§8.2 契约的 Node 版（渲染前跑一次，音频进缓存目录）；
+- 人物动态层：MiniMax-H3 `--reference-image`（每班底一张定稿参考图）+ `--reference-audio`（edge-tts 产物直接喂生成端，口型跟随真实音素）——ADR §2 架构图；
 - `calculateMetadata` 按音频真实时长反推 composition 时长（[audio-narration.md](../kb/tech/media/audio-narration.md)）；
 - 五幕模板（钩子/教/练/奖/CTA）+ `TransitionSeries` 转场；`Course16x9`/`Course9x16` 双注册共享场景组件（[teaching-video-patterns.md](../kb/tech/media/teaching-video-patterns.md)）；
 - course.json schema：`locale` + `dialogue[{speaker, text, sceneId}]` + `casting{A,B}`——**新场景 = 新 JSON，模板零改动**。
@@ -513,10 +519,10 @@ BOX 精确降采样 = 全形状抗锯齿）；无描边纯平涂 + 双色发丝�
 
 | 阶段 | 交付 | 验收（全绿才进下一阶段） |
 | --- | --- | --- |
-| **M0 数据与校验** | `personas.json` + `voices-manifest.json` + `validate.py` | 覆盖矩阵 14 locale × {female, male} = 28/28；voiceId 全部 ∈ manifest；`seed`/`id`/名字三元唯一；hex 合法且标识色上白字对比度 ≥ 4.5:1；情绪增量全部落在安全域内 |
-| **M1 示范场景开箱** | make_video.py `--personas`（管线一） | 终幕 9 语种 A/B 声线正确、站位/名牌/RTL 正确；幕五三档语气 ≥ 3 语种盲听可辨；重跑仅变更句重新合成（缓存命中日志）；既有 `run_tests.py`/`test_make_video.py` 全绿 |
-| **M2 Remotion 班底** | 管线二工程 | 同 props 渲染两次 `ffmpeg framehash` 逐帧一致；28 声线各出 1 张 10s 亮相卡（语料与验收细则：[self-introductions.md](self-introductions.md)）；口型-字幕同轴抽查（Studio 拖帧）；色板 lint 0 违例 |
-| **M3 场景切换** | course.json 化 + casting 数据 | 用同一班底渲染第二场景（建议：[expressions/directions.md](../kb/arts-and-humanities/linguistics/comparative/expressions/directions.md) 德/西对话）——人物零改动、模板零改动，仅新增 JSON；交互页立绘与双声线锚定上线 |
+| **M0 数据与校验** | `personas.json`（28 档案） | 覆盖矩阵 14 locale × {female, male} = 28/28；voiceId 全部 ∈ 附录 A 实测快照；`seed`/`id`/名字三元唯一；hex 合法且标识色上白字对比度 ≥ 4.5:1；情绪增量全部落在安全域内（**已达成**：qa_char 调色板探针逐卡对照） |
+| **M1 亮相卡产线**（管线一，已落地） | `intro_cards.py` 三段管线 + 验收四件套 | 28 × 10s 亮相卡：qa_all 28/28 PASS + qa_motion PASS + 幂等抽检（视频流 framehash 逐帧一致）；人物剪影连续（臂-躯干 0 露底缝、名牌/文字资产无截断） |
+| **M2 示范场景开箱** | make_video.py `--personas`《问路与指路》 | 终幕 9 语种 A/B 声线正确、站位/名牌/RTL 正确；幕五三档语气 ≥ 3 语种盲听可辨；重跑仅变更句重新合成（缓存命中日志）；既有 `run_tests.py`/`test_make_video.py` 全绿 |
+| **M3 生成式人物 + 场景切换**（备选，见 ADR） | Remotion 工程 + H3 人物动态层 + course.json 化 | 同 props 渲染两次 `ffmpeg framehash` 逐帧一致；生成视频首/中/尾帧与 reference 图一致性抽检；口型-字幕同轴抽查（Studio 拖帧）；人物零改动、模板零改动，仅新增 JSON |
 
 ---
 
@@ -546,6 +552,8 @@ BOX 精确降采样 = 全形状抗锯齿）；无描边纯平涂 + 双色发丝�
 ## 附录 B：参考与信源
 
 - 需求输入：[requirement.md](requirement.md)（人物设定四模块 + 界面三区布局）
+- 技术裁定：[adr-character-tech.md](adr-character-tech.md)（人物生成四路线裁定：Pillow 续役，H3+Remotion 备选）
+- 工程沉淀：[render-handbook.md](render-handbook.md)（架构/参数地图/验收/踩坑实录）
 - 示范场景：[asking-and-giving-directions.md](../kb/arts-and-humanities/linguistics/comparative/example/asking-and-giving-directions.md) · [expressions/directions.md](../kb/arts-and-humanities/linguistics/comparative/expressions/directions.md)（十一语对齐语料）
 - 现役管线：[make_video.py](../kb/arts-and-humanities/linguistics/comparative/example/scripts/make_video.py) · [tts_page.py](../kb/arts-and-humanities/linguistics/comparative/example/scripts/tts_page.py) · [kb/AGENTS.md](../kb/AGENTS.md)（语言映射与 TTS 架构规范）
 - 技术参考：[character-animation.md](../kb/tech/media/character-animation.md)（persona schema/原语库/确定性 idle） · [lip-sync.md](../kb/tech/media/lip-sync.md)（路线 B） · [audio-narration.md](../kb/tech/media/audio-narration.md)（烘焙音频立场/内容缓存） · [teaching-video-patterns.md](../kb/tech/media/teaching-video-patterns.md)（五幕/双人对白/思考停顿） · [remotion.md](../kb/tech/media/remotion.md)（确定性守则/版本快照） · [speech-systems.md](../kb/tech/system-admin/speech-systems.md)（九语音色生态矩阵与质量工程）

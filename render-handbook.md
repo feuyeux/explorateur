@@ -4,6 +4,9 @@
 > 架构不变量、参数地图、验收体系、踩坑实录与调优手册。规划与 schema 见
 > [plan.md](plan.md)（§8.2 音频契约、§8.3 人物绘制规格），内容种子见
 > [self-introductions.md](self-introductions.md)。**改任何东西前先读 §3 参数地图。**
+>
+> 人物生成技术路线的裁定记录（含被否的 H3+Remotion 迁移方案）见
+> [adr-character-tech.md](adr-character-tech.md)：**现役 = 本手册的 Pillow 管线**。
 
 ---
 
@@ -88,7 +91,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | 人设（名字/声线/色板/发型/配饰/identity/RTL） | `personas/personas.json` | 色板字段被 qa_char 对照，改色必跑 qa_all |
 | **头身比例 / 五官位置** | `face_geo()` 比率表（见 plan.md §8.3 表） | 探针自动跟随；跑 qa_all + qa_motion |
 | 发型绘制 | `draw_character` 前发/背发层两段（`style` 分支） | 侧发会盖耳朵：新发型想露耳要留出 `rx*0.94` 之外的空间 |
-| 配饰绘制 | `draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.34×头宽` |
+| 配饰绘制 | `draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.435×头宽` |
 | 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html` | **禁 position:absolute / transform**（坑⑦）；尾色必须同 `UI_INK` |
 | 场景背景 | `SCENES` 注册表（57 个原语，`@scene("名")`）+ `intro-cards.json` `scene[]` | 全部用 `pal` 色板，勿写死 RGB |
 | 文字带（字幕条） | `band_html`（64px 起自适应缩到 30px） | BAND_Y=100, BAND_H=300，头像区 400–840 之间别放东西 |
@@ -106,7 +109,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | `qa_char.py` | 单卡调色板探针（发/肤/衣/裤/鞋/巩膜/瞳/高光/眉/腮红/帽），几何**从 face_geo 派生**；支持 hop（起跳 squash）与 dx（走位） | 0 fail；起跳帧 `probe_crown=False`（头顶撞气泡属正常遮挡） |
 | `qa_all.py` | 28 卡全量：时长=10.0±0.05s、aac、t=3.0 探针、收尾帧躯干在位 | `ALL 28 CARDS PASS` |
 | `qa_motion.py` | 卡拉OK LTR 覆盖率递增 / RTL 高亮中位 x 左移、口型说话中开合+收尾闭合、RTL 气泡镜像（layla 右 vs jiangyuan 左）、眨眼跌落 | `MOTION QA PASS` |
-| 幂等抽检 | `Get-FileHash` → 重渲 → 再哈希 | 逐字节一致（眨眼相位/呼吸/手势全部播种） |
+| 幂等抽检 | 渲两次 → `ffmpeg -f hash -hash md5`（`-map 0:v`） | **视频流逐帧一致**（容器字节差来自 ffmpeg 元数据，属正常——曾误报"逐字节一致"，见 §5 坑⑫） |
 
 **探针纪律**：新加视觉特性 = 同时加对应探针；探针采样点必须从 `face_geo` 算，
 不许手抄坐标（今天 3 个"假失败"全是手抄坐标撞上大眼/气泡/帽檐——见 §5）。
@@ -134,8 +137,24 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 9. **探针假失败**：a) PIL 弧顶点在包围盒**上缘**而非中线（发带探针采到发色）；
    b) 起跳顶点头顶撞进气泡图层（气泡本来就在人物前面）；
    c) 大眼改宽后旧"脸颊"采样点落进巩膜。 → 探针点全部改为 face_geo 派生 + 遮挡感知。
+10. **文字层截图底部截断**：Edge headless 的 `--window-size` 高度 ≠ 实际视口高度
+    （本机实测差 94px），文字带底部被裁掉一截。
+    → `edge_viewport_h()` 探针实测视口高，`edge_win_h = BAND_H + max(0, 300 − 视口高)` 动态补高
+    （`intro_cards.py::cmd_assets`）——不写死 94，换机器自动重测。
+11. **肩点落在躯干轮廓外 + 臂躯间露底缝**：几何拼接无解剖概念，肩关节浮在躯干外
+    ~35px，臂与躯干之间 22px 露出背景；静止手位距躯干 100px（a1=14° 外张）。
+    → `face_geo` 躯干加宽 `torso_hw=sh_hw=0.435×头宽`（旧 0.34×）+ 腿加粗 0.185H +
+    臂加粗 0.155H；肩点内收 `sh = (cx + s·(sh_hw − arm_w·0.30), sh_y)` 落回躯干轮廓上；
+    颈侧→肩峰加肩楔三角过渡填平缺口（`draw_character` 躯干段/手臂段）；
+    静止角 14°→7°。改后帧内臂-躯干 0 露底缝（qa 扫 1360..1560 行无 BG 缝）。
+12. **幂等抽检误报"逐字节一致"**：ffmpeg 容器（mp4 元数据/mtime）每次编码字节不同，
+    对整文件做 `Get-FileHash` 双跑必然不一致。 → 对比**视频流** framehash：
+    `ffmpeg -map 0:v -f hash -hash md5 -i <id>.mp4 -`；音频流同理可验（§4 已改口径）。
 
 另：渲染里所有随机性（眨眼相位、场景微扰）必须 `rnd(f"{seed}:...")` 播种，否则幂等破坏。
+
+> 坑⑩⑪⑫ 记录于 2026-10-03 人物形象打磨（肩楔/肩点内收/Edge 视口补偿 + 幂等口径修正）。
+> 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）见 [adr-character-tech.md](adr-character-tech.md)。
 
 ---
 
@@ -163,7 +182,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 投影随意加——matte 抠像能还原任意半透明；尾色改了要同步 `render_card` 里的 `tail_col`。
 
 ### 6.5 加语种/加人物
-1. `personas.json` 加档案（voiceId 从 [voices-manifest.json](personas/voices-manifest.json) 实测快照里选）；
+1. `personas.json` 加档案（voiceId 从 plan.md 附录 A 实测快照里选，新语种先 `edge_tts.list_voices()` 核验）；
 2. `intro-cards.json` 加卡（cast A=文字气泡 / B=地图气泡；RTL 记得 `rtl:true`）；
 3. `FONT_CSS` 补字体；qa_char 若有新配饰类型加探针；
 4. self-introductions.md 补内容种子；`.\run.ps1 all`。
@@ -184,7 +203,8 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 5. **场景与身份联动**：SCENES 原语按 identity 自动调色已有，可再加"每卡 1 个身份道具呼应台词"。
 6. **全量 framehash 幂等**：现在抽检 2 卡，可写脚本 28 卡全量（渲两次逐帧 hash，约 6 分钟）。
 7. **qa 探针并入 CI**：`run.ps1 qa` 已是一键，可挂 pre-push。
-8. **管线二（Remotion）**：plan.md §8.5——本管线的 face_geo/姿态库/词轴三用可直接移植。
+8. **管线二（Remotion + 生成式人物）**：裁定记录见 [adr-character-tech.md](adr-character-tech.md)——
+   本管线的 face_geo/姿态库/词轴三用/personas.json 可直接移植。
 
 ---
 
@@ -192,7 +212,9 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 
 ```
 une_usine_avec_des_machines_rugissantes/
+├─ CLAUDE.md / README.md             # 项目规则（简）· 项目说明（新人入口）
 ├─ requirement.md / plan.md          # 需求 · 总规划（§8.2 音频契约 / §8.3 绘制规格 / §8.4-8.6 三管线）
+├─ adr-character-tech.md             # 人物生成技术选型裁定（H3+Remotion 迁移案 = 备选，Pillow 续役）
 ├─ self-introductions.md             # 28 卡内容种子（台词/注音/对照/分镜/验收清单）
 ├─ render-handbook.md                # ★ 本手册
 ├─ run.ps1                           # ★ 统一入口（两解释器分工封装）
@@ -200,8 +222,7 @@ une_usine_avec_des_machines_rugissantes/
 ├─ qa_grid.py / qa_char.py / qa_all.py / qa_motion.py   # 验收四件套（§4）
 ├─ personas/
 │  ├─ personas.json                  # ★ 28 人档案（人设唯一事实源）
-│  ├─ intro-cards.json               # ★ 28 卡种子（moods 增量表/cast/lines/gestures/scene/close）
-│  └─ voices-manifest.json           # edge-tts 实测声库快照（附录 A 机器可读版）
+│  └─ intro-cards.json               # ★ 28 卡种子（moods 增量表/cast/lines/gestures/scene/close）
 └─ build/intro/                      # 产物（.gitignore）
    ├─ <id>.mp4                       # 28 × 10s
    ├─ audio/                         # <key>.mp3+<key>.json 词表缓存 · <id>.m4a · <id>.timeline.json
