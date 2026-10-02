@@ -1,0 +1,703 @@
+{
+  "$schema": "self-introductions.md#3.1",
+  "note": "28 × 10s 亮相卡的机器可读种子：每卡 lines 按 mood 分段（单段=单行）；gestures 为词触发的招牌手势；scene 为背景原语列表",
+  "moods": {
+    "neutral": [
+      0,
+      0
+    ],
+    "happy": [
+      4,
+      5
+    ],
+    "puzzled": [
+      -8,
+      -2
+    ],
+    "encouraging": [
+      -5,
+      2
+    ],
+    "emphatic": [
+      2,
+      -3
+    ],
+    "teach": [
+      -15,
+      0
+    ]
+  },
+  "cast": {
+    "xiaoman": "A",
+    "jiangyuan": "B",
+    "ruby": "B",
+    "miles": "A",
+    "chloe": "A",
+    "theo": "B",
+    "lena": "B",
+    "felix": "A",
+    "lucia": "A",
+    "mateo": "B",
+    "anya": "B",
+    "misha": "A",
+    "eleni": "A",
+    "nikos": "B",
+    "layla": "B",
+    "omar": "A",
+    "priya": "A",
+    "arjun": "B",
+    "haruka": "A",
+    "riku": "B",
+    "seoyeon": "B",
+    "doyun": "A",
+    "giulia": "A",
+    "luca": "B",
+    "noa": "A",
+    "yuval": "B",
+    "aaching": "B",
+    "ahao": "A"
+  },
+  "cards": [
+    {
+      "id": "xiaoman",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "sun",
+        "arch",
+        "flowers"
+      ],
+      "lines": [
+        {
+          "text": "大家好！我叫林小满，“小满”是节气里的小满。我最爱问“为什么”——今天也请多多指教！",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "jiangyuan",
+      "entry": "walk_in",
+      "close": "palm_open",
+      "scene": [
+        "lamp",
+        "bus_sign",
+        "bench"
+      ],
+      "lines": [
+        {
+          "text": "你好，我是江远。路怎么走都可以问我——我慢慢指给你看。",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "ruby",
+      "entry": "walk_in",
+      "close": "nod",
+      "scene": [
+        "awning",
+        "counter",
+        "steam"
+      ],
+      "gestures": [
+        {
+          "at": "Lost",
+          "do": "brow_raise",
+          "dur": 0.8
+        }
+      ],
+      "lines": [
+        {
+          "text": "Hi, I'm Ruby, from the coffee corner. Ask me — I know every street.",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "miles",
+      "entry": "bounce_in",
+      "close": "thumbs_up",
+      "scene": [
+        "windows_big",
+        "board_timetable",
+        "luggage"
+      ],
+      "gestures": [
+        {
+          "at": "and",
+          "do": "scratch_head",
+          "dur": 1.6
+        }
+      ],
+      "lines": [
+        {
+          "text": "Hey! I'm Miles!",
+          "mood": "happy"
+        },
+        {
+          "text": "I get lost everywhere I go.",
+          "mood": "puzzled"
+        },
+        {
+          "text": "Let's find the way together!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "chloe",
+      "entry": "bounce_in",
+      "close": "kick",
+      "scene": [
+        "cobble_arcs",
+        "fountain",
+        "pigeons"
+      ],
+      "lines": [
+        {
+          "text": "Salut ! Moi, c'est Chloé ! J'adore aller vite, sur mon skateboard. Viens — on explore la ville !",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "theo",
+      "entry": "walk_in",
+      "close": "point",
+      "scene": [
+        "shopfront",
+        "lamp",
+        "books_stack"
+      ],
+      "gestures": [
+        {
+          "at": "Attends",
+          "do": "index_wait",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "Bonjour, je m'appelle Théo. J'aime les livres.",
+          "mood": "neutral"
+        },
+        {
+          "text": "Une question ? Je te montre le chemin.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "lena",
+      "entry": "walk_in",
+      "close": "nod",
+      "scene": [
+        "desk_lamp",
+        "window",
+        "shelf"
+      ],
+      "gestures": [
+        {
+          "at": "Hallo",
+          "do": "planner_snap",
+          "dur": 1.0
+        },
+        {
+          "at": "Schritt",
+          "do": "finger_count",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "Hallo! Ich bin Lena. Ich plane Schritt für Schritt. Zählen wir zusammen!",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "felix",
+      "entry": "bounce_in",
+      "close": "run_out",
+      "scene": [
+        "mountains",
+        "signpost",
+        "trail"
+      ],
+      "gestures": [
+        {
+          "at": "Hallo",
+          "do": "hand_shoot",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "Hallo, hallo! Ich bin Felix — der Glücksbringer! Komm mit, das wird großartig!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "lucia",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "awning_market",
+        "crates",
+        "fruit_balls"
+      ],
+      "lines": [
+        {
+          "text": "¡Hola! ¡Soy Lucía! Me encanta la fruta del mercado. ¡Ven, te presento mi barrio!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "mateo",
+      "entry": "walk_in",
+      "close": "nod",
+      "scene": [
+        "umbrella",
+        "table",
+        "plant"
+      ],
+      "gestures": [
+        {
+          "at": "Tranquilo",
+          "do": "palm_open",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "Buenas. Soy Mateo, sin prisa.",
+          "mood": "neutral"
+        },
+        {
+          "text": "¿Perdido? Te muestro el camino.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "anya",
+      "entry": "walk_in",
+      "close": "wave",
+      "scene": [
+        "arch_windows",
+        "flowers",
+        "fence_low"
+      ],
+      "lines": [
+        {
+          "text": "Привет! Меня зовут Аня.",
+          "mood": "neutral"
+        },
+        {
+          "text": "Спрашивай — я покажу тебе дорогу.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "misha",
+      "entry": "bounce_in",
+      "close": "come_along",
+      "scene": [
+        "bench",
+        "tree",
+        "pigeons"
+      ],
+      "gestures": [
+        {
+          "at": "Миша",
+          "do": "chest_pat",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "Привет, друзья! Я Миша! Хочешь увидеть город? Пойдём вместе!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "eleni",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "domes",
+        "water",
+        "bunting"
+      ],
+      "gestures": [
+        {
+          "at": "μεγάλες",
+          "do": "both_hands",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "Γεια σας! Είμαι η Ελένη! Λατρεύω τις πλατείες και τη μουσική. Έλα, να σου δείξω τη γειτονιά!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "nikos",
+      "entry": "walk_in",
+      "close": "point",
+      "scene": [
+        "masts",
+        "sun_low",
+        "water"
+      ],
+      "gestures": [
+        {
+          "at": "σκεφτώ",
+          "do": "beads_ponder",
+          "dur": 1.4
+        }
+      ],
+      "lines": [
+        {
+          "text": "Καλησπέρα. Με λένε Νίκο. Ξέρω όλους τους δρόμους — κάτσε, θα σου πω.",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "layla",
+      "entry": "walk_in",
+      "close": "palm_open",
+      "scene": [
+        "tree_shadow",
+        "books_stack",
+        "lantern"
+      ],
+      "lines": [
+        {
+          "text": "مرحباً، أنا ليلى. أحب الهدوء.",
+          "mood": "neutral"
+        },
+        {
+          "text": "اسألني، وسأدلك عليه.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "omar",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "pot_brass",
+        "carpet",
+        "steam"
+      ],
+      "gestures": [
+        {
+          "at": "أهلاً",
+          "do": "thumbs_up",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "أهلاً! أنا عمر! أحب الضحك والقهوة. تعال — أعرف كل الطرق!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "priya",
+      "entry": "bounce_in",
+      "close": "wave",
+      "scene": [
+        "brick_arches",
+        "board",
+        "palm"
+      ],
+      "gestures": [
+        {
+          "at": "नमस्ते",
+          "do": "clap",
+          "dur": 0.9
+        }
+      ],
+      "lines": [
+        {
+          "text": "नमस्ते! मैं प्रिया हूँ। मुझे सवाल पसंद हैं। चलो, रास्ता खोजें!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "arjun",
+      "entry": "walk_in",
+      "close": "point",
+      "scene": [
+        "mapwall",
+        "desk_lamp",
+        "columns"
+      ],
+      "gestures": [
+        {
+          "at": "घबराइए",
+          "do": "palm_open",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "नमस्ते, मैं अर्जुन हूँ।",
+          "mood": "neutral"
+        },
+        {
+          "text": "रास्ता भूल गए? मैं बता देता हूँ।",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "haruka",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "lantern_row",
+        "shopfront",
+        "sky_dusk"
+      ],
+      "gestures": [
+        {
+          "at": "わくわく",
+          "do": "fist",
+          "dur": 0.9
+        }
+      ],
+      "lines": [
+        {
+          "text": "こんにちは！ハルカです！新しい場所がだいすき。いっしょに探検しよう！",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "riku",
+      "entry": "walk_in",
+      "close": "turn_freeze",
+      "scene": [
+        "wires",
+        "sky_sunset",
+        "pigeons_on_wire"
+      ],
+      "lines": [
+        {
+          "text": "……リク。道なら、任せて。この街は、ぜんぶ頭の中にある。",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "seoyeon",
+      "entry": "walk_in",
+      "close": "nod",
+      "scene": [
+        "desk_lamp",
+        "shelf",
+        "window"
+      ],
+      "gestures": [
+        {
+          "at": "안녕하세요",
+          "do": "planner_snap",
+          "dur": 1.0
+        },
+        {
+          "at": "잠시만요",
+          "do": "index_wait",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "안녕하세요, 서연이에요.",
+          "mood": "neutral"
+        },
+        {
+          "text": "길을 잃으셨나요? 제가 알려 드릴게요.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "doyun",
+      "entry": "bounce_in",
+      "close": "run_out",
+      "scene": [
+        "hoop",
+        "fence",
+        "sky_dusk"
+      ],
+      "gestures": [
+        {
+          "at": "안녕",
+          "do": "cap_tap",
+          "dur": 0.8
+        }
+      ],
+      "lines": [
+        {
+          "text": "안녕! 나 도윤! 궁금한 건 뭐든 물어봐. 오늘은 어디로 갈까?",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "giulia",
+      "entry": "bounce_in",
+      "close": "mini_jump",
+      "scene": [
+        "fountain",
+        "sun_low",
+        "bunting"
+      ],
+      "gestures": [
+        {
+          "at": "Vieni",
+          "do": "ciao_wave",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "Ciao! Sono Giulia! Adoro i tramonti, la musica e le nuove avventure. Vieni — ti faccio visitare la mia città!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "luca",
+      "entry": "walk_in",
+      "close": "shrug",
+      "scene": [
+        "bench",
+        "pigeons",
+        "plant"
+      ],
+      "gestures": [
+        {
+          "at": "Respiro",
+          "do": "breath",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "Ciao, sono Luca. Qui si va piano, come me. Ti accompagno.",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "noa",
+      "entry": "bounce_in",
+      "close": "camera_snap",
+      "scene": [
+        "skyline",
+        "clothesline",
+        "sky_dusk"
+      ],
+      "gestures": [
+        {
+          "at": "שאלה",
+          "do": "brow_raise",
+          "dur": 0.8
+        }
+      ],
+      "lines": [
+        {
+          "text": "שלום! אני נועה. אני אוהבת לצלם ולגלות. בוא נגלה יחד!",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "yuval",
+      "entry": "walk_in",
+      "close": "come_along",
+      "scene": [
+        "stairs",
+        "shrubs",
+        "sun"
+      ],
+      "gestures": [
+        {
+          "at": "מים",
+          "do": "bottle_raise",
+          "dur": 1.2
+        }
+      ],
+      "lines": [
+        {
+          "text": "שלום, אני יובל.",
+          "mood": "neutral"
+        },
+        {
+          "text": "צריך כיוון? בוא אחריי, לאט.",
+          "mood": "encouraging"
+        }
+      ]
+    },
+    {
+      "id": "aaching",
+      "entry": "walk_in",
+      "close": "snap",
+      "scene": [
+        "neon_sign",
+        "window_grid",
+        "stall"
+      ],
+      "gestures": [
+        {
+          "at": "隨時",
+          "do": "snap",
+          "dur": 0.9
+        }
+      ],
+      "lines": [
+        {
+          "text": "哈囉，我係阿晴！唔識路？呢度我全部都知。",
+          "mood": "neutral"
+        }
+      ]
+    },
+    {
+      "id": "ahao",
+      "entry": "bounce_in",
+      "close": "run_out",
+      "scene": [
+        "steamers",
+        "stall",
+        "lanterns"
+      ],
+      "gestures": [
+        {
+          "at": "你好呀",
+          "do": "scratch_head",
+          "dur": 1.0
+        }
+      ],
+      "lines": [
+        {
+          "text": "你好呀！我係阿豪！最鍾意幫人。唔識路？跟住我行！",
+          "mood": "happy"
+        }
+      ]
+    }
+  ]
+}

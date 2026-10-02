@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts (generated audio/screenshots/debug files)
+build/
+dist/
+
+# Debug/QA output
+*.png.tmp
+qa_output/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Secrets / local env
+.env
+*.local
