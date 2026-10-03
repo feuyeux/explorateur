@@ -30,7 +30,8 @@
 | `lessons/<id>/`（如 [lessons/colors/](lessons/colors/scene.md)） | **课程统一目录**：`scene.md`（场景剧本唯一事实源：§0 机读规格 + §2 各语种台词 + §5 token 词表，不设母本、不互译）+ `scene.json`（解析产物）+ `analysis/`（逐句解析） |
 | [adr-character-tech.md](docs/adr-character-tech.md) | 技术决策：Pillow 管线续役；H3+Remotion 迁移案为备选蓝图（含四路线裁定） |
 | [benchmark-duolingo.md](docs/benchmark-duolingo.md) | 对标台账——多邻国三文档逐条裁定（✅已达成/🔧补齐/📌备选/❌不采纳）；quirk 治理规则 |
-| [publish-playbook.md](docs/publish-playbook.md) | 发布手册——抖音 / 小红书创作服务平台双平台流程、平台差异对照、18 条踩坑实录、发布后核验清单 |
+| [publish-playbook.md](docs/publish-playbook.md) | 发布手册——抖音 / 小红书创作服务平台双平台流程、平台差异对照、23 条踩坑实录、发布后核验清单 |
+| [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册——Markdown 导入文档（唯一可自动化路径）、内嵌视频、改已发布文章里的链接、20 条踩坑实录（含「服务端过滤阿拉伯文区段」）、15 篇台账 |
 | `personas/personas.json` | 28 人档案——声线/色板/脸型/发型/服装/配饰/RTL + 档案四字段（名字语义/声线画像/搭档关系/趣味设定）（人设唯一事实源） |
 | `personas/intro-cards.json` | 28 张卡——台词/情绪/手势/入场姿态/场景/收尾码列/A·B 选角；RTL 卡带 `variants[]`（女性观众版） |
 | `pyproject.toml` / `uv.lock` / `.venv` | uv 工程清单与锁定的单一虚拟环境（uv 托管 CPython 3.12；依赖精确锁版，Pillow 12.3.0 是像素基线）；控制台入口 `usine-cards` / `usine-parse` / `usine-scene` / `usine-lesson` / `usine-dump-lesson` |
@@ -40,7 +41,7 @@
 | `src/usine/qa_*.py` | 验收五件套——网格探针 / 调色板探针 / 32 单元全量 / 动态验收 / 场景线 |
 | `src/usine/dump_lesson_source.py` | 把 `lessons/<id>/scene.json` 排版成 `lessons/<id>/analysis/_source/<locale>.md`（给逐句解析用的可读源文本，只排版不改写） |
 | `src/usine/build_lesson.py` | 合并 `lessons/<id>/scene.json` + `lessons/<id>/analysis/<locale>.json` → `build/lesson/<id>/index.html`：按语系排序、逐句语法/词法/文化解析、每语种末尾嵌视频 |
-| `scripts/` | 发布侧独立工具（抖音合集/发布，Playwright；`uv sync --group douyin` 按需装依赖）＋ 验收侧回归测试（verify_text_contract.py） |
+| `scripts/` | 发布侧独立工具（抖音合集/发布，Playwright；`uv sync --group douyin` 按需装依赖）＋ 知乎图文（`build_zhihu.py` 出稿 + `verify_zhihu_lossless.py` 无损验收）＋ 验收侧回归测试（verify_text_contract.py） |
 
 ---
 
@@ -211,3 +212,4 @@ lessons/<id>/scene.json + analysis/ └→ build_lesson.py ──→ build/lesso
 | 场景台词 / 情绪 / 手势 / 舞台 | 只改该课的 `lessons/<id>/scene.md`，然后 `.\run.ps1 scene -Scene <id> -Only <locale>`（解析器只抽取不改写，md 仍是唯一事实源） |
 | 场景教学 token / RTL / 装置规格 | `lessons/<id>/scene.md` **§0**（token 表 + 装置规格表；井位/井形/空井色全在数据里） |
 | 逐句语法/词法/文化解析 | `lessons/<id>/analysis/<locale>.json`（先 `.\run.ps1 dump-lesson -Scene <id>` 导出源文本），然后 `.\run.ps1 lesson -Scene <id>` 合成文档 |
+| 知乎专栏正文 / 目录链接 | `scripts/build_zhihu.py` 的 `PUBLISHED_URLS` 表（15 篇真实 URL 的**单一事实源**，验收脚本共用）→ 重跑 `build_zhihu.py` + `verify_zhihu_lossless.py`；发布流程见 [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) |

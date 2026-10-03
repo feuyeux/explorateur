@@ -3,11 +3,15 @@ title: 多平台发布手册（抖音 / 小红书）
 updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "02:00 补：05–14 跑完（小红书 14/14 全发完），踩坑实录 18 → 23 条（新增合集下拉被视口裁掉 / 合集选中态看 class / 发布按钮用 ref 不用坐标 / 上传后别先 sleep / generation 跳回 1 = 页面重建），§5.2 换成实跑 10/10 的顺序。事实源文案见 lessons/colors/publish/{douyin,xiaohongshu}-copy.md" }
 ---
 
-# 多平台发布手册
+# 多平台发布手册（抖音 / 小红书）
 
 > **什么时候读这份文档**：要把 `build/scene/scene-colors_*.mp4`（或任何成片）发到
 > 抖音 / 小红书创作服务平台时。渲染相关的坑在 [render-handbook.md](render-handbook.md)，
 > 这里只管「成片出去以后」这一段。
+>
+> **知乎专栏不在这份文档里**。知乎走的是「Markdown 导入文档 + 内嵌视频 + 改已发布链接」，
+> 富文本机制与抖音 / 小红书完全不同（知乎是 Draft.js，转换只在 paste 事件触发），
+> 流程与踩坑见 [zhihu-publish-playbook.md](zhihu-publish-playbook.md)。
 >
 > **本文档的每条流程都经过实跑验证**，不是从平台文档抄的。带 ⚠️ 的是「不照做就出错」的点。
 
