@@ -4,20 +4,24 @@
 几何从 intro_cards.face_geo 导入（单一事实源，探针永不与渲染漂移）；
 眉形/眼形/视线/颈影/主题色全部与渲染同源（MOOD_FACE/EYE_MOOD/gaze/THEME/mix）；
 支持 hop（mini_jump 起跳，jump_height 同源）与 walk（走位横向偏移）；
-懂帽子/发带/顶戴墨镜/眼镜/鞋饰/腮红/织带/滑板贴纸/书袋挂饰/膝盖补丁/三色旗（不变量⑩）。"""
+懂帽子/发带/顶戴墨镜/眼镜/鞋饰/腮红/织带/滑板贴纸/书袋挂饰/膝盖补丁/三色旗（不变量⑩）。
+
+`results_out` 只给 `scripts/verify_shape_fixes.py` 的反向验证用：默认返回失败条数，
+反向测试需要逐条结果来确认「失败的到底是哪一条探针」。"""
 import json
 
 from PIL import Image
 
-from .intro_cards import (EYE_MOOD, MOOD_FACE, NECK_SHADE_F, THEME, face_geo, gaze,
-                          hexc, jump_height, mix)
+from .intro_cards import (EYE_MOOD, JAW, MOOD_FACE, NECK_SHADE_F, THEME, face_geo, gaze,
+                          hexc, jaw_point, jump_height, mix, sunglasses_head_geo)
 from usine import ROOT
 
 P = json.load(open(ROOT / "personas" / "personas.json", encoding="utf-8"))
 personas = {p["id"]: p for p in P["personas"]}
 
 
-def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, mood="neutral"):
+def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, mood="neutral",
+          results_out=None):
     p = personas[pid]
     pal = p["palette"]
     im = Image.open(frame).convert("RGB")
@@ -51,6 +55,23 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
         ok = sum((a - b) ** 2 for a, b in zip(px, want)) ** 0.5 <= tol
         results.append((name, ok, px, want))
 
+    def look_step(name, x, y_in, y_out, want_in, tol=12, min_step=6):
+        """阶跃探针（坑㉑）：`y_in` 处的像素既要接近 `want_in`，又要与紧邻的 `y_out` 明显不同。
+
+        存在的理由：深发角色的发色与 metal_dark 镜框的欧氏距离可以小到 8.1
+        （omar 发 (43,37,48) vs 镜框 (44,44,52)）——**任何单点颜色比较都恒真**，
+        采到纯头发也会 PASS。镜框压在发顶上会造出一条真实的颜色边界，所以改成断言
+        这条**边界存在**：框内是金属、框外紧邻处是头发（实测阶跃 8.1）。
+        框没画 / 被头发或气泡吞掉 → 两点同色、阶跃 0 → 必定 FAIL。
+        min_step 取 6：既低于实测 8.1（留 AA 余量），又远高于「没画」时的 0。
+        """
+        a = im.getpixel((int(x), int(y_in)))
+        b = im.getpixel((int(x), int(y_out)))
+        d_in = sum((p - q) ** 2 for p, q in zip(a, want_in)) ** 0.5
+        d_step = sum((p - q) ** 2 for p, q in zip(a, b)) ** 0.5
+        ok = d_in <= tol and d_step >= min_step
+        results.append((name, ok, a, f"{want_in} d_in={d_in:.0f}<={tol} d_step={d_step:.0f}>={min_step}"))
+
     ex = hx - eye_dx  # 左眼中心
     # 头顶采样：有帽/发带者探帽或发带，否则探发色。
     # 起跳顶点时头顶会撞进气泡图层（气泡在前属正常遮挡）→ probe_crown=False 跳过。
@@ -66,18 +87,30 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
             look("headband_red", hx, hy - ry * 0.68 + u(0.022), THEME["headband_red"], 46)
             look("it_flag_green", hx + rx * 0.86 + 3, hy - ry * 0.38, THEME["it_flag"][0], 50)
         elif "sunglasses_head" in acc:
-            look("glasses_perch", hx - 52, hy - ry * 0.76, THEME["metal_dark"], 55)
+            # 取样点来自 intro_cards.sunglasses_head_geo（与 draw_character 同一份参数）。
+            # 旧取样点 `hy - ry*0.76` 落在镜片正中却比 metal_dark → 永远 FAIL（坑㉑）。
+            sg = sunglasses_head_geo(G)
+            bx, by = sg["probe_band_in"]
+            ox, oy = sg["probe_band_out"]
+            look_step("glasses_frame", bx, by - hop, oy - hop, THEME["metal_dark"], 12, 6)
+            lx, ly = sg["probe_lens"]
+            look("glasses_lens", lx, ly - hop, THEME["lens"], 12)
             look("hair_top", hx - rx * 0.55, hy - ry * 0.42, hexc(pal["hair"]), 44)
         else:
             look("hair_top", hx, hy - ry * 0.55, hexc(pal["hair"]), 44)
     # 鼻梁：两眼之间，嘴/腮红/胡子/耳全避开，全员通用
     look("face_skin", hx, hy + ry * 0.40, skin, 48)
-    # ---- 脸型轮廓探针（face_geo 6 型；采样点全部从 rx/ry 推导） ----
-    if face == "heart":  # 尖下巴：三角收尖处（椭圆底缘之外）应是肤色
-        look("chin_tip", hx, hy + ry * 1.02, skin, 48)
-    if face == "square":  # 方颌：椭圆底缘之外的下颌角应是肤色
-        look("jaw_square", hx - rx * 0.70, hy + ry * 0.90, skin, 48)
-    if "beard" not in acc:  # 大胡子遮颈（坑⑨ 遮挡感知：misha/nikos 胡子盖住颈前）
+    # ---- 脸型轮廓探针（采样点从 intro_cards.jaw_point 派生，与下颌绘制同源） ----
+    # 旧的 chin_tip / jaw_square 是手抄的魔数（hy+ry*1.02 / −rx*0.70），
+    # 下颌轮廓换成超椭圆后必然漂移——魔数不共享，探针与渲染就会各说各话（坑㉓）。
+    if face in JAW:
+        jw, jv = jaw_point(face, 0.93)          # 下颌靠底那一段，两种脸型都还是肤色
+        look("jaw_low", hx, hy + ry * jv, skin, 48)
+        if face == "heart":                     # 圆下巴：同一行两侧也要是肤色（不是针尖）
+            look("chin_wide", hx - rx * jw * 0.55, hy + ry * jv, skin, 48)
+        else:                                    # 方颌：下颌角内侧必须是肤色（没被外扩削掉）
+            look("jaw_corner", hx - rx * jw * 0.80, hy + ry * jv, skin, 48)
+    if "beard" not in acc:  # 大胡子遮颈（坑⑨ 遮挡感知：仅 misha 有 beard 配饰，络腮盖住颈前）
         # 颈部：skinShade 压深（NECK_SHADE_F 与渲染同源）；下移 0.03H 避开头底缘/下颌影
         # heart 尖下巴垂到颈前中轴 → 采样点外移至颈侧（尖下巴半宽之外）
         look("neck_shade", hx + (u(0.078) if face == "heart" else 0), G["chin"] + u(0.03) - hop,
@@ -161,6 +194,8 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
             knee_y = (G["torso_top"] + G["torso_h"] - u(0.10) + G["foot_cy"] - G["foot_h"] * 0.30) / 2
             look(f"patch_{pd['where']}", G["cx"] + sgn * G["leg_cx"], knee_y - hop, hexc(pd["color"]), 48)
     n_fail = sum(1 for r in results if not r[1])
+    if results_out is not None:      # 反向验证用：让调用方拿到逐条结果
+        results_out.extend(results)
     if verbose:
         print(f"== {pid} @ {frame} (hop={hop}, dx={dx}, t={t}, mood={mood}) ==")
         for name, ok, px, want in results:

@@ -1066,28 +1066,167 @@ FACE_SPECS = {
     "square": (392.0, 0.88),    # 方颌硬朗
 }
 
+# 下颌轮廓参数（单一事实源）——heart / square 两种非椭圆下颌都走 jaw_point()。
+# 轮廓 = **超椭圆** f(s) = (1 − s^m)^(1/m)，s ∈ [0,1] 从颊部走到下巴底，半宽相对 rx。
+#
+# 为什么不能用随手一条二次曲线（坑㉓，2026-10-03 用户反馈「下巴太尖」）：
+#   旧心形用 x(t) = (1−t)² + 0.80t(1−t)、y(t) = 0.42 + 1.26t − 0.64t²。求导得
+#   x'(1) = −0.80·rx、y'(1) = −0.02·ry —— 顶点切线几乎**水平**。左右两支在同一个
+#   (hx, y) 折返，polygon 边界不是圆底而是**一根横着的针**（xiaoman/giulia 实测：
+#   颏线处一根约 0.8px 高、27px 宽的横向尖刺）。
+#   超椭圆 m>1 时 f'(s) → −∞（s→1），底缘切线**竖直**，两支镜像后合成光滑圆底。
+# m 的含义：1.7 = 上圆下收（心形·圆下巴）；3.2 = 侧廓接近竖直、底缘宽平（方颌）。
+# y1 略小于 1 时底缘是一条短平边而不是收成一点——方颌要的就是这个。
+JAW = {
+    "heart":  dict(y0=0.42, y1=1.04, m=1.70, n=30),
+    "square": dict(y0=0.00, y1=0.985, m=3.20, n=30),
+}
+
+# 前发/侧发帘内缘下限（相对 rx）：脸颊高度以下不再向中轴收。
+# 头在颏线附近半宽趋 0，固定 in_w 会把内缘一路拉到脸的中轴上，两侧发帘一夹，
+# 可见的下巴就收成尖楔（用户反馈「下巴太尖」：layla / aaching 实测可见皮肤半宽
+# 只剩 0.17rx，而同尺寸的圆脸本该有 0.44rx）。
+HAIR_CHEEK_KEEP = 0.72
+
+# 颏线以下「头宽 → 肩宽」的过渡带高度（相对头高 H）。旧 body_edge 在颏线处直接
+# 从 0 跳到 sh_out（实测 ~90px 台阶），发帘外缘在那里折出一个台阶。
+JAW_BELOW = 0.16
+
+# 胡须反向验证接缝：True = 退回坑㉓ 之前的 PIE 形胡须（糊到脖子、嘴上没八字胡）。
+# 生产渲染恒为 False；`scripts/verify_shape_fixes.py` 用它证明 E1/E2 不是恒真的。
+BEARD_LEGACY = False
+
+
+def jaw_point(face, s):
+    """下颌轮廓上参数 s∈[0,1] 处的 (半宽/rx, 相对 hy 的高度/ry)。绘制与 qa 探针同源。"""
+    p = JAW[face]
+    return (1.0 - s ** p["m"]) ** (1.0 / p["m"]), p["y0"] + (p["y1"] - p["y0"]) * s
+
+
+def face_profile(face, v):
+    """脸颊以下（v = 相对 hy 的高度/ry，v ∈ [0,1]）的**脸**半宽系数，相对 rx。
+
+    与下颌绘制同源：JAW 型走 jaw_point()，其余型是纯椭圆。
+    qa_shape 的 D2 探针直接查这个函数的单调性——**几何不变量就该用几何查**：
+    拿像素量会被发量遮挡污染（第一版 8 个长发角色被误判成「下颌外扩」）。
+    """
+    if face in JAW:
+        y0, y1 = JAW[face]["y0"], JAW[face]["y1"]
+        if v <= y0:
+            return 1.0
+        if v >= y1:
+            return 0.0
+        return jaw_point(face, (v - y0) / (y1 - y0))[0]
+    return math.sqrt(max(0.0, 1.0 - v * v))
+
+
+def sleeve_color(base, f=0.13):
+    """袖子相对衣身的一档色阶（坑⑱）。
+
+    纯平涂、禁描边（不变量⑤）——叠在躯干上的手臂只能靠**色阶**读出来。
+    旧实现袖子直接用 outfitTop，与躯干同色：上臂除探出躯干轮廓那一小段以外
+    完全不可见，剪影里根本没有手臂。浅衣压深、深衣提亮，任意衣色都拉开一档。
+    独立成模块级函数是为了给 `scripts/verify_shape_fixes.py` 一个可猴补丁的接缝。
+    """
+    lum = 0.299 * base[0] + 0.587 * base[1] + 0.114 * base[2]
+    return mix(base, (255, 255, 255) if lum < 128 else THEME["shade_dark"], f)
+
+
+# 顶戴墨镜（accessories: sunglasses_head）几何参数——单一事实源（坑㉑）。
+# 旧实现在 draw_character 里散落 52/32/22/14/24/16/10 一串魔数，qa_char 探针只能自己
+# 再猜一个 `hy - ry*0.76`：该点落在**镜片**（THEME["lens"]）正中而不是镜框，
+# 于是 omar / omar_f 报 `glasses_perch` 失败。魔数不共享 → 探针与渲染必然漂移。
+# 绘制与探针现在都从这里取数，且 probe 只能取「结构上必然是金属」的两处点。
+SUNGLASS_HEAD = {
+    "top": 0.80,    # 镜架顶沿 = hy - ry*top（倒扣在发顶，不遮眼）
+    "dx": 52,       # 左右镜片中心距头心轴
+    "out_rx": 32,   # 镜框外接圆角矩形：半宽
+    "out_up": 22,   # 镜框上沿相对 sy0（向上）
+    "out_dn": 14,   # 镜框下沿相对 sy0（向下）
+    "rad": 14,      # 镜框圆角半径
+    "lens_rx": 24,  # 镜片椭圆：半宽
+    "lens_up": 16,  # 镜片上沿相对 sy0（向上）——与 out_up 之间是纯金属带
+    "lens_dn": 10,  # 镜片下沿相对 sy0（向下）
+}
+
+
+def sunglasses_head_geo(G, hdx=0.0, hdy=0.0):
+    """顶戴墨镜左镜片的几何 + 探针取样点（渲染与 qa_char 同源）。
+
+    `hdx/hdy` = draw_character 的头部横/纵偏移（点头/走位/hop）——墨镜随头动，
+    漏掉就会在头部弹跳时与发顶脱开。探针侧传 0 并自行把 hop 减在 y 上。
+
+    探针点位（坑㉑）：
+    - `probe_band_in`  镜框上沿带中点——结构上必然是 metal_dark（上沿与镜片上沿之间）。
+    - `probe_band_out` 紧贴镜框上沿外侧的那一点——结构上必然是头发。
+      两者构成一条**颜色阶跃**：镜框没画 / 被头发或气泡吞掉时它们同色，探针立刻 FAIL。
+      单点颜色比较做不到这点——深发角色的发色与 metal_dark 欧氏距离可小到 8（omar 8.1）。
+    - `probe_lens`      镜片正中——`THEME["lens"]` 与任何发色/肤色都差 50 以上，最不易混。
+    旧探针取的是镜片正中却拿 metal_dark 去比，怎么画都不可能通过。
+    """
+    S = SUNGLASS_HEAD
+    hx, hy, ry = G["cx"] + hdx, G["hy"] + hdy, G["ry"]
+    sy0 = hy - ry * S["top"]
+    c = hx - S["dx"]                      # 左镜片中心
+    return {
+        "sy0": sy0,
+        "cx_left": c,
+        "frame": (c - S["out_rx"], sy0 - S["out_up"], c + S["out_rx"], sy0 + S["out_dn"]),
+        "lens": (c - S["lens_rx"], sy0 - S["lens_up"], c + S["lens_rx"], sy0 + S["lens_dn"]),
+        "probe_band_in": (c, sy0 - (S["out_up"] + S["lens_up"]) * 0.5),
+        "probe_band_out": (c, sy0 - S["out_up"] - 4),
+        "probe_lens": (c, sy0 - (S["lens_up"] - S["lens_dn"]) * 0.5),
+    }
+
+
 
 def face_geo(face):
     """头身规格（单一事实源，渲染与 qa 探针共用）。单位 = 头高 H。
     对标多邻国人形：头占全身 ~46%；躯干含肩与头等宽（剪影连续，无缝衔接）；
     低位大眼（头顶下 0.615H）、宽瞳距 ±0.30×头宽、大巩膜 0.28×头宽；
-    眉贴眼上（巩膜顶 + 0.035H）；嘴位头顶下 0.815H；粗短胶囊四肢贴躯干。"""
+    眉贴眼上（巩膜顶 + 0.035H）；嘴位头顶下 0.815H；粗短胶囊四肢贴躯干。
+
+    2026-10-03 头/身/臂几何重设计（坑⑱，qa_shape.py 探针驱动）：
+    - `neck_*`：颈侧 x 半径与上下缘。肩部体块从**颈缘**起坡（旧版从 0.10H 起，
+      比颈缘窄 0.005H，颈侧到臂根之间露出一条背景楔形缝）。
+    - `sh_x`：肩点外移量（arm_w·0.30 → 0.18）。旧肩点内收过多 + 静止角 7°，
+      上臂整条埋进躯干、剪影里读不出手臂，只剩两只浮球手。
+    - `hip_hw`：胯块半宽（覆盖双腿外缘）。旧版没有胯块，躯干圆角收进去之后
+      与内收的双腿之间留出空洞，裤子看着像浮在空中。
+    - `arm_rest`：静止姿态角（14°/10°，旧 7°/8°）。
+    """
     H_h, wfac = FACE_SPECS.get(face, FACE_SPECS["round"])
     WH = H_h * wfac
     u = lambda f: f * H_h
     hy = 1140.0
     eye_y = hy - H_h / 2 + u(0.615)
+    chin = hy + H_h / 2
+    torso_top = chin + u(0.02)
+    torso_h = u(0.52)
+    torso_hw = 0.435 * WH
+    sh_dy = u(0.07)
+    sh_hw = 0.435 * WH
+    arm_w = u(0.155)
+    leg_cx, leg_w = u(0.145), u(0.185)
     return dict(
         H=H_h, WH=WH, rx=WH / 2, ry=H_h / 2, hy=hy, cx=540.0, ground=1700.0,
         eye_dx=0.300 * WH, scl_rx=0.140 * WH, scl_ry=0.170 * WH, pup_r=0.078 * WH,
         eye_y=eye_y, brow_y=eye_y - 0.170 * WH - u(0.035),
         mouth_y=hy - H_h / 2 + u(0.815), blush_y=hy - H_h / 2 + u(0.700),
-        chin=hy + H_h / 2,
-        torso_top=hy + H_h / 2 + u(0.02), torso_h=u(0.52), torso_hw=0.435 * WH,
-        sh_dy=u(0.07), sh_hw=0.435 * WH,
-        leg_cx=u(0.145), leg_w=u(0.185), foot_splay=u(0.085),
+        chin=chin,
+        torso_top=torso_top, torso_h=torso_h, torso_hw=torso_hw,
+        sh_dy=sh_dy, sh_hw=sh_hw,
+        neck_hw=u(0.105), neck_top=chin - u(0.06), neck_bot=torso_top + u(0.03),
+        sh_x=sh_hw - arm_w * 0.18,          # 肩点内收量（落在躯干轮廓上）
+        sh_out=min(sh_hw + arm_w * 0.45, WH / 2 * 0.99),  # 肩部体块外缘（不得超过头宽）
+        leg_cx=leg_cx, leg_w=leg_w, foot_splay=u(0.085),
+        # 胯块半宽：取躯干的 0.92 而非腿外缘——身体是**连续柱体**，肩→胯同宽。
+        # 只按腿外缘（u(0.2597)）铺胯块时，躯干下缘圆角收进去、手又挂在体外，
+        # 身体与手之间会露出一条背景缝（qa_shape.py A2）。
+        hip_hw=torso_hw * 0.92,
         foot_cy=1700.0 + u(0.006), foot_l=u(0.335), foot_h=u(0.145),
-        up_len=u(0.27), lo_len=u(0.24), arm_w=u(0.155), hand_r=u(0.105),
+        up_len=u(0.27), lo_len=u(0.24), arm_w=arm_w, hand_r=u(0.105),
+        arm_rest=(7.0, 5.0),                # 静止姿态角（上臂/小臂）：手要搭在胯上
     )
 
 
@@ -1139,6 +1278,7 @@ def draw_character(img, d, p, t, ctx):
     torso_hw = G["torso_hw"]
     sh_y = torso_top + G["sh_dy"]
     sh_hw = G["sh_hw"]
+    sh_x, sh_out, neck_hw = G["sh_x"], G["sh_out"], G["neck_hw"]
     leg_cx, leg_w = G["leg_cx"], G["leg_w"]
     foot_cy, foot_l, foot_h = G["foot_cy"], G["foot_l"], G["foot_h"]
     up_len, lo_len, arm_w, hand_r = G["up_len"], G["lo_len"], G["arm_w"], G["hand_r"]
@@ -1174,6 +1314,46 @@ def draw_character(img, d, p, t, ctx):
     def PIE(x0, y0, x1, y1, a0, a1, **kw):
         d.pieslice(TB(x0, y0, x1, y1), a0, a1, **kw)
 
+    def body_edge(s, y):
+        """人物剪影在高度 y、方向 s（−1 左 / +1 右）的边缘 x（带符号）。
+
+        头发里凡是「挂在身上」的部件（辫子、低马尾、长发帘）都靠它定位：
+        钉死在头宽 ±rx 上会浮在下颌与肩之间的空档里（坑⑱）。
+        颏线以下是**平滑过渡**到肩宽 sh_out：旧实现在 `y < chin−0.03H` 的判定失败后
+        直接返回 sh_out，切换点上有 ~90px 跳变（圆脸实测：颏线上方头半宽 58px、
+        下方直接 148px），发帘外缘在那里折出一个台阶（坑㉓）。
+        """
+        t = (y - hy) / ry
+        w = rx * math.sqrt(max(0.0, 1.0 - t * t)) if abs(t) <= 1.0 else 0.0
+        k = min(1.0, max(0.0, (y - G["chin"]) / u(JAW_BELOW)))
+        return cx + s * (w + (sh_out - w) * k * k * (3 - 2 * k))   # smoothstep，两端一阶导为 0
+
+    def side_curtain(s, y0, y1, out_w=46.0, in_w=16.0, n=18, col=None):
+        """侧发帘：内缘压在头/身上 in_w、外缘外挂 out_w，轮廓跟随剪影。
+
+        旧实现是两个固定位置的圆/圆角矩形（内缘钉在 hx±rx−30），到颏线附近
+        头已经收窄，发帘就整条离开下颌浮在体侧（aaching 69px / seoyeon 74px）。
+        采样数要够密：颏线附近头缘曲率最大，n=10 的弦线会切进圆弧里，
+        又在内缘留出 10px 缺口（故 n=18）。
+
+        **内缘下限 `HAIR_CHEEK_KEEP`**（坑㉓）：内缘不能一路跟着收窄的下颌走——
+        颏线附近头半宽趋 0，固定 in_w 会把两侧内缘拉到中轴上，把脸夹成尖楔。
+        所以内缘取 max(剪影半宽 − in_w, 下限)：颏线以上下限恒为 `HAIR_CHEEK_KEEP·rx`
+        （头发挂在脸两侧不压下颌），颏线以下再平滑收到颈半宽 `neck_hw`
+        （长发本来就该落在脖子两边，而不是端在身体两侧形成两条直板）。
+        """
+        chin = G["chin"]
+        keep_hi = rx * HAIR_CHEEK_KEEP
+        pts_o, pts_i = [], []
+        for k in range(n + 1):
+            yy = y0 + (y1 - y0) * k / n
+            e = body_edge(s, yy)
+            fk = min(1.0, max(0.0, (yy - chin) / u(JAW_BELOW)))
+            keep = keep_hi + (neck_hw - keep_hi) * fk * fk * (3 - 2 * fk)
+            pts_o.append((e + s * out_w, yy))
+            pts_i.append((cx + s * max(abs(e - cx) - in_w, keep), yy))
+        d.polygon([T(p) for p in (pts_o + pts_i[::-1])], fill=col or hair_c)
+
     # ================= 背发层（头后体积） =================
     if style in ("ponytail_high", "curly_ponytail"):
         for fx, fy, r in ((0.78, -0.52, 40), (0.92, -0.10, 34), (0.98, 0.30, 27)):
@@ -1182,26 +1362,34 @@ def draw_character(img, d, p, t, ctx):
             for fx, fy in ((1.02, 0.62), (0.84, 0.78)):
                 E(hx + rx * fx - 22, hy + ry * fy - 22, hx + rx * fx + 22, hy + ry * fy + 22, fill=hair_c)
     if style == "ponytail_low":
-        for fx, fy, r in ((-0.95, 0.12, 36), (-1.05, 0.54, 30), (-1.08, 0.94, 24)):
-            E(hx + rx * fx - r, hy + ry * fy - r, hx + rx * fx + r, hy + ry * fy + r, fill=hair_c)
+        for fy, r in ((0.12, 36), (0.54, 30), (0.94, 24)):
+            # 坑⑱：低马尾沿体侧走，别钉死在头宽上（原来三颗全浮在下颌外侧空档里）
+            E(body_edge(-1, hy + ry * fy) - r * 0.45, hy + ry * fy - r,
+              body_edge(-1, hy + ry * fy) + r * 0.55, hy + ry * fy + r, fill=hair_c)
     if style in ("braid", "braid_long"):
         n = 4 if style == "braid" else 6
         br_ph = 2 * math.pi * rnd(f"{seed}:braid")
+        dy = 0.52 if style == "braid" else 0.40
         for i in range(n):
-            fy = -0.02 + i * (0.52 if style == "braid" else 0.40)
-            fx = -1.00 + (0.10 if i % 2 else -0.10) - i * 0.02
+            fy = -0.02 + i * dy
             r = 30 - i * 3
             sw = 4.0 * math.sin(2 * math.pi * 0.7 * t + br_ph + i * 0.7) * i / n  # 辫子摆动（种子相位）
-            E(hx + rx * fx + sw - r, hy + ry * fy - r, hx + rx * fx + sw + r, hy + ry * fy + r, fill=hair_c)
+            # 坑⑱：辫子原来钉在 hx−rx 的固定 x 上，逐颗都落在「下颌与肩之间的空档」里，
+            # 下半身直接变成一串浮在体侧的圆点（priya 实测 4 颗全悬空）。
+            # 改成**沿身体左缘走**：圆心 = 该高度的体侧边缘 + r·0.55，
+            # 每颗都压在头/肩上——身前部分被躯干盖住，身外部分才是可见的辫子。
+            bxx = body_edge(-1, hy + ry * fy) + r * 0.55 + sw
+            E(bxx - r, hy + ry * fy - r, bxx + r, hy + ry * fy + r, fill=hair_c)
     if style in ("wavy_lob", "wavy_long", "long_straight", "long_bangs"):
         y_end = 0.85 if style == "wavy_lob" else 1.45
-        RR(hx - rx - 46, hy - ry * 0.55, hx - rx + 30, hy + ry * y_end, 60, fill=hair_c)
-        RR(hx + rx - 30, hy - ry * 0.55, hx + rx + 46, hy + ry * y_end, 60, fill=hair_c)
+        for s in (-1, 1):   # 侧发帘跟随剪影（坑⑱），不再是两个固定位置的圆角矩形
+            side_curtain(s, hy - ry * 0.55, hy + ry * y_end, out_w=46.0, in_w=24.0)
         if style in ("wavy_lob", "wavy_long"):
             for sgn in (-1, 1):
                 for k in range(2):
                     yy = hy + ry * y_end - 24 + k * 34
-                    E(hx + sgn * (rx + 38) - 26, yy, hx + sgn * (rx + 38) + 26, yy + 52, fill=hair_c)
+                    E(body_edge(sgn, yy) + sgn * 38 - 26, yy, body_edge(sgn, yy) + sgn * 38 + 26,
+                      yy + 52, fill=hair_c)
 
     # ================= 腿与脚 =================
     legL_ang, legR_ang = pose.get("legL", 0), pose.get("legR", 0)
@@ -1209,6 +1397,11 @@ def draw_character(img, d, p, t, ctx):
     leg_bot = foot_cy - foot_h * 0.30
     worn_bottom = not skirt and "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白（plan §1 皮肤层）
     leg_col = skin if skirt else bottom  # 裙装露腿：腿画肤色（裙身在躯干段画）
+    # 胯块（坑⑱）：躯干下缘 0.62·torso_hw 的大圆角往里收，而双腿内收在 leg_cx，
+    # 两者之间留下一个背景空洞——裤子看着浮在空中（qa_shape.py A2，28 人 26 人中）。
+    # 半宽取 torso_hw·0.92（face_geo.hip_hw）：身体成为连续柱体，手也能搭在胯上。
+    RR(cx - G["hip_hw"], torso_bot - u(0.10), cx + G["hip_hw"], torso_bot + u(0.19),
+       G["hip_hw"] * 0.30, fill=bottom if not skirt else leg_col)
     for s, ang in ((-1, legL_ang), (1, legR_ang)):
         lx = cx + s * leg_cx
         RR(lx - leg_w / 2, leg_top, lx + leg_w / 2, leg_bot, leg_w / 2, fill=leg_col)
@@ -1248,11 +1441,21 @@ def draw_character(img, d, p, t, ctx):
 
     # ================= 躯干与背带/挂件 =================
     RR(cx - torso_hw, torso_top, cx + torso_hw, torso_bot, torso_hw * 0.62, fill=top)
-    # 肩楔：从颈部两侧到肩峰的三角过渡（填平头-肩之间的露底缺口，剪影连续）
+    # 肩部体块（坑⑱ 重设计）：从**颈缘**起坡，经斜方肌到肩峰，与臂根胶囊连续。
+    # 旧版是「从 0.10H 起、到 sh_y 为止」的三角色块 + 躯干 0.62·torso_hw 的大圆角，
+    # 结果颈侧到臂根之间露出一条背景楔形缝（28 人全中，见 qa_shape.py A1）。
+    # 四边形：内上贴颈缘（略高于下颌线），**外侧顶点落在颏线上**。
+    # 这是「夹心空洞」的唯一解法：肩体块只要高过颏线，它的外上角就会和头侧缘
+    # 围出一个被实心像素夹住的背景凹坑（上一版把外顶点提到 sh_y−0.55·up_len，
+    # 洞反而上移到 y=1314，宽 78px）。肩线压回颏线 → 颏线以上只有头，凹角自然不成立；
+    # 颏线以下肩体块已是全宽，直接顶住臂根胶囊。肩宽取 sh_out（≤头宽 0.99）。
     for s in (-1, 1):
-        d.polygon([T((cx + s * u(0.10), torso_top - u(0.02))),
-                   T((cx + s * (torso_hw + u(0.02)), sh_y + u(0.06))),
-                   T((cx + s * u(0.10), sh_y + u(0.10)))], fill=top)
+        nx2 = cx + s * (neck_hw + u(0.004))
+        ox2 = cx + s * sh_out
+        d.polygon([T((nx2, G["chin"] - u(0.03))),
+                   T((ox2, G["chin"] + u(0.01))),
+                   T((ox2, sh_y + u(0.15))),
+                   T((nx2, G["chin"] + u(0.14)))], fill=top)
     RR(cx + torso_hw - u(0.11), torso_top + u(0.06), cx + torso_hw - u(0.025), torso_bot - u(0.05),
        u(0.08), fill=mix(top, THEME["shade_dark"], 0.10))  # 右侧体积影
     ARC(cx - 0.20 * G["WH"], torso_top - u(0.055), cx + 0.20 * G["WH"], torso_top + u(0.075),
@@ -1400,19 +1603,24 @@ def draw_character(img, d, p, t, ctx):
     # 各姿态的手都落在脸轮廓之外（肩点外展），移到脸后不丢姿态可读性。face_cam 是举到脸前的
     # 道具相机，仍留在表情之后画（要的就是遮脸）。
 
+    # 袖子色阶（坑⑱）：纯平涂无描边，叠在躯干上的手臂只能靠色阶读出来
+    sleeve = sleeve_color(top)
+
     def arm(side, a1, a2, hand="open", prop=None):
         s = side
-        # 肩点内收：肩关节落在躯干轮廓上（arm_w/2 内嵌），胶囊与躯干无缝衔接
-        sh = (cx + s * (sh_hw - arm_w * 0.30), sh_y)
+        # 肩点内收（坑⑱）：落在躯干轮廓上（sh_x = sh_hw − arm_w·0.18）。
+        # 旧值 arm_w·0.30 加上 7° 静止角，上臂整条埋进躯干——剪影里没有手臂，
+        # 只剩两只贴在身侧的浮球手；现在肩点外移 + 静止角 14°，手臂读得出来。
+        sh = (cx + s * sh_x, sh_y)
         a1r, a2r = math.radians(a1), math.radians(a2)
         el = (sh[0] + s * math.sin(a1r) * up_len, sh[1] + math.cos(a1r) * up_len)
         ha = (el[0] + s * math.sin(a1r + a2r) * lo_len, el[1] + math.cos(a1r + a2r) * lo_len)
         wr = (el[0] + (ha[0] - el[0]) * 0.82, el[1] + (ha[1] - el[1]) * 0.82)
-        CAP(sh, el, arm_w, fill=top)
-        CAP(el, ha, arm_w * 0.88, fill=top)
+        CAP(sh, el, arm_w, fill=sleeve)
+        CAP(el, ha, arm_w * 0.88, fill=sleeve)
         c0 = (el[0] + (ha[0] - el[0]) * 0.72, el[1] + (ha[1] - el[1]) * 0.72)
         c1 = (el[0] + (ha[0] - el[0]) * 0.88, el[1] + (ha[1] - el[1]) * 0.88)
-        CAP(c0, c1, arm_w * 0.90, fill=mix(top, THEME["shade_dark"], 0.16))  # 袖口
+        CAP(c0, c1, arm_w * 0.90, fill=mix(sleeve, THEME["shade_dark"], 0.16))  # 袖口
         hr = hand_r
         E(ha[0] - hr, ha[1] - hr, ha[0] + hr, ha[1] + hr, fill=skin)
         if hand == "thumb":
@@ -1435,8 +1643,9 @@ def draw_character(img, d, p, t, ctx):
             E(ha[0] - u(0.039), ha[1] - u(0.039), ha[0] + u(0.039), ha[1] + u(0.039), fill=THEME["lens_blue"])
         return ha, wr
 
-    aL = pose.get("armL") or (7 + 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
-    aR = pose.get("armR") or (7 - 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
+    rest_a1, rest_a2 = G["arm_rest"]   # 静止姿态角（face_geo 单一事实源，探针同源）
+    aL = pose.get("armL") or (rest_a1 + 5 * math.sin(2 * math.pi * t * 0.55), rest_a2, "open", None)
+    aR = pose.get("armR") or (rest_a1 - 5 * math.sin(2 * math.pi * t * 0.55), rest_a2, "open", None)
     arm(-1, aL[0], aL[1], aL[2], aL[3] if len(aL) > 3 else None)
     ha_pos, wr_pos = arm(1, aR[0], aR[1], aR[2], aR[3] if len(aR) > 3 else None)
     for code, bc in (("watch", ident), ("bracelet", THEME["gold"]),
@@ -1455,26 +1664,23 @@ def draw_character(img, d, p, t, ctx):
 
     # ================= 颈与头 =================
     neck_c = mix(skin, skin_sh, NECK_SHADE_F)  # 颈部受光少：skinShade 压深（qa_char 探针同源）
-    RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), torso_top + u(0.03), u(0.05), fill=neck_c)
-    RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), G["chin"] - u(0.06) + u(0.022), u(0.02),
+    RR(cx - neck_hw, G["neck_top"], cx + neck_hw, G["neck_bot"], u(0.05), fill=neck_c)
+    RR(cx - neck_hw, G["neck_top"], cx + neck_hw, G["neck_top"] + u(0.022), u(0.02),
        fill=mix(skin_sh, skin, 0.30))  # 下颌阴影
-    if face == "heart":  # 心形脸：上半椭圆 + 直边 + 圆收下巴（底缘走二次贝塞尔弧，平滑无尖角——
-        # 尖下巴观感像鬼，2026-10-03 用户反馈禁用；圆收下巴最低点仍过 chin 线，qa 探针面型感知）
+    if face in JAW:  # heart / square：上半椭圆 + 直边 + 超椭圆下颌（参数见 JAW）
+        jp = JAW[face]
         PIE(hx - rx, hy - ry, hx + rx, hy + ry, 180, 360, fill=skin)
-        d.rectangle(TB(hx - rx, hy, hx + rx, hy + ry * 0.42), fill=skin)
+        if jp["y0"] > 0:      # 颊部到下颌起点之间补直边（square 从 y=0 起，无需补）
+            d.rectangle(TB(hx - rx, hy, hx + rx, hy + ry * jp["y0"]), fill=skin)
         jaw = []
         for sg in (-1, 1):
-            ks = range(11) if sg < 0 else range(10, -1, -1)
-            jaw += [T((hx + sg * rx * ((1 - tk) ** 2 + 0.80 * tk * (1 - tk)),
-                       hy + ry * (0.42 * (1 - tk) ** 2 + 2.10 * tk * (1 - tk) + 1.04 * tk * tk)))
-                     for tk in (k / 10 for k in ks)]
+            ks = range(jp["n"] + 1) if sg < 0 else range(jp["n"] - 1, -1, -1)  # 顶点只出一次
+            for k in ks:
+                jw, jv = jaw_point(face, k / jp["n"])
+                jaw.append(T((hx + sg * rx * jw, hy + ry * jv)))
         d.polygon(jaw, fill=skin)
     else:
         E(hx - rx, hy - ry, hx + rx, hy + ry, fill=skin)
-    if face == "square":  # 方颌：椭圆底缘两侧外扩补平，下巴宽而钝
-        d.polygon([T((hx - rx * 0.60, hy + ry * 0.55)), T((hx - rx * 0.92, hy + ry * 0.80)),
-                   T((hx - rx * 0.80, hy + ry * 0.985)), T((hx + rx * 0.80, hy + ry * 0.985)),
-                   T((hx + rx * 0.92, hy + ry * 0.80)), T((hx + rx * 0.60, hy + ry * 0.55))], fill=skin)
     for s in (-1, 1):  # 耳朵（多数发型被侧发覆盖，露出即增加真实感）
         eax = hx + s * rx * 0.94
         E(eax - u(0.045), eye_y - u(0.085), eax + u(0.045), eye_y + u(0.045), fill=skin)
@@ -1491,8 +1697,8 @@ def draw_character(img, d, p, t, ctx):
               hx + rx * fx + rx * fr, hy - ry * 0.26 + rx * fr, fill=hair_c)
     if style in ("bob", "bob_bangs", "wavy_lob", "wavy_long", "long_straight", "long_bangs"):
         yl = 0.55 if style in ("bob", "bob_bangs") else (0.95 if style == "wavy_lob" else 1.25)
-        E(hx - rx - 34, hy - ry * 0.45, hx - rx + 26, hy + ry * yl, fill=hair_c)
-        E(hx + rx - 26, hy - ry * 0.45, hx + rx + 34, hy + ry * yl, fill=hair_c)
+        for s in (-1, 1):
+            side_curtain(s, hy - ry * 0.45, hy + ry * yl, out_w=34.0, in_w=22.0)
     if style in ("short", "short_messy", "short_gray", "short_stubble", "crop", "crop_ahoge"):
         for fx, fy, fr in ((-0.45, -1.02, 22), (0.05, -1.08, 24), (0.52, -1.00, 20)):
             E(hx + rx * fx - fr, hy + ry * fy - fr, hx + rx * fx + fr, hy + ry * fy + fr, fill=hair_c)
@@ -1537,7 +1743,35 @@ def draw_character(img, d, p, t, ctx):
         fy_end = -0.02 + n2 * (0.52 if style == "braid" else 0.40)
         E(hx - rx * 1.00 - 18, hy + ry * fy_end - 14, hx - rx * 1.00 + 18, hy + ry * fy_end + 16, fill=ident)
 
-    if has("beard"):  # 表情之前画：嘴要盖在胡子上
+    if has("beard") and not BEARD_LEGACY:  # 表情之前画：嘴要盖在胡子上面
+        # 旧实现是一个 PIE（顶边 0.82·ry 的水平直弦、底边伸到 1.30·ry），整张脸从嘴以下
+        # 糊成一条围兜一直糊到脖子上——「嘴像长在脖子上」（坑㉓，2026-10-03 用户反馈）。
+        # 拆成两件：**八字胡**（压在嘴上、两端挑出胡须线）+ **络腮**（实心块：上缘一条
+        # 胡须线、下缘沿脸廓 face_profile 走、圆胡尖只探出下巴 0.03·ry）。
+        # 注意不能把络腮画成「内外两条同起点的曲线」——那会在鬓角收成零厚度、只剩一个人字形。
+        bc = mix(hair_c, skin, 0.25)
+        v_side, v_top = 0.42, 0.54           # 鬓角起点 / 胡须线
+        w_side = face_profile(face, v_side)
+        w_top = face_profile(face, v_top) * 0.90
+        top = [(hx - w_side * rx, hy + ry * v_side), (hx - w_top * rx, hy + ry * v_top),
+               (hx, hy + ry * v_top),
+               (hx + w_top * rx, hy + ry * v_top), (hx + w_side * rx, hy + ry * v_side)]
+        nb = 26
+        lower = []                            # 右鬓角 → 下巴 → 左鬓角，严格沿脸廓
+        for k in range(2 * nb + 1):
+            uu = k / (2 * nb)
+            v = v_side + (1.0 - v_side) * (1 - abs(2 * uu - 1))
+            lower.append((hx + face_profile(face, min(v, 1.0)) * rx * (2 * uu - 1), hy + v * ry))
+        d.polygon([T(p) for p in (top + lower[::-1])], fill=bc)
+        E(hx - rx * 0.18, hy + ry * 0.93, hx + rx * 0.18, hy + ry * 1.03, fill=bc)   # 圆胡尖
+        # 八字胡：贴上唇一小片，两端**挑到胡须线以上**（这就是「八字」的形状来源）
+        d.polygon([T(p) for p in (
+            (hx - rx * 0.32, mouth_y - ry * 0.17), (hx - rx * 0.20, mouth_y - ry * 0.13),
+            (hx, mouth_y - ry * 0.09),
+            (hx + rx * 0.20, mouth_y - ry * 0.13), (hx + rx * 0.32, mouth_y - ry * 0.17),
+            (hx + rx * 0.20, mouth_y + ry * 0.02), (hx, mouth_y + ry * 0.04),
+            (hx - rx * 0.20, mouth_y + ry * 0.02))], fill=bc)
+    elif has("beard"):  # BEARD_LEGACY：坑㉓ 之前的 PIE 形胡须，**只给反向验证用**
         PIE(hx - rx * 0.70, hy + ry * 0.34, hx + rx * 0.70, hy + ry * 1.30, 25, 155,
             fill=mix(hair_c, skin, 0.25))
 
@@ -1613,13 +1847,18 @@ def draw_character(img, d, p, t, ctx):
                     ex2 = hx + s2 * eye_dx
                     E(ex2 - scl_rx * 0.62 + ggx, eye_y - scl_ry * 0.58,
                       ex2 - scl_rx * 0.30 + ggx, eye_y - scl_ry * 0.34, fill=THEME["glint_soft"])
-    if has("sunglasses_head"):  # 顶戴：镜架倒扣在发顶，不遮眼
-        sy0 = hy - ry * 0.80
+    if has("sunglasses_head"):  # 顶戴：镜架倒扣在发顶，不遮眼（几何见 SUNGLASS_HEAD）
+        S = SUNGLASS_HEAD
+        sg = sunglasses_head_geo(G, hdx, hdy)
+        sy0 = sg["sy0"]
         ggx_h = pfy("sunglasses_head", "reflect")[0]
         for s in (-1, 1):
-            RR(hx + s * 52 - 32, sy0 - 22, hx + s * 52 + 32, sy0 + 14, 14, fill=THEME["metal_dark"])
-            E(hx + s * 52 - 24, sy0 - 16, hx + s * 52 + 24, sy0 + 10, fill=THEME["lens"])
-            E(hx + s * 52 - 20 + ggx_h, sy0 - 14, hx + s * 52 - 4 + ggx_h, sy0 - 4, fill=THEME["glint_blue"])
+            c = hx + s * S["dx"]
+            RR(c - S["out_rx"], sy0 - S["out_up"], c + S["out_rx"], sy0 + S["out_dn"],
+               S["rad"], fill=THEME["metal_dark"])
+            E(c - S["lens_rx"], sy0 - S["lens_up"], c + S["lens_rx"], sy0 + S["lens_dn"],
+              fill=THEME["lens"])
+            E(c - 20 + ggx_h, sy0 - 14, c - 4 + ggx_h, sy0 - 4, fill=THEME["glint_blue"])
         CAP((hx - 28, sy0 - 14), (hx + 28, sy0 - 18), 7, fill=THEME["metal_dark"])
     hbdy = pfy("knit_hat", "bounce")[1]  # 帽子随步伐/点头轻弹（挂件物理；分镜 卡11）
     cbdy = pfy("cap_backward", "bounce")[1]

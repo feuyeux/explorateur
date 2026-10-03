@@ -18,6 +18,7 @@ douyin = ["playwright>=1.40"]
 
 [project.scripts]
 usine-cards = "usine.intro_cards:main"          # 亮相卡管线：tts / assets / render
+usine-chars = "usine.char_sheet:main"           # 人物形象体检台：28 人立绘大图 / 总览 / 索引页
 usine-parse = "usine.parse_scene:main"          # lessons/<id>/scene.md -> lessons/<id>/scene.json
 usine-scene = "usine.scene_video:main"          # 教学场景管线：tts / assets / render / list
 usine-lesson = "usine.build_lesson:main"        # lessons/<id>/scene.json + analysis -> 教学文档 HTML

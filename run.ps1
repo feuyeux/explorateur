@@ -5,18 +5,24 @@ run.ps1 — 管线统一入口（uv 管理单一 .venv：edge-tts / Pillow / num
   assets  Edge headless 渲染文字层 PNG（双色 matte 抠像）
   render  Pillow+numpy 帧渲染 + ffmpeg
   qa / qa-motion / all          亮相卡验收与全流程
+  qa-shape                      人物层形状/连接/图层几何探针（28 人 × 6）
+  chars                         人物形象体检台：28 人立绘 + 剪影 + 总览 + 索引页 -> build/chars/
   scene / scene-list / qa-scene 教学场景 A/B 对话线（M2，-Scene <id> 选场景）
   lesson / dump-lesson          教学文档（lessons/<id>/scene.json + analysis -> build/lesson/<id>）
 用法：.\run.ps1 all | .\run.ps1 render -Only xiaoman,layla -Workers 7
+      .\run.ps1 qa-shape       # 改完 draw_character/face_geo 必跑
+      .\run.ps1 chars          # 生成/复看 28 人形象图（--Openness 0.9 可验图层序）
       .\run.ps1 scene            # 14 语种场景：parse → tts → assets → render
       .\run.ps1 scene -Only zh-CN
 首次使用：uv sync（建 .venv 并装锁定的依赖；抖音工具另需 uv sync --group douyin + playwright install chromium）
 #>
 param(
-  [Parameter(Position = 0)][ValidateSet("tts", "assets", "render", "qa", "qa-motion", "all", "scene", "scene-tts", "scene-assets", "scene-render", "scene-list", "qa-scene", "lesson", "dump-lesson")][string]$Phase = "all",
+  [Parameter(Position = 0)][ValidateSet("tts", "assets", "render", "qa", "qa-motion", "qa-shape", "chars", "all", "scene", "scene-tts", "scene-assets", "scene-render", "scene-list", "qa-scene", "lesson", "dump-lesson")][string]$Phase = "all",
   [string]$Only = "",
   [string]$Scene = "colors",
-  [int]$Workers = 7
+  [int]$Workers = 7,
+  [double]$Openness = 0.0,
+  [string]$Pose = ""
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -40,6 +46,13 @@ function Invoke-Cards([string[]]$Steps) {
       "render" { Invoke-Step "render（$Workers workers）" { uv run usine-cards render @onlyArg --workers $Workers } }
       "qa"     { Invoke-Step "qa_all（32 单元全量验收）" { uv run python -m usine.qa_all } }
       "motion" { Invoke-Step "qa_motion（动态验收）" { uv run python -m usine.qa_motion } }
+      "shape"  { Invoke-Step "qa_shape（人物层形状/连接/图层探针）" { uv run python -m usine.qa_shape @onlyArg } }
+      "annot"  { Invoke-Step "qa_shape --annotate（缺陷框标注图）" { uv run python -m usine.qa_shape @onlyArg --annotate } }
+      "fixverify" { Invoke-Step "verify_shape_fixes（探针反向验证）" { uv run python scripts/verify_shape_fixes.py } }
+      "charsimg" {
+        $poseArg = if ($Pose) { @("--pose", $Pose) } else { @() }
+        Invoke-Step "usine-chars（人物形象体检台 -> build/chars/）" { uv run usine-chars all @onlyArg @poseArg --openness $Openness }
+      }
     }
   }
 }
@@ -50,8 +63,12 @@ switch ($Phase) {
   "render"  { Invoke-Cards @("render") }
   "qa"      { Invoke-Cards @("qa") }
   "qa-motion" { Invoke-Cards @("motion") }
+  "qa-shape" { Invoke-Cards @("shape") }
+  "qa-annotate" { Invoke-Cards @("annot") }
+  "qa-shape-verify" { Invoke-Cards @("fixverify") }
+  "chars"   { Invoke-Cards @("charsimg") }
   "all" {
-    Invoke-Cards @("tts", "assets", "render", "qa", "motion")
+    Invoke-Cards @("tts", "assets", "render", "qa", "motion", "shape")
     Write-Host "`n全部通过：32 单元就绪（28 卡 + 4 个 RTL 女性观众版）-> build/intro/" -ForegroundColor Green
   }
   # ---- 教学场景 A/B 对话线（M2）：-Scene <id>，-Only 用 locale 码 ----

@@ -22,7 +22,12 @@
 .\run.ps1 render -Only xiaoman,layla
 .\run.ps1 qa               # 32 单元全量验收（28 卡 + 4 变体，qa_all.py）
 .\run.ps1 qa-motion        # 动态验收（卡拉OK/口型/眨眼/气泡镜像/进度条/语言牌/挂件物理/幂等）
-.\run.ps1 all              # tts → assets → render → qa → qa-motion 全流程（~5 分钟）
+.\run.ps1 qa-shape         # 人物层形状/连接/图层几何探针（28 人 × 6，qa_shape.py）
+.\run.ps1 qa-annotate      # 把探针判定的缺陷框画到 build/chars/qa/<id>.png（改代码前先看）
+.\run.ps1 qa-shape-verify  # 坑⑱ 修复的反向验证（探针不能是恒真的）
+.\run.ps1 chars            # 人物形象体检台 -> build/chars/（立绘 + alpha 剪影 + 总览 + 索引页）
+.\run.ps1 chars -Openness 0.9 -Pose wave   # 张嘴/指定姿态，检查「袖子不得压脸」
+.\run.ps1 all              # tts → assets → render → qa → qa-motion → qa-shape（~6 分钟）
 
 .\run.ps1 scene            # 教学场景 A/B 对话线：parse → tts → assets → render（-Scene <id> 选场景，缺省 colors）
 .\run.ps1 scene -Only zh-CN,ja-JP
@@ -38,6 +43,10 @@ uv run usine-cards assets  [--only id1,id2]          # Edge headless 文字层
 uv run usine-cards render  [--only id1,id2] [--workers 7]   # 帧渲染 + ffmpeg（Pillow 12.3.0）
 uv run python -m usine.qa_all                        # 32 单元静态验收
 uv run python -m usine.qa_motion                     # 动态验收（含幂等重渲抽检）
+uv run python -m usine.qa_shape                      # 人物层几何探针（28 人 × 11）
+uv run python -m usine.qa_shape --annotate           # 缺陷框标注图（改 draw_character 前先看）
+uv run python scripts/verify_shape_fixes.py          # 探针反向验证（现状 PASS + 注回旧值必 FAIL）
+uv run usine-chars solo|sheet|html|all [--only id] [--openness 0.9] [--pose wave]  # 人物形象体检台
 uv run usine-parse --scene colors                    # lessons/<id>/scene.md → lessons/<id>/scene.json（只抽取不改写）
 uv run usine-scene render --scene colors [--only zh-CN]
 uv run python -m usine.qa_scene --scene colors [--only zh-CN]
@@ -104,9 +113,15 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | 入场姿态 | `intro-cards.json` `entry_pose`（码列，窗口 [0.05, min(entry,1.2)]s） | 取代旧"活泼统一挥手"硬编码；与手势/收尾优先级 close > gesture > entry |
 | 人设（名字/声线/色板/发型/配饰/identity/RTL） | `personas/personas.json` | 色板字段被 qa_char 对照，改色必跑 qa_all |
 | 脸型 / 服装轮廓 | `movement.face`（`FACE_SPECS` 6 型：round/tall/oval/wide/heart/square）＋ `outfit` 槽（bottom=skirt / kind=tunic\|pinafore\|vest / buttons） | 几何全部从 `face_geo()` 派生，探针自动跟随；新增 `zipper`/`clipboard`/`towel_shoulder` 挂件均有 qa_char 探针（不变量⑩） |
-| **头身比例 / 五官位置** | `face_geo()` 比率表（见 plan.md §8.3 表） | 探针自动跟随；跑 qa_all + qa_motion |
+| **头身比例 / 五官位置** | `face_geo()` 比率表（见 plan.md §8.3 表）+ `neck_hw/neck_top/neck_bot`（颈）、`sh_x`（肩点内收量）、`sh_out`（肩部体块外缘，≤头宽 0.99）、`hip_hw`（胯块半宽 = `torso_hw·0.92`）、`arm_rest`（静止姿态角） | 探针自动跟随；**全部渲染与 qa_shape 探针共用同一份**（不变量①）。改完跑 `qa_shape` + `qa_all` + `qa_motion` |
+| **袖子与衣身的色阶** | `sleeve_color(base, f=0.13)`（浅衣压深/深衣提亮） | 纯平涂无描边（不变量⑤），重叠的手臂只能靠色阶读出来；色差不得 <10/通道，否则 B1 判 FAIL |
+| **挂在身上的头发（辫子/低马尾/长侧发帘）** | `body_edge(s, y)`（剪影左右缘）+ `side_curtain()`（沿轮廓的多边形，n=18） | 钉死在 `hx±rx` 会落在下颌与肩之间的空档里浮成一串圆点 |
 | 发型绘制 | `draw_character` 前发/背发层两段（`style` 分支） | 侧发会盖耳朵：新发型想露耳要留出 `rx*0.94` 之外的空间 |
 | 配饰绘制 | `draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.435×头宽` |
+| **顶戴墨镜几何** | `SUNGLASS_HEAD` 参数表 + `sunglasses_head_geo(G, hdx, hdy)`（镜架倒扣在 `hy−0.80·ry`，不遮眼） | 绘制与 `qa_char` 探针**共用这一份**，魔数不许散进 `draw_character`（坑㉑）；`hdx/hdy` 必须传进去，否则头部弹跳时墨镜与发顶脱开 |
+| **下颌轮廓（heart / square）** | `JAW` 参数表 + `jaw_point(face, s)` + `face_profile(face, v)`（超椭圆 `(1−s^m)^(1/m)`） | m>1 才能保证底缘切线**竖直**（m<1 的曲线切线水平 → 下巴折返成横向针尖，坑㉒）；`y1<1` 让底缘收成短平边 |
+| **发帘内缘下限** | `HAIR_CHEEK_KEEP=0.72`（`side_curtain` 内缘 `max(剪影半宽−in_w, 下限)`，颏线以下再收到 `neck_hw`） | 内缘跟着收窄的下颌走到中轴 = 把脸夹成尖楔（坑㉒）；下限取 0 等于退回旧行为 |
+| `body_edge` 颏下过渡 | `JAW_BELOW=0.16`（smoothstep 到 `sh_out`） | 硬切会有 ~90px 台阶，发帘外缘在那里折角（坑㉒） |
 | 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html` | **禁 position:absolute / transform**（坑⑦）；尾色必须同 `UI_INK`；语言牌 = 国旗 emoji＋语种名（`pill_<locale>` 14 张按语种共享） |
 | 场景背景 | `SCENES` 注册表（64 个原语，`@scene("名")`）+ `intro-cards.json` `scene[]` | 全部用 `pal` 色板 + 模块级 `SCENE` 中性色表，禁写字面 RGB；场景描边只许 `pal["ink"]` |
 | 文字带（字幕条） | 亮相卡 `band_html`；**场景线 `band_text_html` 三层堆叠**：原文 64px 自动缩排 → 中文对照 30px（`BAND_GLOSS` #AEB6DC，比原文小）→ ⚑ 文化/语言注记 22px（`BAND_NOTE` 主题金，比对照再小） | BAND_Y=100, BAND_H=300，头像区 400–840 之间别放东西；坑⑩ 补偿多出的截图高度在 `band_png()` 载入时裁掉，深色尾巴不进成片 |
@@ -128,6 +143,8 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | `qa_motion.py` | 卡拉OK LTR 覆盖率递增 / RTL 高亮中位 x 左移、口型开合+收尾闭合、RTL 气泡镜像、眨眼跌落、进度条推进、名牌/语言牌弹出、项链吊坠摆动、镜片反光位移、瞳孔视线漂移、呆毛颤动（采样框全部从 face_geo/布局常量推导） | `MOTION QA PASS` |
 | 幂等抽检 | **qa_motion 内置**：重渲一卡 → `ffmpeg -f hash -hash md5`（`-map 0:v`） | **视频流逐帧一致**（容器字节差来自 ffmpeg 元数据，属正常——曾误报"逐字节一致"，见 §5 坑⑫） |
 | `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架（含 **moves 排他**：单射合法 + 同台零交集）/ 画面探针（三层带翻译/金色注记呈现与层序、立绘↔背景不靠色 ≥36、带内各文字色↔带底 ≥100）/ 音频契约 / 幂等 | `N PASS / 0 FAIL` |
+| `qa_shape.py`（**人物层**） | **十一**探针在**人物层**上跑（同 `draw_character`、同成片坐标）：A1 颈肩接缝（颏线下 `chin+0.005H…+0.10H` 无夹心洞）/ A2 胯部连接（`cx±0.80·torso_hw` 处必须是下装色——**不取 hip_hw**，否则注回旧值时取样点跟着缩进腿里、腿与下装同色 → 恒真；另腿根无夹心洞）/ B1 手臂可读性（剪影外探 ≥0.22·arm_w **且**袖色与衣色差 ≥10/通道）/ B2 头身重叠 / C1·C2 五官可见性（抬臂姿态族 mouth/eye 可见比例）/ **D1 下颌开口**（颏线上方可见肤色半宽 ≥0.30·rx，抓「尖下巴」与「发帘夹脸」）/ **D2 下颌单调**（`face_profile` 半宽非增，抓「脸被拉宽」）/ **D3 下颌内凹**（`face_profile` 斜率非增，抓「下巴外凸折返成横向针尖」）/ **E1 胡须不压颈**（颏下 `chin+0.10·ry` 以下胡须色 0px，抓「胡须糊到脖子上」）/ **E2 八字胡在上唇**（`mouth_y−0.15·ry` 处胡须色 ≥25px，抓「嘴上没胡子」） | `SHAPE QA PASS`（28 人 × 11） |
+| `scripts/verify_shape_fixes.py` | 坑⑱⑲⑳㉑㉒ 修复的**反向验证**：①现状全 PASS ②判定窗内合成凿洞必须 FAIL ③注回旧取值必须 FAIL ④顶戴墨镜三步（现状／镜框染成发色 → `glasses_frame` 阶跃归零必 FAIL／镜片退化 → `glasses_lens` 必 FAIL）⑤下颌三步（注回旧方颌 → D2 FAIL／注回旧心形 → D3 FAIL／撤掉发帘内缘下限 → D1 FAIL）⑥胡须（`BEARD_LEGACY` 接回旧 PIE → E1+E2 同时 FAIL）⑦旧魔数取样点留证 | `SHAPE FIX VERIFY PASS` |
 
 **「文本契约」这组是踩过坑才加的**——三类问题都不影响渲染，ffmpeg 全部 `rc=0`，
 画面探针也照样 PASS，全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，
@@ -230,12 +247,99 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     **准则：成片探针不许「数某种颜色在某个大窗里的总量」；要用渲染端可复算的几何定位
     （资产 bbox + 粘贴公式），在确切位置验证确切特征。大窗数色只能当冒烟，不能当验收。**
 
+18. **人物层几何：头浮在肩上、手臂读不出来、裤子浮在空中**（2026-10-03 全员目检 + `qa_shape.py` 驱动）：
+    既有探针（qa_char/qa_all）都在**成片**上跑，而这些缺陷长在**人物层**上——被气泡/名牌盖住、
+    压在 mp4 里只能逐卡肉眼过。造了 `char_sheet.py`（人物层单独落盘 + alpha 剪影）与
+    `qa_shape.py`（形状/连接/图层六探针）后，28 人逐个量出四类缺陷：
+
+    | 类 | 现象（实测） | 根因 | 修法 |
+    |---|---|---|---|
+    | 连接 | 颏线以下到臂根一条背景缝（最宽 131px，28 人全中） | 肩楔外边斜率太缓 + 躯干 0.62·torso_hw 大圆角 | 肩部体块改**四边形**：内上贴颈缘、**外侧顶点落在颏线上** |
+    | 形状 | 上臂整条埋进躯干，剪影里没有手臂，只剩两只浮球手 | 袖子用 `outfitTop`，与躯干**同色**（纯平涂无描边，重叠段完全不可见） | `sleeve_color()`：浅衣压深/深衣提亮、拉开 0.13 档；肩点内收 0.30→0.18·arm_w |
+    | 形状 | 裤子浮在空中（躯干底缘被圆角收得比腿还窄） | 没有胯块 | `hip_hw = torso_hw·0.92`：身体成为连续柱体，手也能搭在胯上 |
+    | 连接 | 辫子/低马尾/长侧发帘成一串圆点浮在体侧 | 钉死在 `hx±rx` 的固定 x，落在下颌与肩之间的空档 | `body_edge(s,y)` 按剪影左右缘定位 + `side_curtain()` 沿轮廓生成多边形（n=18） |
+
+    **两条踩出来的准则**：
+    - **肩部体块的外侧顶点不能高过颏线**。高过一点就会和头侧缘围出一个被实心像素夹住的
+      背景凹坑（中间试过 `sh_y − 0.55·up_len`，洞反而上移到 y=1314、宽 78px）。肩线压回颏线后，
+      颏线以上只有头，凹角自然不成立。
+    - **下颌与肩之间的细楔形凹角是正常解剖，不是缺陷**（侧影上颏线处最宽 ≈sh_out、0.04H 内收成尖）。
+      早期按「颈肩整段最大空洞宽度」判，把这道正常凹角和真缺陷混在一起 → 28 人全 FAIL；
+      放宽容差又会把真缺陷放过去。最终把判定窗精确收到 `chin+0.005H … chin+0.10H`——
+      真缺陷只发生在那几行（nikos 实测 y=1342–1352）。
+
+19. **「衣服不得压脸」的探针别写成「脸窗矩形内出现衣色」**（2026-10-03）：
+    眼/嘴窗是**矩形**，抬起的袖子从窗口角上经过就会被判成「遮脸」——第一版 28 人全员 FAIL，
+    标注一看袖子只是贴着颊边走、眼球完整。真正的回归口径是**五官本身还在不在**：
+    逐姿态数五官自己的颜色（嘴 = 口型/舌/口线，眼 = 巩膜白）取最小可见比例。
+    → C1/C2 五官可见性探针。**图层序守恒靠「五官可见」保证，不靠数衣色。**
+
+20. **探针必须反向验证，否则可能是恒真的**（2026-10-03，照 `verify_text_contract.py` 体例，
+    `scripts/verify_shape_fixes.py`）：要求 ①现状全 PASS；②在判定窗里**合成凿洞**后对应探针必须 FAIL
+    （证明窗口真看在那里）；③注回旧取值后必须 FAIL。这条当场抓到两个真问题：
+    - **判定窗不能依赖被测字段**。A2 扫描窗写成 `±0.78·hip_hw`，注回旧 `hip_hw` 时窗口跟着缩，
+      洞直接跑到窗外 → 探针 0/28 命中、恒真。改成 `±0.72·torso_hw`（不随 hip_hw 变）。
+    - **绘制几何与判定几何必须分开**。模拟「旧肩楔」时若直接改 `face_geo.sh_out`，
+      探针窗口 ±1.15·sh_out 同步缩小 → 同样恒真。改成**只在绘制期间**换 `face_geo`
+      （猴补丁 `draw_character`），探针仍读现行几何。
+    - 附带一条：**胯部断连根本不是「alpha 夹心洞」**。躯干圆角收窄造成的是外侧凹口，
+      初版 A2 的 26 人 FAIL 绝大多数其实是「手与体侧的缝」。改测该不变量真正要保证的东西：
+      躯干下缘必须够到双腿外缘（`leg_cx + leg_w·0.62`）。
+    - **「换成取色」还不够，取样点同样不能依赖被测字段**。A2(a) 改成就地取色后一度只命中 1/28，
+      因为取样 x 写的是 `cx ± 0.80·hip_hw`：注回旧 `hip_hw` 时取样点跟着内缩到腿里，
+      而腿与下装同色 → 照样 PASS。改用 `cx ± 0.80·torso_hw`（落在新胯块 `0.92·torso_hw` 内、
+      旧胯块 ≈`leg_cx+leg_w·0.62` 外、腿外缘外），实测现行 56/56 中、注回旧值只剩 14/56 →
+      反向测试从 1/28 升到 **21/28**。**判据恒等式：`x_判据 ∌ x_被测`。**
+
+21. **配饰的绘制参数不要散成魔数，探针取样点必须从同一份参数派生**（2026-10-03）：
+    `qa_all` 报 `omar` / `omar_f` 的 `glasses_perch` 失败，实测像素 `(70,73,91)`。
+    查下来**不是图层回归**（顶戴墨镜不归侧发帘管，omar 是 `short_curly` 走弧线发型），
+    而是探针自己的取样点 `hy − ry*0.76` 落在了**镜片** `THEME["lens"]=(70,76,92)` 正中，
+    却拿 `metal_dark` 去比——魔数不共享，探针与渲染必然漂移。
+    → 把 `sunglasses_head_geo(G, hdx, hdy)` 提成模块级单一事实源（`SUNGLASS_HEAD` 参数表），
+    绘制与探针都从它取数；探针点只取**结构上必然是金属**的上沿带。
+    顺带抓出更隐蔽的一条：**omar 的发色 `(43,37,48)` 与 `metal_dark (44,44,52)` 欧氏距离只有 8.1**，
+    原容差 55 下「采到纯头发」也 PASS → 这条探针对深发角色**原理上恒真**。
+    单点颜色比较救不回来（发色和镜框色就差 8.1），改成**阶跃探针** `look_step()`：
+    断言「镜框上沿带与其外侧紧邻点之间存在真实颜色边界」（实测阶跃 8.1，`min_step=6`；
+    框没画/被吞 → 阶跃 0 → 必 FAIL），再配一条强判据 `glasses_lens` 探镜片正中
+    （`lens` 与任何发色/肤色都差 50 以上）。
+    **准则：判据要么选一个与周围一切都拉开距离的位置，要么断言一条「边界/阶跃」，
+    不要在两个几乎同色的图层之间做单点比色。**
+
+22. **下颌轮廓：顶点切线水平 = 横向针尖，不是圆下巴；补形多边形不许比脸本身还宽**（2026-10-03，
+    用户反馈「xiaoman / giulia / layla / aaching 下巴太尖、jiangyuan / arjun 脸被拉两边」）。
+    查下来是**三个互不相干的成因**，目检时它们长得一样：
+
+    | 现象 | 根因 | 修法 |
+    |---|---|---|
+    | heart 下巴收成一根横针 | 旧二次曲线 `x(t)=1−1.2t+0.2t²`、`y(t)=0.42+1.26t−0.64t²`，求导得 `x'(1)=−0.80·rx` 而 `y'(1)=−0.02·ry`——顶点切线**几乎水平**，左右两支在同一个 `(hx,y)` 折返，polygon 边界不是圆底而是一根约 0.8px 高、27px 宽的横刺 | 改**超椭圆** `f(s)=(1−s^m)^(1/m)`：m>1 时 `f'(1)=−∞`，底缘切线**竖直**，两支镜像后合成光滑圆底（`JAW["heart"] m=1.7`） |
+    | square 脸被拉出两个尖角 | 下颌补形是六点多边形，顶点落在 `±0.92·rx`——那个高度的椭圆只有 `0.60·rx`，脸从 `0.80·rx` 反弹到 `0.92·rx` | 同一条超椭圆，`m=3.2`（侧廓近竖直、底缘宽平）；`y1=0.985` 让底缘收成短平边而不是一点 |
+    | oval / round 的**正常椭圆脸**也「下巴太尖」 | 跟脸型无关：长发帘内缘跟着收窄的下颌一路走到中轴，把脸夹成尖楔（实测可见肤色半宽只剩 `0.17·rx`，同尺寸圆脸本该有 `0.44·rx`） | `side_curtain` 内缘加下限 `max(剪影半宽 − in_w, HAIR_CHEEK_KEEP·rx)`；颏线以下再平滑收到颈半宽 `neck_hw`（长发本就该落在脖子两边） |
+    | misha「嘴在脸下面、脖子上」 | 胡须是一个 `PIE`：顶边 `0.82·ry` 的**水平直弦**、底边伸到 `1.30·ry`（比下巴低 52px），整张脸从嘴以下糊成一条围兜一直糊到脖子上；而嘴上什么都没有，缺八字胡 | 拆成两件：**八字胡**（贴上唇一小片，两端挑到胡须线以上——「八字」的形状来源）+ **络腮**（实心块：上缘一条胡须线、下缘沿 `face_profile` 走、圆胡尖只探出下巴 `0.03·ry`） |
+
+    顺带修掉 `body_edge` 的一处跳变：旧实现「颏线以下直接返回 `sh_out`」，在切换点上有
+    **~90px 台阶**（圆脸实测：颏线上方头半宽 58px、下方直接 148px），发帘外缘在那里折出一个台阶。
+    改成 `JAW_BELOW` 过渡带上的 smoothstep。
+
+    **两条准则**：
+    - **脸型探针别再手抄坐标**。旧 `chin_tip = hy+ry*1.02`、`jaw_square = hx−rx*0.70` 是魔数，
+      轮廓一换就必然漂移。改成从 `jaw_point(face, s)` 派生（`jaw_low` / `chin_wide` / `jaw_corner`）。
+    - **几何不变量就用几何查，别用像素查**。D2「脸颊以下脸只能变窄」本来去量 alpha 剪影，
+      结果 27 人 FAIL——颧骨以下剪影里还站着头发、耳朵、肩膀；改量肤色又剩 8 个长发角色被
+      发量一挡误判。最后改成直接查 `face_profile(face, v)` 的单调性：与绘制同源、零像素噪声。
+      **D1 仍必须用像素**（它守的正是「头发有没有把脸夹住」这个渲染问题）。
+      **判据选哪一层，取决于它守的是几何错还是渲染错。**
+
 另：渲染里所有随机性（眨眼相位、场景微扰）必须 `rnd(f"{seed}:...")` 播种，否则幂等破坏。
 
 > 坑坑⑩⑪⑫⑬ 记录于 2026-10-03 人物形象打磨（肩楔/肩点内收/Edge 视口补偿 + 幂等口径修正 + 国旗 emoji 平台回退）。
 > 坑坑⑭⑮ 记录于 2026-10-03 用户观感反馈（尖下巴像鬼、袖子遮嘴）——两条都是「图层/轮廓准则」级修复。
 > 坑⑯ 记录于 2026-10-03 qa_motion 幂等排障（`-shortest` 时机性丢帧）——封装/时序类坑。
 > 坑⑰ 记录于 2026-10-03 场景版式重调（脚本带 hero 化/名牌缩小）后的 qa_scene 探针②排障——验收探针类坑。
+> 坑坑⑱⑲⑳ 记录于 2026-10-03 人物层几何重设计（肩部体块/胯块/袖子色阶/发辫发帘 + 五官可见性探针 + 探针反向验证）。
+> 坑㉑ 记录于 2026-10-03 顶戴墨镜探针排障（配饰魔数不共享 + 深发角色下镜框/发色只差 8.1 的恒真陷阱）。
+> 坑㉒ 记录于 2026-10-03 下颌轮廓返工（心形下巴横向针尖 / 方颌外扩 / 长发帘夹出尖楔——三个成因 + 几何不变量该用几何查）。
 > 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）见 [adr-character-tech.md](adr-character-tech.md)。
 
 ---
@@ -297,6 +401,16 @@ python  parse_scene.py --list                    # 列出仓库内已有场景 i
   + §0.1 教学 token 表 + §0.2 装置规格表
   （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）
   + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）。
+- **改了 `draw_character` 要重渲哪几条线**（人物几何是**两条视频线共用**的，容易只刷一条）：
+  | 产物 | 命令 | 何时要动 |
+  |---|---|---|
+  | `build/intro/*.mp4`（32 支亮相卡） | `uv run usine-cards render` | 任何人物几何/调色板改动 |
+  | `build/scene/scene-*.mp4`（14 支/场景） | `uv run usine-scene render --scene colors` | 同上（`scene_video` 直接 import `draw_character`，无第二份绘制代码） |
+  | `build/chars/**`（形象体检台） | `uv run usine-chars all` | 同上 + 想目检时 |
+  | `build/scene/audio/**`、`build/scene/text*` | `tts` / `assets` | **人物改动不用动**——文字层与语音里没有立绘 |
+
+  `render` 无缓存（幂等但每次全渲），且**启动即 truncate 目标 mp4**——中途失败会连旧产物一起丢，
+  别在渲染期间做会崩的改动。判断某支是否还是旧的，看 `build/**` 的 mtime 晚不晚于 `intro_cards.py`。
 - **token chip 两型**：`#hex` = 色片（井内实心填充）；`"文本"` = 字牌（Edge 渲 token 词文字层贴入井）。
   §0.2 `well` 缺省时由场景中性色推导——**浅色 chip 落在同色底上会看不见**，故显式给色是常用手段。
 - **台词行体例**：`- **A**（happy）：「原文」（*注音*）——中文对照｜「手势词」处 \`pose\`｜⚑文化/语言注记`。
@@ -355,11 +469,15 @@ une_usine_avec_des_machines_rugissantes/
 │  ├─ requirement.md / plan.md       # 需求 · 总规划（§8.2 音频契约 / §8.3 绘制规格 / §8.4-8.6 三管线）
 │  ├─ adr-character-tech.md          # 人物生成技术选型裁定（H3+Remotion 迁移案 = 备选，Pillow 续役）
 │  ├─ self-introductions.md          # 28+4 卡内容种子（台词/注音/对照/分镜/验收清单）
+│  ├─ publish-playbook.md            # 多平台发布手册（抖音/小红书流程 · 差异对照 · 踩坑 · 核验清单）
 │  └─ benchmark-duolingo.md          # 对标台账（多邻国三文档逐条裁定）
 ├─ lessons/                          # ★ 课程统一目录（每课一目录 lessons/<id>/；新课在这里新建）
 │  └─ colors/                        # colors 课（说到颜色，你会想到什么）
 │     ├─ scene.md                    # 场景剧本（机读事实源：§0 机读规格 + 共享骨架 + 14 语种原生剧本 + 词表）
 │     ├─ scene.json                  # 场景线数据（parse_scene.py 从 scene.md 机械抽取；渲染与教学文档共用）
+│     ├─ publish/                     # 发布文案事实源（双平台各一份，流程见 docs/publish-playbook.md）
+│     │  ├─ douyin-copy.md            # 抖音 14 支标题/正文/话题（30 字标题版）
+│     │  └─ xiaohongshu-copy.md       # 小红书 14 支标题/正文/话题（20 字标题版 + 小红书口吻）
 │     └─ analysis/                   # 教学文档侧的人工解析（与视频管线解耦）
 │        ├─ _source/<locale>.md      # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/⚑注记/舞台/创作注记）
 │        └─ <locale>.json × 14       # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
