@@ -1,6 +1,6 @@
 ---
 title: 多平台发布手册（抖音 / 小红书）
-updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "首版。沉淀「十四种语言聊颜色全集」在抖音 + 小红书双平台 18 支视频的实操流程、平台差异、18 条踩坑与核验清单。事实源文案见 lessons/colors/publish/{douyin,xiaohongshu}-copy.md" }
+updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "02:00 补：05–14 跑完（小红书 14/14 全发完），踩坑实录 18 → 23 条（新增合集下拉被视口裁掉 / 合集选中态看 class / 发布按钮用 ref 不用坐标 / 上传后别先 sleep / generation 跳回 1 = 页面重建），§5.2 换成实跑 10/10 的顺序。事实源文案见 lessons/colors/publish/{douyin,xiaohongshu}-copy.md" }
 ---
 
 # 多平台发布手册
@@ -122,26 +122,29 @@ updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "首版。沉淀「十四�
 
 本项目的合集就是在第 01 支的表单里创建的，之后 13 支只需在下拉里点第一位。
 
-### 5.2 逐支发布（已验证序列）
+### 5.2 逐支发布（已验证序列，05–14 实跑 10/10）
 
 | # | 动作 | 要点 |
 |---|---|---|
-| 1 | `query kind=semantic` text=`上传视频` → 取 `upload-button` 的 button ref | 矩形约 x:624 y:559 w:120 h:40 |
+| 1 | `query kind=semantic` text=`上传视频` → 取 `class` 含 `upload-button` 的 button ref | |
 | 2 | `upload_files` paths=[`build/scene/scene-colors_<locale>.mp4`] | |
-| 3 | `bash: Start-Sleep -Seconds 25` | |
-| 4 | `query kind=editable` | 取标题 input（x:246 y:547）+ `.tiptap.ProseMirror`（x:246 y:591） |
-| 5 | `fill` 标题 | 普通 input，`success: true`，`textLength` = 目标字数 |
-| 6 | `fill` 正文 | ⚠️ **预期返回 `ACTION_EFFECT_MISMATCH`，属正常**，见坑 ③ |
-| 7 | `press_key` key=`Tab` | ⚠️ **关键**：关掉话题联想面板，见坑 ② |
-| 8 | `press_key` key=`PageDown` | ⚠️ **关键**：内层滚动只能靠键盘，见坑 ⑥ |
-| 9 | `query kind=semantic` text=`选择合集`（`class="collection-plugin-button"`）→ click | |
-| 10 | `query kind=semantic` text=`<合集名>`（`class="item-content"`）→ click | 下拉第一位 |
-| 11 | `screenshot` | 复核：合集名已选 / 公开可见 / 定时发布关闭 |
-| 12 | `click` position **(633, 1043)** | 「发布」按钮 |
-| 13 | `bash: Start-Sleep -Seconds 5` | |
-| 14 | `query kind=text` selector=`body` maxChars=300 | URL 应含 `published=true`，正文应为「上传视频」 |
+| 3 | `query kind=editable` → 取标题 input + `.tiptap.ProseMirror` ref | **不要先 sleep**（坑 ㉒） |
+| 4 | `fill` 标题 | 普通 input，`success: true`，核对 `textLength` = 目标字数 |
+| 5 | `fill` 正文 | ⚠️ **预期返回 `ACTION_EFFECT_MISMATCH`，属正常**（坑 ③） |
+| 6 | `press_key` key=`Tab` | ⚠️ **关键**：关掉话题联想面板（坑 ②） |
+| 7 | `bash: Start-Sleep -Seconds 22` | 此时转码完成 |
+| 8 | `query kind=dom` selector=`.tiptap.ProseMirror` | 复核正文，末段必须是纯文本标签 |
+| 9 | `press_key` key=`PageDown` | ⚠️ **关键**：把合集按钮抬进视口上半部（坑 ⑲ + 坑 ⑥） |
+| 10 | `query kind=semantic` text=`选择合集`（`class="collection-plugin-button"`）→ click | |
+| 11 | `query kind=semantic` text=`<合集名>`（下拉第一位，`class="item-content"`）→ click | |
+| 12 | `query kind=semantic` text=`<合集名>`（下拉已关） | class 变 `collection-plugin-choose` = 已选（坑 ⑳） |
+| 13 | `query kind=text` selector=`body` maxChars=300 | 确认 `scene-colors_<locale>.mp4` 在位 |
+| 14 | `query kind=semantic` text=`发布` → 取 `class="ce-btn bg-red"` 的 button → click | ⚠️ 挑对按钮，见坑 ㉑ |
+| 15 | `bash: Start-Sleep -Seconds 6` | |
+| 16 | `query kind=text` selector=`body` maxChars=300 | URL 含 `published=true`、正文为「上传视频」、草稿箱不增 |
 
-**发布按钮坐标**：viewport 1060×1087 时固定在 **(633, 1043)**。
+**发布按钮**：用 `ce-btn bg-red` 的 ref，不要用坐标。坐标随视口高度漂移
+（1060×1029 → y=984；1060×1087 → y=1043），本项目实测两种都出现过。
 
 ### 5.3 发布设置
 
@@ -270,6 +273,69 @@ updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "首版。沉淀「十四�
 单日连发 14 支会触发频率风控。本项目 2026-10-03 抖音 14 支、2026-10-04 小红书分批
 均未被限流，但这是**用户明确接受的风险**，不是平台保证。换时间窗发更稳。
 
+### 坑 ⑲ 合集下拉被视口裁掉 = 查不到任何选项
+
+**现象**：`选择合集` 按钮点击「成功」，但紧接着查合集名返回 `matchCount: 0`——
+看起来像下拉没打开，或合集不存在。
+
+**真实原因**：合集下拉**向下展开**。按钮在视口底部时（实测 y=986 / 视口高 1029），
+下拉整体落在视口外，DOM 里有、屏幕上没有。
+
+**解法**：点之前先看按钮 rect，**y > 视口高 - 120 就先 `press_key PageDown`**，
+把它抬到视口上半部再点。抬到 y≈142 后下拉落在 y≈181，稳定可查。
+
+⚠️ 这是「查不到」的假阴性。**不要**因为 `matchCount: 0` 就去改代码或怀疑合集被删。
+
+### 坑 ⑳ 合集有没有选中，看 class 变没变
+
+比截图可靠，也比读全页文本省一次大查询：
+
+| class | 含义 |
+|---|---|
+| `collection-plugin-button` | **未选**。下拉关闭时查合集名 → `matchCount: 0` |
+| `collection-plugin-choose` | **已选**。同时 `class="collection-name"` 显示名字 |
+
+选完关掉下拉，查一次合集名：命中 `collection-plugin-choose` = 已选，0 匹配 = 没选上。
+右侧预览卡还会出现 `合集·<合集名>`（`class="info-card-text main"`），是第二重旁证。
+
+### 坑 ㉑ 发布按钮有稳定 ref，别用坐标
+
+`class="ce-btn bg-red"` 的 `<button>`，用 `query kind=semantic` text=`发布` 取。
+注意同名的「发布笔记」侧栏入口也在匹配结果里，**要挑 `class` 含 `ce-btn bg-red` 的那个**。
+
+坐标会随视口高度漂移（1060×1029 时在 y=984，1060×1087 时在 y=1043），
+本项目 14 支里实际就撞到过一次 1043 失效、984 才准。**ref 不漂，坐标漂。**
+
+### 坑 ㉒ 上传后别急着睡 25 秒——表单立刻就有了
+
+实测**上传完成后标题/正文字段立刻渲染**（视频还在「上传中」），不必等转码。
+旧流程是「上传 → `Start-Sleep 25` → 再取 ref」，实测那 25 秒里页面可能重建，
+导致刚取的 ref 全部 `STALE_ELEMENT_REF`，**已上传的视频被存成草稿**（草稿箱 0→1），
+这一支白传一遍。
+
+**更稳的顺序**（05–14 实跑 10/10）：
+
+```
+upload_files
+→ 立刻 query kind=editable 取 ref（不等）
+→ fill 标题 → fill 正文 → press_key Tab
+→ Start-Sleep 22（此时转码也完成了）
+→ query kind=dom .tiptap.ProseMirror 复核正文
+→ press_key PageDown（把合集按钮抬进视口上半部）
+→ 选合集 → query 确认 class 变 choose
+→ query kind=semantic text=发布 取 ce-btn ref → click
+→ Start-Sleep 6 → query kind=text 确认表单已重置
+```
+
+### 坑 ㉓ 页面重建的信号：generation 跳回 1
+
+`navigation.generation` 是页面代号。正常递增（5 → 6 → 9 → 13…）；
+**突然跳回 1 = 整个页面被重建**，此前所有 ref 全部作废，必须重新 `query`。
+
+同时若视口在 **1060×1029** 与 **1280×720** 之间反复跳变，说明有人在同时拖浏览器面板
+（见坑 ⑫）。这种情况下 `STALE_ELEMENT_REF` 会连发，重试同一动作只会继续失败——
+换成 `position` 点击或干脆让出控制权。
+
 ---
 
 ## 7. 发布后核验清单
@@ -310,8 +376,18 @@ updated: { by: dsh/fuyao-work, at: 2026-10-04, note: "首版。沉淀「十四�
 ### 小红书 `feuyeux`
 
 - 合集「十四种语言聊颜色全集」（简介 36/50）。
-- **01–04 已发布**（英语 / 德语 / 法语 / 西班牙语），全部已勾选合集。
-- ⬜ 05–14 待发。
+- **14 支已全部发布**（2026-10-04 01:16–01:49），全部已勾选合集。
+- 笔记管理页直接核验到 05–14 共 10 支，标题与时长与源文件一一对应
+  （05 it-IT 00:50 / 06 ru-RU 00:50 / 07 el-GR 00:46 / 08 hi-IN 00:54 / 09 ar-SA 00:54 /
+  10 he-IL 00:47 / 11 ja-JP 00:54 / 12 ko-KR 00:50 / 13 zh-HK 00:50 / 14 zh-CN 00:45）。
+- 01–04 为发布当场核验（表单重置 + `published=true` + 草稿箱 0）。
+  合集篇数单调递增可反证无缺号：编 05 时预览显示「共 5 篇」= 已发 4 篇 + 当前这支，
+  编 06 → 共 6 篇，编 07 → 共 7 篇。
+- 审核状态：05–13 已出结果（无「审核中」标记），**14 汉语发布时仍为「审核中」**，属正常。
+
+**遗留**
+- 草稿箱残留 1 条：05 意大利语首次上传时被页面重载打断、存成草稿。内容与已发布的
+  05 重复，可在草稿箱删除。
 
 ---
 
