@@ -1962,11 +1962,14 @@ def render_card(pid, personas, doc):
     bubble_t = (max(lines[-1]["start"] + 0.6, speech_end - 2.6)) if cast == "A" else max(speech_end - 2.3, lines[-1]["start"] + 0.5)
 
     out_path = OUT_DIR / f"{pid}.mp4"
+    # 禁用 -shortest（坑⑯）：音频已 apad/atrim 到恰好 DUR、-t DUR 封顶双流，-shortest 纯属冗余；
+    # 且它在 EOF 冲刷时按当时已入队的包随时机丢内部视频帧（实测批量渲染 7 并发下 xiaoman 丢
+    # pts=9.9333 一帧，单渲不丢 → framehash 幂等必挂）。帧数恒为 FRAMES，qa 可复算。
     cmd = ["ffmpeg", "-y",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
            "-i", str(AUDIO_DIR / f"{pid}.m4a"),
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-           "-c:a", "copy", "-shortest", "-t", str(DUR), "-movflags", "+faststart", str(out_path)]
+           "-c:a", "copy", "-t", str(DUR), "-movflags", "+faststart", str(out_path)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     band_prev_img = None

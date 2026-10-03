@@ -271,12 +271,31 @@ def main():
             check(f"{lc} {role} 在站位 x≈{want} 有立绘", n > 120,
                   f"{p['name']['native']} 命中 {n} px" + ("（RTL 已对调）" if is_rtl(lc) else ""))
 
-        # 探针②：气泡跟随说话人——A 说话时气泡描边（UI_INK）应落在 A 侧而非 B 侧
-        y0, y1 = BUBBLE_CY - 90, BUBBLE_CY + 90
-        na = count_color(img, ink, side_x(lc, "A") - 230, side_x(lc, "A") + 230, y0, y1, tol=26)
-        nb = count_color(img, ink, side_x(lc, "B") - 230, side_x(lc, "B") + 230, y0, y1, tol=26)
-        check(f"{lc} 气泡跟随说话人（RTL 镜像）", na > 40 and na > nb * 2,
-              f"A侧 {na} px / B侧 {nb} px")
+        # 探针②：气泡跟随说话人——按渲染端几何（tight 气泡资产 + side_x + BUBBLE_CY）定位
+        # 上描边行：说话侧该行应命中 UI_INK 长横边（≥60%），镜像侧同 y 不应命中（<20%）。
+        # （旧探针数窗口内 UI_INK/白像素：near() 是逐通道容差，庭院深色阴影、浅色布景均会
+        # 污染计数——2026-10-03 版式重调后气泡缩小，深背景入窗，旧探针误报，废弃。）
+        bub_line = next((lo for lo in tl["lines"] if lo["speaker"] == "A" and lo["dur"] > 1.0
+                         and (TEXT_DIR / f"bub_{PREFIX}_{lc}_{lo['i']}.png").exists()), None)
+        if bub_line:
+            img_b = Image.open(grab(lc, bub_line["start"] + bub_line["dur"] * 0.5,
+                                    tmp / f"{lc}_bub.png")).convert("RGB")
+            bim = Image.open(TEXT_DIR / f"bub_{PREFIX}_{lc}_{bub_line['i']}.png")
+            ab = bim.getchannel("A").point(lambda v: 255 if v > 8 else 0)
+            bx0, by0, bx1, by1 = ab.getbbox()
+            bw_ = bx1 - bx0
+            ytop = BUBBLE_CY - (by1 - by0) // 2 + 3
+            n_span = len(range(-int(bw_ * 0.35), int(bw_ * 0.35) + 1, 4))
+
+            def ink_hits(cx0):
+                return sum(1 for x in range(cx0 - int(bw_ * 0.35), cx0 + int(bw_ * 0.35) + 1, 4)
+                           if near(img_b.load()[x, ytop], ink))
+            na2, nb2 = ink_hits(side_x(lc, "A")), ink_hits(side_x(lc, "B"))
+            check(f"{lc} 气泡跟随说话人（RTL 镜像）",
+                  na2 >= n_span * 0.6 and nb2 < n_span * 0.2,
+                  f"说话侧 {na2}/{n_span} 对侧 {nb2}/{n_span}（y={ytop}）")
+        else:
+            check(f"{lc} 气泡跟随说话人（RTL 镜像）", False, "无 A 方气泡资产")
 
         white = sum(1 for y in range(BAND_Y, BAND_Y + BAND_H, 6)
                     for x in range(0, 1080, 6) if sum(img.load()[x, y]) > 600)

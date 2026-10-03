@@ -50,9 +50,15 @@ AUDIO_DIR = ROOT / "audio"
 TEXT_DIR = ROOT / "text"
 
 # ---- 场景层布局（1x 语义坐标；与亮相卡的 BAND_*/BADGE_* 各自独立，互不影响）----
+# 2026-10-03 用户排版反馈：脚本区（文字带）是画面最重要的元素 → 放大占比；人名牌次要 → 缩小；
+# 蓝框（深带）四周留白（BAND_X0 外边距 + 圆角），文字在框内居中且上下各留 ~48px 呼吸。
+# 此处 BAND_*/BADGE_*/BUBBLE_CY 覆盖 intro_cards 同名导入值（场景线独立版式，亮相卡不动）。
 PROG = (60, 40, 1020, 56)               # 进度条外框
-BADGE_Y, BADGE_W, BADGE_H = 424, 400, 180
-BUBBLE_CY = 700                         # 气泡中心 y
+BAND_Y, BAND_H = 90, 460                # 文字带：300→460（hero 化），上缘 90 给进度条留白
+BAND_X0, BAND_RAD = 36, 30              # 蓝框外边距（左右各 36 纸色留白）+ 圆角
+BAND_W = W - BAND_X0 * 2
+BADGE_Y, BADGE_W, BADGE_H = 572, 264, 112   # 名牌：400×180 → 264×112（人名次要）
+BUBBLE_CY = 784                         # 气泡中心 y：随名牌缩小下移，与名牌/装置井均不相交
 DEV_CY = 966                            # token 装置行中心 y
 CHAR_SCALE = 0.76                       # 双人同框：人物缩放（源几何 900→1710 ≈ 810px 高）
 PILL_Y, PILL_H = 1782, 88
@@ -255,22 +261,22 @@ BAND_NOTE = "#E8C24A"    # 文化/语言注记（比翻译再小一号，主题�
 
 
 def band_text_html(text, gloss, note, locale, rtl, color):
-    """文字带（三层堆叠，布局不变量：全部内容收在 BAND_H 内）：
-    原文（64px 自动缩排）→ 中文翻译（30px，比原文小）→ ⚑ 文化/语言注记（22px，比翻译再小）。
+    """文字带（三层堆叠，布局不变量：全部内容收在 BAND_H 内；上下各留 ~48px 呼吸）：
+    原文（88px 自动缩排，min 46）→ 中文翻译（34px，比原文小）→ ⚑ 文化/语言注记（24px，比翻译再小）。
     注记仅「特别需要说明的」行才有（剧本 ⚑ 段），翻译每行必有（——中文对照）。"""
-    gl = (f'<div id="g" dir="ltr" style="max-width:{W-120}px;font-size:30px;line-height:1.35;'
+    gl = (f'<div id="g" dir="ltr" style="max-width:{BAND_W-64}px;font-size:34px;line-height:1.35;'
           f'font-weight:500;color:{BAND_GLOSS};text-align:center;">{html_escape(gloss)}</div>'
           if gloss else "")
-    nt = (f'<div id="n" dir="ltr" style="max-width:{W-120}px;font-size:22px;line-height:1.4;'
+    nt = (f'<div id="n" dir="ltr" style="max-width:{BAND_W-64}px;font-size:24px;line-height:1.4;'
           f'font-weight:600;color:{BAND_NOTE};text-align:center;">⚑ {html_escape(note)}</div>'
           if note else "")
     body = f"""<div id="wrap" style="flex-direction:column;justify-content:center;
-      gap:10px;"><div id="t"
-      style="max-width:{W-96}px;padding:0 20px;text-align:center;color:{color};
-      font-size:64px;font-weight:600;line-height:1.3;">{html_escape(text)}</div>{gl}{nt}</div>
+      gap:14px;"><div id="t"
+      style="max-width:{BAND_W-64}px;padding:0 20px;text-align:center;color:{color};
+      font-size:88px;font-weight:600;line-height:1.3;">{html_escape(text)}</div>{gl}{nt}</div>
     <script>
-    var el=document.getElementById('t');var fs=64;
-    while(fs>30&&el.parentElement.scrollHeight>{BAND_H-30}){{fs-=2;el.style.fontSize=fs+'px';}}
+    var el=document.getElementById('t');var fs=88;
+    while(fs>46&&el.parentElement.scrollHeight>{BAND_H-96}){{fs-=2;el.style.fontSize=fs+'px';}}
     </script>"""
     return HTML_HEAD.format(w=W, h=BAND_H, bg=f"rgb{BAND_BG}", font=FONT_CSS[locale] + ", 'Microsoft YaHei', sans-serif",
                             dir="rtl" if rtl else "ltr", body=body)
@@ -279,17 +285,17 @@ def band_text_html(text, gloss, note, locale, rtl, color):
 def bubble_text_html(text, swatch, locale, rtl, bg="#FFFFFF"):
     """场景气泡：思考气泡带当前色小方块（色名预览），提示气泡只给联想物。
     流式布局（position:absolute 会破坏父盒高度——不变量⑥）。"""
-    sw = (f'<span style="display:inline-block;width:40px;height:40px;border-radius:12px;'
+    sw = (f'<span style="display:inline-block;width:32px;height:32px;border-radius:10px;'
           f'background:{swatch};border:3px solid {UI_INK};vertical-align:-4px;'
-          f'margin-{"left" if rtl else "right"}:18px;"></span>') if swatch else ""
-    body = f"""<div id="wrap"><div id="b" style="max-width:840px;background:#FFFFFF;
-      border:5px solid {UI_INK};border-radius:48px;padding:22px 36px;text-align:center;
-      box-shadow:0 12px 28px rgba(35,40,63,0.25);">
-      <span id="s" style="font-size:46px;line-height:1.35;font-weight:700;color:#23283D;
+          f'margin-{"left" if rtl else "right"}:14px;"></span>') if swatch else ""
+    body = f"""<div id="wrap"><div id="b" style="max-width:560px;background:#FFFFFF;
+      border:4px solid {UI_INK};border-radius:40px;padding:14px 28px;text-align:center;
+      box-shadow:0 8px 20px rgba(35,40,63,0.22);">
+      <span id="s" style="font-size:38px;line-height:1.35;font-weight:700;color:#23283D;
       direction:{"rtl" if rtl else "ltr"};">{sw}{html_escape(text)}</span></div></div>
     <script>
-    var el=document.getElementById('s');var fs=46;
-    while(fs>24&&el.scrollWidth>820){{fs-=2;el.style.fontSize=fs+'px';}}
+    var el=document.getElementById('s');var fs=38;
+    while(fs>20&&el.scrollWidth>540){{fs-=2;el.style.fontSize=fs+'px';}}
     </script>"""
     return HTML_HEAD.format(w=W, h=BAND_H, bg=bg, font=FONT_CSS[locale], dir="ltr", body=body)
 
@@ -309,14 +315,14 @@ def token_plaque_html(text, locale, rtl, bg):
 
 
 def sbadge_html(p, bg="#FFFFFF"):
-    """场景名牌（半宽 400px，A/B 各一块）：身份色描边 + native 名 + 拉丁名。"""
+    """场景名牌（人名次要元素，2026-10-03 反馈缩小：264×112）：身份色描边 + native 名 + 拉丁名。"""
     rtl = "rtl" if p.get("rtl") else "ltr"
     body = f"""<div id="wrap"><div style="width:{BADGE_W}px;height:{BADGE_H}px;background:#FFFFFF;
-      border:6px solid {p['identity']};border-radius:{BADGE_H//2}px;text-align:center;padding:20px 0 0 0;
-      box-shadow:0 14px 30px rgba(35,40,63,0.28);">
-      <div style="font-size:66px;line-height:80px;font-weight:800;color:#23283D;
+      border:4px solid {p['identity']};border-radius:{BADGE_H//2}px;text-align:center;padding:10px 0 0 0;
+      box-shadow:0 8px 18px rgba(35,40,63,0.24);">
+      <div style="font-size:46px;line-height:54px;font-weight:800;color:#23283D;
         direction:{rtl};">{html_escape(p['name']['native'])}</div>
-      <div style="font-size:26px;line-height:36px;color:#6A6F82;margin-top:4px;
+      <div style="font-size:18px;line-height:26px;color:#6A6F82;margin-top:2px;
         letter-spacing:1px;font-weight:600;">{html_escape(p['name']['latin'])}</div>
     </div></div>"""
     return HTML_HEAD.format(w=W, h=BAND_H, bg=bg,
@@ -659,6 +665,61 @@ def persona_pose(p, slot):
     return code
 
 
+# ---- 排他动作·逐人次轮换（2026-10-03 用户反馈：同一人片内动作不得反复同一个） ----
+# 槽位语义池按能量分列（活泼/沉稳两池码集不相交 → 同台 A/B 词汇天然互斥）；
+# 同一人的手势按出场次序在「本人签名码 + 槽位池 + 全能量池」里轮转，全片已用的跳过，
+# 池尽才允许复现。解析在渲染期一次性完成（时间线只存槽位，无需重跑 TTS），全幂等。
+SLOT_POOLS = {
+    "point":          {"lively": ["hand_shoot", "camera_snap", "point"],
+                       "steady": ["index_wait", "finger_count", "come_along"]},
+    "palm_open":      {"lively": ["palm_open", "both_hands", "clap"],
+                       "steady": ["beads_ponder", "planner_snap", "bottle_raise"]},
+    "nod":            {"lively": ["head_tilt_smile", "nod"],
+                       "steady": ["deadpan_nod", "head_tilt", "turn_freeze"]},
+    "both_hands":     {"lively": ["chest_pat", "clap", "fist"],
+                       "steady": ["shrug", "breath", "cap_tap"]},
+    "wave":           {"lively": ["ciao_wave", "wave"],
+                       "steady": ["thumbs_up", "breath"]},
+    "mini_jump":      {"lively": ["mini_jump", "kick", "twirl"],
+                       "steady": ["lean_in", "pocket_sway"]},
+    "jump_celebrate": {"lively": ["jump_celebrate", "twirl", "mini_jump"],
+                       "steady": ["snap", "thumbs_up", "pocket_sway"]},
+    "scratch_head":   {"lively": ["scratch_head", "head_tilt_smile"],
+                       "steady": ["head_tilt", "beads_ponder"]},
+    "deadpan_nod":    {"lively": ["nod", "head_tilt_smile"],
+                       "steady": ["turn_freeze", "deadpan_nod"]},
+}
+LIVELY_ALL = ["ciao_wave", "wave", "hand_shoot", "camera_snap", "point", "palm_open",
+              "both_hands", "chest_pat", "clap", "fist", "mini_jump", "kick", "twirl",
+              "jump_celebrate", "scratch_head", "head_tilt_smile", "nod"]
+STEADY_ALL = ["index_wait", "finger_count", "come_along", "beads_ponder", "planner_snap",
+              "bottle_raise", "shrug", "breath", "cap_tap", "deadpan_nod", "head_tilt",
+              "turn_freeze", "thumbs_up", "lean_in", "pocket_sway", "snap"]
+ENERGY_ALL = {"lively": LIVELY_ALL, "steady": STEADY_ALL}
+
+
+def resolve_pose_seq(pairs):
+    """把 (persona, 槽位) 序列解析成互不重复的姿态码序列（渲染前一次性算好，幂等）。
+    同一人的第 k 次手势：先取未被本片占用的「签名码/槽位池」首选，再退全能量池，
+    再退签名码；同台对方的已用码全程避开（词汇表互斥再加固一层）。"""
+    used = {}
+    out = []
+    for p, slot in pairs:
+        my = used.setdefault(p["id"], set())
+        other = {c for pid, s in used.items() for c in s if pid != p["id"]}
+        sig = (p.get("moves") or {}).get(slot)
+        cand = ([sig] if sig in POSE_CODES else []) + SLOT_POOLS.get(slot, {}).get(p["energy"], []) \
+            + ENERGY_ALL.get(p["energy"], [])
+        seen = set()
+        cand = [c for c in cand if not (c in seen or seen.add(c))]
+        fresh = [c for c in cand if c not in my and c not in other]
+        pool2 = [c for c in cand if c not in other]
+        code = (fresh or pool2 or [sig if sig in POSE_CODES else slot])[0]
+        my.add(code)
+        out.append(code)
+    return out
+
+
 def karaoke_points(line):
     """[(t, frac)] 词首/词尾字符进度点（与亮相卡同一实现，词级时间戳一轴三用之卡拉OK轴）。"""
     words = line["words"]
@@ -731,15 +792,28 @@ def render_scene(locale, scene_id=None):
             plaques[key] = Image.open(p).convert("RGBA")
 
     out_path = ROOT / f"{PREFIX}_{locale}.mp4"
+    # 禁用 -shortest（坑⑯，同 intro_cards）：音频已 apad/atrim 到恰好 dur，-t dur 封顶即可；
+    # -shortest 的 EOF 冲刷随时机丢内部视频帧，批量并发下 framehash 不可复算。
     cmd = ["ffmpeg", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS),
            "-i", "-", "-i", str(AUDIO_DIR / f"{PREFIX}_{locale}.m4a"),
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-           "-c:a", "copy", "-shortest", "-t", str(dur), "-movflags", "+faststart", str(out_path)]
+           "-c:a", "copy", "-t", str(dur), "-movflags", "+faststart", str(out_path)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL)
     ink = scene_pal(ident_a, ident_b)["ink"]
     prev_li, band_prev, band_prev_until = None, None, -1.0
+    # 蓝框外边留白：内缩圆角 mask（文字带贴图用）
+    band_mask = Image.new("L", (W, BAND_H), 0)
+    ImageDraw.Draw(band_mask).rounded_rectangle(
+        [BAND_X0, 0, BAND_X0 + BAND_W - 1, BAND_H - 1], BAND_RAD, fill=255)
     lines_by_role = {r: [lo for lo in lines if lo["speaker"] == r] for r in ("A", "B")}
+    # 排他动作·逐人次轮换：渲染前按出场次序解析全部手势码（幂等），帧循环只查表
+    pose_code = {}
+    _it = iter(resolve_pose_seq([(by_role[lo["speaker"]], lo["pose"])
+                                 for lo in lines if lo["pose"]]))
+    for lo in lines:
+        if lo["pose"]:
+            pose_code[lo["i"]] = next(_it)
 
     for f in range(frames):
         t = f / FPS
@@ -759,11 +833,12 @@ def render_scene(locale, scene_id=None):
         band = bands[li][0].copy()
         frac = frac_at(bands[li][2], t)
         if frac > 0.01:
-            bw = int(W * frac)
+            bw = int(BAND_W * frac)
             if rtl:
-                band.paste(bands[li][1].crop((W - bw, 0, W, BAND_H)), (W - bw, 0))
+                band.paste(bands[li][1].crop((W - BAND_X0 - bw, 0, W - BAND_X0, BAND_H)),
+                           (BAND_X0 + BAND_W - bw, 0))
             else:
-                band.paste(bands[li][1].crop((0, 0, bw, BAND_H)), (0, 0))
+                band.paste(bands[li][1].crop((BAND_X0, 0, BAND_X0 + bw, BAND_H)), (BAND_X0, 0))
         if band_prev is not None and t < band_prev_until:
             band = Image.blend(band, band_prev, min(1.0, (band_prev_until - t) / 0.22))
 
@@ -819,7 +894,7 @@ def render_scene(locale, scene_id=None):
                     xoff += (300 if not rtl else -300) * (1 - ease_out_cubic(u))
             pose = {}
             if lo and lo["pose"] and lo["poseT"] <= t < lo["poseT"] + POSE_DUR:
-                pose.update(pose_for(persona_pose(p, lo["pose"]), (t - lo["poseT"]) / POSE_DUR, t, p))
+                pose.update(pose_for(pose_code[lo["i"]], (t - lo["poseT"]) / POSE_DUR, t, p))
             elif lo and lo["exits"] and speech_end <= t < speech_end + TAIL - 0.4:
                 pose.update(pose_for(persona_pose(p, "wave"), (t - speech_end) / (TAIL - 0.4), t, p))
             op = openness_at(own, t, p["id"]) if lo else 0.0
@@ -869,7 +944,8 @@ def render_scene(locale, scene_id=None):
         layer = layer.resize((W, H), Image.Resampling.BOX)
         img = bg.copy()
         img.paste(layer, (0, 0), layer)
-        img.paste(band, (0, BAND_Y))
+        # 文字带：蓝框四周留纸色外边 + 圆角（2026-10-03 排版反馈），mask 裁出内缩圆角面板
+        img.paste(band, (0, BAND_Y), band_mask)
 
         for role in ("A", "B"):                              # 名牌（0.6s 弹出，镜像站位）
             bs = pop_scale(t, 0.6, 0.55, True) if onstage[role] else 0.0
