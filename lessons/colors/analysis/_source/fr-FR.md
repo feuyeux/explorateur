@@ -28,6 +28,7 @@
 - **原文**：Théo ! On joue au jeu des couleurs avant la nuit ?
 - **注音**：—
 - **中文翻译**：Théo！天黑前来一局颜色游戏？
+- **文化/语言注记**：on＝口语泛指「我们」，日常法语替代 nous 的首选
 
 ### 第 1 行　接话　说话人=B　情绪=neutral　类型=答句
 - 手势词：—　姿态=nod
@@ -42,6 +43,7 @@
 - **原文**：Quand je dis "rouge"... tu penses à quoi ?
 - **注音**：—
 - **中文翻译**：我说"rouge"（红色）……你会想起什么？
+- **文化/语言注记**：口语问句不倒装；书面须 « Penses-tu… » 或加 est-ce que
 
 ### 第 3 行　六色问答　说话人=B　情绪=neutral　类型=答句
 - 对应色：red（色词 rouge）　chip=#D8453B
@@ -98,6 +100,7 @@
 - **原文**：Au soleil ! Et aux mimosas en février !
 - **注音**：—
 - **中文翻译**：太阳！还有二月的含羞花！
+- **文化/语言注记**：二月的含羞花（mimosa）＝南法花季——黄在这里是节令
 
 ### 第 10 行　六色问答　说话人=A　情绪=happy　类型=问句
 - 对应色：black（色词 noir）　chip=#26262E

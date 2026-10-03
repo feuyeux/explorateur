@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""把 scene_colors.json（脚本/翻译/注音）+ lesson_analysis/<locale>.json（逐句解析）
+"""把 lessons/<id>/scene.json（脚本/翻译/注音）+ lessons/<id>/analysis/<locale>.json（逐句解析）
 合并成一份单文件 HTML 教学文档。
 
 版式：左侧固定栏（视频 + 六色条 + meta，sticky 不随下拉移动）+ 右侧内容区，
 14 个语种用顶部 tab 切换（视频与学习内容同步切换）。
 
 事实源分工：
-  - 原文 / 注音 / 中文翻译 / 气泡 / 手势 / 舞台 / 装置  → scene_colors.json（解析自 scene-<id>.md，机器不改写）
-  - 语法解析 / 词法解析 / 文化背景 / 家族·书写·舞台三段 → lesson_analysis/<locale>.json（人工产出）
+  - 原文 / 注音 / 中文翻译 / 气泡 / 手势 / 舞台 / 装置  → lessons/<id>/scene.json（解析自 lessons/<id>/scene.md，机器不改写）
+  - 语法解析 / 词法解析 / 文化背景 / 家族·书写·舞台三段 → lessons/<id>/analysis/<locale>.json（人工产出）
 本脚本只排版，不改写任何一侧文本。
 
 用法：
-    uv run usine-lesson                  # 生成 build/lesson/index.html
-    uv run usine-lesson --allow-missing  # 允许缺解析文件（占位并列出）
+    uv run usine-lesson --scene colors                  # 生成 build/lesson/colors/index.html
+    uv run usine-lesson --scene colors --allow-missing   # 允许缺解析文件（占位并列出）
 """
 from __future__ import annotations
 
@@ -31,12 +31,24 @@ try:                                    # 装成包时走工厂约定
 except ImportError:                     # pragma: no cover
     ROOT = next(p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file())
 
-SCENE_JSON = ROOT / "scene_colors.json"
-ANALYSIS_DIR = ROOT / "lesson_analysis"
-OUT_DIR = ROOT / "build" / "lesson"
-OUT_HTML = OUT_DIR / "index.html"
+from .parse_scene import analysis_dir, find_scene_ids, scene_paths
+
+SCENE_ID = "colors"                     # CLI --scene 覆盖
+
+
+def _scene_json():
+    return scene_paths(SCENE_ID)[1]
+
+
+def _analysis_dir():
+    return analysis_dir(SCENE_ID)
+
+
+def _out_dir():
+    return ROOT / "build" / "lesson" / SCENE_ID
+
+
 SCENE_VIDEO_DIR = ROOT / "build" / "scene"
-VIDEO_PREFIX = "scene-colors"
 
 # 语系排序（9 组 / 14 语种）—— 文档唯一的排序事实源
 FAMILY_ORDER: list[tuple[str, str, list[str]]] = [
@@ -269,7 +281,7 @@ def build_rail_data(scene: dict, vids: dict) -> str:
             node = scene["locales"][lc]
             vp = vids[lc]
             data[lc] = {
-                "src": f"../scene/{VIDEO_PREFIX}_{lc}.mp4" if vp["exists"] else "",
+                "src": f"../../scene/scene-{SCENE_ID}_{lc}.mp4" if vp["exists"] else "",
                 "poster": f"poster_{lc}.jpg" if vp.get("poster") else "",
                 "label": node.get("langLabel", lc),
                 "family": fam_of[lc],
@@ -292,14 +304,19 @@ def build_rail_data(scene: dict, vids: dict) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
+    global SCENE_ID
+    ap = argparse.ArgumentParser(description="lessons/<id>/scene.json + analysis → 单文件教学文档 HTML")
+    ap.add_argument("--scene", default="colors", choices=find_scene_ids(),
+                    help="课程 id（对应 lessons/<id>/；缺省 colors）")
     ap.add_argument("--allow-missing", action="store_true")
     args = ap.parse_args()
+    SCENE_ID = args.scene
 
-    if not SCENE_JSON.exists():
-        print(f"缺少 {SCENE_JSON.name}", file=sys.stderr)
+    scene_json = _scene_json()
+    if not scene_json.exists():
+        print(f"缺少 {scene_json.relative_to(ROOT).as_posix()}", file=sys.stderr)
         return 1
-    scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
+    scene = json.loads(scene_json.read_text(encoding="utf-8"))
 
     wanted = [lc for _, _, locs in FAMILY_ORDER for lc in locs]
     unknown = [lc for lc in wanted if lc not in scene["locales"]]
@@ -309,7 +326,7 @@ def main() -> int:
 
     analyses, missing = {}, []
     for lc in wanted:
-        p = ANALYSIS_DIR / f"{lc}.json"
+        p = _analysis_dir() / f"{lc}.json"
         if not p.exists():
             missing.append(lc)
             continue
@@ -341,12 +358,13 @@ def main() -> int:
         print("缺少解析文件：" + ", ".join(missing), file=sys.stderr)
         return 1
 
-    vids = {lc: probe_video(SCENE_VIDEO_DIR / f"{VIDEO_PREFIX}_{lc}.mp4") for lc in wanted}
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    vids = {lc: probe_video(SCENE_VIDEO_DIR / f"scene-{SCENE_ID}_{lc}.mp4") for lc in wanted}
+    out_dir = _out_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
     for lc in wanted:                       # 封面帧：随成片一起生成/复用
         if vids[lc]["exists"]:
-            vids[lc]["poster"] = make_poster(SCENE_VIDEO_DIR / f"{VIDEO_PREFIX}_{lc}.mp4",
-                                             OUT_DIR / f"poster_{lc}.jpg")
+            vids[lc]["poster"] = make_poster(SCENE_VIDEO_DIR / f"scene-{SCENE_ID}_{lc}.mp4",
+                                             out_dir / f"poster_{lc}.jpg")
 
     ordinal, sections, tabs = 0, [], []
     for fi, (fid, fname, locs) in enumerate(FAMILY_ORDER, start=1):
@@ -413,10 +431,10 @@ def main() -> int:
                      f'<td class="num">{parsed}</td></tr>')
     H.append("</tbody></table></div>")
     H.append('<p class="src">脚本原文、注音、中文翻译、气泡与舞台规格来自 '
-             '<code>scene_colors.json</code>（由 <code>scenes/scene-colors.md</code> 经 <code>parse_scene.py</code> '
-             '机械抽取，渲染与本文档共用同一份事实源）；逐句语法／词法／文化解析来自 '
-             '<code>lesson_analysis/&lt;locale&gt;.json</code>；成片来自 '
-             f'<code>build/scene/{VIDEO_PREFIX}_&lt;locale&gt;.mp4</code>。'
+             f'<code>lessons/{SCENE_ID}/scene.json</code>（由 <code>lessons/{SCENE_ID}/scene.md</code> 经 '
+             '<code>parse_scene.py</code> 机械抽取，渲染与本文档共用同一份事实源）；逐句语法／词法／文化解析来自 '
+             f'<code>lessons/{SCENE_ID}/analysis/&lt;locale&gt;.json</code>；成片来自 '
+             f'<code>build/scene/scene-{SCENE_ID}_&lt;locale&gt;.mp4</code>。'
              '本文件由 <code>build_lesson.py</code> 生成，文本与视频分离——视频按相对路径引用，'
              '移动 <code>build/</code> 目录时请保持 <code>lesson/</code> 与 <code>scene/</code> 的相对位置。</p>')
     H.append("</footer>")
@@ -439,8 +457,9 @@ def main() -> int:
         print("✗ 标签未配平：" + "，".join(bad), file=sys.stderr)
         return 1
 
-    OUT_HTML.write_text(text, encoding="utf-8")
-    print(f"✓ {OUT_HTML.relative_to(ROOT).as_posix()}  {len(text.encode('utf-8')) / 1024:.0f} KB  "
+    out_html = _out_dir() / "index.html"
+    out_html.write_text(text, encoding="utf-8")
+    print(f"✓ {out_html.relative_to(ROOT).as_posix()}  {len(text.encode('utf-8')) / 1024:.0f} KB  "
           f"9 个语系段 / 14 个语种 / {sum(len(scene['locales'][lc]['dialogue']) for lc in wanted)} 句  "
           f"解析 {len(analyses)}/14")
     if missing:

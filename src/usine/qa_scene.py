@@ -5,8 +5,10 @@
 六组验收：
   1. 产物规格    <locale> 视频：1080x1920@30fps / h264+aac / 时长 == 时间轴
   2. 文本契约    §0.3 语体差真实成立；疑问句用本文字系统的问号；§0 durationBudget 卡时长
-  3. 选角与骨架  A/B = intro-cards.json cast 事实源；问答对称；token 零遗漏零重复
-  4. 画面探针    双人同框站位（服装色质心落在本侧；RTL 语种左右对调）、文字带、token 装置全亮
+  3. 选角与骨架  A/B = intro-cards.json cast 事实源；问答对称；token 零遗漏零重复；
+                 moves 排他动作表（单射合法 + 同台 A/B 动作词汇零交集）
+  4. 画面探针    双人同框站位（RTL 语种左右对调）、文字带三层（翻译/金色注记，注记更小更靠下）、
+                 立绘↔背景不靠色（本列纯背景最小欧氏距离）、token 装置全亮
   5. 音频契约    逐行声线 = persona.voice + 情绪增量（缓存键独立，重跑命中）
   6. 幂等        重渲一支比对视频流 framehash（逐帧一致，容器字节差属正常——不变量⑦）
 
@@ -23,7 +25,8 @@ from . import scene_video
 from .scene_video import (
     AUDIO_DIR, ROOT, RTL_LOCALES, is_rtl, load_data, side_x, device_of, chip_color,
     PROG, BAND_Y, BAND_H, BADGE_Y, BADGE_H, BUBBLE_CY, DEV_CY, CHAR_SCALE, device_cells,
-    AX, BX,
+    AX, BX, TEXT_DIR, BAND_GLOSS, BAND_NOTE, persona_pose, prerender_scene_bg, hl_hex,
+    cast_colors,
 )
 from .intro_cards import BAND_BG, UI_INK, THEME
 from usine import ROOT as PROJ_ROOT
@@ -57,6 +60,10 @@ def hexrgb(h):
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def dist(c1, c2):
+    return sum((a - b) ** 2 for a, b in zip(c1[:3], c2[:3])) ** 0.5
+
+
 def count_color(img, color, x0, x1, y0, y1, tol=30, step=3):
     px = img.load()
     n = 0
@@ -68,14 +75,7 @@ def count_color(img, color, x0, x1, y0, y1, tol=30, step=3):
 
 
 def char_colors(p):
-    """该人物可用的取样色（发/上衣/下装）。浅中性色（近白服装）会与场景底色混淆，
-    故剔除低饱和高亮项，保证探针不误命中背景。"""
-    def usable(hexc):
-        r, g, b = hexrgb(hexc)
-        return (max(r, g, b) - min(r, g, b)) > 34 or (r + g + b) / 3 < 150
-    keys = ("hair", "outfitTop", "outfitBottom")
-    cols = [hexrgb(p["palette"][k]) for k in keys if usable(p["palette"][k])]
-    return cols or [hexrgb(p["palette"]["hair"])]
+    return cast_colors(p)
 
 
 # ---------- 文字系统 → 句末标点（Unicode 事实，属代码不属场景数据） ----------
@@ -216,8 +216,40 @@ def main():
         check(f"{lc} 问答对称 A{ask['A']}/B{ask['B']}",
               ask["A"] == ask["B"], f'A{ask["A"]}/B{ask["B"]}')
 
+        # 3d 排他动作（需求①）：moves 槽位表逐人专属——单射 + 合法码 + 同台 A/B 零交集
+        def vocab(p, slots):
+            out = []
+            for s in slots:
+                try:
+                    out.append(persona_pose(p, s))
+                except ValueError as e:
+                    check(f"{lc} {p['id']} moves 映射非法", False, str(e))
+            return set(out)
+
+        slots_by = {r: {lo["pose"] for lo in tl["lines"] if lo["speaker"] == r and lo.get("pose")}
+                    for r in ("A", "B")}
+        slots_by["A"].add("wave")          # 出画挥手也走各自 moves 表
+        slots_by["B"].add("wave")
+        va, vb = vocab(cast["A"], slots_by["A"]), vocab(cast["B"], slots_by["B"])
+        check(f"{lc} 同台动作零交集（排他）", not (va & vb),
+              f"A {len(va)} 招 / B {len(vb)} 招 / 交集 {len(va & vb)}"
+              + (f"：{va & vb}" if va & vb else ""))
+        for role, p in (("A", cast["A"]), ("B", cast["B"])):
+            vals = list((p.get("moves") or {}).values())
+            check(f"{lc} {p['name']['native']} moves 单射且合法",
+                  len(set(vals)) == len(vals) and len(vals) >= 9, f"{len(set(vals))}/{len(vals)} 槽位")
+
     print("\n== 4. 画面探针")
     ink = hexrgb(UI_INK)
+    # 探针⓪（静态）：三层带的文字色 ↔ 带底、卡拉OK高亮色 ↔ 带底，均不得靠色（需求②③）
+    for nm, col in (("翻译层", BAND_GLOSS), ("注记层", BAND_NOTE), ("带底原文", "#D6DCEE")):
+        d = dist(hexrgb(col), tuple(BAND_BG))
+        check(f"文字带 {nm}↔带底对比 ≥100", d >= 100, f"{d:.0f}")
+    for key, chip in scene["tokens"].items():
+        if chip_color(chip):
+            d = dist(hexrgb(hl_hex(chip)), tuple(BAND_BG))
+            check(f"卡拉OK高亮 {key}↔带底对比 ≥100", d >= 100,
+                  f"{hl_hex(chip)} {d:.0f}")
     for lc in locales:
         if not (ROOT / f"{PREFIX}_{lc}.mp4").exists():
             continue
@@ -249,6 +281,67 @@ def main():
         white = sum(1 for y in range(BAND_Y, BAND_Y + BAND_H, 6)
                     for x in range(0, 1080, 6) if sum(img.load()[x, y]) > 600)
         check(f"{lc} 文字带有字幕像素", white > 30, f"{white} px")
+
+        # 探针④：人物↔背景不靠色（需求③）——立绘取样色 vs 本列纯背景像素最小欧氏距离。
+        # cast_cols 与 render_scene 同参：渲染时的「推开」规避也在此生效，探针与成片同口径。
+        bg_img, _ = prerender_scene_bg(loc, hexrgb(pa["identity"]), hexrgb(pb["identity"]),
+                                       cast_colors(pa) + cast_colors(pb))
+        bgpx = bg_img.load()
+        for role, p in (("A", pa), ("B", pb)):
+            cx = side_x(lc, role)
+            samples = [bgpx[x, y] for y in range(1150, 1700, 12)
+                       for x in range(cx - 160, cx + 160, 12)]
+            worst = min(dist(c, s) for c in char_colors(p) for s in samples)
+            check(f"{lc} {role} 立绘↔背景不靠色 ≥36", worst >= 36, f"最小距离 {worst:.0f}")
+
+        # 探针⑤：三层带（需求②）——底版 band 资产：翻译层（30px 连续行块）与金色注记层。
+        # 白色原文的抗锯齿会路过翻译色容差，故按「连续行块」判层：真翻译层（哪怕只有
+        # 「绿茶。」三个字）也有 ≥6 个连续的 ≥8 命中行；zh-CN（无翻译层）实测零命中行。
+        want_gloss = any(ln.get("gloss") for ln in loc["dialogue"])
+        noted = [ln for ln in loc["dialogue"] if ln.get("note")]
+        check(f"{lc} 注记行 ≥3（⚑ 体例）", len(noted) >= 3, f"{len(noted)} 行")
+        gl_lines, nt_n, ys_gl, ys_nt = 0, 0, [], []
+        for ln in noted:
+            bp = TEXT_DIR / f"band_{PREFIX}_{lc}_{ln['i']}_base.png"
+            if not bp.exists():
+                continue
+            bimg = Image.open(bp).convert("RGB").crop((0, 0, 1080, BAND_H))
+            bpx = bimg.load()
+            run = best = 0
+            for y in range(BAND_H // 2, BAND_H):               # 原文层永不进下半带
+                g_here = sum(1 for x in range(0, 1080, 2)
+                             if near(bpx[x, y], hexrgb(BAND_GLOSS), 16))
+                n_here = sum(1 for x in range(0, 1080, 2)
+                             if near(bpx[x, y], hexrgb(BAND_NOTE), 16))
+                nt_n += n_here
+                if n_here:
+                    ys_nt.append(y)
+                if g_here >= 8:
+                    ys_gl.append(y)
+                    run += 1
+                    best = max(best, run)
+                else:
+                    run = 0
+            gl_lines += 1 if best >= 6 else 0
+        if want_gloss:
+            check(f"{lc} 翻译层在带内呈现", gl_lines == len(noted),
+                  f"{gl_lines}/{len(noted)} 注记行有翻译层")
+        else:
+            check(f"{lc} 原文即中文，无翻译层", gl_lines == 0, f"{gl_lines} 行误报")
+        check(f"{lc} 注记层在带内呈现（金色）", nt_n > 15 * len(noted), f"{nt_n} px")
+        if want_gloss and ys_gl and ys_nt:
+            check(f"{lc} 注记层比翻译层更靠下（更小一号）",
+                  sum(ys_nt) / len(ys_nt) > sum(ys_gl) / len(ys_gl),
+                  f"翻译均 y={sum(ys_gl) / len(ys_gl):.0f} / 注记均 y={sum(ys_nt) / len(ys_nt):.0f}")
+
+        # 探针⑥：成片帧——注记行说到一半时，翻译层像素应出现在成片文字带内
+        #（注记金色与卡拉OK高亮同色 #E8C24A，帧上不可分辨，故注记层以底版资产探针⑤为准）
+        if want_gloss and noted:
+            nl = next(lo for lo in tl["lines"] if lo["i"] == noted[0]["i"])
+            img3 = Image.open(grab(lc, nl["start"] + nl["dur"] * 0.5, tmp / f"{lc}_n.png")).convert("RGB")
+            g_in_frame = count_color(img3, hexrgb(BAND_GLOSS), 0, 1080,
+                                     BAND_Y, BAND_Y + BAND_H, tol=16, step=2)
+            check(f"{lc} 翻译层出现在成片帧", g_in_frame > 25, f"{g_in_frame} px")
 
         # 探针③：末句处 token 装置应全亮（零遗漏的画面侧证据）
         last = tl["lines"][-1]

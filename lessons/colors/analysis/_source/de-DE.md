@@ -98,6 +98,7 @@
 - **原文**：An die gelben Schilder am Wanderweg!
 - **注音**：—
 - **中文翻译**：徒步道上的黄色路牌！
+- **文化/语言注记**：德国徒步指路牌统一黄色（Wanderweg 标准）——道具柱即按此设
 
 ### 第 10 行　六色问答　说话人=A　情绪=happy　类型=问句
 - 对应色：black（色词 Schwarz）　chip=#26262E
@@ -114,6 +115,7 @@
 - **原文**：An den Schwarzwald. Dort war ich als Kind.
 - **注音**：—
 - **中文翻译**：黑森林。我小时候去过。
+- **文化/语言注记**：Schwarzwald＝「黑森林」——地名自带颜色
 
 ### 第 12 行　六色问答　说话人=B　情绪=neutral　类型=问句
 - 对应色：white（色词 Weiß）　chip=#F5F3EE
@@ -138,6 +140,7 @@
 - **原文**：Sechs Farben – und jetzt weiß ich alles über dich!
 - **注音**：—
 - **中文翻译**：六种颜色——现在我"weiß"（知道）你的一切啦！
+- **文化/语言注记**：weiß 既是「白」又是「知道」——德语原生双关，不硬译
 
 ### 第 15 行　道别　说话人=B　情绪=encouraging　类型=答句
 - 对应色：white（色词 Weiß）　chip=#F5F3EE

@@ -42,6 +42,7 @@
 - **原文**：What comes to mind when I say... 'red'?
 - **注音**：—
 - **中文翻译**：我说"red"（红色）时，你会想起什么？
+- **文化/语言注记**：问句用惯用语 what comes to mind，不是「说到」直译
 
 ### 第 3 行　六色问答　说话人=B　情绪=neutral　类型=答句
 - 对应色：red（色词 red）　chip=#D8453B
@@ -98,6 +99,7 @@
 - **原文**：Yellow cabs! I once took one to the wrong airport.
 - **注音**：—
 - **中文翻译**：黄色出租车！我有次坐它坐错了机场。
+- **文化/语言注记**：yellow cab＝纽约黄色出租车——配「坐错机场」是都会冷笑话
 
 ### 第 10 行　六色问答　说话人=A　情绪=happy　类型=问句
 - 对应色：black（色词 black）　chip=#26262E
@@ -114,6 +116,7 @@
 - **原文**：Black coffee. No sugar.
 - **注音**：—
 - **中文翻译**：黑咖啡。不加糖。——馆主本色
+- **文化/语言注记**：black coffee 指「不加奶糖」——这里的黑是浓度，不是色调
 
 ### 第 12 行　六色问答　说话人=B　情绪=neutral　类型=问句
 - 对应色：white（色词 white）　chip=#F5F3EE

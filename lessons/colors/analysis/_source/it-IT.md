@@ -50,6 +50,7 @@
 - **原文**：A una Ferrari, ovviamente. Siamo in Italia!
 - **注音**：—
 - **中文翻译**：法拉利，还用说。我们可是在意大利！
+- **文化/语言注记**：rosso Ferrari＝意大利的「国家红」——车企色卡成了文化符号
 
 ### 第 4 行　六色问答　说话人=B　情绪=neutral　类型=问句
 - 对应色：blue（色词 blu）　chip=#4657D8
@@ -58,6 +59,7 @@
 - **原文**：E "blu"?
 - **注音**：—
 - **中文翻译**：那"blu"（蓝色）呢？
+- **文化/语言注记**：意大利两蓝之分：blu 深蓝／azzurro 天蓝——国家队就叫 Gli Azzurri
 
 ### 第 5 行　六色问答　说话人=A　情绪=happy　类型=答句
 - 对应色：blue（色词 blu）　chip=#4657D8
@@ -130,6 +132,7 @@
 - **原文**：A una Vespa bianca! Come quella di zia!
 - **注音**：—
 - **中文翻译**：白色的 Vespa 小摩托！我姑妈那辆那种！
+- **文化/语言注记**：白色 Vespa 小摩托＝意式街头经典款
 
 ### 第 14 行　小结　说话人=A　情绪=happy　类型=答句
 - 对应色：white（色词 bianco）　chip=#F5F3EE

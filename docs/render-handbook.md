@@ -38,7 +38,7 @@ uv run usine-cards assets  [--only id1,id2]          # Edge headless 文字层
 uv run usine-cards render  [--only id1,id2] [--workers 7]   # 帧渲染 + ffmpeg（Pillow 12.3.0）
 uv run python -m usine.qa_all                        # 32 单元静态验收
 uv run python -m usine.qa_motion                     # 动态验收（含幂等重渲抽检）
-uv run usine-parse --scene colors                    # scenes/scene-<id>.md → scene_<id>.json（只抽取不改写）
+uv run usine-parse --scene colors                    # lessons/<id>/scene.md → lessons/<id>/scene.json（只抽取不改写）
 uv run usine-scene render --scene colors [--only zh-CN]
 uv run python -m usine.qa_scene --scene colors [--only zh-CN]
 ```
@@ -103,12 +103,15 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | 收尾招牌动作 | `intro-cards.json` `close`（单码或按序码列；pose_for 全部码：wave/thumbs_up/point/nod/shrug/mini_jump/run_out/turn_freeze/snap/camera_snap/chest_pat/deadpan_nod/twirl/lean_in/pocket_sway/head_tilt_smile/thumbs_run/shoot_run/…） | 码列按时序衔接，`close_dur_for` 表在 `render_card`；跑出画族占满剩余时长 |
 | 入场姿态 | `intro-cards.json` `entry_pose`（码列，窗口 [0.05, min(entry,1.2)]s） | 取代旧"活泼统一挥手"硬编码；与手势/收尾优先级 close > gesture > entry |
 | 人设（名字/声线/色板/发型/配饰/identity/RTL） | `personas/personas.json` | 色板字段被 qa_char 对照，改色必跑 qa_all |
+| 脸型 / 服装轮廓 | `movement.face`（`FACE_SPECS` 6 型：round/tall/oval/wide/heart/square）＋ `outfit` 槽（bottom=skirt / kind=tunic\|pinafore\|vest / buttons） | 几何全部从 `face_geo()` 派生，探针自动跟随；新增 `zipper`/`clipboard`/`towel_shoulder` 挂件均有 qa_char 探针（不变量⑩） |
 | **头身比例 / 五官位置** | `face_geo()` 比率表（见 plan.md §8.3 表） | 探针自动跟随；跑 qa_all + qa_motion |
 | 发型绘制 | `draw_character` 前发/背发层两段（`style` 分支） | 侧发会盖耳朵：新发型想露耳要留出 `rx*0.94` 之外的空间 |
 | 配饰绘制 | `draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.435×头宽` |
 | 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html` | **禁 position:absolute / transform**（坑⑦）；尾色必须同 `UI_INK`；语言牌 = 国旗 emoji＋语种名（`pill_<locale>` 14 张按语种共享） |
 | 场景背景 | `SCENES` 注册表（64 个原语，`@scene("名")`）+ `intro-cards.json` `scene[]` | 全部用 `pal` 色板 + 模块级 `SCENE` 中性色表，禁写字面 RGB；场景描边只许 `pal["ink"]` |
-| 文字带（字幕条） | `band_html`（64px 起自适应缩到 30px） | BAND_Y=100, BAND_H=300，头像区 400–840 之间别放东西 |
+| 文字带（字幕条） | 亮相卡 `band_html`；**场景线 `band_text_html` 三层堆叠**：原文 64px 自动缩排 → 中文对照 30px（`BAND_GLOSS` #AEB6DC，比原文小）→ ⚑ 文化/语言注记 22px（`BAND_NOTE` 主题金，比对照再小） | BAND_Y=100, BAND_H=300，头像区 400–840 之间别放东西；坑⑩ 补偿多出的截图高度在 `band_png()` 载入时裁掉，深色尾巴不进成片 |
+| 场景线人物动作（排他） | `personas/personas.json` 每人 `moves` 槽位表（9 槽→逐人姿态码），`persona_pose()` 渲染时映射 | 槽位语义写剧本 `` `pose` `` 注记（数据），动作词汇逐人单射；活泼池∩沉稳池=∅ → 同台 A/B 零交集（qa §3 有探针）；未映射槽位回退槽名 |
+| 场景线人物↔背景不靠色 | `prerender_scene_bg`：`band_alpha()` 舞台背板带只压**渐变**（y 760–1720 最多 26%）；场景原语与站位阴影画完后跑**半空间推开**（距同台取样色 <96 且投影 <48 的像素沿 band_dark 方向补足到 48） | 压整幅会把中间调原语推到服装色上（de-DE trail↔卡其裤实测 4.1），只压渐变+定点推开才两全；半空间对 LANCZOS 平均封闭（双向推开会被边缘混色拉回，he-IL 实测 15.0）；装置是教学 UI 画在推开之后不动；qa §4 探针：立绘取样色 vs 本列纯背景最小欧氏距离 ≥36（28 人实测最小 36.9） |
 | 文字层字体 | `FONT_CSS`（14 语种映射） | 新语种先确认 Windows 字体可用 |
 | 超采样倍率 / 帧率 / 片长 | `SS`（现 2）/ `W,H,FPS,DUR` | SS 提到 3 渲染耗时 ×~2.2，先单卡试 |
 | 口型/眨眼/呼吸节奏 | `openness_at` / blinkCycleSec（personas）/ `breath` | 眨眼相位由 `rnd(seed:blink:n)` 锁定，幂等 |
@@ -124,7 +127,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | `qa_all.py` | 32 单元全量（28 卡 + 4 个 `<id>_f` 变体，变体共享人设探针）：时长=10.0±0.05s、aac、t=3.0 探针（mood 从时间线推导）、收尾帧按 9.4s 活跃码查躯干（跑出画族跳过） | `ALL 32 UNITS PASS` |
 | `qa_motion.py` | 卡拉OK LTR 覆盖率递增 / RTL 高亮中位 x 左移、口型开合+收尾闭合、RTL 气泡镜像、眨眼跌落、进度条推进、名牌/语言牌弹出、项链吊坠摆动、镜片反光位移、瞳孔视线漂移、呆毛颤动（采样框全部从 face_geo/布局常量推导） | `MOTION QA PASS` |
 | 幂等抽检 | **qa_motion 内置**：重渲一卡 → `ffmpeg -f hash -hash md5`（`-map 0:v`） | **视频流逐帧一致**（容器字节差来自 ffmpeg 元数据，属正常——曾误报"逐字节一致"，见 §5 坑⑫） |
-| `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架 / 画面探针 / 音频契约 / 幂等 | `N PASS / 0 FAIL` |
+| `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架（含 **moves 排他**：单射合法 + 同台零交集）/ 画面探针（三层带翻译/金色注记呈现与层序、立绘↔背景不靠色 ≥36、带内各文字色↔带底 ≥100）/ 音频契约 / 幂等 | `N PASS / 0 FAIL` |
 
 **「文本契约」这组是踩过坑才加的**——三类问题都不影响渲染，ffmpeg 全部 `rc=0`，
 画面探针也照样 PASS，全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，
@@ -179,6 +182,9 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     （本机实测差 94px），文字带底部被裁掉一截。
     → `edge_viewport_h()` 探针实测视口高，`edge_win_h = BAND_H + max(0, 300 − 视口高)` 动态补高
     （`intro_cards.py::cmd_assets`）——不写死 94，换机器自动重测。
+    **残留尾巴**：补高后的 opaque 截图比 BAND_H 高一截，场景线把带底以下的深色像素一并贴进成片
+    （成片 y 400–494 有一块深色矩形，名牌只盖住下半）。→ `scene_video.py::band_png()` 载入时
+    统一裁到 `(0, 0, W, BAND_H)`；qa §4 帧探针顺带看守带窗边界。
 11. **肩点落在躯干轮廓外 + 臂躯间露底缝**：几何拼接无解剖概念，肩关节浮在躯干外
     ~35px，臂与躯干之间 22px 露出背景；静止手位距躯干 100px（a1=14° 外张）。
     → `face_geo` 躯干加宽 `torso_hw=sh_hw=0.435×头宽`（旧 0.34×）+ 腿加粗 0.185H +
@@ -194,9 +200,23 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     **禁为"补旗"私画简化国旗**——沙（经文）/港（洋紫荆）/印（法轮）徽记不可几何简化，
     错旗比字母对更糟。
 
+14. **心形脸收尖下巴观感像鬼**：`heart` 型旧实现 = 上半椭圆＋矩形＋**三角收尖**（顶点在
+    chin 线之下 1.06ry），单点尖角无宽度，剪影像「鬼下巴」。 → 改为**二次贝塞尔圆收下巴**
+    （两侧弧线收至 (0, 1.04ry)，底缘切线水平、平滑无尖角；`draw_character` heart 分支）。
+    **准则：脸型轮廓禁止收尖**——下颌可以窄、必须圆。chin_tip 探针 (hx, 1.02ry) 仍命中肤色。
+15. **袖子遮嘴**：手臂（胶囊袖 `fill=top`＝衣服层）画在整个 draw_character 的**最后**，
+    抬臂姿态（wave 138°/thumbs_up 150°/hand_shoot 122°…）的袖子胶囊恰好扫过嘴位
+    （嘴 = chin 上方 0.185H，肘部高度与之重合）——衣服在人脸前面把嘴盖住。
+    → 手臂整段（袖＋手＋腕饰＋手花）移到「躯干之后、颈与头**之前**」：衣服层永不压脸，
+    脸/嘴永远最后画在手臂之上；各姿态的手都落在脸轮廓之外（肩点外展），移后不丢可读性。
+    唯一例外 `face_cam`（举到脸前的道具相机，要的就是遮脸）仍留在表情之后。
+    **准则：图层序 = 背发 → 腿脚 → 躯干/挂件 → 手臂 → 颈与头 → 前发 → 胡子 → 表情 → 头部配饰**；
+    抽帧验证：嘴部窗口袖子色 0 像素（28 人 × wave/thumbs_up/hand_shoot/jump/idle 全过）。
+
 另：渲染里所有随机性（眨眼相位、场景微扰）必须 `rnd(f"{seed}:...")` 播种，否则幂等破坏。
 
 > 坑坑⑩⑪⑫⑬ 记录于 2026-10-03 人物形象打磨（肩楔/肩点内收/Edge 视口补偿 + 幂等口径修正 + 国旗 emoji 平台回退）。
+> 坑坑⑭⑮ 记录于 2026-10-03 用户观感反馈（尖下巴像鬼、袖子遮嘴）——两条都是「图层/轮廓准则」级修复。
 > 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）见 [adr-character-tech.md](adr-character-tech.md)。
 
 ---
@@ -241,7 +261,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 管线零改动。
 
 ```
-scenes/scene-<id>.md ──parse_scene.py──▶ scene_<id>.json ──scene_video.py──▶ build/scene/scene-<id>_<locale>.mp4
+lessons/<id>/scene.md ──parse_scene.py──▶ lessons/<id>/scene.json ──scene_video.py──▶ build/scene/scene-<id>_<locale>.mp4
 ```
 
 ```powershell
@@ -253,13 +273,26 @@ python  parse_scene.py --list                    # 列出仓库内已有场景 i
 .\run.ps1 qa-scene                                # qa_scene.py 六组验收
 ```
 
-- **新场景零代码接入**：新建 `scenes/scene-<id>.md` 照抄 §0 机读规格体例即可，解析器与渲染线不动。
+- **新场景零代码接入**：新建 `lessons/<id>/scene.md` 照抄 §0 机读规格体例即可，解析器与渲染线不动。
   §0 = `sceneId` / `title` / `rtlLocales` / `durationBudget`（可选，`40-55`）
   + §0.1 教学 token 表 + §0.2 装置规格表
   （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）
   + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）。
 - **token chip 两型**：`#hex` = 色片（井内实心填充）；`"文本"` = 字牌（Edge 渲 token 词文字层贴入井）。
   §0.2 `well` 缺省时由场景中性色推导——**浅色 chip 落在同色底上会看不见**，故显式给色是常用手段。
+- **台词行体例**：`- **A**（happy）：「原文」（*注音*）——中文对照｜「手势词」处 \`pose\`｜⚑文化/语言注记`。
+  中文对照**只认第一个 ｜ 之前的「——」**（手势段/注记段里的「——」是行内批注，不是翻译——
+  zh-CN 曾把「——六格全亮」「——班底彩蛋」整段吃成对照，连带注记里的「——」也中招）；
+  ⚑ 注记段可选（一行一句中文），渲染成比对照更小一号的金色注记条，注记内可自由用「——」。
+- **动作排他（人设是数据）**：剧本只写槽位语义（point/nod/wave…），实现走 `personas.json`
+  每人 `moves` 槽位表——同一槽位每人一个专属姿态码，逐人单射；活泼池与沉稳池不相交，
+  同台 A/B 的动作词汇表零交集由构造保证（qa §3 探针对账）。
+- **三层文字带**：原文（64px 起自适应缩）→ 中文对照（30px `BAND_GLOSS`）→ ⚑ 注记（22px `BAND_NOTE` 金），
+  全部收在 BAND_H 内；卡拉OK高亮裁贴对堆叠带透明（对照/注记在 base/hl 两版逐像素相同）。
+- **舞台背板带 + 原语靠色规避**：背板带只压**渐变**（`band_alpha`，26%），奶油色上装/肤色才不与米色底靠色；
+  场景原语与站位阴影画完后跑**半空间推开**——距同台取样色 <96 且在 band_dark 一侧投影 <48 的像素补足到 48，
+  装置是教学 UI 画在最后不动。推开必须是**单向半空间**：双向推开或后画阴影都会被 LANCZOS 边缘混色
+  拉回服装色上（he-IL 15.0 / de-DE 13.4 两次实测踩坑）。
 - **人物 rig 零复制**：`scene_video.py` 从 `intro_cards` import `draw_character` / `face_geo` /
   `pose_for` / `gaze` / `phys` / `SCENES` / 文字层抠像 / 情绪增量表，只写场景层（选角、双人站位、
   token 装置、气泡与 RTL 镜像）。加人物或改脸型 → 只动 `intro_cards.py`，两条线同时受益。
@@ -304,22 +337,23 @@ une_usine_avec_des_machines_rugissantes/
 │  ├─ adr-character-tech.md          # 人物生成技术选型裁定（H3+Remotion 迁移案 = 备选，Pillow 续役）
 │  ├─ self-introductions.md          # 28+4 卡内容种子（台词/注音/对照/分镜/验收清单）
 │  └─ benchmark-duolingo.md          # 对标台账（多邻国三文档逐条裁定）
-├─ scenes/                           # ★ 教学场景剧本（scene-<id>.md，机读事实源；新场景在这里新建）
-│  └─ scene-colors.md                # colors 场景：§0 机读规格 + 共享骨架 + 14 语种原生剧本 + 词表
-├─ scene_colors.json                 # 场景线数据（parse_scene.py 从 scenes/scene-<id>.md 机械抽取；渲染与教学文档共用）
+├─ lessons/                          # ★ 课程统一目录（每课一目录 lessons/<id>/；新课在这里新建）
+│  └─ colors/                        # colors 课（说到颜色，你会想到什么）
+│     ├─ scene.md                    # 场景剧本（机读事实源：§0 机读规格 + 共享骨架 + 14 语种原生剧本 + 词表）
+│     ├─ scene.json                  # 场景线数据（parse_scene.py 从 scene.md 机械抽取；渲染与教学文档共用）
+│     └─ analysis/                   # 教学文档侧的人工解析（与视频管线解耦）
+│        ├─ _source/<locale>.md      # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/⚑注记/舞台/创作注记）
+│        └─ <locale>.json × 14       # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
 ├─ run.ps1                           # ★ 统一入口（-Scene <id> 选教学场景）
 ├─ pyproject.toml / uv.lock / .venv # 包与依赖（usine-cards / usine-parse / usine-scene / usine-lesson / usine-dump-lesson）
 ├─ src/usine/                        # ★ 全部代码（数据在仓库根，产物在 build/；`from usine import ROOT` 定位根，不依赖 cwd）
 │  ├─ intro_cards.py                 # ★ 管线一（tts/assets/render；face_geo/MOOD_FACE/SCENES/pose_for/POSE_CODES）
 │  ├─ qa_grid.py / qa_char.py / qa_all.py / qa_motion.py   # 验收四件套（§4）
-│  ├─ parse_scene.py                 # 场景线：scenes/scene-<id>.md → scene_<id>.json（通用解析器，只抽取不改写）
+│  ├─ parse_scene.py                 # 场景线：lessons/<id>/scene.md → scene.json（通用解析器，只抽取不改写）
 │  ├─ scene_video.py                 # 场景线（M2，场景无关：tts/assets/render；选角/双人站位/token 装置/RTL 镜像）
 │  ├─ qa_scene.py                    # 场景线验收（§4.5，--scene <id>）
-│  ├─ dump_lesson_source.py          # scene_<id>.json → lesson_analysis/_source/<locale>.md（只排版不改写）
-│  └─ build_lesson.py                # 合并成 build/lesson/index.html（语系排序 9 组 + 逐句解析；视频走顶部 sticky 固定栏 + 语种 tab）
-├─ lesson_analysis/                  # 教学文档侧的人工解析（与视频管线解耦）
-│  ├─ _source/<locale>.md            # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/舞台/创作注记）
-│  └─ <locale>.json × 14             # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
+│  ├─ dump_lesson_source.py          # lessons/<id>/scene.json → analysis/_source/<locale>.md（只排版不改写）
+│  └─ build_lesson.py                # 合并成 build/lesson/<id>/index.html（语系排序 9 组 + 逐句解析；视频走顶部 sticky 固定栏 + 语种 tab）
 ├─ personas/
 │  ├─ personas.json                  # ★ 28 人档案（人设唯一事实源）
 │  └─ intro-cards.json               # ★ 28 卡种子（cast/lines/moods/gestures/entry_pose/scene/close；RTL 卡带 variants[] 女性观众版）
@@ -333,5 +367,7 @@ une_usine_avec_des_machines_rugissantes/
    │  ├─ scene-<id>_<locale>.mp4      # 每场景每语种一支（40–60s）
    │  ├─ audio/                       # scene-<id>_<locale>.m4a / .timeline.json（cast/token 点亮时刻/逐行词轴）+ 逐行 mp3 缓存
    │  └─ text/                        # band_/bub_/pill_/tok_ 均带 scene-<id>_<locale> 前缀 · badge_<id>（人物名牌，跨场景共享）
-   └─ lesson/index.html               # 教学文档（build_lesson.py 产物；视频按 ../scene/ 相对路径引用）
+   └─ lesson/<id>/                    # 教学文档（build_lesson.py 产物，每课一目录）
+      ├─ index.html                   # 单文件 HTML（视频按 ../../scene/ 相对路径引用）
+      └─ poster_<locale>.jpg          # 封面帧（成片生成/复用）
 ```

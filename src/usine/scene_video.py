@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """scene_video.py — 教学场景 A/B 对话渲染线（M2，场景无关）
 
-数据：scenes/scene-<id>.md ──parse_scene.py --scene <id>──▶ scene_<id>.json + personas/personas.json
+数据：lessons/<id>/scene.md ──parse_scene.py --scene <id>──▶ lessons/<id>/scene.json + personas/personas.json
 产物：build/scene/scene-<id>_<locale>.mp4（1080x1920 @ 30fps，每语种一支）
 
 人物 rig（face_geo / draw_character / pose_for / gaze / phys / 挂件物理 / 场景原语 / 文字层
@@ -10,7 +10,7 @@
 token 装置（`#hex` 色片 / `"文本"` 字牌，可选）、道具高亮、气泡与 RTL 镜像
 （不变量①：不复制人物代码；不变量⑦：随机全走种子）。
 场景是数据不是代码：token / RTL / 装置几何全部来自剧本 §0 机读规格，
-新教学场景 = 在 scenes/ 新建 scene-<id>.md 照抄体例，本文件零改动。
+新教学场景 = 在 `lessons/<id>/` 新建 `scene.md` 照抄体例，本文件零改动。
 
 三段管线（uv 管理单一 .venv，入口见 run.ps1）：
     uv run usine-scene tts     --scene <id> [--only zh-CN,...]   # edge-tts：逐行合成 + 词级时间戳
@@ -37,8 +37,8 @@ from .intro_cards import (
     hexc, html_escape, matte_combine, mix, openness_at, pop_scale, pose_for, probe_duration,
     draw_character, synth_line, rnd, POSE_CODES,
 )
-from .parse_scene import scene_paths    # scenes/scene-<id>.md / scene_<id>.json 命名约定的唯一事实源
-from usine import ROOT as HERE          # 仓库根（scenes/ / personas / build 的锚点）
+from .parse_scene import scene_paths    # lessons/<id>/scene.md / scene.json 命名约定的唯一事实源
+from usine import ROOT as HERE          # 仓库根（lessons/ / personas / build 的锚点）
 
 SCENE_ID = "colors"                      # CLI --scene 覆盖
 PREFIX = f"scene-{SCENE_ID}"            # 产物/缓存名前缀：scene-colors_<locale>.mp4
@@ -115,7 +115,7 @@ def locales_of(only):
 
 
 def is_rtl(locale):
-    """RTL 语种由剧本 §0 `rtlLocales` 给定（scene-colors.md §1.5：文字区右起、站位对调）。"""
+    """RTL 语种由剧本 §0 `rtlLocales` 给定（lessons/colors/scene.md §1.5：文字区右起、站位对调）。"""
     return locale in RTL_LOCALES
 
 
@@ -235,25 +235,44 @@ def cmd_tts(only):
 
 def hl_hex(chip):
     """卡拉OK高亮色 = 当前 token 的色片 chip 提亮；浅色 chip 在深带上无对比 → 落主题金。
+    深色 chip（如黑）22% 提亮距带底仅 ~73 → 逐档加白直到 ≥120（qa_scene §4 有对比探针）。
     字牌 chip（`"文本"`）无色相 → 落白色。"""
     c = chip_color(chip)
     if c is None:
         return "#FFFFFF"
     if 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 170:
         return "#%02X%02X%02X" % THEME["gold"]
-    return "#%02X%02X%02X" % mix(c, (255, 255, 255), 0.22)
+    for k in (0.22, 0.30, 0.38, 0.46, 0.54, 0.62, 0.70, 0.78):
+        c2 = mix(c, (255, 255, 255), k)
+        d2 = sum((c2[i] - BAND_BG[i]) ** 2 for i in range(3))
+        if d2 >= 120 ** 2:
+            return "#%02X%02X%02X" % c2
+    return "#%02X%02X%02X" % mix(c, (255, 255, 255), 0.78)
 
 
-def band_text_html(text, locale, rtl, color):
-    """文字带：与亮相卡同款自动缩排（基线 64px，溢出降到 30px）。"""
-    body = f"""<div id="wrap"><div id="t"
+BAND_GLOSS = "#AEB6DC"   # 中文翻译（比原文小一号，柔浅紫灰——与深带底对比 ≥ 150）
+BAND_NOTE = "#E8C24A"    # 文化/语言注记（比翻译再小一号，主题金）
+
+
+def band_text_html(text, gloss, note, locale, rtl, color):
+    """文字带（三层堆叠，布局不变量：全部内容收在 BAND_H 内）：
+    原文（64px 自动缩排）→ 中文翻译（30px，比原文小）→ ⚑ 文化/语言注记（22px，比翻译再小）。
+    注记仅「特别需要说明的」行才有（剧本 ⚑ 段），翻译每行必有（——中文对照）。"""
+    gl = (f'<div id="g" dir="ltr" style="max-width:{W-120}px;font-size:30px;line-height:1.35;'
+          f'font-weight:500;color:{BAND_GLOSS};text-align:center;">{html_escape(gloss)}</div>'
+          if gloss else "")
+    nt = (f'<div id="n" dir="ltr" style="max-width:{W-120}px;font-size:22px;line-height:1.4;'
+          f'font-weight:600;color:{BAND_NOTE};text-align:center;">⚑ {html_escape(note)}</div>'
+          if note else "")
+    body = f"""<div id="wrap" style="flex-direction:column;justify-content:center;
+      gap:10px;"><div id="t"
       style="max-width:{W-96}px;padding:0 20px;text-align:center;color:{color};
-      font-size:64px;font-weight:600;line-height:1.3;">{html_escape(text)}</div></div>
+      font-size:64px;font-weight:600;line-height:1.3;">{html_escape(text)}</div>{gl}{nt}</div>
     <script>
     var el=document.getElementById('t');var fs=64;
-    while(fs>30&&el.scrollHeight>{BAND_H-36}){{fs-=2;el.style.fontSize=fs+'px';}}
+    while(fs>30&&el.parentElement.scrollHeight>{BAND_H-30}){{fs-=2;el.style.fontSize=fs+'px';}}
     </script>"""
-    return HTML_HEAD.format(w=W, h=BAND_H, bg=f"rgb{BAND_BG}", font=FONT_CSS[locale],
+    return HTML_HEAD.format(w=W, h=BAND_H, bg=f"rgb{BAND_BG}", font=FONT_CSS[locale] + ", 'Microsoft YaHei', sans-serif",
                             dir="rtl" if rtl else "ltr", body=body)
 
 
@@ -357,10 +376,12 @@ def cmd_assets(only):
                        token_plaque_html(w, lc, r, well_bg or "#EDE9E0"))
         for ln in loc["dialogue"]:
             opaque(f"band_{PREFIX}_{locale}_{ln['i']}_base",
-                   lambda t=ln["text"], lc=locale, r=rtl: band_text_html(t, lc, r, "#D6DCEE"))
+                   lambda t=ln["text"], g=ln.get("gloss"), n=ln.get("note"), lc=locale, r=rtl:
+                   band_text_html(t, g, n, lc, r, "#D6DCEE"))
             opaque(f"band_{PREFIX}_{locale}_{ln['i']}_hl",
-                   lambda t=ln["text"], lc=locale, r=rtl, h=hl_hex(ln["tokenChip"]):
-                   band_text_html(t, lc, r, h))
+                   lambda t=ln["text"], g=ln.get("gloss"), n=ln.get("note"), lc=locale, r=rtl,
+                   h=hl_hex(ln["tokenChip"]):
+                   band_text_html(t, g, n, lc, r, h))
             if ln["bubble"]:
                 matte(f"bub_{PREFIX}_{locale}_{ln['i']}",
                       lambda bg, b=ln["bubble"], tok=ln["tokenChip"], lc=locale, r=rtl:
@@ -540,17 +561,41 @@ def ring_cell(d, cell, ink, w=6):
 
 # ---------- 渲染阶段 ----------
 
-def prerender_scene_bg(loc, ident_a, ident_b):
+def cast_colors(p):
+    """该人物可上镜的取样色（发/上衣/下装），qa_scene 立绘↔背景探针同用。
+    近白的低饱和服装与米色底天然混淆、探针会误命中背景，剔除；一个都没有则退回发色。"""
+    def usable(hexs):
+        r, g, b = hexc(hexs)
+        return (max(r, g, b) - min(r, g, b)) > 34 or (r + g + b) / 3 < 150
+    keys = ("hair", "outfitTop", "outfitBottom")
+    cols = [hexc(p["palette"][k]) for k in keys if usable(p["palette"][k])]
+    return cols or [hexc(p["palette"]["hair"])]
+
+
+def prerender_scene_bg(loc, ident_a, ident_b, cast_cols=()):
     from PIL import Image, ImageDraw
     import numpy as np
     ident = mix(ident_a, ident_b, 0.5)
     top, bottom = mix((246, 243, 238), ident, 0.10), mix((236, 232, 224), ident, 0.20)
+
+    def smoothstep(v):
+        v = min(1.0, max(0.0, v))
+        return v * v * (3 - 2 * v)
+
+    # 舞台背板带：人物站位区的渐变底整体压暗 ~26%（上下缘 smoothstep 软过渡）。
+    # 米色/奶白上装、浅肤色 vs 米色渐变实测只差 11-19，不压暗必靠色（需求③）。
+    band_dark = mix((64, 56, 48), ident, 0.12)
+
+    def band_alpha(y):
+        return smoothstep((y - 760) / 130) * (1 - smoothstep((y - 1620) / 100))
+
     arr = np.zeros((H, W, 3), dtype=np.uint8)
     for y in range(H):
-        arr[y, :, :] = mix(top, bottom, y / (H - 1))
+        a = 0.26 * band_alpha(y)
+        arr[y, :, :] = mix(mix(top, bottom, y / (H - 1)), band_dark, a)
     img = Image.fromarray(arr).resize((W * SS, H * SS), Image.BILINEAR)
     d = DrawScaled(ImageDraw.Draw(img), SS)
-    ground = mix((230, 226, 216), ident, 0.18)
+    ground = mix((230, 226, 216), ident, .18)
     d.rectangle([0, 1700, W, H], fill=ground)
     pal = scene_pal(ident_a, ident_b)
     for name in (loc.get("prop") or {}).get("scenes") or []:   # 复用 intro_cards 的场景原语
@@ -559,11 +604,59 @@ def prerender_scene_bg(loc, ident_a, ident_b):
             fn(d, pal)
     for cx in (AX, BX):                                     # 双人站位阴影
         d.ellipse([cx - 150, 1680, cx + 150, 1742], fill=mix(ground, (50, 45, 40), 0.16))
+    # 原语靠色规避（需求③）：压暗整幅合成会把中间调原语推到服装色上（de-DE 压暗后的
+    # trail 与 Felix 卡其裤实测 4.1），故背板带只压渐变，原语改走「推开」——人物区背景中
+    # 距任一方取样色 <96 的像素，若在「band_dark 一侧」的投影 <48，则沿该方向补足到 48
+    # （投影 ≥48 ⇒ 欧氏距离 ≥48；LANCZOS 负瓣与阴影缘的 AA 混色最多回落 ~11，仍 ≥36 探针线）。推成半空间性质而非双向推开：LANCZOS 降采样是线性的，
+    # 双向推开会把两侧像素的平均值拉回取样色上（he-IL 衣夹线两侧像素实测 15.0）；
+    # 后画的站位阴影同理会与被推开的原语平均回服装色（de-DE 阴影缘实测 13.4）——
+    # 故阴影先画、推开最后跑，让带内全部像素共处同一半空间，平均（降采样）后性质不丢；
+    # 推移量在阈值处收敛为 0，无接缝。装置是教学 UI，画在推开之后不动（qa_scene §4 有对比探针）。
+    if cast_cols:
+        K, R = 48.0, 96.0
+        y0, y1 = 760 * SS, min(1800 * SS, H * SS)
+        a2 = np.asarray(img).astype(np.float32)
+        sub = a2[y0:y1]
+        dark = np.array(band_dark, np.float32)
+        ys = np.arange(y0, y1, dtype=np.float32) / SS
+        fy = np.array([smoothstep((v - 760) / 130) * (1 - smoothstep((v - 1700) / 100))
+                       for v in ys], np.float32)
+        fade = np.repeat(fy[:, None], sub.shape[1], axis=1)
+        act = fade > 0.02
+        for _ in range(3):
+            moved = False
+            for c in cast_cols:
+                cv = np.array(c, np.float32)
+                dv = dark - cv
+                dn = float(np.sqrt((dv ** 2).sum()))
+                dirv = dv / dn if dn > 1.0 else np.array([0.577, 0.577, 0.577], np.float32)
+                near = np.sqrt(((sub - cv) ** 2).sum(-1)) < R
+                proj = ((sub - cv) * dirv).sum(-1)
+                need = act & near & (proj < K)
+                if need.any():
+                    sub += need[..., None] * ((K - proj) * fade)[..., None] * dirv
+                    moved = True
+            if not moved:
+                break
+        np.clip(sub, 0, 255, out=sub)
+        a2[y0:y1] = sub
+        img = Image.fromarray(a2.astype(np.uint8))
+        d = DrawScaled(ImageDraw.Draw(img), SS)
     device = device_of(loc)
     cells = device_cells(device)                            # 井位/井形来自剧本 §0.2
     if cells:
         draw_device(d, device, cells, pal)                  # 装置外框（井内 token 逐帧填）
     return img.resize((W, H), Image.LANCZOS), cells
+
+
+def persona_pose(p, slot):
+    """排他动作：剧本标注的是**语义槽位**（point/nod/wave…，全语种共享骨架），
+    实现走 persona.moves 逐人专属姿态码（personas.json 数据槽）——同台 A/B 词汇表
+    互不相交（活泼/沉稳两个能量池全局不交叉），同一人跨课动作一致。槽位缺映射 → 回退槽位本身。"""
+    code = (p.get("moves") or {}).get(slot, slot)
+    if code not in POSE_CODES:
+        raise ValueError(f"{p['id']} moves.{slot}={code!r} 不在 POSE_CODES")
+    return code
 
 
 def karaoke_points(line):
@@ -607,12 +700,16 @@ def render_scene(locale, scene_id=None):
     by_role = {"A": pa, "B": pb}
     ident_a, ident_b = hexc(pa["identity"]), hexc(pb["identity"])
 
-    bg, cells = prerender_scene_bg(loc, ident_a, ident_b)
+    bg, cells = prerender_scene_bg(loc, ident_a, ident_b, cast_colors(pa) + cast_colors(pb))
     tokens = dict(scene["tokens"])
     order = scene["tokenOrder"]
 
-    bands = [(Image.open(TEXT_DIR / f"band_{PREFIX}_{locale}_{lo['i']}_base.png").convert("RGB"),
-              Image.open(TEXT_DIR / f"band_{PREFIX}_{locale}_{lo['i']}_hl.png").convert("RGB"),
+    def band_png(p):
+        # 坑⑩ 补偿使 Edge 截图比 BAND_H 高一截（视口差），带底以下的那截深色不得贴进成片
+        return Image.open(p).convert("RGB").crop((0, 0, W, BAND_H))
+
+    bands = [(band_png(TEXT_DIR / f"band_{PREFIX}_{locale}_{lo['i']}_base.png"),
+              band_png(TEXT_DIR / f"band_{PREFIX}_{locale}_{lo['i']}_hl.png"),
               karaoke_points(lo)) for lo in lines]
     badges = {r: Image.open(TEXT_DIR / f"badge_{tl['cast'][r]}.png").convert("RGBA")
               for r in ("A", "B")}
@@ -722,9 +819,9 @@ def render_scene(locale, scene_id=None):
                     xoff += (300 if not rtl else -300) * (1 - ease_out_cubic(u))
             pose = {}
             if lo and lo["pose"] and lo["poseT"] <= t < lo["poseT"] + POSE_DUR:
-                pose.update(pose_for(lo["pose"], (t - lo["poseT"]) / POSE_DUR, t, p))
+                pose.update(pose_for(persona_pose(p, lo["pose"]), (t - lo["poseT"]) / POSE_DUR, t, p))
             elif lo and lo["exits"] and speech_end <= t < speech_end + TAIL - 0.4:
-                pose.update(pose_for("wave", (t - speech_end) / (TAIL - 0.4), t, p))
+                pose.update(pose_for(persona_pose(p, "wave"), (t - speech_end) / (TAIL - 0.4), t, p))
             op = openness_at(own, t, p["id"]) if lo else 0.0
             if t < entry or t >= speech_end + 0.05:
                 op = 0.0
@@ -834,7 +931,7 @@ def main():
     ap = argparse.ArgumentParser(description="教学场景 A/B 对话场景渲染（M2）")
     ap.add_argument("phase", choices=["tts", "assets", "render", "all", "list"])
     ap.add_argument("--scene", default=SCENE_ID,
-                    help="场景 id（对应 scenes/scene-<id>.md / scene_<id>.json，缺省 colors）")
+                    help="场景 id（对应 lessons/<id>/scene.md / scene.json，缺省 colors）")
     ap.add_argument("--only", default="", help="逗号分隔的 locale 列表，如 zh-CN,ja-JP")
     ap.add_argument("--workers", type=int, default=6)
     args = ap.parse_args()

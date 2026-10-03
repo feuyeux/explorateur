@@ -18,10 +18,10 @@ douyin = ["playwright>=1.40"]
 
 [project.scripts]
 usine-cards = "usine.intro_cards:main"          # 亮相卡管线：tts / assets / render
-usine-parse = "usine.parse_scene:main"          # scene-<id>.md -> scene_<id>.json
+usine-parse = "usine.parse_scene:main"          # lessons/<id>/scene.md -> lessons/<id>/scene.json
 usine-scene = "usine.scene_video:main"          # 教学场景管线：tts / assets / render / list
-usine-lesson = "usine.build_lesson:main"        # scene_<id>.json + lesson_analysis -> 教学文档 HTML
-usine-dump-lesson = "usine.dump_lesson_source:main"  # scene_<id>.json -> 逐语种解析源文本
+usine-lesson = "usine.build_lesson:main"        # lessons/<id>/scene.json + analysis -> 教学文档 HTML
+usine-dump-lesson = "usine.dump_lesson_source:main"  # lessons/<id>/scene.json -> 逐语种解析源文本
 
 [build-system]
 requires = ["hatchling"]

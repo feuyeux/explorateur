@@ -133,13 +133,13 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：「江远江远！放学别走——我们来玩个颜色游戏吧！」｜`bounce-in` 入场，「游戏」处 `both-hands`
 - **B**（neutral）：「好。怎么玩？」｜`nod`
 - **A**（happy）：「说到红色，你会想到什么？」｜「红色」处 `point`（指红色颜料格）
-- **B**（neutral）：「我会想到——过年的灯笼。」｜「灯笼」处 `palm-open`；红格弹起
+- **B**（neutral）：「我会想到——过年的灯笼。」｜「灯笼」处 `palm-open`；红格弹起｜⚑红灯笼＝春节意象——红色在华文化主「喜庆」，不主「危险」
 - **B**（neutral）：「说到蓝色呢？」｜`point`（蓝格）
-- **A**（happy）：「我会想到天空！还有你的外套！」｜「外套」处 `point`（指 B 的夹克）——班底彩蛋：江远夹克 `#35486E`
+- **A**（happy）：「我会想到天空！还有你的外套！」｜「外套」处 `point`（指 B 的夹克）——班底彩蛋：江远夹克 `#35486E`｜⚑「外套」的答案指向搭档真实色板——班底彩蛋，换角即失效
 - **A**（happy）：「说到绿色，你会想到什么？」｜`point`（绿格）
 - **B**（neutral）：「我会想到草地。」｜「草地」处 `palm-open`；绿格弹起
 - **B**（neutral）：「说到黄色呢？」｜`point`（黄格）
-- **A**（happy）：「我会想到银杏叶！」｜「银杏叶」处 `both-hands`（比小扇子）；黄格弹起
+- **A**（happy）：「我会想到银杏叶！」｜「银杏叶」处 `both-hands`（比小扇子）；黄格弹起｜⚑银杏＝城市秋日限定意象——zh 版联想全走本土生活
 - **A**（happy）：「说到黑色，你会想到什么？」｜`point`（黑格）
 - **B**（neutral）：「我会想到夜晚。」｜「夜晚」处 `palm-open`；黑格弹起
 - **B**（neutral）：「说到白色呢？」｜`point`（白格）
@@ -156,16 +156,16 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）："Hey Ruby! One last game before you close — the color game!" ——嘿 Ruby！打烊前最后一局——颜色游戏！｜`bounce-in`，"game" 处 `both-hands`
 - **B**（neutral）："Fine. How does it work?" ——行。怎么玩？｜`nod`
-- **A**（happy）："What comes to mind when I say... 'red'?" ——我说"red"（红色）时，你会想起什么？｜"red" 处 `point`
+- **A**（happy）："What comes to mind when I say... 'red'?" ——我说"red"（红色）时，你会想起什么？｜"red" 处 `point`｜⚑问句用惯用语 what comes to mind，不是「说到」直译
 - **B**（neutral）："Stop signs. And fire trucks." ——停车牌。还有消防车。｜"signs" 处 `palm-open`；粉笔写下 red
 - **B**（neutral）："And 'blue'?" ——那"blue"（蓝色）呢？｜`point`
 - **A**（happy）："The sky! And my camera strap!" ——天空！还有我的相机背带！｜"strap" 处 `point`——班底彩蛋：Miles 相机带钴蓝 `#4657D8`
 - **A**（happy）："'Green'?" ——"green"（绿色）呢？｜`point`
 - **B**（neutral）："My apron, obviously." ——我的围裙，明摆着。——冷幽默｜"apron" 处 `palm-open`——班底彩蛋：Ruby 围裙墨绿 `#2E6B57`
 - **B**（neutral）："'Yellow'?" ——"yellow"（黄色）呢？｜`point`
-- **A**（happy）："Yellow cabs! I once took one to the wrong airport." ——黄色出租车！我有次坐它坐错了机场。｜"cabs" 处 `scratch-head`
+- **A**（happy）："Yellow cabs! I once took one to the wrong airport." ——黄色出租车！我有次坐它坐错了机场。｜"cabs" 处 `scratch-head`｜⚑yellow cab＝纽约黄色出租车——配「坐错机场」是都会冷笑话
 - **A**（happy）："'Black'?" ——"black"（黑色）呢？｜`point`
-- **B**（neutral）："Black coffee. No sugar." ——黑咖啡。不加糖。——馆主本色｜"coffee" 处 `palm-open`
+- **B**（neutral）："Black coffee. No sugar." ——黑咖啡。不加糖。——馆主本色｜"coffee" 处 `palm-open`｜⚑black coffee 指「不加奶糖」——这里的黑是浓度，不是色调
 - **B**（neutral）："'White'?" ——"white"（白色）呢？｜`point`
 - **A**（happy）："Snow! Snowball fight tomorrow?" ——雪！明天打雪仗？｜"Snow" 处 `mini-jump`
 - **A**（happy）："All six colors! That was fun!" ——六个颜色全说完啦！真好玩！｜"six" 处 `jump-celebrate`
@@ -178,16 +178,16 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 **舞台**：黄昏的书店门口台阶。**道具装置**：橱窗里立着六本书脊各一色的书，每轮抽亮一本。
 
-- **A**（happy）：« Théo ! On joue au jeu des couleurs avant la nuit ? » ——Théo！天黑前来一局颜色游戏？｜"couleurs" 处 `both-hands`
+- **A**（happy）：« Théo ! On joue au jeu des couleurs avant la nuit ? » ——Théo！天黑前来一局颜色游戏？｜"couleurs" 处 `both-hands`｜⚑on＝口语泛指「我们」，日常法语替代 nous 的首选
 - **B**（neutral）：« Pourquoi pas. Comment on joue ? » ——为什么不。怎么玩？｜`nod`
-- **A**（happy）：« Quand je dis "rouge"... tu penses à quoi ? » ——我说"rouge"（红色）……你会想起什么？｜"rouge" 处 `point`
+- **A**（happy）：« Quand je dis "rouge"... tu penses à quoi ? » ——我说"rouge"（红色）……你会想起什么？｜"rouge" 处 `point`｜⚑口语问句不倒装；书面须 « Penses-tu… » 或加 est-ce que
 - **B**（neutral）：« Aux fraises du marché. » ——市集的草莓。｜"fraises" 处 `palm-open`
 - **B**（neutral）：« Et "bleu" ? » ——那"bleu"（蓝色）呢？｜`point`
 - **A**（happy）：« À la mer ! » ——大海！｜"mer" 处 `both-hands`
 - **A**（happy）：« "Vert" ? » ——"vert"（绿色）呢？｜`point`
 - **B**（neutral）：« À l'herbe des parcs. » ——公园的草地。｜"herbe" 处 `palm-open`
 - **B**（neutral）：« Et "jaune" ? » ——那"jaune"（黄色）呢？｜`point`
-- **A**（happy）：« Au soleil ! Et aux mimosas en février ! » ——太阳！还有二月的含羞花！｜"soleil" 处 `both-hands`
+- **A**（happy）：« Au soleil ! Et aux mimosas en février ! » ——太阳！还有二月的含羞花！｜"soleil" 处 `both-hands`｜⚑二月的含羞花（mimosa）＝南法花季——黄在这里是节令
 - **A**（happy）：« "Noir" ? » ——"noir"（黑色）呢？｜`point`
 - **B**（neutral）：« À un café, bien serré. » ——一杯咖啡，浓浓的。｜"café" 处 `palm-open`
 - **B**（neutral）：« Et "blanc" ? » ——那"blanc"（白色）呢？｜`point`
@@ -211,12 +211,12 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：« "Grün"? » ——"Grün"（绿色）呢？｜`point`
 - **B**（neutral）：« An den Wald. Den Weg durch den Wald. » ——森林。穿过森林的那条路。｜"Wald" 处 `palm-open`
 - **B**（neutral）：« Und "Gelb"? » ——那"Gelb"（黄色）呢？｜`point`
-- **A**（happy）：« An die gelben Schilder am Wanderweg! » ——徒步道上的黄色路牌！｜"Schilder" 处 `point`（指道具柱）
+- **A**（happy）：« An die gelben Schilder am Wanderweg! » ——徒步道上的黄色路牌！｜"Schilder" 处 `point`（指道具柱）｜⚑德国徒步指路牌统一黄色（Wanderweg 标准）——道具柱即按此设
 - **A**（happy）：« "Schwarz"? » ——"Schwarz"（黑色）呢？｜`point`
-- **B**（neutral）：« An den Schwarzwald. Dort war ich als Kind. » ——黑森林。我小时候去过。｜"Schwarzwald" 处 `palm-open`
+- **B**（neutral）：« An den Schwarzwald. Dort war ich als Kind. » ——黑森林。我小时候去过。｜"Schwarzwald" 处 `palm-open`｜⚑Schwarzwald＝「黑森林」——地名自带颜色
 - **B**（neutral）：« Und "Weiß"? » ——那"Weiß"（白色）呢？｜`point`
 - **A**（happy）：« An den Schnee auf dem Gipfel! » ——峰顶的雪！｜"Schnee" 处 `mini-jump`
-- **A**（happy）：« Sechs Farben – und jetzt weiß ich alles über dich! » ——六种颜色——现在我"weiß"（知道）你的一切啦！｜"weiß" 处 `jump-celebrate`——双关：weiß 既是「白」又是「知道」
+- **A**（happy）：« Sechs Farben – und jetzt weiß ich alles über dich! » ——六种颜色——现在我"weiß"（知道）你的一切啦！｜"weiß" 处 `jump-celebrate`——双关：weiß 既是「白」又是「知道」｜⚑weiß 既是「白」又是「知道」——德语原生双关，不硬译
 - **B**（encouraging）：« Nicht alles. Bis morgen, Felix. » ——可没全知道。明天见，Felix。｜"morgen" 处 `wave`——deadpan 反将一军
 - **A**（happy）：« Bis morgen! » ——明天见！｜`wave`＋出画
 
@@ -228,14 +228,14 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）：« ¡Mateo! Antes de abrir el mercado – ¡el juego de los colores! » ——Mateo！开市前来玩颜色游戏！｜"colores" 处 `both-hands`
 - **B**（neutral）：« Vale. ¿Cómo se juega? » ——好。怎么玩？｜`nod`
-- **A**（happy）：« Cuando digo "rojo"... ¿en qué piensas? » ——我说"rojo"（红色）……你会想起什么？｜"rojo" 处 `point`
+- **A**（happy）：« Cuando digo "rojo"... ¿en qué piensas? » ——我说"rojo"（红色）……你会想起什么？｜"rojo" 处 `point`｜⚑西语问句须前后双问号 ¿?——正字法特有
 - **B**（neutral）：« En los tomates del mercado, claro. » ——市场的番茄，当然。｜"tomates" 处 `palm-open`
 - **B**（neutral）：« ¿Y "azul"? » ——那"azul"（蓝色）呢？｜`point`
 - **A**（happy）：« ¡En el mar! ¡Y en el cielo de agosto! » ——大海！还有八月的天空！｜"mar" 处 `both-hands`
 - **A**（happy）：« ¿"Verde"? » ——"verde"（绿色）呢？｜`point`
-- **B**（neutral）：« En las aceitunas de mi abuelo. » ——我爷爷的橄榄。｜"aceitunas" 处 `palm-open`
+- **B**（neutral）：« En las aceitunas de mi abuelo. » ——我爷爷的橄榄。｜"aceitunas" 处 `palm-open`｜⚑「绿」落在橄榄上——头号橄榄生产国的日常
 - **B**（neutral）：« ¿Y "amarillo"? » ——那"amarillo"（黄色）呢？｜`point`
-- **A**（happy）：« ¡En los girasoles de Castilla! » ——卡斯蒂利亚的向日葵！｜"girasoles" 处 `both-hands`
+- **A**（happy）：« ¡En los girasoles de Castilla! » ——卡斯蒂利亚的向日葵！｜"girasoles" 处 `both-hands`｜⚑卡斯蒂利亚向日葵田＝西班牙经典夏日风景
 - **A**（happy）：« ¿"Negro"? » ——"negro"（黑色）呢？｜`point`
 - **B**（neutral）：« En la noche de verano. Silencio y estrellas. » ——夏夜。安静，满天星。｜"noche" 处 `palm-open`
 - **B**（neutral）：« ¿Y "blanco"? » ——那"blanco"（白色）呢？｜`point`
@@ -252,16 +252,16 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）：« Аня, а давай в цвета поиграем! »（*Anya, a davay v tsveta poigrayem!*）——Аня，来玩颜色游戏吧！｜"цвета" 处 `both-hands`
 - **B**（neutral）：« Давай. А как играть? »（*Davay. A kak igrat'?*）——来吧。怎么玩？｜`nod`
-- **A**（happy）：« Скажу "красный" — о чём ты подумаешь? »（*Skazhu "krasnyy" — o chyom ty podumayesh?*）——我说"красный"（红色）——你会想起什么？｜"красный" 处 `point`
+- **A**（happy）：« Скажу "красный" — о чём ты подумаешь? »（*Skazhu "krasnyy" — o chyom ty podumayesh?*）——我说"красный"（红色）——你会想起什么？｜"красный" 处 `point`｜⚑красный 与 красивый（美丽）同根——红场本义「美场」
 - **B**（neutral）：« О клубнике в саду у бабушки. »（*O klubnike v sadu u babushki.*）——奶奶花园里的草莓。｜"клубнике" 处 `palm-open`
-- **B**（neutral）：« А "синий"? »（*A "siniy"?*）——那"синий"（蓝色）呢？｜`point`
+- **B**（neutral）：« А "синий"? »（*A "siniy"?*）——那"синий"（蓝色）呢？｜`point`｜⚑俄语两蓝分立：синий 深蓝／голубой 浅蓝——本课取深蓝
 - **A**（happy）：« О небе над нашим двором! »（*O nebe nad nashim dvorom!*）——我们院子上方的天空！｜"небе" 处 `both-hands`
 - **A**（happy）：« "Зелёный"? »（*"Zelyonyy"?*）——"зелёный"（绿色）呢？｜`point`
 - **B**（neutral）：« О наших берёзах. »（*O nashikh beryozakh.*）——我们的白桦树。｜"берёзах" 处 `palm-open`
 - **B**（neutral）：« А "жёлтый"? »（*A "zhyoltyy"?*）——那"жёлтый"（黄色）呢？｜`point`
 - **A**（happy）：« О подсолнухах! Они, как я, всегда смотрят на солнце. »（*O podsolnukhakh! Oni, kak ya, vsegda smotryat na solntse.*）——向日葵！它们跟我一样，永远朝着太阳。｜"подсолнухах" 处 `both-hands`——Миша 式自比
 - **A**（happy）：« "Чёрный"? »（*"Chyornyy"?*）——"чёрный"（黑色）呢？｜`point`
-- **B**（neutral）：« О чёрном чае вечером. »（*O chyornom chaye vecherom.*）——晚上的黑茶。｜"чае" 处 `palm-open`
+- **B**（neutral）：« О чёрном чае вечером. »（*O chyornom chaye vecherom.*）——晚上的黑茶。｜"чае" 处 `palm-open`｜⚑чёрный чай 字面「黑茶」＝中文「红茶」——同一杯茶，两种命名
 - **B**（neutral）：« А "белый"? »（*A "belyy"?*）——那"белый"（白色）呢？｜`point`
 - **A**（happy）：« О снеге! Первый снег — это праздник! »（*O snege! Pervyy sneg — eto prazdnik!*）——雪！初雪就是节日！｜"снеге" 处 `mini-jump`
 - **A**（happy）：« Все шесть! Вот это игра! »（*Vse shest'! Vot eta igra!*）——六个全齐！这才叫游戏！｜"шесть" 处 `jump-celebrate`
@@ -276,9 +276,9 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）：« Νίκο! Ας παίξουμε με τα χρώματα! »（*Níko! As péksoume me ta hrómata!*）——Νίκος！来玩颜色游戏吧！｜"χρώματα" 处 `both-hands`
 - **B**（neutral）：« Καλά. Πώς παίζεται; »（*Kalá. Pós pézete?*）——好。怎么玩？｜`nod`
-- **A**（happy）：« Όταν λέω "κόκκινο" — σε τι σκέφτεσαι; »（*Ótan léo "kókkino" — se ti skéftese?*）——我说"κόκκινο"（红色）——你会想起什么？｜"κόκκινο" 处 `point`
-- **B**（neutral）：« Στο κόκκινο αυγό του Πάσχα. »（*Sto kókkino avyó tou Pásha.*）——复活节的红蛋。｜"αυγό" 处 `palm-open`
-- **B**（neutral）：« Και "μπλε"; »（*Ke "ble"?*）——那"μπλε"（蓝色）呢？｜`point`
+- **A**（happy）：« Όταν λέω "κόκκινο" — σε τι σκέφτεσαι; »（*Ótan léo "kókkino" — se ti skéftese?*）——我说"κόκκινο"（红色）——你会想起什么？｜"κόκκινο" 处 `point`｜⚑希腊语问号写作「;」——分号才是问号
+- **B**（neutral）：« Στο κόκκινο αυγό του Πάσχα. »（*Sto kókkino avyó tou Pásha.*）——复活节的红蛋。｜"αυγό" 处 `palm-open`｜⚑复活节染红蛋是希腊习俗——蛋还要互撞比硬
+- **B**（neutral）：« Και "μπλε"; »（*Ke "ble"?*）——那"μπλε"（蓝色）呢？｜`point`｜⚑μπλε 是法语 bleu 借词，άσπρο（白）却是原生词——颜色词照出借词层
 - **A**（happy）：« Στη θάλασσα! Όπως εδώ! »（*Sti thálassa! Opos edó!*）——大海！就像这里！｜"θάλασσα" 处 `both-hands`——指向画外爱琴海
 - **A**（happy）：« "Πράσινο"; »（*"Prássino"?*）——"πράσινο"（绿色）呢？｜`point`
 - **B**（neutral）：« Στις ελιές του χωριού. »（*Stis eliés tou choriú.*）——村子里的橄榄树。｜"ελιές" 处 `palm-open`
@@ -300,14 +300,14 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）：« ليلى! هيا نلعب الألوان! »（*lay-la! ha-ya nal-ʿab al-al-wan!*）——ليلى！来玩颜色吧！｜"الألوان" 处 `both-hands`
 - **B**（neutral）：« كيف نلعب؟ »（*kay-fa nal-ʿab?*）——怎么玩？｜`nod`
-- **A**（happy）：« إذا قلت "أحمر" — بماذا تفكرين؟ »（*i-dha qult "ah-mar" — bi-ma-dha taf-ki-rin?*）——我说"أحمر"（红色）——你会想起什么？（对 ليلى 用阴性 تفكرين）｜"أحمر" 处 `point`
-- **B**（neutral）：« أفكر في الورد... في ورد الطائف. »（*af-kir fi-l-ward... fi ward at-ta-if.*）——我会想起玫瑰……塔伊夫的玫瑰。｜"الورد" 处 `palm-open`
+- **A**（happy）：« إذا قلت "أحمر" — بماذا تفكرين؟ »（*i-dha qult "ah-mar" — bi-ma-dha taf-ki-rin?*）——我说"أحمر"（红色）——你会想起什么？（对 ليلى 用阴性 تفكرين）｜"أحمر" 处 `point`｜⚑问句随听者性别变位：对 ليلى 用阴性 تفكرين——阿语必须双套问句
+- **B**（neutral）：« أفكر في الورد... في ورد الطائف. »（*af-kir fi-l-ward... fi ward at-ta-if.*）——我会想起玫瑰……塔伊夫的玫瑰。｜"الورد" 处 `palm-open`｜⚑塔伊夫玫瑰（ورد الطائف）＝沙特最著名的花香产地
 - **B**（neutral）：« وإذا قلت "أخضر"؟ »（*wa-i-dha qult "akh-dar"?*）——那我说"أخضر"（绿色）呢？｜`point`
 - **A**（happy）：« أفكر في النخيل في مزرعة جدي! »（*af-kir fi-n-na-khil fi maz-ra-ʿat ja-di!*）——我会想起爷爷农场里的椰枣树！｜"النخيل" 处 `both-hands`
 - **A**（happy）：« و"أصفر"؟ »（*wa "as-far"?*）——那"أصفر"（黄色）呢？｜`point`
 - **B**（neutral）：« أفكر في الرمل عند الغروب. »（*af-kir fi-r-ram-l ʿind al-ghu-rub.*）——我会想起日落时的沙子。｜"الرمل" 处 `palm-open`
 - **B**（neutral）：« و"أسود"؟ »（*wa "as-wad"?*）——那"أسود"（黑色）呢？｜`point`
-- **A**（happy）：« أفكر في الليل... مثلك يا ليلى! »（*af-kir fi-l-layl... mith-lak ya lay-la!*）——我会想起夜（ليل）……跟你一样，ليلى！｜"الليل" 处 `mini-jump`——ليلى 之名本义即「夜」：阿语原生双关
+- **A**（happy）：« أفكر في الليل... مثلك يا ليلى! »（*af-kir fi-l-layl... mith-lak ya lay-la!*）——我会想起夜（ليل）……跟你一样，ليلى！｜"الليل" 处 `mini-jump`——ليلى 之名本义即「夜」：阿语原生双关｜⚑ليلى 之名本义即「夜」——阿语原生双关
 - **A**（happy）：« و"أبيض"؟ »（*wa "ab-yad"?*）——那"أبيض"（白色）呢？｜`point`
 - **B**（neutral）：« أفكر في الثلج... يوماً ما سأراه. »（*af-kir fi-th-thalj... yaw-man ma sa-ra-h.*）——我会想起雪……总有一天我要亲眼看看。｜"الثلج" 处 `palm-open`——沙漠视角的「未见之白」
 - **B**（neutral）：« و"أزرق"؟ »（*wa "azraq"?*）——那"أزرق"（蓝色）呢？｜"أزرق" 处 `point`
@@ -325,15 +325,15 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：« अर्जुन! रंगों का खेल खेलें! »（*ar-jun! ran-gon ka khel khe-len!*）——अर्जुन！来，玩个颜色游戏！｜"खेल" 处 `both-hands`
 - **B**（neutral）：« ठीक है। कैसे खेलेंगे? »（*thik hai. kai-se khe-len-ge?*）——好。怎么玩？｜`nod`
 - **A**（happy）：« मैं "लाल" कहूँ, तो तुम क्या सोचते हो? »（*main "lal" ka-hun, to tum kya so-che ho?*）——我说"लाल"（红色）——你会想起什么？｜"लाल" 处 `point`
-- **B**（neutral）：« मैं लाल किला सोचता हूँ। »（*main lal ki-la so-che-ta hun.*）——我会想起红堡。｜"लाल किला" 处 `palm-open`
+- **B**（neutral）：« मैं लाल किला सोचता हूँ। »（*main lal ki-la so-che-ta hun.*）——我会想起红堡。｜"लाल किला" 处 `palm-open`｜⚑लाल किला＝德里「红堡」，莫卧儿皇城
 - **B**（neutral）：« और "नीला" कहूँ? »（*aur "ni-la" ka-hun?*）——那我说"नीला"（蓝色）呢？｜`point`
-- **A**（happy）：« मैं आसमान सोचती हूँ! और तुम्हारी जीन्स! »（*main a-sa-man so-chi-ti hun! aur tum-ha-ri jins!*）——我会想起天空！还有你的牛仔裤！｜"जीन्स" 处 `point`——班底彩蛋：अर्जुन 的深蓝牛仔裤
+- **A**（happy）：« मैं आसमान सोचती हूँ! और तुम्हारी जीन्स! »（*main a-sa-man so-chi-ti hun! aur tum-ha-ri jins!*）——我会想起天空！还有你的牛仔裤！｜"जीन्स" 处 `point`——班底彩蛋：अर्जुन 的深蓝牛仔裤｜⚑动词随说话者性别双叉：प्रिया 说 सोचती हूँ、अर्जुन 说 सोचता हूँ——印地语必须双套动词
 - **A**（happy）：« "हरा" कहूँ? »（*"ha-ra" ka-hun?*）——那"हरा"（绿色）呢？｜`point`
 - **B**（neutral）：« मैं हरी पत्तियाँ सोचता हूँ। »（*main ha-ri pat-ti-yan so-che-ta hun.*）——我会想起绿叶。｜"पत्तियाँ" 处 `palm-open`
 - **B**（neutral）：« और "पीला" कहूँ? »（*aur "pi-la" ka-hun?*）——那我说"पीला"（黄色）呢？｜`point`
 - **A**（happy）：« मैं हल्दी सोचती हूँ! रसोई वाली। »（*main hal-di so-chi-ti hun! ras-sui va-li!*）——我会想起姜黄！厨房的那种。｜"हल्दी" 处 `both-hands`
 - **A**（happy）：« "काला" कहूँ? »（*"ka-la" ka-hun?*）——那"काला"（黑色）呢？｜`point`
-- **B**（neutral）：« मैं काजल सोचता हूँ। कलम की स्याही। »（*main ka-jal so-che-ta hun. ka-lam ki sya-hi.*）——我会想起眼妆墨（काजל）。还有钢笔墨水。｜"काजल" 处 `palm-open`——काजल 与 काला 同根；口袋钢笔人设
+- **B**（neutral）：« मैं काजल सोचता हूँ। कलम की स्याही। »（*main ka-jal so-che-ta hun. ka-lam ki sya-hi.*）——我会想起眼妆墨（काजל）。还有钢笔墨水。｜"काजल" 处 `palm-open`——काजल 与 काला 同根；口袋钢笔人设｜⚑काजल（描眼墨）与 काला（黑）同根——颜色词的词族亲缘
 - **B**（neutral）：« और "सफ़ेद" कहूँ? »（*aur "sa-fed" ka-hun?*）——那我说"सफ़ेद"（白色）呢？｜`point`
 - **A**（happy）：« मैं दूध सोचती हूँ! »（*main doodh so-chi-ti hun!*）——我会想起牛奶！｜"दूध" 处 `mini-jump`
 - **A**（happy）：« छह रंग पूरे! मज़ा आया! »（*chhah rang pu-re! ma-za a-ya!*）——六种颜色全齐！真好玩！｜"छह" 处 `jump-celebrate`
@@ -351,15 +351,15 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：「赤って言ったら、何を思い浮かべる？」（*a-ka tte it-ta-ra, na-ni o o-mo-i u-ka-be-ru?*）——说「あか」（红色）的话，会想起什么？｜「赤」处 `point`
 - **B**（neutral）：「…祭りの提灯。」（*... ma-tsu-ri no cho-chin.*）——……祭典的灯笼。｜「提灯」处 `palm-open`
 - **B**（neutral）：「青って言ったら？」（*a-o tte it-ta-ra?*）——那「あお」（蓝色）呢？｜`point`
-- **A**（happy）：「青信号！押したら渡れるやつ！」（*a-o shin-go! o-shi-ta-ra wa-ta-re-ru yat-su!*）——绿灯（青信号）！一按就能过马路的那种！｜「青信号」处 `mini-jump`
+- **A**（happy）：「青信号！押したら渡れるやつ！」（*a-o shin-go! o-shi-ta-ra wa-ta-re-ru yat-su!*）——绿灯（青信号）！一按就能过马路的那种！｜「青信号」处 `mini-jump`｜⚑「青」兼指绿灯（青信号）——青覆盖蓝绿两域，ja 版最经典语言现象
 - **A**（happy）：「緑って言ったら？」（*mi-do-ri tte it-ta-ra?*）——那「みどり」（绿色）呢？｜`point`
-- **B**（neutral）：「緑茶。」（*ryo-ku-cha.*）——绿茶。｜「緑茶」处 `palm-open`
+- **B**（neutral）：「緑茶。」（*ryo-ku-cha.*）——绿茶。｜「緑茶」处 `palm-open`｜⚑「緑茶」是音读汉字词（りょくちゃ），与训读「みどり」并存——一色两读
 - **B**（neutral）：「黄色って言ったら？」（*ki-i-ro tte it-ta-ra?*）——那「きいろ」（黄色）呢？｜`point`
 - **A**（happy）：「ひまわり！夏のひまわり！」（*hi-ma-wa-ri! na-tsu no hi-ma-wa-ri!*）——向日葵！夏天的向日葵！｜「ひまわり」处 `both-hands`
 - **A**（happy）：「黒って言ったら？」（*ku-ro tte it-ta-ra?*）——那「くろ」（黑色）呢？｜`point`
 - **B**（neutral）：「…俺の髪。」（*... o-re no ka-mi.*）——……我的头发。｜「髪」处 `deadpan-nod`——面瘫自指：リク 发色 `#2A2A33`
 - **B**（neutral）：「白って言ったら？」（*shi-ro tte it-ta-ra?*）——那「しろ」（白色）呢？｜`point`
-- **A**（happy）：「白いごはん！今日の晩ごはん！」（*shi-ro-i go-han! kyo-u no ban go-han!*）——白米饭！今天的晚饭！｜「ごはん」处 `both-hands`
+- **A**（happy）：「白いごはん！今日の晩ごはん！」（*shi-ro-i go-han! kyo-u no ban go-han!*）——白米饭！今天的晚饭！｜「ごはん」处 `both-hands`｜⚑白米饭是日式餐桌底色——「白」最日常的答案
 - **A**（happy）：「六色、全部やった！楽しかった！」（*ro-ku i-ro, zen-bu ya-tta! ta-no-shi-ka-tta!*）——六色全玩了！真开心！｜「全部」处 `jump-celebrate`
 - **B**（encouraging）：「…悪くない。また明日。」（*... wa-ru-ku na-i. ma-ta a-shi-ta.*）——……不赖。明天见。｜「明日」处 `wave`
 - **A**（happy）：「また明日！」（*ma-ta a-shi-ta!*）——明天见！｜`wave`＋出画
@@ -371,9 +371,9 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 **舞台**：黄昏的街球场。**道具装置**：场边六只不同色的训练锥，每轮踢正一只。
 
 - **A**（happy）：「야, 서연아! 색깔 게임 하나만!」（*ya, seo-yeon-a! saek-kkap ge-im ha-na-man!*）——喂서연！走之前来一局颜色游戏呗！｜「게임」处 `both-hands`
-- **B**（neutral）：「좋아요. 어떻게 해요?」（*jo-a-yo. eo-tteo-ke hae-yo?*）——好。怎么玩？｜`nod`
+- **B**（neutral）：「좋아요. 어떻게 해요?」（*jo-a-yo. eo-tteo-ke hae-yo?*）——好。怎么玩？｜`nod`｜⚑서연 全程敬语体（해요체）、도윤 全程平语——语体差本身就是关系戏
 - **A**（happy）：「빨간색 하면 뭐가 떠올라?」（*ppal-gan-saek ha-myeon mwo-ga tteo-ol-la?*）——说「빨간색」（红色）的话会想起什么？｜「빨간색」处 `point`
-- **B**（neutral）：「태극기가 떠올라요.」（*tae-geuk-gi-ga tteo-ol-la-yo.*）——会想起太极旗。｜「태극기」处 `palm-open`
+- **B**（neutral）：「태극기가 떠올라요.」（*tae-geuk-gi-ga tteo-ol-la-yo.*）——会想起太极旗。｜「태극기」处 `palm-open`｜⚑太极旗的红蓝两色＝韩国国家象征
 - **B**（neutral）：「파란색 하면요?」（*pa-ran-saek ha-myeon-yo?*）——那「파란색」（蓝色）呢？｜`point`
 - **A**（happy）：「하늘! 가을 하늘!」（*ha-neul! ga-eul ha-neul!*）——天空！秋天的天空！｜「하늘」处 `both-hands`
 - **A**（happy）：「초록색 하면?」（*cho-rok-saek ha-myeon?*）——那「초록색」（绿色）呢？｜`point`
@@ -383,7 +383,7 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：「검은색 하면?」（*geo-meun-saek ha-myeon?*）——那「검은색」（黑色）呢？｜`point`
 - **B**（neutral）：「먹이 떠올라요. 붓글씨 먹이에요.」（*meo-gi tteo-ol-la-yo. but-geul-ssi meo-gi-e-yo.*）——会想起墨。写毛笔字的墨。｜「먹」处 `palm-open`
 - **B**（neutral）：「흰색 하면요?」（*huin-saek ha-myeon-yo?*）——那「흰색」（白色）呢？｜`point`
-- **A**（happy）：「흰 옷! 옛날 조상들이 늘 입었대!」（*huin ot! yen-nal jo-sang-deu-ri neul i-beot-dae!*）——白衣！听说从前的祖先们总穿白衣！｜「흰 옷」处 `mini-jump`——백의민족（白衣民族）
+- **A**（happy）：「흰 옷! 옛날 조상들이 늘 입었대!」（*huin ot! yen-nal jo-sang-deu-ri neul i-beot-dae!*）——白衣！听说从前的祖先们总穿白衣！｜「흰 옷」处 `mini-jump`——백의민족（白衣民族）｜⚑白衣（흰 옷）呼应「白衣民族」（백의민족）——韩民族尚白传统
 - **A**（happy）：「여섯 색깔 다! 재밌다!」（*yeo-seot saek-kkap da! jae-mit-da!*）——六色全玩了！真有意思！｜「여섯」处 `jump-celebrate`
 - **B**（encouraging）：「그럼, 내일 봐요, 도윤아.」（*geu-reom, na-il bwa-yo, do-yun-a.*）——那，明天见，도윤。｜「내일」处 `wave`
 - **A**（happy）：「내일 봐!」（*na-il bwa!*）——明天见！｜`wave`＋拍球出画
@@ -397,8 +397,8 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：« Luca! Prima del tramonto – il gioco dei colori! » ——Luca！日落前来玩颜色游戏！｜"colori" 处 `both-hands`
 - **B**（neutral）：« Va bene. Come si fa? » ——行。怎么玩？｜`nod`
 - **A**（happy）：« Quando dico "rosso"... a cosa pensi? » ——我说"rosso"（红色）……你会想起什么？｜"rosso" 处 `point`
-- **B**（neutral）：« A una Ferrari, ovviamente. Siamo in Italia! » ——法拉利，还用说。我们可是在意大利！｜"Ferrari" 处 `palm-open`
-- **B**（neutral）：« E "blu"? » ——那"blu"（蓝色）呢？｜`point`
+- **B**（neutral）：« A una Ferrari, ovviamente. Siamo in Italia! » ——法拉利，还用说。我们可是在意大利！｜"Ferrari" 处 `palm-open`｜⚑rosso Ferrari＝意大利的「国家红」——车企色卡成了文化符号
+- **B**（neutral）：« E "blu"? » ——那"blu"（蓝色）呢？｜`point`｜⚑意大利两蓝之分：blu 深蓝／azzurro 天蓝——国家队就叫 Gli Azzurri
 - **A**（happy）：« Al mare! Al nostro mare! » ——大海！我们的海！｜"mare" 处 `both-hands`
 - **A**（happy）：« "Verde"? » ——"verde"（绿色）呢？｜`point`
 - **B**（neutral）：« Al basilico del pesto. » ——青酱里的罗勒。｜"basilico" 处 `palm-open`
@@ -407,7 +407,7 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：« "Nero"? » ——"nero"（黑色）呢？｜`point`
 - **B**（neutral）：« Al caffè. Quello vero, in tazzina. » ——咖啡。小杯装的、真正的咖啡。｜"caffè" 处 `palm-open`
 - **B**（neutral）：« E "bianco"? » ——那"bianco"（白色）呢？｜`point`
-- **A**（happy）：« A una Vespa bianca! Come quella di zia! » ——白色的 Vespa 小摩托！我姑妈那辆那种！｜"Vespa" 处 `mini-jump`
+- **A**（happy）：« A una Vespa bianca! Come quella di zia! » ——白色的 Vespa 小摩托！我姑妈那辆那种！｜"Vespa" 处 `mini-jump`｜⚑白色 Vespa 小摩托＝意式街头经典款
 - **A**（happy）：« Sei colori, sei sogni! Com'era bello! » ——六种颜色六个梦！真美！｜"Sei" 处 `jump-celebrate`
 - **B**（encouraging）：« Sì. A domani, Giulia. » ——是啊。明天见，Giulia。｜"domani" 处 `wave`
 - **A**（happy）：« A domani! » ——明天见！｜`wave`＋出画
@@ -420,17 +420,17 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 - **A**（happy）：« יובל! משחק אחד בצבעים לפני השקיעה! »（*yu-val! mis-chach e-chad ba-tze-va-im lif-ney ha-shki-a!*）——יובל！日落前来一局颜色游戏！｜"צבעים" 处 `both-hands`
 - **B**（neutral）：« איך משחקים? »（*eich mis-chach-im?*）——怎么玩？｜`nod`
-- **A**（happy）：« כשאני אומרת "אדום" – במה אתה חושב? »（*kshe-a-ni o-me-ret "a-dom" – be-ma a-ta cho-shev?*）——我说"אדום"（红色）——你会想起什么？（נועה 说话用阴性 אומרת）｜"אדום" 处 `point`
+- **A**（happy）：« כשאני אומרת "אדום" – במה אתה חושב? »（*kshe-a-ni o-me-ret "a-dom" – be-ma a-ta cho-shev?*）——我说"אדום"（红色）——你会想起什么？（נועה 说话用阴性 אומרת）｜"אדום" 处 `point`｜⚑动词随说话者性别变位：נועה 说 אומרת（阴性）、יובל 说 אומר——希语必须双套动词
 - **B**（neutral）：« אני חושב על הכלניות בנגב. »（*a-ni cho-shev al ha-kal-a-niyot ba-negev.*）——我会想起内盖夫的银莲花。｜"כלניות" 处 `palm-open`
 - **B**（neutral）：« "ירוק" – במה את חושבת? »（*"ya-rok" – be-ma at cho-shevet?*）——那"ירוק"（绿色）呢——你会想起什么？（对 נועה 提问用阴性 חושבת）｜"ירוק" 处 `point`
-- **A**（happy）：« אני חושבת על זית והדגל! »（*a-ni cho-shevet al zayit ve-ha-de-gel!*）——我会想起橄榄叶和国旗！｜"זית" 处 `both-hands`
+- **A**（happy）：« אני חושבת על זית והדגל! »（*a-ni cho-shevet al zayit ve-ha-de-gel!*）——我会想起橄榄叶和国旗！｜"זית" 处 `both-hands`｜⚑橄榄枝＋国旗＝一句话两个国家符号——旗上正画着橄榄枝
 - **A**（happy）：« "צהוב" – במה אתה חושב? »（*"tza-hov" – be-ma a-ta cho-shev?*）——那"צהוב"（黄色）呢——你会想起什么？｜`point`
 - **B**（neutral）：« אני חושב על חול המדבר. שקט וחם. »（*a-ni cho-shev al chol ha-mid-bar. sha-ket ve-cham.*）——沙漠的沙。安静，又热。｜"חול" 处 `palm-open`
 - **B**（neutral）：« "שחור" – במה את חושבת? »（*"sha-chor" – be-ma at cho-shevet?*）——那"שחור"（黑色）呢——你会想起什么？｜`point`
 - **A**（happy）：« אני חושבת על קפה של אמא בבוקר! »（*a-ni cho-shevet al ka-fe shel i-ma ba-boker!*）——妈妈早晨的咖啡！｜"קפה" 处 `mini-jump`
 - **A**（happy）：« "לבן" – במה אתה חושב? »（*"la-van" – be-ma a-ta cho-shev?*）——那"לבן"（白色）呢——你会想起什么？｜`point`
 - **B**（neutral）：« אני חושב על קצף הגלים! מים! »（*a-ni cho-shev al ke-tsef ha-ga-lim! ma-yim!*）——浪尖的白沫。水！｜"קצף" 处 `palm-open`——יובל 大水壶人设
-- **B**（neutral）：« "כחול" – במה את חושבת? »（*"ka-chol" – be-ma at cho-shevet?*）——那"כחול"（蓝色）呢——你会想起什么？｜`point`
+- **B**（neutral）：« "כחול" – במה את חושבת? »（*"ka-chol" – be-ma at cho-shevet?*）——那"כחול"（蓝色）呢——你会想起什么？｜`point`｜⚑תכלת（圣经蓝）源自古代染色螺——希语的「蓝」自带圣经典故
 - **A**（happy）：« אני חושבת על הדגים באקווריום! »（*a-ni cho-shevet al ha-dagim be-aquarium!*）——我想起水族箱里的鱼！｜"הדגים" 处 `both-hands`——家庭日常（以 aquarium 而非天空/浪花）
 - **A**（happy）：« שישה צבעים! איזה כיף! »（*shi-sha tze-va-im! ei-ze kef!*）——六种颜色！真开心！｜"שישה" 处 `jump-celebrate`
 - **B**（encouraging）：« נתראה מחר, נועה. »（*nit-ra-e machar, no-a.*）——明天见，נועה。｜"מחר" 处 `wave`
@@ -443,9 +443,9 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 **舞台**：街市小吃摊与茶餐厅之间的窄巷。**道具装置**：茶餐厅门口六块 neon 小招牌各一色，每轮「啪」一声亮起一块。
 
 - **A**（happy）：「阿晴！收工之前——玩個顏色遊戲，好唔好？」（*aa3cing4! sau1gung1 zi1cin4 — waan2 go3 ngaan4sik1 jau4hei3, hou2 m4 hou2?*）——阿晴！收工前——玩个颜色游戏，好不好？｜「遊戲」处 `both-hands`
-- **B**（neutral）：「好呀。點玩？」（*hou2aa3. dim2waan2?*）——好呀。怎么玩？｜`nod`
+- **B**（neutral）：「好呀。點玩？」（*hou2aa3. dim2waan2?*）——好呀。怎么玩？｜`nod`｜⚑「點玩」＝怎么玩——粤语疑问词用「點」不用「怎」
 - **A**（happy）：「講到紅色，你會諗到啲乜？」（*gong2dou3 hung4sik1, nei5wui5 nam2dou3 di1mat1?*）——说到红色，你会想到什么？｜「紅色」处 `point`
-- **B**（neutral）：「利是！過年嗰陣最開心。」（*lai6si6! gwo3nin4 go2zan6 zeoi3hoi1sam1.*）——红包（利是）！过年那阵最开心。｜「利是」处 `palm-open`
+- **B**（neutral）：「利是！過年嗰陣最開心。」（*lai6si6! gwo3nin4 go2zan6 zeoi3hoi1sam1.*）——红包（利是）！过年那阵最开心。｜「利是」处 `palm-open`｜⚑「利是」即红包——粤语固有说法，不叫「红包」
 - **B**（neutral）：「講到藍色呢？」（*gong2dou3 laam4sik1 ne1?*）——那蓝色呢？｜`point`
 - **A**（happy）：「牛仔褲！人人都有嗰條！」（*ngau4zai2fu3! jan4jan4 dou1jau5 go2tiu4!*）——牛仔裤！人人都有一条！｜「牛仔褲」处 `both-hands`
 - **A**（happy）：「講到綠色呢？」（*gong2dou3 luk6sik1 ne1?*）——那绿色呢？｜`point`
@@ -456,7 +456,7 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **B**（neutral）：「廿四味。」（*jaa6sei3mei2.*）——廿四味凉茶。｜「廿四味」处 `palm-open`——阿晴茶餐厅地头
 - **B**（neutral）：「講到白色呢？」（*gong2dou3 baak6sik1 ne1?*）——那白色呢？｜`point`
 - **A**（happy）：「白切雞！今晚食唔食？」（*baak6cit3gai1! gam1maan5 sik6m4sik6?*）——白切鸡！今晚吃不吃？｜「白切雞」处 `mini-jump`
-- **A**（happy）：「六隻色講晒！好好玩！」（*luk6zek3 sik1 gong2saai3! hou2hou2waan2!*）——六只颜色说「晒」（全）了！真好玩！｜「講晒」处 `jump-celebrate`——句末「晒」＝全、完，粤语自有表达
+- **A**（happy）：「六隻色講晒！好好玩！」（*luk6zek3 sik1 gong2saai3! hou2hou2waan2!*）——六只颜色说「晒」（全）了！真好玩！｜「講晒」处 `jump-celebrate`——句末「晒」＝全、完，粤语自有表达｜⚑句末「晒」表「全、完」——粤语特有助词
 - **B**（encouraging）：「聽日見。」（*ting1jat6gin3.*）——明天见。｜`wave`
 - **A**（happy）：「聽日見！」（*ting1jat6gin3!*）——明天见！｜`wave`＋出画
 

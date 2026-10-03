@@ -1053,13 +1053,27 @@ EYE_MOOD = {"neutral": 1.0, "happy": 0.94, "puzzled": 1.05, "encouraging": 0.98,
 # 眼形缩放（巩膜 ry 系数）：happy 微闭笑眼 / puzzled 睁大（plan §4 眼神变化）
 
 
+# 脸型规格表（plan §8.3；2026-10-03 人物形象打磨：2 型 → 6 型，按人设分配）。
+# 元组 = (头高 H, 头宽系数 WH/H)。heart＝上圆下圆收下巴（draw_character 组合绘制，
+# 贝塞尔弧收底、无尖角——尖下巴观感像鬼，禁用）、square＝方颌（椭圆底缘两侧补平）
+# ——下颌轮廓只由这两个键驱动，其余型为纯椭圆。
+FACE_SPECS = {
+    "round":  (356.0, 0.955),   # 婴儿圆：宽圆头
+    "tall":   (396.0, 0.78),    # 窄长：清瘦长头
+    "oval":   (386.0, 0.84),    # 端正椭圆：利落匀称
+    "wide":   (348.0, 1.02),    # 宽和：扁宽大头
+    "heart":  (372.0, 0.90),    # 心形尖下巴
+    "square": (392.0, 0.88),    # 方颌硬朗
+}
+
+
 def face_geo(face):
     """头身规格（单一事实源，渲染与 qa 探针共用）。单位 = 头高 H。
     对标多邻国人形：头占全身 ~46%；躯干含肩与头等宽（剪影连续，无缝衔接）；
     低位大眼（头顶下 0.615H）、宽瞳距 ±0.30×头宽、大巩膜 0.28×头宽；
     眉贴眼上（巩膜顶 + 0.035H）；嘴位头顶下 0.815H；粗短胶囊四肢贴躯干。"""
-    H_h = 356.0 if face == "round" else 396.0
-    WH = H_h * (0.955 if face == "round" else 0.78)
+    H_h, wfac = FACE_SPECS.get(face, FACE_SPECS["round"])
+    WH = H_h * wfac
     u = lambda f: f * H_h
     hy = 1140.0
     eye_y = hy - H_h / 2 + u(0.615)
@@ -1102,6 +1116,11 @@ def draw_character(img, d, p, t, ctx):
     acc = {a["code"]: a for a in p.get("accessories", [])}
     has = lambda c: c in acc
     ss = ctx.get("ss", 1.0)
+    out = p.get("outfit", {})  # 服装轮廓槽（plan §4：bottom=skirt 长裙装 / kind=tunic|pinafore|vest；缺省=长裤）
+    skirt = out.get("bottom") == "skirt"
+    tunic = out.get("kind") == "tunic"
+    pinafore = out.get("kind") == "pinafore"
+    vest = out.get("kind") == "vest"
 
     def pfy(code, kind):
         """挂件物理偏移：数据声明了对应 physics 才生效（plan §4 accessories.physics）"""
@@ -1116,7 +1135,7 @@ def draw_character(img, d, p, t, ctx):
     blush_y = G["blush_y"] + hdy
     eye_dx, scl_rx, scl_ry, pup_r = G["eye_dx"], G["scl_rx"], G["scl_ry"], G["pup_r"]
     torso_top = G["torso_top"]
-    torso_bot = torso_top + G["torso_h"]
+    torso_bot = torso_top + G["torso_h"] * (1.30 if tunic else 1.0)  # 长衫：下摆过臀（outfit.kind=tunic）
     torso_hw = G["torso_hw"]
     sh_y = torso_top + G["sh_dy"]
     sh_hw = G["sh_hw"]
@@ -1188,14 +1207,15 @@ def draw_character(img, d, p, t, ctx):
     legL_ang, legR_ang = pose.get("legL", 0), pose.get("legR", 0)
     leg_top = torso_bot - u(0.10)
     leg_bot = foot_cy - foot_h * 0.30
-    worn_bottom = "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白（plan §1 皮肤层）
+    worn_bottom = not skirt and "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白（plan §1 皮肤层）
+    leg_col = skin if skirt else bottom  # 裙装露腿：腿画肤色（裙身在躯干段画）
     for s, ang in ((-1, legL_ang), (1, legR_ang)):
         lx = cx + s * leg_cx
-        RR(lx - leg_w / 2, leg_top, lx + leg_w / 2, leg_bot, leg_w / 2, fill=bottom)
+        RR(lx - leg_w / 2, leg_top, lx + leg_w / 2, leg_bot, leg_w / 2, fill=leg_col)
         if worn_bottom:
             wy = leg_top + (leg_bot - leg_top) * 0.42
-            RR(lx - leg_w / 2, wy, lx + leg_w / 2, leg_bot, leg_w / 2, fill=mix(bottom, (255, 255, 255), 0.10))
-        RR(lx - leg_w / 2, leg_bot - u(0.05), lx + leg_w / 2, leg_bot, 10, fill=mix(bottom, THEME["shade_dark"], 0.16))
+            RR(lx - leg_w / 2, wy, lx + leg_w / 2, leg_bot, leg_w / 2, fill=mix(leg_col, (255, 255, 255), 0.10))
+        RR(lx - leg_w / 2, leg_bot - u(0.05), lx + leg_w / 2, leg_bot, 10, fill=mix(leg_col, THEME["shade_dark"], 0.16))
         for pd in sk.get("patches", []):  # 膝盖补丁：位置从 face_geo 腿几何推导（不变量①）
             if pd.get("on") == "bottom" and pd.get("where") == ("knee_L" if s < 0 else "knee_R"):
                 pc = hexc(pd["color"])
@@ -1237,6 +1257,35 @@ def draw_character(img, d, p, t, ctx):
        u(0.08), fill=mix(top, THEME["shade_dark"], 0.10))  # 右侧体积影
     ARC(cx - 0.20 * G["WH"], torso_top - u(0.055), cx + 0.20 * G["WH"], torso_top + u(0.075),
         180, 360, u(0.032), fill=mix(top, THEME["shade_dark"], 0.20))  # 领口
+    # ---- 服装轮廓（outfit 槽；缺省=长裤，零改动兼容） ----
+    if skirt:  # A 字裙：腰线起、大腿中段圆摆（outfit.bottom=skirt；腿已画肤色）
+        waist = torso_top + G["torso_h"] - u(0.04)
+        hem = torso_top + G["torso_h"] + u(0.26)
+        flare = torso_hw * 1.55
+        d.polygon([T((cx - torso_hw - u(0.02), waist)), T((cx - flare, hem)),
+                   T((cx + flare, hem)), T((cx + torso_hw + u(0.02), waist))], fill=bottom)
+        RR(cx - flare, hem - u(0.08), cx + flare, hem + u(0.02), u(0.08), fill=bottom)  # 圆摆
+        RR(cx - torso_hw - u(0.02), waist - u(0.06), cx + torso_hw + u(0.02), waist + u(0.04),
+           u(0.05), fill=mix(bottom, THEME["shade_dark"], 0.14))  # 腰带
+    if pinafore:  # 背带裙：护胸＋双背带＋金色背带扣（outfit.kind=pinafore）
+        bib_w = torso_hw * 0.56
+        RR(cx - bib_w, torso_top + u(0.10), cx + bib_w, torso_top + G["torso_h"] * 0.62, 14, fill=bottom)
+        CAP((cx - bib_w + u(0.01), torso_top + u(0.14)), (cx - u(0.115), torso_top - u(0.07)),
+            u(0.055), fill=bottom)
+        CAP((cx + bib_w - u(0.01), torso_top + u(0.14)), (cx + u(0.115), torso_top - u(0.07)),
+            u(0.055), fill=bottom)
+        for s2 in (-1, 1):
+            E(cx + s2 * u(0.115) - u(0.016), torso_top + u(0.08), cx + s2 * u(0.115) + u(0.016),
+              torso_top + u(0.112), fill=THEME["gold"])
+    if vest:  # 马甲：两侧前襟片，中开白衬衫（outfit.kind=vest；面板收在内侧——外缘被垂臂遮挡）
+        vp_in, vp_out = torso_hw * 0.16, torso_hw * 0.72
+        RR(cx - vp_out, torso_top + u(0.03), cx - vp_in, torso_bot - u(0.06), u(0.05), fill=bottom)
+        RR(cx + vp_in, torso_top + u(0.03), cx + vp_out, torso_bot - u(0.06), u(0.05), fill=bottom)
+    if out.get("buttons"):  # 前襟扣排（outfit.buttons；衬衫通勤感。胸前置物如手账/墨镜会自然遮住下扣）
+        bcol = mix(top, THEME["shade_dark"], 0.38)
+        for fy2 in (0.22, 0.44, 0.66):
+            E(cx - u(0.020), torso_top + G["torso_h"] * fy2 - u(0.020),
+              cx + u(0.020), torso_top + G["torso_h"] * fy2 + u(0.020), fill=bcol)
     if has("apron"):
         RR(540 - 128, torso_top + 46, 540 + 128, torso_bot - 4, 44, fill=THEME["apron"])
         CAP((540 - 88, torso_top + 16), (540 - 62, torso_top + 52), 14, fill=THEME["apron"])
@@ -1293,6 +1342,24 @@ def draw_character(img, d, p, t, ctx):
         E(540 - 104, torso_top + 60, 540 - 72, torso_top + 92, fill=ident)
     if has("pen"):
         CAP((540 + 92, torso_top + 62), (540 + 104, torso_top + 100), 9, fill=THEME["pen_blue"])
+    if has("zipper"):  # 外套拉链：前襟拉链线＋拉链头（Миша/热心大哥；标识色拉链头）
+        LN([(cx, torso_top + u(0.04)), (cx, torso_top + G["torso_h"] * 0.88)], u(0.016),
+           fill=mix(top, THEME["shade_dark"], 0.22))
+        zc = ident if acc["zipper"].get("accent") else THEME["metal_dark"]
+        CAP((cx, torso_top + u(0.10)), (cx, torso_top + u(0.24)), u(0.026), fill=zc)
+        E(cx - u(0.016), torso_top + u(0.24), cx + u(0.016), torso_top + u(0.272), fill=zc)  # 拉链头坠
+    if has("clipboard"):  # 胸前笔记夹板：板＋纸＋标识色夹扣（अर्जुन/笔记狂人）
+        cbx = cx + torso_hw * 0.42
+        RR(cbx - u(0.085), torso_top + u(0.09), cbx + u(0.085), torso_top + u(0.40), 8, fill=THEME["bag_woven"])
+        RR(cbx - u(0.062), torso_top + u(0.135), cbx + u(0.062), torso_top + u(0.365), 4, fill=THEME["paper"])
+        cbc = ident if acc["clipboard"].get("accent") else THEME["metal_dark"]
+        RR(cbx - u(0.050), torso_top + u(0.105), cbx + u(0.050), torso_top + u(0.135), 5, fill=cbc)
+        LN([(cbx - u(0.040), torso_top + u(0.19)), (cbx + u(0.040), torso_top + u(0.19))], 3, fill=THEME["pen_blue"])
+    if has("towel_shoulder"):  # 肩搭白毛巾＋标识色毛巾条（阿豪/茶档街坊）
+        twx = cx - torso_hw
+        CAP((twx - u(0.03), torso_top - u(0.10)), (twx + u(0.04), torso_top + u(0.30)), u(0.10), fill=(246, 246, 240))
+        twc = ident if acc["towel_shoulder"].get("accent") else mix((246, 246, 240), THEME["shade_dark"], 0.25)
+        RR(twx + u(0.005), torso_top + u(0.20), twx + u(0.075), torso_top + u(0.30), 5, fill=twc)
     if has("camera") or has("camera_neck"):
         s2 = ident if has("strap_accent") else THEME["camera_body"]
         ccode = "camera" if has("camera") else "camera_neck"
@@ -1327,12 +1394,87 @@ def draw_character(img, d, p, t, ctx):
         RR(540 + 144 + bx_g, torso_top + 100 + by_g * 0.5, 540 + 182 + bx_g, torso_top + 180 + by_g * 0.5, 16,
            fill=THEME["bottle_green"])
 
+    # ================= 手臂（胶囊袖 + 圆手 + 袖口） =================
+    # 画在躯干之后、颈与头之前：袖子是「衣服层」，抬臂姿态（wave/thumbs_up/hand_shoot…）
+    # 会把袖子胶囊扫过人脸——衣层在脸前会遮嘴（2026-10-03 用户反馈），故脸/嘴永远画在手臂之上；
+    # 各姿态的手都落在脸轮廓之外（肩点外展），移到脸后不丢姿态可读性。face_cam 是举到脸前的
+    # 道具相机，仍留在表情之后画（要的就是遮脸）。
+
+    def arm(side, a1, a2, hand="open", prop=None):
+        s = side
+        # 肩点内收：肩关节落在躯干轮廓上（arm_w/2 内嵌），胶囊与躯干无缝衔接
+        sh = (cx + s * (sh_hw - arm_w * 0.30), sh_y)
+        a1r, a2r = math.radians(a1), math.radians(a2)
+        el = (sh[0] + s * math.sin(a1r) * up_len, sh[1] + math.cos(a1r) * up_len)
+        ha = (el[0] + s * math.sin(a1r + a2r) * lo_len, el[1] + math.cos(a1r + a2r) * lo_len)
+        wr = (el[0] + (ha[0] - el[0]) * 0.82, el[1] + (ha[1] - el[1]) * 0.82)
+        CAP(sh, el, arm_w, fill=top)
+        CAP(el, ha, arm_w * 0.88, fill=top)
+        c0 = (el[0] + (ha[0] - el[0]) * 0.72, el[1] + (ha[1] - el[1]) * 0.72)
+        c1 = (el[0] + (ha[0] - el[0]) * 0.88, el[1] + (ha[1] - el[1]) * 0.88)
+        CAP(c0, c1, arm_w * 0.90, fill=mix(top, THEME["shade_dark"], 0.16))  # 袖口
+        hr = hand_r
+        E(ha[0] - hr, ha[1] - hr, ha[0] + hr, ha[1] + hr, fill=skin)
+        if hand == "thumb":
+            CAP((ha[0] + s * hand_r * 0.2, ha[1] - hr - u(0.018)), (ha[0] + s * hand_r * 0.66, ha[1] - hr - u(0.088)),
+                u(0.044), fill=skin)
+        if hand == "index":
+            ai = a1r + a2r
+            tip = (ha[0] + s * math.sin(ai) * u(0.13), ha[1] + math.cos(ai) * u(0.13))
+            CAP((ha[0] + s * u(0.018), ha[1] - u(0.018)), tip, u(0.036), fill=skin)
+        if prop == "bottle":
+            RR(ha[0] - u(0.055), ha[1] - u(0.197), ha[0] + u(0.055), ha[1] - u(0.028), u(0.04), fill=THEME["bottle_green"])
+            RR(ha[0] - u(0.028), ha[1] - u(0.242), ha[0] + u(0.028), ha[1] - u(0.186), u(0.018), fill=THEME["bottle_green_dark"])
+        if prop == "beads":
+            for k in range(6):
+                ak = k * 1.05
+                cxx, cyy = ha[0] + math.cos(ak) * u(0.062), ha[1] + u(0.017) + math.sin(ak) * u(0.062)
+                E(cxx - u(0.02), cyy - u(0.02), cxx + u(0.02), cyy + u(0.02), fill=THEME["beads"])
+        if prop == "camera":
+            RR(ha[0] - u(0.096), ha[1] - u(0.073), ha[0] + u(0.096), ha[1] + u(0.073), u(0.034), fill=THEME["camera_body"])
+            E(ha[0] - u(0.039), ha[1] - u(0.039), ha[0] + u(0.039), ha[1] + u(0.039), fill=THEME["lens_blue"])
+        return ha, wr
+
+    aL = pose.get("armL") or (7 + 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
+    aR = pose.get("armR") or (7 - 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
+    arm(-1, aL[0], aL[1], aL[2], aL[3] if len(aL) > 3 else None)
+    ha_pos, wr_pos = arm(1, aR[0], aR[1], aR[2], aR[3] if len(aR) > 3 else None)
+    for code, bc in (("watch", ident), ("bracelet", THEME["gold"]),
+                     ("bracelet_leather", THEME["bracelet_leather"]), ("bracelet_woven", THEME["bracelet_woven"])):
+        if has(code):
+            CAP((wr_pos[0] - u(0.05), wr_pos[1] - u(0.022)), (wr_pos[0] + u(0.05), wr_pos[1] - u(0.022)),
+                u(0.042), fill=bc)
+    if pose.get("hand_prop") == "sparkle":
+        for ang3 in (210, 270, 330):
+            r0, r1 = hand_r * 0.85, hand_r * 1.52
+            CAP((ha_pos[0] + math.cos(math.radians(ang3)) * r0, ha_pos[1] + math.sin(math.radians(ang3)) * r0),
+                (ha_pos[0] + math.cos(math.radians(ang3)) * r1, ha_pos[1] + math.sin(math.radians(ang3)) * r1),
+                u(0.02), fill=THEME["sparkle"])
+    if pose.get("hand_prop") == "flash":
+        E(ha_pos[0] - u(0.18), ha_pos[1] - u(0.18), ha_pos[0] + u(0.18), ha_pos[1] + u(0.18), fill=(255, 250, 214))
+
     # ================= 颈与头 =================
     neck_c = mix(skin, skin_sh, NECK_SHADE_F)  # 颈部受光少：skinShade 压深（qa_char 探针同源）
     RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), torso_top + u(0.03), u(0.05), fill=neck_c)
     RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), G["chin"] - u(0.06) + u(0.022), u(0.02),
        fill=mix(skin_sh, skin, 0.30))  # 下颌阴影
-    E(hx - rx, hy - ry, hx + rx, hy + ry, fill=skin)
+    if face == "heart":  # 心形脸：上半椭圆 + 直边 + 圆收下巴（底缘走二次贝塞尔弧，平滑无尖角——
+        # 尖下巴观感像鬼，2026-10-03 用户反馈禁用；圆收下巴最低点仍过 chin 线，qa 探针面型感知）
+        PIE(hx - rx, hy - ry, hx + rx, hy + ry, 180, 360, fill=skin)
+        d.rectangle(TB(hx - rx, hy, hx + rx, hy + ry * 0.42), fill=skin)
+        jaw = []
+        for sg in (-1, 1):
+            ks = range(11) if sg < 0 else range(10, -1, -1)
+            jaw += [T((hx + sg * rx * ((1 - tk) ** 2 + 0.80 * tk * (1 - tk)),
+                       hy + ry * (0.42 * (1 - tk) ** 2 + 2.10 * tk * (1 - tk) + 1.04 * tk * tk)))
+                     for tk in (k / 10 for k in ks)]
+        d.polygon(jaw, fill=skin)
+    else:
+        E(hx - rx, hy - ry, hx + rx, hy + ry, fill=skin)
+    if face == "square":  # 方颌：椭圆底缘两侧外扩补平，下巴宽而钝
+        d.polygon([T((hx - rx * 0.60, hy + ry * 0.55)), T((hx - rx * 0.92, hy + ry * 0.80)),
+                   T((hx - rx * 0.80, hy + ry * 0.985)), T((hx + rx * 0.80, hy + ry * 0.985)),
+                   T((hx + rx * 0.92, hy + ry * 0.80)), T((hx + rx * 0.60, hy + ry * 0.55))], fill=skin)
     for s in (-1, 1):  # 耳朵（多数发型被侧发覆盖，露出即增加真实感）
         eax = hx + s * rx * 0.94
         E(eax - u(0.045), eye_y - u(0.085), eax + u(0.045), eye_y + u(0.045), fill=skin)
@@ -1364,6 +1506,14 @@ def draw_character(img, d, p, t, ctx):
         CAP((hx + 10, hy - ry * 0.92), (hx + 52 + ax, hy - ry * 1.28 - abs(ax) * 0.35), 12, fill=hair_c)
         CAP((hx + 52 + ax, hy - ry * 1.28 - abs(ax) * 0.35), (hx + 88 + ax * 1.5, hy - ry * 1.08 - abs(ax) * 0.15),
             12, fill=hair_c)
+    if style == "short_part":  # 侧分头：斜扫刘海＋分缝高光（江远/人形路标）
+        for fx, fy, fr in ((-0.46, -0.62, 0.40), (0.10, -0.56, 0.42), (0.58, -0.64, 0.32)):
+            E(hx + rx * fx - rx * fr, hy + ry * fy - rx * fr, hx + rx * fx + rx * fr,
+              hy + ry * fy + rx * fr, fill=hair_c)
+        CAP((hx - rx * 0.58, hy - ry * 0.74), (hx - rx * 0.28, hy - ry * 1.00), u(0.026), fill=hl_c)
+    if style == "short_neat":  # 一丝不苟短发：平直刘海边（Théo/慢先生）
+        RR(hx - rx * 0.82, hy - ry * 0.60, hx + rx * 0.82, hy - ry * 0.34, 10, fill=hair_c)
+        CAP((hx - rx * 0.66, hy - ry * 0.70), (hx - rx * 0.20, hy - ry * 0.94), u(0.024), fill=hl_c)
     if style in ("short_wavy", "short_curly", "curly_short", "curly_volume", "undercut_curly"):
         a_lo, a_hi = (232, 308) if style == "undercut_curly" else (198, 342)
         n = 5 if style == "undercut_curly" else 7
@@ -1526,60 +1676,8 @@ def draw_character(img, d, p, t, ctx):
             E(hx + s * rx * 0.95 - 12, hy + ry * 0.88 + 14 + hdy2, hx + s * rx * 0.95 + 12, hy + ry * 0.88 + 38 + hdy2,
               fill=ident)
 
-    # ================= 手臂（胶囊袖 + 圆手 + 袖口） =================
-
-    def arm(side, a1, a2, hand="open", prop=None):
-        s = side
-        # 肩点内收：肩关节落在躯干轮廓上（arm_w/2 内嵌），胶囊与躯干无缝衔接
-        sh = (cx + s * (sh_hw - arm_w * 0.30), sh_y)
-        a1r, a2r = math.radians(a1), math.radians(a2)
-        el = (sh[0] + s * math.sin(a1r) * up_len, sh[1] + math.cos(a1r) * up_len)
-        ha = (el[0] + s * math.sin(a1r + a2r) * lo_len, el[1] + math.cos(a1r + a2r) * lo_len)
-        wr = (el[0] + (ha[0] - el[0]) * 0.82, el[1] + (ha[1] - el[1]) * 0.82)
-        CAP(sh, el, arm_w, fill=top)
-        CAP(el, ha, arm_w * 0.88, fill=top)
-        c0 = (el[0] + (ha[0] - el[0]) * 0.72, el[1] + (ha[1] - el[1]) * 0.72)
-        c1 = (el[0] + (ha[0] - el[0]) * 0.88, el[1] + (ha[1] - el[1]) * 0.88)
-        CAP(c0, c1, arm_w * 0.90, fill=mix(top, THEME["shade_dark"], 0.16))  # 袖口
-        hr = hand_r
-        E(ha[0] - hr, ha[1] - hr, ha[0] + hr, ha[1] + hr, fill=skin)
-        if hand == "thumb":
-            CAP((ha[0] + s * hand_r * 0.2, ha[1] - hr - u(0.018)), (ha[0] + s * hand_r * 0.66, ha[1] - hr - u(0.088)),
-                u(0.044), fill=skin)
-        if hand == "index":
-            ai = a1r + a2r
-            tip = (ha[0] + s * math.sin(ai) * u(0.13), ha[1] + math.cos(ai) * u(0.13))
-            CAP((ha[0] + s * u(0.018), ha[1] - u(0.018)), tip, u(0.036), fill=skin)
-        if prop == "bottle":
-            RR(ha[0] - u(0.055), ha[1] - u(0.197), ha[0] + u(0.055), ha[1] - u(0.028), u(0.04), fill=THEME["bottle_green"])
-            RR(ha[0] - u(0.028), ha[1] - u(0.242), ha[0] + u(0.028), ha[1] - u(0.186), u(0.018), fill=THEME["bottle_green_dark"])
-        if prop == "beads":
-            for k in range(6):
-                ak = k * 1.05
-                cxx, cyy = ha[0] + math.cos(ak) * u(0.062), ha[1] + u(0.017) + math.sin(ak) * u(0.062)
-                E(cxx - u(0.02), cyy - u(0.02), cxx + u(0.02), cyy + u(0.02), fill=THEME["beads"])
-        if prop == "camera":
-            RR(ha[0] - u(0.096), ha[1] - u(0.073), ha[0] + u(0.096), ha[1] + u(0.073), u(0.034), fill=THEME["camera_body"])
-            E(ha[0] - u(0.039), ha[1] - u(0.039), ha[0] + u(0.039), ha[1] + u(0.039), fill=THEME["lens_blue"])
-        return ha, wr
-
-    aL = pose.get("armL") or (7 + 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
-    aR = pose.get("armR") or (7 - 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
-    arm(-1, aL[0], aL[1], aL[2], aL[3] if len(aL) > 3 else None)
-    ha_pos, wr_pos = arm(1, aR[0], aR[1], aR[2], aR[3] if len(aR) > 3 else None)
-    for code, bc in (("watch", ident), ("bracelet", THEME["gold"]),
-                     ("bracelet_leather", THEME["bracelet_leather"]), ("bracelet_woven", THEME["bracelet_woven"])):
-        if has(code):
-            CAP((wr_pos[0] - u(0.05), wr_pos[1] - u(0.022)), (wr_pos[0] + u(0.05), wr_pos[1] - u(0.022)),
-                u(0.042), fill=bc)
-    if pose.get("hand_prop") == "sparkle":
-        for ang3 in (210, 270, 330):
-            r0, r1 = hand_r * 0.85, hand_r * 1.52
-            CAP((ha_pos[0] + math.cos(math.radians(ang3)) * r0, ha_pos[1] + math.sin(math.radians(ang3)) * r0),
-                (ha_pos[0] + math.cos(math.radians(ang3)) * r1, ha_pos[1] + math.sin(math.radians(ang3)) * r1),
-                u(0.02), fill=THEME["sparkle"])
-    if pose.get("hand_prop") == "flash":
-        E(ha_pos[0] - u(0.18), ha_pos[1] - u(0.18), ha_pos[0] + u(0.18), ha_pos[1] + u(0.18), fill=(255, 250, 214))
+    # 手臂层已移至「颈与头」之前（衣服不得在人脸前面遮嘴）；face_cam 是举到脸前的道具相机，
+    # 要的就是遮脸，故留在表情之后画。
     if pose.get("face_cam"):
         RR(hx - u(0.20), hy - u(0.11), hx + u(0.20), hy + u(0.11), u(0.05), fill=THEME["camera_body"])
         E(hx - u(0.062), hy - u(0.056), hx + u(0.062), hy + u(0.056), fill=THEME["lens_blue"])

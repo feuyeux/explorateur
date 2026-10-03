@@ -6,7 +6,7 @@ run.ps1 — 管线统一入口（uv 管理单一 .venv：edge-tts / Pillow / num
   render  Pillow+numpy 帧渲染 + ffmpeg
   qa / qa-motion / all          亮相卡验收与全流程
   scene / scene-list / qa-scene 教学场景 A/B 对话线（M2，-Scene <id> 选场景）
-  lesson / dump-lesson          教学文档（scene_<id>.json + lesson_analysis -> build/lesson）
+  lesson / dump-lesson          教学文档（lessons/<id>/scene.json + analysis -> build/lesson/<id>）
 用法：.\run.ps1 all | .\run.ps1 render -Only xiaoman,layla -Workers 7
       .\run.ps1 scene            # 14 语种场景：parse → tts → assets → render
       .\run.ps1 scene -Only zh-CN
@@ -61,13 +61,13 @@ switch ($Phase) {
   "scene-render"  { Invoke-Step "scene render（$Workers workers）" { uv run usine-scene render @onlyArg --scene $Scene --workers $Workers } }
   "qa-scene"      { Invoke-Step "qa_scene（场景线验收）" { uv run python -m usine.qa_scene @onlyArg --scene $Scene } }
   "scene" {
-    Invoke-Step "parse（scene-$Scene.md -> scene_$Scene.json）" { uv run usine-parse --scene $Scene }
+    Invoke-Step "parse（lessons/$Scene/scene.md -> scene.json）" { uv run usine-parse --scene $Scene }
     Invoke-Step "scene tts（edge-tts）" { uv run usine-scene tts @onlyArg --scene $Scene }
     Invoke-Step "scene assets（Edge headless）" { uv run usine-scene assets @onlyArg --scene $Scene }
     Invoke-Step "scene render（$Workers workers）" { uv run usine-scene render @onlyArg --scene $Scene --workers $Workers }
     Write-Host "`n场景就绪：build/scene/scene-$Scene`_<locale>.mp4" -ForegroundColor Green
   }
-  # ---- 教学文档线：scene_<id>.json + lesson_analysis -> build/lesson/index.html ----
-  "dump-lesson" { Invoke-Step "dump-lesson（scene json -> lesson_analysis/_source）" { uv run usine-dump-lesson @onlyArg } }
-  "lesson"      { Invoke-Step "lesson（scene json + lesson_analysis -> build/lesson/index.html）" { uv run usine-lesson } }
+  # ---- 教学文档线：lessons/<id>/scene.json + analysis -> build/lesson/<id>/index.html ----
+  "dump-lesson" { Invoke-Step "dump-lesson（lessons/<id>/scene.json -> lessons/<id>/analysis/_source）" { uv run usine-dump-lesson @onlyArg --scene $Scene } }
+  "lesson"      { Invoke-Step "lesson（scene.json + analysis -> build/lesson/<id>/index.html）" { uv run usine-lesson --scene $Scene } }
 }

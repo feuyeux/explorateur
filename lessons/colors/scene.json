@@ -2,7 +2,7 @@
  "id": "colors",
  "sceneId": "colors-association",
  "title": "说到颜色，你会想到什么",
- "source": "scene-colors.md",
+ "source": "scene.md",
  "rtlLocales": [
   "ar-SA",
   "he-IL"
@@ -780,6 +780,7 @@
      "text": "江远江远！放学别走——我们来玩个颜色游戏吧！",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "游戏",
       "poses": [
@@ -805,6 +806,7 @@
      "text": "好。怎么玩？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -826,6 +828,7 @@
      "text": "说到红色，你会想到什么？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "红色",
       "poses": [
@@ -850,6 +853,7 @@
      "text": "我会想到——过年的灯笼。",
      "romanization": "",
      "gloss": "",
+     "note": "红灯笼＝春节意象——红色在华文化主「喜庆」，不主「危险」",
      "gesture": {
       "word": "灯笼",
       "poses": [
@@ -874,6 +878,7 @@
      "text": "说到蓝色呢？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -897,7 +902,8 @@
      "mood": "happy",
      "text": "我会想到天空！还有你的外套！",
      "romanization": "",
-     "gloss": "班底彩蛋：江远夹克 `#35486E`",
+     "gloss": "",
+     "note": "「外套」的答案指向搭档真实色板——班底彩蛋，换角即失效",
      "gesture": {
       "word": "外套",
       "poses": [
@@ -922,6 +928,7 @@
      "text": "说到绿色，你会想到什么？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -946,6 +953,7 @@
      "text": "我会想到草地。",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "草地",
       "poses": [
@@ -970,6 +978,7 @@
      "text": "说到黄色呢？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -994,6 +1003,7 @@
      "text": "我会想到银杏叶！",
      "romanization": "",
      "gloss": "",
+     "note": "银杏＝城市秋日限定意象——zh 版联想全走本土生活",
      "gesture": {
       "word": "银杏叶",
       "poses": [
@@ -1018,6 +1028,7 @@
      "text": "说到黑色，你会想到什么？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1042,6 +1053,7 @@
      "text": "我会想到夜晚。",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "夜晚",
       "poses": [
@@ -1066,6 +1078,7 @@
      "text": "说到白色呢？",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1089,7 +1102,8 @@
      "mood": "happy",
      "text": "我会想到雪！",
      "romanization": "",
-     "gloss": "六格全亮",
+     "gloss": "",
+     "note": "",
      "gesture": {
       "word": "雪",
       "poses": [
@@ -1114,6 +1128,7 @@
      "text": "六个颜色，都问完啦！真好玩！",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "都问完",
       "poses": [
@@ -1138,6 +1153,7 @@
      "text": "明天见。",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1159,6 +1175,7 @@
      "text": "明天见！",
      "romanization": "",
      "gloss": "",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1212,6 +1229,7 @@
      "text": "Hey Ruby! One last game before you close — the color game!",
      "romanization": "",
      "gloss": "嘿 Ruby！打烊前最后一局——颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "game",
       "poses": [
@@ -1237,6 +1255,7 @@
      "text": "Fine. How does it work?",
      "romanization": "",
      "gloss": "行。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1258,6 +1277,7 @@
      "text": "What comes to mind when I say... 'red'?",
      "romanization": "",
      "gloss": "我说\"red\"（红色）时，你会想起什么？",
+     "note": "问句用惯用语 what comes to mind，不是「说到」直译",
      "gesture": {
       "word": "red",
       "poses": [
@@ -1282,6 +1302,7 @@
      "text": "Stop signs. And fire trucks.",
      "romanization": "",
      "gloss": "停车牌。还有消防车。",
+     "note": "",
      "gesture": {
       "word": "signs",
       "poses": [
@@ -1306,6 +1327,7 @@
      "text": "And 'blue'?",
      "romanization": "",
      "gloss": "那\"blue\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1330,6 +1352,7 @@
      "text": "The sky! And my camera strap!",
      "romanization": "",
      "gloss": "天空！还有我的相机背带！",
+     "note": "",
      "gesture": {
       "word": "strap",
       "poses": [
@@ -1354,6 +1377,7 @@
      "text": "'Green'?",
      "romanization": "",
      "gloss": "\"green\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1378,6 +1402,7 @@
      "text": "My apron, obviously.",
      "romanization": "",
      "gloss": "我的围裙，明摆着。——冷幽默",
+     "note": "",
      "gesture": {
       "word": "apron",
       "poses": [
@@ -1402,6 +1427,7 @@
      "text": "'Yellow'?",
      "romanization": "",
      "gloss": "\"yellow\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1426,6 +1452,7 @@
      "text": "Yellow cabs! I once took one to the wrong airport.",
      "romanization": "",
      "gloss": "黄色出租车！我有次坐它坐错了机场。",
+     "note": "yellow cab＝纽约黄色出租车——配「坐错机场」是都会冷笑话",
      "gesture": {
       "word": "cabs",
       "poses": [
@@ -1450,6 +1477,7 @@
      "text": "'Black'?",
      "romanization": "",
      "gloss": "\"black\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1474,6 +1502,7 @@
      "text": "Black coffee. No sugar.",
      "romanization": "",
      "gloss": "黑咖啡。不加糖。——馆主本色",
+     "note": "black coffee 指「不加奶糖」——这里的黑是浓度，不是色调",
      "gesture": {
       "word": "coffee",
       "poses": [
@@ -1498,6 +1527,7 @@
      "text": "'White'?",
      "romanization": "",
      "gloss": "\"white\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1522,6 +1552,7 @@
      "text": "Snow! Snowball fight tomorrow?",
      "romanization": "",
      "gloss": "雪！明天打雪仗？",
+     "note": "",
      "gesture": {
       "word": "Snow",
       "poses": [
@@ -1546,6 +1577,7 @@
      "text": "All six colors! That was fun!",
      "romanization": "",
      "gloss": "六个颜色全说完啦！真好玩！",
+     "note": "",
      "gesture": {
       "word": "six",
       "poses": [
@@ -1570,6 +1602,7 @@
      "text": "Sure. See you tomorrow, Miles.",
      "romanization": "",
      "gloss": "好啊。明天见，Miles。",
+     "note": "",
      "gesture": {
       "word": "tomorrow",
       "poses": [
@@ -1594,6 +1627,7 @@
      "text": "See you!",
      "romanization": "",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1647,6 +1681,7 @@
      "text": "Théo ! On joue au jeu des couleurs avant la nuit ?",
      "romanization": "",
      "gloss": "Théo！天黑前来一局颜色游戏？",
+     "note": "on＝口语泛指「我们」，日常法语替代 nous 的首选",
      "gesture": {
       "word": "couleurs",
       "poses": [
@@ -1671,6 +1706,7 @@
      "text": "Pourquoi pas. Comment on joue ?",
      "romanization": "",
      "gloss": "为什么不。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1692,6 +1728,7 @@
      "text": "Quand je dis \"rouge\"... tu penses à quoi ?",
      "romanization": "",
      "gloss": "我说\"rouge\"（红色）……你会想起什么？",
+     "note": "口语问句不倒装；书面须 « Penses-tu… » 或加 est-ce que",
      "gesture": {
       "word": "rouge",
       "poses": [
@@ -1716,6 +1753,7 @@
      "text": "Aux fraises du marché.",
      "romanization": "",
      "gloss": "市集的草莓。",
+     "note": "",
      "gesture": {
       "word": "fraises",
       "poses": [
@@ -1740,6 +1778,7 @@
      "text": "Et \"bleu\" ?",
      "romanization": "",
      "gloss": "那\"bleu\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1764,6 +1803,7 @@
      "text": "À la mer !",
      "romanization": "",
      "gloss": "大海！",
+     "note": "",
      "gesture": {
       "word": "mer",
       "poses": [
@@ -1788,6 +1828,7 @@
      "text": "\"Vert\" ?",
      "romanization": "",
      "gloss": "\"vert\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1812,6 +1853,7 @@
      "text": "À l'herbe des parcs.",
      "romanization": "",
      "gloss": "公园的草地。",
+     "note": "",
      "gesture": {
       "word": "herbe",
       "poses": [
@@ -1836,6 +1878,7 @@
      "text": "Et \"jaune\" ?",
      "romanization": "",
      "gloss": "那\"jaune\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1860,6 +1903,7 @@
      "text": "Au soleil ! Et aux mimosas en février !",
      "romanization": "",
      "gloss": "太阳！还有二月的含羞花！",
+     "note": "二月的含羞花（mimosa）＝南法花季——黄在这里是节令",
      "gesture": {
       "word": "soleil",
       "poses": [
@@ -1884,6 +1928,7 @@
      "text": "\"Noir\" ?",
      "romanization": "",
      "gloss": "\"noir\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1908,6 +1953,7 @@
      "text": "À un café, bien serré.",
      "romanization": "",
      "gloss": "一杯咖啡，浓浓的。",
+     "note": "",
      "gesture": {
       "word": "café",
       "poses": [
@@ -1932,6 +1978,7 @@
      "text": "Et \"blanc\" ?",
      "romanization": "",
      "gloss": "那\"blanc\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -1956,6 +2003,7 @@
      "text": "À la neige des Alpes !",
      "romanization": "",
      "gloss": "阿尔卑斯的雪！",
+     "note": "",
      "gesture": {
       "word": "neige",
       "poses": [
@@ -1980,6 +2028,7 @@
      "text": "Six couleurs, six idées ! C'était chouette !",
      "romanization": "",
      "gloss": "六种颜色，六个念头！真棒！",
+     "note": "",
      "gesture": {
       "word": "Six",
       "poses": [
@@ -2004,6 +2053,7 @@
      "text": "Oui. À demain, Chloé.",
      "romanization": "",
      "gloss": "嗯。明天见，Chloé。",
+     "note": "",
      "gesture": {
       "word": "demain",
       "poses": [
@@ -2028,6 +2078,7 @@
      "text": "À demain !",
      "romanization": "",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2081,6 +2132,7 @@
      "text": "Lena! Bevor wir losgehen – eine Runde Farbenspiel!",
      "romanization": "",
      "gloss": "Lena！出发前来一局颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "Farbenspiel",
       "poses": [
@@ -2105,6 +2157,7 @@
      "text": "Einverstanden. Wie geht das?",
      "romanization": "",
      "gloss": "同意。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2126,6 +2179,7 @@
      "text": "Wenn ich \"Rot\" sage – woran denkst du?",
      "romanization": "",
      "gloss": "我说\"Rot\"（红色）——你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "Rot",
       "poses": [
@@ -2150,6 +2204,7 @@
      "text": "An den Marienkäfer auf meinem Notizbuch.",
      "romanization": "",
      "gloss": "我计划本封面上的瓢虫。",
+     "note": "",
      "gesture": {
       "word": "Marienkäfer",
       "poses": [
@@ -2174,6 +2229,7 @@
      "text": "Und \"Blau\"?",
      "romanization": "",
      "gloss": "那\"Blau\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2198,6 +2254,7 @@
      "text": "An den Himmel über den Gipfeln!",
      "romanization": "",
      "gloss": "山峰上方的天空！",
+     "note": "",
      "gesture": {
       "word": "Himmel",
       "poses": [
@@ -2222,6 +2279,7 @@
      "text": "\"Grün\"?",
      "romanization": "",
      "gloss": "\"Grün\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2246,6 +2304,7 @@
      "text": "An den Wald. Den Weg durch den Wald.",
      "romanization": "",
      "gloss": "森林。穿过森林的那条路。",
+     "note": "",
      "gesture": {
       "word": "Wald",
       "poses": [
@@ -2270,6 +2329,7 @@
      "text": "Und \"Gelb\"?",
      "romanization": "",
      "gloss": "那\"Gelb\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2294,6 +2354,7 @@
      "text": "An die gelben Schilder am Wanderweg!",
      "romanization": "",
      "gloss": "徒步道上的黄色路牌！",
+     "note": "德国徒步指路牌统一黄色（Wanderweg 标准）——道具柱即按此设",
      "gesture": {
       "word": "Schilder",
       "poses": [
@@ -2318,6 +2379,7 @@
      "text": "\"Schwarz\"?",
      "romanization": "",
      "gloss": "\"Schwarz\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2342,6 +2404,7 @@
      "text": "An den Schwarzwald. Dort war ich als Kind.",
      "romanization": "",
      "gloss": "黑森林。我小时候去过。",
+     "note": "Schwarzwald＝「黑森林」——地名自带颜色",
      "gesture": {
       "word": "Schwarzwald",
       "poses": [
@@ -2366,6 +2429,7 @@
      "text": "Und \"Weiß\"?",
      "romanization": "",
      "gloss": "那\"Weiß\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2390,6 +2454,7 @@
      "text": "An den Schnee auf dem Gipfel!",
      "romanization": "",
      "gloss": "峰顶的雪！",
+     "note": "",
      "gesture": {
       "word": "Schnee",
       "poses": [
@@ -2414,6 +2479,7 @@
      "text": "Sechs Farben – und jetzt weiß ich alles über dich!",
      "romanization": "",
      "gloss": "六种颜色——现在我\"weiß\"（知道）你的一切啦！",
+     "note": "weiß 既是「白」又是「知道」——德语原生双关，不硬译",
      "gesture": {
       "word": "weiß",
       "poses": [
@@ -2438,6 +2504,7 @@
      "text": "Nicht alles. Bis morgen, Felix.",
      "romanization": "",
      "gloss": "可没全知道。明天见，Felix。",
+     "note": "",
      "gesture": {
       "word": "morgen",
       "poses": [
@@ -2462,6 +2529,7 @@
      "text": "Bis morgen!",
      "romanization": "",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2515,6 +2583,7 @@
      "text": "¡Mateo! Antes de abrir el mercado – ¡el juego de los colores!",
      "romanization": "",
      "gloss": "Mateo！开市前来玩颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "colores",
       "poses": [
@@ -2539,6 +2608,7 @@
      "text": "Vale. ¿Cómo se juega?",
      "romanization": "",
      "gloss": "好。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2560,6 +2630,7 @@
      "text": "Cuando digo \"rojo\"... ¿en qué piensas?",
      "romanization": "",
      "gloss": "我说\"rojo\"（红色）……你会想起什么？",
+     "note": "西语问句须前后双问号 ¿?——正字法特有",
      "gesture": {
       "word": "rojo",
       "poses": [
@@ -2584,6 +2655,7 @@
      "text": "En los tomates del mercado, claro.",
      "romanization": "",
      "gloss": "市场的番茄，当然。",
+     "note": "",
      "gesture": {
       "word": "tomates",
       "poses": [
@@ -2608,6 +2680,7 @@
      "text": "¿Y \"azul\"?",
      "romanization": "",
      "gloss": "那\"azul\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2632,6 +2705,7 @@
      "text": "¡En el mar! ¡Y en el cielo de agosto!",
      "romanization": "",
      "gloss": "大海！还有八月的天空！",
+     "note": "",
      "gesture": {
       "word": "mar",
       "poses": [
@@ -2656,6 +2730,7 @@
      "text": "¿\"Verde\"?",
      "romanization": "",
      "gloss": "\"verde\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2680,6 +2755,7 @@
      "text": "En las aceitunas de mi abuelo.",
      "romanization": "",
      "gloss": "我爷爷的橄榄。",
+     "note": "「绿」落在橄榄上——头号橄榄生产国的日常",
      "gesture": {
       "word": "aceitunas",
       "poses": [
@@ -2704,6 +2780,7 @@
      "text": "¿Y \"amarillo\"?",
      "romanization": "",
      "gloss": "那\"amarillo\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2728,6 +2805,7 @@
      "text": "¡En los girasoles de Castilla!",
      "romanization": "",
      "gloss": "卡斯蒂利亚的向日葵！",
+     "note": "卡斯蒂利亚向日葵田＝西班牙经典夏日风景",
      "gesture": {
       "word": "girasoles",
       "poses": [
@@ -2752,6 +2830,7 @@
      "text": "¿\"Negro\"?",
      "romanization": "",
      "gloss": "\"negro\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2776,6 +2855,7 @@
      "text": "En la noche de verano. Silencio y estrellas.",
      "romanization": "",
      "gloss": "夏夜。安静，满天星。",
+     "note": "",
      "gesture": {
       "word": "noche",
       "poses": [
@@ -2800,6 +2880,7 @@
      "text": "¿Y \"blanco\"?",
      "romanization": "",
      "gloss": "那\"blanco\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2824,6 +2905,7 @@
      "text": "¡En la harina para el pan!",
      "romanization": "",
      "gloss": "做面包的面粉！",
+     "note": "",
      "gesture": {
       "word": "harina",
       "poses": [
@@ -2848,6 +2930,7 @@
      "text": "¡Seis colores y seis historias! ¡Qué divertido!",
      "romanization": "",
      "gloss": "六种颜色六个故事！真好玩！",
+     "note": "",
      "gesture": {
       "word": "Seis",
       "poses": [
@@ -2872,6 +2955,7 @@
      "text": "Sí. Hasta mañana, Lucía.",
      "romanization": "",
      "gloss": "是啊。明天见，Lucía。",
+     "note": "",
      "gesture": {
       "word": "mañana",
       "poses": [
@@ -2896,6 +2980,7 @@
      "text": "¡Hasta mañana!",
      "romanization": "",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2949,6 +3034,7 @@
      "text": "Аня, а давай в цвета поиграем!",
      "romanization": "Anya, a davay v tsveta poigrayem!",
      "gloss": "Аня，来玩颜色游戏吧！",
+     "note": "",
      "gesture": {
       "word": "цвета",
       "poses": [
@@ -2973,6 +3059,7 @@
      "text": "Давай. А как играть?",
      "romanization": "Davay. A kak igrat'?",
      "gloss": "来吧。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -2994,6 +3081,7 @@
      "text": "Скажу \"красный\" — о чём ты подумаешь?",
      "romanization": "Skazhu \"krasnyy\" — o chyom ty podumayesh?",
      "gloss": "我说\"красный\"（红色）——你会想起什么？",
+     "note": "красный 与 красивый（美丽）同根——红场本义「美场」",
      "gesture": {
       "word": "красный",
       "poses": [
@@ -3018,6 +3106,7 @@
      "text": "О клубнике в саду у бабушки.",
      "romanization": "O klubnike v sadu u babushki.",
      "gloss": "奶奶花园里的草莓。",
+     "note": "",
      "gesture": {
       "word": "клубнике",
       "poses": [
@@ -3042,6 +3131,7 @@
      "text": "А \"синий\"?",
      "romanization": "A \"siniy\"?",
      "gloss": "那\"синий\"（蓝色）呢？",
+     "note": "俄语两蓝分立：синий 深蓝／голубой 浅蓝——本课取深蓝",
      "gesture": {
       "word": "",
       "poses": [
@@ -3066,6 +3156,7 @@
      "text": "О небе над нашим двором!",
      "romanization": "O nebe nad nashim dvorom!",
      "gloss": "我们院子上方的天空！",
+     "note": "",
      "gesture": {
       "word": "небе",
       "poses": [
@@ -3090,6 +3181,7 @@
      "text": "\"Зелёный\"?",
      "romanization": "\"Zelyonyy\"?",
      "gloss": "\"зелёный\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3114,6 +3206,7 @@
      "text": "О наших берёзах.",
      "romanization": "O nashikh beryozakh.",
      "gloss": "我们的白桦树。",
+     "note": "",
      "gesture": {
       "word": "берёзах",
       "poses": [
@@ -3138,6 +3231,7 @@
      "text": "А \"жёлтый\"?",
      "romanization": "A \"zhyoltyy\"?",
      "gloss": "那\"жёлтый\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3162,6 +3256,7 @@
      "text": "О подсолнухах! Они, как я, всегда смотрят на солнце.",
      "romanization": "O podsolnukhakh! Oni, kak ya, vsegda smotryat na solntse.",
      "gloss": "向日葵！它们跟我一样，永远朝着太阳。",
+     "note": "",
      "gesture": {
       "word": "подсолнухах",
       "poses": [
@@ -3186,6 +3281,7 @@
      "text": "\"Чёрный\"?",
      "romanization": "\"Chyornyy\"?",
      "gloss": "\"чёрный\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3210,6 +3306,7 @@
      "text": "О чёрном чае вечером.",
      "romanization": "O chyornom chaye vecherom.",
      "gloss": "晚上的黑茶。",
+     "note": "чёрный чай 字面「黑茶」＝中文「红茶」——同一杯茶，两种命名",
      "gesture": {
       "word": "чае",
       "poses": [
@@ -3234,6 +3331,7 @@
      "text": "А \"белый\"?",
      "romanization": "A \"belyy\"?",
      "gloss": "那\"белый\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3258,6 +3356,7 @@
      "text": "О снеге! Первый снег — это праздник!",
      "romanization": "O snege! Pervyy sneg — eto prazdnik!",
      "gloss": "雪！初雪就是节日！",
+     "note": "",
      "gesture": {
       "word": "снеге",
       "poses": [
@@ -3282,6 +3381,7 @@
      "text": "Все шесть! Вот это игра!",
      "romanization": "Vse shest'! Vot eta igra!",
      "gloss": "六个全齐！这才叫游戏！",
+     "note": "",
      "gesture": {
       "word": "шесть",
       "poses": [
@@ -3306,6 +3406,7 @@
      "text": "Спасибо, Миша. До завтра.",
      "romanization": "Spasibo, Misha. Do zavtra.",
      "gloss": "谢谢你，Миша。明天见。",
+     "note": "",
      "gesture": {
       "word": "завтра",
       "poses": [
@@ -3330,6 +3431,7 @@
      "text": "До завтра!",
      "romanization": "Do zavtra!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3383,6 +3485,7 @@
      "text": "Νίκο! Ας παίξουμε με τα χρώματα!",
      "romanization": "Níko! As péksoume me ta hrómata!",
      "gloss": "Νίκος！来玩颜色游戏吧！",
+     "note": "",
      "gesture": {
       "word": "χρώματα",
       "poses": [
@@ -3407,6 +3510,7 @@
      "text": "Καλά. Πώς παίζεται;",
      "romanization": "Kalá. Pós pézete?",
      "gloss": "好。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3428,6 +3532,7 @@
      "text": "Όταν λέω \"κόκκινο\" — σε τι σκέφτεσαι;",
      "romanization": "Ótan léo \"kókkino\" — se ti skéftese?",
      "gloss": "我说\"κόκκινο\"（红色）——你会想起什么？",
+     "note": "希腊语问号写作「;」——分号才是问号",
      "gesture": {
       "word": "κόκκινο",
       "poses": [
@@ -3452,6 +3557,7 @@
      "text": "Στο κόκκινο αυγό του Πάσχα.",
      "romanization": "Sto kókkino avyó tou Pásha.",
      "gloss": "复活节的红蛋。",
+     "note": "复活节染红蛋是希腊习俗——蛋还要互撞比硬",
      "gesture": {
       "word": "αυγό",
       "poses": [
@@ -3476,6 +3582,7 @@
      "text": "Και \"μπλε\";",
      "romanization": "Ke \"ble\"?",
      "gloss": "那\"μπλε\"（蓝色）呢？",
+     "note": "μπλε 是法语 bleu 借词，άσπρο（白）却是原生词——颜色词照出借词层",
      "gesture": {
       "word": "",
       "poses": [
@@ -3500,6 +3607,7 @@
      "text": "Στη θάλασσα! Όπως εδώ!",
      "romanization": "Sti thálassa! Opos edó!",
      "gloss": "大海！就像这里！",
+     "note": "",
      "gesture": {
       "word": "θάλασσα",
       "poses": [
@@ -3524,6 +3632,7 @@
      "text": "\"Πράσινο\";",
      "romanization": "\"Prássino\"?",
      "gloss": "\"πράσινο\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3548,6 +3657,7 @@
      "text": "Στις ελιές του χωριού.",
      "romanization": "Stis eliés tou choriú.",
      "gloss": "村子里的橄榄树。",
+     "note": "",
      "gesture": {
       "word": "ελιές",
       "poses": [
@@ -3572,6 +3682,7 @@
      "text": "Και \"κίτρινο\";",
      "romanization": "Ke \"kítrino\"?",
      "gloss": "那\"κίτρινο\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3596,6 +3707,7 @@
      "text": "Στον ήλιο του καλοκαιριού!",
      "romanization": "Ston ílio tou kalokayriú!",
      "gloss": "夏天的太阳！",
+     "note": "",
      "gesture": {
       "word": "ήλιο",
       "poses": [
@@ -3620,6 +3732,7 @@
      "text": "\"Μαύρο\";",
      "romanization": "\"Mávro\"?",
      "gloss": "\"μαύρο\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3644,6 +3757,7 @@
      "text": "Στον καφέ το πρωί. Πικρός — όπως η ζωή.",
      "romanization": "Ston kafé to proí. Pikrós — opós i zoí.",
      "gloss": "早晨的咖啡。苦的——就像生活。",
+     "note": "",
      "gesture": {
       "word": "καφέ",
       "poses": [
@@ -3668,6 +3782,7 @@
      "text": "Και \"άσπρο\";",
      "romanization": "Ke \"áspro\"?",
      "gloss": "那\"άσπρο\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3692,6 +3807,7 @@
      "text": "Στα σύννεφα πάνω απ' τη θάλασσα!",
      "romanization": "Sta síntnefa páno ap' ti thálassa!",
      "gloss": "海面上方的云！",
+     "note": "",
      "gesture": {
       "word": "σύννεφα",
       "poses": [
@@ -3716,6 +3832,7 @@
      "text": "Έξι χρώματα! Τέλεια παρτίδα!",
      "romanization": "Éxi hrómata! Télia partída!",
      "gloss": "六种颜色！完美一局！",
+     "note": "",
      "gesture": {
       "word": "Έξι",
       "poses": [
@@ -3740,6 +3857,7 @@
      "text": "Ναι. Τα λέμε αύριο, Ελένη.",
      "romanization": "Ne. Ta léme ávrio, Eléni.",
      "gloss": "嗯。明天聊，Ελένη。",
+     "note": "",
      "gesture": {
       "word": "αύριο",
       "poses": [
@@ -3764,6 +3882,7 @@
      "text": "Τα λέμε!",
      "romanization": "Ta léme!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3817,6 +3936,7 @@
      "text": "ليلى! هيا نلعب الألوان!",
      "romanization": "lay-la! ha-ya nal-ʿab al-al-wan!",
      "gloss": "ليلى！来玩颜色吧！",
+     "note": "",
      "gesture": {
       "word": "الألوان",
       "poses": [
@@ -3841,6 +3961,7 @@
      "text": "كيف نلعب؟",
      "romanization": "kay-fa nal-ʿab?",
      "gloss": "怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3862,6 +3983,7 @@
      "text": "إذا قلت \"أحمر\" — بماذا تفكرين؟",
      "romanization": "i-dha qult \"ah-mar\" — bi-ma-dha taf-ki-rin?",
      "gloss": "我说\"أحمر\"（红色）——你会想起什么？（对 ليلى 用阴性 تفكرين）",
+     "note": "问句随听者性别变位：对 ليلى 用阴性 تفكرين——阿语必须双套问句",
      "gesture": {
       "word": "أحمر",
       "poses": [
@@ -3886,6 +4008,7 @@
      "text": "أفكر في الورد... في ورد الطائف.",
      "romanization": "af-kir fi-l-ward... fi ward at-ta-if.",
      "gloss": "我会想起玫瑰……塔伊夫的玫瑰。",
+     "note": "塔伊夫玫瑰（ورد الطائف）＝沙特最著名的花香产地",
      "gesture": {
       "word": "الورد",
       "poses": [
@@ -3910,6 +4033,7 @@
      "text": "وإذا قلت \"أخضر\"؟",
      "romanization": "wa-i-dha qult \"akh-dar\"?",
      "gloss": "那我说\"أخضر\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3934,6 +4058,7 @@
      "text": "أفكر في النخيل في مزرعة جدي!",
      "romanization": "af-kir fi-n-na-khil fi maz-ra-ʿat ja-di!",
      "gloss": "我会想起爷爷农场里的椰枣树！",
+     "note": "",
      "gesture": {
       "word": "النخيل",
       "poses": [
@@ -3958,6 +4083,7 @@
      "text": "و\"أصفر\"؟",
      "romanization": "wa \"as-far\"?",
      "gloss": "那\"أصفر\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -3982,6 +4108,7 @@
      "text": "أفكر في الرمل عند الغروب.",
      "romanization": "af-kir fi-r-ram-l ʿind al-ghu-rub.",
      "gloss": "我会想起日落时的沙子。",
+     "note": "",
      "gesture": {
       "word": "الرمل",
       "poses": [
@@ -4006,6 +4133,7 @@
      "text": "و\"أسود\"؟",
      "romanization": "wa \"as-wad\"?",
      "gloss": "那\"أسود\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4030,6 +4158,7 @@
      "text": "أفكر في الليل... مثلك يا ليلى!",
      "romanization": "af-kir fi-l-layl... mith-lak ya lay-la!",
      "gloss": "我会想起夜（ليل）……跟你一样，ليلى！",
+     "note": "ليلى 之名本义即「夜」——阿语原生双关",
      "gesture": {
       "word": "الليل",
       "poses": [
@@ -4054,6 +4183,7 @@
      "text": "و\"أبيض\"؟",
      "romanization": "wa \"ab-yad\"?",
      "gloss": "那\"أبيض\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4078,6 +4208,7 @@
      "text": "أفكر في الثلج... يوماً ما سأراه.",
      "romanization": "af-kir fi-th-thalj... yaw-man ma sa-ra-h.",
      "gloss": "我会想起雪……总有一天我要亲眼看看。",
+     "note": "",
      "gesture": {
       "word": "الثلج",
       "poses": [
@@ -4102,6 +4233,7 @@
      "text": "و\"أزرق\"؟",
      "romanization": "wa \"azraq\"?",
      "gloss": "那\"أزرق\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "أزرق",
       "poses": [
@@ -4126,6 +4258,7 @@
      "text": "أفكر في البحر! في جدة!",
      "romanization": "af-kir fi-l-baḥr! fi Jedda!",
      "gloss": "我想起大海！在吉达！",
+     "note": "",
      "gesture": {
       "word": "البحر",
       "poses": [
@@ -4150,6 +4283,7 @@
      "text": "ستة ألوان! يا سلام!",
      "romanization": "sit-tat al-wan! ya sa-lam!",
      "gloss": "六种颜色！太棒啦！",
+     "note": "",
      "gesture": {
       "word": "ستة",
       "poses": [
@@ -4174,6 +4308,7 @@
      "text": "كان هذا جميلاً. إلى الغد يا عمر.",
      "romanization": "kan ha-dha ja-mi-lan. i-lal-ghad ya ʿu-mar.",
      "gloss": "真美好。明天见，عمر。",
+     "note": "",
      "gesture": {
       "word": "الغد",
       "poses": [
@@ -4198,6 +4333,7 @@
      "text": "إلى الغد!",
      "romanization": "i-lal-ghad!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4251,6 +4387,7 @@
      "text": "अर्जुन! रंगों का खेल खेलें!",
      "romanization": "ar-jun! ran-gon ka khel khe-len!",
      "gloss": "अर्जुन！来，玩个颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "खेल",
       "poses": [
@@ -4275,6 +4412,7 @@
      "text": "ठीक है। कैसे खेलेंगे?",
      "romanization": "thik hai. kai-se khe-len-ge?",
      "gloss": "好。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4296,6 +4434,7 @@
      "text": "मैं \"लाल\" कहूँ, तो तुम क्या सोचते हो?",
      "romanization": "main \"lal\" ka-hun, to tum kya so-che ho?",
      "gloss": "我说\"लाल\"（红色）——你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "लाल",
       "poses": [
@@ -4320,6 +4459,7 @@
      "text": "मैं लाल किला सोचता हूँ।",
      "romanization": "main lal ki-la so-che-ta hun.",
      "gloss": "我会想起红堡。",
+     "note": "लाल किला＝德里「红堡」，莫卧儿皇城",
      "gesture": {
       "word": "लाल किला",
       "poses": [
@@ -4344,6 +4484,7 @@
      "text": "और \"नीला\" कहूँ?",
      "romanization": "aur \"ni-la\" ka-hun?",
      "gloss": "那我说\"नीला\"（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4368,6 +4509,7 @@
      "text": "मैं आसमान सोचती हूँ! और तुम्हारी जीन्स!",
      "romanization": "main a-sa-man so-chi-ti hun! aur tum-ha-ri jins!",
      "gloss": "我会想起天空！还有你的牛仔裤！",
+     "note": "动词随说话者性别双叉：प्रिया 说 सोचती हूँ、अर्जुन 说 सोचता हूँ——印地语必须双套动词",
      "gesture": {
       "word": "जीन्स",
       "poses": [
@@ -4392,6 +4534,7 @@
      "text": "\"हरा\" कहूँ?",
      "romanization": "\"ha-ra\" ka-hun?",
      "gloss": "那\"हरा\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4416,6 +4559,7 @@
      "text": "मैं हरी पत्तियाँ सोचता हूँ।",
      "romanization": "main ha-ri pat-ti-yan so-che-ta hun.",
      "gloss": "我会想起绿叶。",
+     "note": "",
      "gesture": {
       "word": "पत्तियाँ",
       "poses": [
@@ -4440,6 +4584,7 @@
      "text": "और \"पीला\" कहूँ?",
      "romanization": "aur \"pi-la\" ka-hun?",
      "gloss": "那我说\"पीला\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4464,6 +4609,7 @@
      "text": "मैं हल्दी सोचती हूँ! रसोई वाली।",
      "romanization": "main hal-di so-chi-ti hun! ras-sui va-li!",
      "gloss": "我会想起姜黄！厨房的那种。",
+     "note": "",
      "gesture": {
       "word": "हल्दी",
       "poses": [
@@ -4488,6 +4634,7 @@
      "text": "\"काला\" कहूँ?",
      "romanization": "\"ka-la\" ka-hun?",
      "gloss": "那\"काला\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4512,6 +4659,7 @@
      "text": "मैं काजल सोचता हूँ। कलम की स्याही।",
      "romanization": "main ka-jal so-che-ta hun. ka-lam ki sya-hi.",
      "gloss": "我会想起眼妆墨（काजל）。还有钢笔墨水。",
+     "note": "काजल（描眼墨）与 काला（黑）同根——颜色词的词族亲缘",
      "gesture": {
       "word": "काजल",
       "poses": [
@@ -4536,6 +4684,7 @@
      "text": "और \"सफ़ेद\" कहूँ?",
      "romanization": "aur \"sa-fed\" ka-hun?",
      "gloss": "那我说\"सफ़ेद\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4560,6 +4709,7 @@
      "text": "मैं दूध सोचती हूँ!",
      "romanization": "main doodh so-chi-ti hun!",
      "gloss": "我会想起牛奶！",
+     "note": "",
      "gesture": {
       "word": "दूध",
       "poses": [
@@ -4584,6 +4734,7 @@
      "text": "छह रंग पूरे! मज़ा आया!",
      "romanization": "chhah rang pu-re! ma-za a-ya!",
      "gloss": "六种颜色全齐！真好玩！",
+     "note": "",
      "gesture": {
       "word": "छह",
       "poses": [
@@ -4608,6 +4759,7 @@
      "text": "हाँ। कल मिलते हैं, प्रिया।",
      "romanization": "haan. kal mil-te hain, pri-ya.",
      "gloss": "是啊。明天见，प्रिया。",
+     "note": "",
      "gesture": {
       "word": "कल",
       "poses": [
@@ -4632,6 +4784,7 @@
      "text": "कल मिलते हैं!",
      "romanization": "kal mil-te hain!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4685,6 +4838,7 @@
      "text": "ねえリク！帰る前に、色のゲームしようよ！",
      "romanization": "nee ri-ku! ka-e-ru ma-e-ni, i-ro no ge-e-mu shi-yo-u yo!",
      "gloss": "喂リク！回家前来玩颜色游戏嘛！",
+     "note": "",
      "gesture": {
       "word": "ゲーム",
       "poses": [
@@ -4709,6 +4863,7 @@
      "text": "…いいよ。どうやる。",
      "romanization": "... i-i yo. do-u ya-ru.",
      "gloss": "……行啊。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4730,6 +4885,7 @@
      "text": "赤って言ったら、何を思い浮かべる？",
      "romanization": "a-ka tte it-ta-ra, na-ni o o-mo-i u-ka-be-ru?",
      "gloss": "说「あか」（红色）的话，会想起什么？",
+     "note": "",
      "gesture": {
       "word": "赤",
       "poses": [
@@ -4754,6 +4910,7 @@
      "text": "…祭りの提灯。",
      "romanization": "... ma-tsu-ri no cho-chin.",
      "gloss": "……祭典的灯笼。",
+     "note": "",
      "gesture": {
       "word": "提灯",
       "poses": [
@@ -4778,6 +4935,7 @@
      "text": "青って言ったら？",
      "romanization": "a-o tte it-ta-ra?",
      "gloss": "那「あお」（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4802,6 +4960,7 @@
      "text": "青信号！押したら渡れるやつ！",
      "romanization": "a-o shin-go! o-shi-ta-ra wa-ta-re-ru yat-su!",
      "gloss": "绿灯（青信号）！一按就能过马路的那种！",
+     "note": "「青」兼指绿灯（青信号）——青覆盖蓝绿两域，ja 版最经典语言现象",
      "gesture": {
       "word": "青信号",
       "poses": [
@@ -4826,6 +4985,7 @@
      "text": "緑って言ったら？",
      "romanization": "mi-do-ri tte it-ta-ra?",
      "gloss": "那「みどり」（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4850,6 +5010,7 @@
      "text": "緑茶。",
      "romanization": "ryo-ku-cha.",
      "gloss": "绿茶。",
+     "note": "「緑茶」是音读汉字词（りょくちゃ），与训读「みどり」并存——一色两读",
      "gesture": {
       "word": "緑茶",
       "poses": [
@@ -4874,6 +5035,7 @@
      "text": "黄色って言ったら？",
      "romanization": "ki-i-ro tte it-ta-ra?",
      "gloss": "那「きいろ」（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4898,6 +5060,7 @@
      "text": "ひまわり！夏のひまわり！",
      "romanization": "hi-ma-wa-ri! na-tsu no hi-ma-wa-ri!",
      "gloss": "向日葵！夏天的向日葵！",
+     "note": "",
      "gesture": {
       "word": "ひまわり",
       "poses": [
@@ -4922,6 +5085,7 @@
      "text": "黒って言ったら？",
      "romanization": "ku-ro tte it-ta-ra?",
      "gloss": "那「くろ」（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4946,6 +5110,7 @@
      "text": "…俺の髪。",
      "romanization": "... o-re no ka-mi.",
      "gloss": "……我的头发。",
+     "note": "",
      "gesture": {
       "word": "髪",
       "poses": [
@@ -4970,6 +5135,7 @@
      "text": "白って言ったら？",
      "romanization": "shi-ro tte it-ta-ra?",
      "gloss": "那「しろ」（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -4994,6 +5160,7 @@
      "text": "白いごはん！今日の晩ごはん！",
      "romanization": "shi-ro-i go-han! kyo-u no ban go-han!",
      "gloss": "白米饭！今天的晚饭！",
+     "note": "白米饭是日式餐桌底色——「白」最日常的答案",
      "gesture": {
       "word": "ごはん",
       "poses": [
@@ -5018,6 +5185,7 @@
      "text": "六色、全部やった！楽しかった！",
      "romanization": "ro-ku i-ro, zen-bu ya-tta! ta-no-shi-ka-tta!",
      "gloss": "六色全玩了！真开心！",
+     "note": "",
      "gesture": {
       "word": "全部",
       "poses": [
@@ -5042,6 +5210,7 @@
      "text": "…悪くない。また明日。",
      "romanization": "... wa-ru-ku na-i. ma-ta a-shi-ta.",
      "gloss": "……不赖。明天见。",
+     "note": "",
      "gesture": {
       "word": "明日",
       "poses": [
@@ -5066,6 +5235,7 @@
      "text": "また明日！",
      "romanization": "ma-ta a-shi-ta!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5119,6 +5289,7 @@
      "text": "야, 서연아! 색깔 게임 하나만!",
      "romanization": "ya, seo-yeon-a! saek-kkap ge-im ha-na-man!",
      "gloss": "喂서연！走之前来一局颜色游戏呗！",
+     "note": "",
      "gesture": {
       "word": "게임",
       "poses": [
@@ -5143,6 +5314,7 @@
      "text": "좋아요. 어떻게 해요?",
      "romanization": "jo-a-yo. eo-tteo-ke hae-yo?",
      "gloss": "好。怎么玩？",
+     "note": "서연 全程敬语体（해요체）、도윤 全程平语——语体差本身就是关系戏",
      "gesture": {
       "word": "",
       "poses": [
@@ -5164,6 +5336,7 @@
      "text": "빨간색 하면 뭐가 떠올라?",
      "romanization": "ppal-gan-saek ha-myeon mwo-ga tteo-ol-la?",
      "gloss": "说「빨간색」（红色）的话会想起什么？",
+     "note": "",
      "gesture": {
       "word": "빨간색",
       "poses": [
@@ -5188,6 +5361,7 @@
      "text": "태극기가 떠올라요.",
      "romanization": "tae-geuk-gi-ga tteo-ol-la-yo.",
      "gloss": "会想起太极旗。",
+     "note": "太极旗的红蓝两色＝韩国国家象征",
      "gesture": {
       "word": "태극기",
       "poses": [
@@ -5212,6 +5386,7 @@
      "text": "파란색 하면요?",
      "romanization": "pa-ran-saek ha-myeon-yo?",
      "gloss": "那「파란색」（蓝色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5236,6 +5411,7 @@
      "text": "하늘! 가을 하늘!",
      "romanization": "ha-neul! ga-eul ha-neul!",
      "gloss": "天空！秋天的天空！",
+     "note": "",
      "gesture": {
       "word": "하늘",
       "poses": [
@@ -5260,6 +5436,7 @@
      "text": "초록색 하면?",
      "romanization": "cho-rok-saek ha-myeon?",
      "gloss": "那「초록색」（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5284,6 +5461,7 @@
      "text": "할머니 댁 산이 떠올라요. 온통 초록!",
      "romanization": "hal-meo-ni taek sa-ni tteo-ol-la-yo. on-tong cho-rok!",
      "gloss": "会想起奶奶家的山。满山都是绿！",
+     "note": "",
      "gesture": {
       "word": "산",
       "poses": [
@@ -5308,6 +5486,7 @@
      "text": "노란색 하면요?",
      "romanization": "no-ran-saek ha-myeon-yo?",
      "gloss": "那「노란색」（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5332,6 +5511,7 @@
      "text": "은행나무! 학교 앞에 있잖아!",
      "romanization": "eun-haeng-na-mu! hak-gyo a-pe it-ja-na!",
      "gloss": "银杏树！学校门口不是有嘛！",
+     "note": "",
      "gesture": {
       "word": "은행나무",
       "poses": [
@@ -5356,6 +5536,7 @@
      "text": "검은색 하면?",
      "romanization": "geo-meun-saek ha-myeon?",
      "gloss": "那「검은색」（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5380,6 +5561,7 @@
      "text": "먹이 떠올라요. 붓글씨 먹이에요.",
      "romanization": "meo-gi tteo-ol-la-yo. but-geul-ssi meo-gi-e-yo.",
      "gloss": "会想起墨。写毛笔字的墨。",
+     "note": "",
      "gesture": {
       "word": "먹",
       "poses": [
@@ -5404,6 +5586,7 @@
      "text": "흰색 하면요?",
      "romanization": "huin-saek ha-myeon-yo?",
      "gloss": "那「흰색」（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5428,6 +5611,7 @@
      "text": "흰 옷! 옛날 조상들이 늘 입었대!",
      "romanization": "huin ot! yen-nal jo-sang-deu-ri neul i-beot-dae!",
      "gloss": "白衣！听说从前的祖先们总穿白衣！",
+     "note": "白衣（흰 옷）呼应「白衣民族」（백의민족）——韩民族尚白传统",
      "gesture": {
       "word": "흰 옷",
       "poses": [
@@ -5452,6 +5636,7 @@
      "text": "여섯 색깔 다! 재밌다!",
      "romanization": "yeo-seot saek-kkap da! jae-mit-da!",
      "gloss": "六色全玩了！真有意思！",
+     "note": "",
      "gesture": {
       "word": "여섯",
       "poses": [
@@ -5476,6 +5661,7 @@
      "text": "그럼, 내일 봐요, 도윤아.",
      "romanization": "geu-reom, na-il bwa-yo, do-yun-a.",
      "gloss": "那，明天见，도윤。",
+     "note": "",
      "gesture": {
       "word": "내일",
       "poses": [
@@ -5500,6 +5686,7 @@
      "text": "내일 봐!",
      "romanization": "na-il bwa!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5553,6 +5740,7 @@
      "text": "Luca! Prima del tramonto – il gioco dei colori!",
      "romanization": "",
      "gloss": "Luca！日落前来玩颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "colori",
       "poses": [
@@ -5577,6 +5765,7 @@
      "text": "Va bene. Come si fa?",
      "romanization": "",
      "gloss": "行。怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5598,6 +5787,7 @@
      "text": "Quando dico \"rosso\"... a cosa pensi?",
      "romanization": "",
      "gloss": "我说\"rosso\"（红色）……你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "rosso",
       "poses": [
@@ -5622,6 +5812,7 @@
      "text": "A una Ferrari, ovviamente. Siamo in Italia!",
      "romanization": "",
      "gloss": "法拉利，还用说。我们可是在意大利！",
+     "note": "rosso Ferrari＝意大利的「国家红」——车企色卡成了文化符号",
      "gesture": {
       "word": "Ferrari",
       "poses": [
@@ -5646,6 +5837,7 @@
      "text": "E \"blu\"?",
      "romanization": "",
      "gloss": "那\"blu\"（蓝色）呢？",
+     "note": "意大利两蓝之分：blu 深蓝／azzurro 天蓝——国家队就叫 Gli Azzurri",
      "gesture": {
       "word": "",
       "poses": [
@@ -5670,6 +5862,7 @@
      "text": "Al mare! Al nostro mare!",
      "romanization": "",
      "gloss": "大海！我们的海！",
+     "note": "",
      "gesture": {
       "word": "mare",
       "poses": [
@@ -5694,6 +5887,7 @@
      "text": "\"Verde\"?",
      "romanization": "",
      "gloss": "\"verde\"（绿色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5718,6 +5912,7 @@
      "text": "Al basilico del pesto.",
      "romanization": "",
      "gloss": "青酱里的罗勒。",
+     "note": "",
      "gesture": {
       "word": "basilico",
       "poses": [
@@ -5742,6 +5937,7 @@
      "text": "E \"giallo\"?",
      "romanization": "",
      "gloss": "那\"giallo\"（黄色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5766,6 +5962,7 @@
      "text": "Al limone di Sorrento!",
      "romanization": "",
      "gloss": "索伦托的柠檬！",
+     "note": "",
      "gesture": {
       "word": "limone",
       "poses": [
@@ -5790,6 +5987,7 @@
      "text": "\"Nero\"?",
      "romanization": "",
      "gloss": "\"nero\"（黑色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5814,6 +6012,7 @@
      "text": "Al caffè. Quello vero, in tazzina.",
      "romanization": "",
      "gloss": "咖啡。小杯装的、真正的咖啡。",
+     "note": "",
      "gesture": {
       "word": "caffè",
       "poses": [
@@ -5838,6 +6037,7 @@
      "text": "E \"bianco\"?",
      "romanization": "",
      "gloss": "那\"bianco\"（白色）呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5862,6 +6062,7 @@
      "text": "A una Vespa bianca! Come quella di zia!",
      "romanization": "",
      "gloss": "白色的 Vespa 小摩托！我姑妈那辆那种！",
+     "note": "白色 Vespa 小摩托＝意式街头经典款",
      "gesture": {
       "word": "Vespa",
       "poses": [
@@ -5886,6 +6087,7 @@
      "text": "Sei colori, sei sogni! Com'era bello!",
      "romanization": "",
      "gloss": "六种颜色六个梦！真美！",
+     "note": "",
      "gesture": {
       "word": "Sei",
       "poses": [
@@ -5910,6 +6112,7 @@
      "text": "Sì. A domani, Giulia.",
      "romanization": "",
      "gloss": "是啊。明天见，Giulia。",
+     "note": "",
      "gesture": {
       "word": "domani",
       "poses": [
@@ -5934,6 +6137,7 @@
      "text": "A domani!",
      "romanization": "",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -5987,6 +6191,7 @@
      "text": "יובל! משחק אחד בצבעים לפני השקיעה!",
      "romanization": "yu-val! mis-chach e-chad ba-tze-va-im lif-ney ha-shki-a!",
      "gloss": "יובל！日落前来一局颜色游戏！",
+     "note": "",
      "gesture": {
       "word": "צבעים",
       "poses": [
@@ -6011,6 +6216,7 @@
      "text": "איך משחקים?",
      "romanization": "eich mis-chach-im?",
      "gloss": "怎么玩？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6032,6 +6238,7 @@
      "text": "כשאני אומרת \"אדום\" – במה אתה חושב?",
      "romanization": "kshe-a-ni o-me-ret \"a-dom\" – be-ma a-ta cho-shev?",
      "gloss": "我说\"אדום\"（红色）——你会想起什么？（נועה 说话用阴性 אומרת）",
+     "note": "动词随说话者性别变位：נועה 说 אומרת（阴性）、יובל 说 אומר——希语必须双套动词",
      "gesture": {
       "word": "אדום",
       "poses": [
@@ -6056,6 +6263,7 @@
      "text": "אני חושב על הכלניות בנגב.",
      "romanization": "a-ni cho-shev al ha-kal-a-niyot ba-negev.",
      "gloss": "我会想起内盖夫的银莲花。",
+     "note": "",
      "gesture": {
       "word": "כלניות",
       "poses": [
@@ -6080,6 +6288,7 @@
      "text": "\"ירוק\" – במה את חושבת?",
      "romanization": "\"ya-rok\" – be-ma at cho-shevet?",
      "gloss": "那\"ירוק\"（绿色）呢——你会想起什么？（对 נועה 提问用阴性 חושבת）",
+     "note": "",
      "gesture": {
       "word": "ירוק",
       "poses": [
@@ -6104,6 +6313,7 @@
      "text": "אני חושבת על זית והדגל!",
      "romanization": "a-ni cho-shevet al zayit ve-ha-de-gel!",
      "gloss": "我会想起橄榄叶和国旗！",
+     "note": "橄榄枝＋国旗＝一句话两个国家符号——旗上正画着橄榄枝",
      "gesture": {
       "word": "זית",
       "poses": [
@@ -6128,6 +6338,7 @@
      "text": "\"צהוב\" – במה אתה חושב?",
      "romanization": "\"tza-hov\" – be-ma a-ta cho-shev?",
      "gloss": "那\"צהוב\"（黄色）呢——你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6152,6 +6363,7 @@
      "text": "אני חושב על חול המדבר. שקט וחם.",
      "romanization": "a-ni cho-shev al chol ha-mid-bar. sha-ket ve-cham.",
      "gloss": "沙漠的沙。安静，又热。",
+     "note": "",
      "gesture": {
       "word": "חול",
       "poses": [
@@ -6176,6 +6388,7 @@
      "text": "\"שחור\" – במה את חושבת?",
      "romanization": "\"sha-chor\" – be-ma at cho-shevet?",
      "gloss": "那\"שחור\"（黑色）呢——你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6200,6 +6413,7 @@
      "text": "אני חושבת על קפה של אמא בבוקר!",
      "romanization": "a-ni cho-shevet al ka-fe shel i-ma ba-boker!",
      "gloss": "妈妈早晨的咖啡！",
+     "note": "",
      "gesture": {
       "word": "קפה",
       "poses": [
@@ -6224,6 +6438,7 @@
      "text": "\"לבן\" – במה אתה חושב?",
      "romanization": "\"la-van\" – be-ma a-ta cho-shev?",
      "gloss": "那\"לבן\"（白色）呢——你会想起什么？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6248,6 +6463,7 @@
      "text": "אני חושב על קצף הגלים! מים!",
      "romanization": "a-ni cho-shev al ke-tsef ha-ga-lim! ma-yim!",
      "gloss": "浪尖的白沫。水！",
+     "note": "",
      "gesture": {
       "word": "קצף",
       "poses": [
@@ -6272,6 +6488,7 @@
      "text": "\"כחול\" – במה את חושבת?",
      "romanization": "\"ka-chol\" – be-ma at cho-shevet?",
      "gloss": "那\"כחול\"（蓝色）呢——你会想起什么？",
+     "note": "תכלת（圣经蓝）源自古代染色螺——希语的「蓝」自带圣经典故",
      "gesture": {
       "word": "",
       "poses": [
@@ -6296,6 +6513,7 @@
      "text": "אני חושבת על הדגים באקווריום!",
      "romanization": "a-ni cho-shevet al ha-dagim be-aquarium!",
      "gloss": "我想起水族箱里的鱼！",
+     "note": "",
      "gesture": {
       "word": "הדגים",
       "poses": [
@@ -6320,6 +6538,7 @@
      "text": "שישה צבעים! איזה כיף!",
      "romanization": "shi-sha tze-va-im! ei-ze kef!",
      "gloss": "六种颜色！真开心！",
+     "note": "",
      "gesture": {
       "word": "שישה",
       "poses": [
@@ -6344,6 +6563,7 @@
      "text": "נתראה מחר, נועה.",
      "romanization": "nit-ra-e machar, no-a.",
      "gloss": "明天见，נועה。",
+     "note": "",
      "gesture": {
       "word": "מחר",
       "poses": [
@@ -6368,6 +6588,7 @@
      "text": "נתראה מחר!",
      "romanization": "nit-ra-e machar!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6421,6 +6642,7 @@
      "text": "阿晴！收工之前——玩個顏色遊戲，好唔好？",
      "romanization": "aa3cing4! sau1gung1 zi1cin4 — waan2 go3 ngaan4sik1 jau4hei3, hou2 m4 hou2?",
      "gloss": "阿晴！收工前——玩个颜色游戏，好不好？",
+     "note": "",
      "gesture": {
       "word": "遊戲",
       "poses": [
@@ -6445,6 +6667,7 @@
      "text": "好呀。點玩？",
      "romanization": "hou2aa3. dim2waan2?",
      "gloss": "好呀。怎么玩？",
+     "note": "「點玩」＝怎么玩——粤语疑问词用「點」不用「怎」",
      "gesture": {
       "word": "",
       "poses": [
@@ -6466,6 +6689,7 @@
      "text": "講到紅色，你會諗到啲乜？",
      "romanization": "gong2dou3 hung4sik1, nei5wui5 nam2dou3 di1mat1?",
      "gloss": "说到红色，你会想到什么？",
+     "note": "",
      "gesture": {
       "word": "紅色",
       "poses": [
@@ -6490,6 +6714,7 @@
      "text": "利是！過年嗰陣最開心。",
      "romanization": "lai6si6! gwo3nin4 go2zan6 zeoi3hoi1sam1.",
      "gloss": "红包（利是）！过年那阵最开心。",
+     "note": "「利是」即红包——粤语固有说法，不叫「红包」",
      "gesture": {
       "word": "利是",
       "poses": [
@@ -6514,6 +6739,7 @@
      "text": "講到藍色呢？",
      "romanization": "gong2dou3 laam4sik1 ne1?",
      "gloss": "那蓝色呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6538,6 +6764,7 @@
      "text": "牛仔褲！人人都有嗰條！",
      "romanization": "ngau4zai2fu3! jan4jan4 dou1jau5 go2tiu4!",
      "gloss": "牛仔裤！人人都有一条！",
+     "note": "",
      "gesture": {
       "word": "牛仔褲",
       "poses": [
@@ -6562,6 +6789,7 @@
      "text": "講到綠色呢？",
      "romanization": "gong2dou3 luk6sik1 ne1?",
      "gloss": "那绿色呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6586,6 +6814,7 @@
      "text": "街市啲菜心。新鮮嗰啲。",
      "romanization": "gaai1si5 di1coi3sam1. san1sin1 go2di1.",
      "gloss": "街市的菜心。新鲜那些。",
+     "note": "",
      "gesture": {
       "word": "菜心",
       "poses": [
@@ -6610,6 +6839,7 @@
      "text": "講到黃色呢？",
      "romanization": "gong2dou3 wong4sik1 ne1?",
      "gloss": "那黄色呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6634,6 +6864,7 @@
      "text": "蛋撻！金黃金黃嗰隻！",
      "romanization": "daan6taat1! gam1wong4gam1wong4 go2zek3!",
      "gloss": "蛋挞！金黄金黄那只！",
+     "note": "",
      "gesture": {
       "word": "蛋撻",
       "poses": [
@@ -6658,6 +6889,7 @@
      "text": "講到黑色呢？",
      "romanization": "gong2dou3 hak1sik1 ne1?",
      "gloss": "那黑色呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6682,6 +6914,7 @@
      "text": "廿四味。",
      "romanization": "jaa6sei3mei2.",
      "gloss": "廿四味凉茶。",
+     "note": "",
      "gesture": {
       "word": "廿四味",
       "poses": [
@@ -6706,6 +6939,7 @@
      "text": "講到白色呢？",
      "romanization": "gong2dou3 baak6sik1 ne1?",
      "gloss": "那白色呢？",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6730,6 +6964,7 @@
      "text": "白切雞！今晚食唔食？",
      "romanization": "baak6cit3gai1! gam1maan5 sik6m4sik6?",
      "gloss": "白切鸡！今晚吃不吃？",
+     "note": "",
      "gesture": {
       "word": "白切雞",
       "poses": [
@@ -6754,6 +6989,7 @@
      "text": "六隻色講晒！好好玩！",
      "romanization": "luk6zek3 sik1 gong2saai3! hou2hou2waan2!",
      "gloss": "六只颜色说「晒」（全）了！真好玩！",
+     "note": "句末「晒」表「全、完」——粤语特有助词",
      "gesture": {
       "word": "講晒",
       "poses": [
@@ -6778,6 +7014,7 @@
      "text": "聽日見。",
      "romanization": "ting1jat6gin3.",
      "gloss": "明天见。",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [
@@ -6799,6 +7036,7 @@
      "text": "聽日見！",
      "romanization": "ting1jat6gin3!",
      "gloss": "明天见！",
+     "note": "",
      "gesture": {
       "word": "",
       "poses": [

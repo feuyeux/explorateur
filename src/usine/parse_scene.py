@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""parse_scene.py — 通用教学场景解析器：scene-<id>.md → scene_<id>.json
+"""parse_scene.py — 通用教学场景解析器：lessons/<id>/scene.md → lessons/<id>/scene.json
 
 剧本 md 是场景唯一事实源（台词 + 机器规格），本脚本只做**抽取**不做改写：§0 机读规格
 （sceneId / title / rtlLocales / 教学 token 表 / 舞台装置规格表）、§2 各语种台词、§5
 token 词表全部按体例取回，保证 md 与 JSON 两处同步（CLAUDE.md 不变量③——本脚本是该
 同步的构造性保证）。
 
-**场景无关**：新教学场景 = 在 `scenes/` 新建 `scene-<id>.md` 照抄体例，本脚本与渲染线零改动：
-    uv run usine-parse [--scene colors]           # scenes/scene-colors.md → scene_colors.json
+**场景无关**：新教学场景 = 在 `lessons/<id>/` 新建 `scene.md` 照抄体例，本脚本与渲染线零改动：
+    uv run usine-parse [--scene colors]           # lessons/colors/scene.md → lessons/colors/scene.json
 
-md 体例（见 scenes/scene-colors.md §0，照抄即可）：
+md 体例（见 lessons/colors/scene.md §0，照抄即可）：
   ## 0. 场景规格（机读）
     sceneId: <课程场景标识>
     title: <中文标题>
@@ -23,12 +23,15 @@ md 体例（见 scenes/scene-colors.md §0，照抄即可）：
                              （把「语体差即关系戏」这类注记承诺声明成可验收的数据；缺行 = 不检查）
   ## 2. 各语种剧本           ### <label>｜<aName> × <bName>（label 内含 locale 码）
     台词行：- **A**（happy）：「原文」（*注音*）——中文对照｜「手势词」处 `pose`
+            （中文对照只认第一个 ｜ 之前的「——」；手势段/注记段里的「——」是行内批注，不是翻译）
+            可选注记段：｜⚑需要特别说明的文化/语言现象（中文，一句话）——
+            渲染成比中文对照更小一号的注记条；省略 = 该行无注记（注记内可自由用「——」）
             汉字圈用「」、法/俄/希/阿用 «»、en 用 ""；引号内单引号不影响取词
     **舞台**：…。**道具装置**：…。
   ## 5. token 词表           | locale | <token1 词> | … |（列序 = §0.1 token 书写序；
                             单元格 `词 = 别形`（注音）——全部书写形都可逐字命中台词）
 
-输出 scene_<id>.json：{id, sceneId, title, source, rtlLocales, durationBudget,
+输出 lessons/<id>/scene.json：{id, sceneId, title, source, rtlLocales, durationBudget,
  speechLevels, tokenOrder, tokens, tokenWords:{locale:[{key,word,forms,romanization}]},
  locales:{locale:{…,dialogue[]}}}。
 """
@@ -39,21 +42,27 @@ from pathlib import Path
 
 from usine import ROOT
 
-HERE = ROOT                              # 仓库根（scene_<id>.json 的锚点，不依赖 cwd）
-SCENES_DIR = ROOT / "scenes"             # 场景剧本 md 统一放这里（scene-<id>.md）
+HERE = ROOT                              # 仓库根（lessons/ 的锚点，不依赖 cwd）
+LESSONS_DIR = ROOT / "lessons"            # 课程统一目录：lessons/<id>/scene.md + scene.json + analysis/
 LOC_RE = r"(?:[a-z]{2,3}-[A-Z]{2})"
 HEAD_RE = re.compile(r"^### (?:\d+\.\d+\s+)?([^｜\n]+)｜([^×\n]+)×\s*([^\n（]+)", re.M)
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$", re.M)
 
 
 def scene_paths(scene_id):
-    """id → (md 路径, json 路径)：约定 scenes/scene-<id>.md / 根下 scene_<id>.json（照抄即接入）。"""
-    return SCENES_DIR / f"scene-{scene_id}.md", HERE / f"scene_{scene_id}.json"
+    """id → (md 路径, json 路径)：约定 lessons/<id>/scene.md / lessons/<id>/scene.json（照抄即接入）。"""
+    d = LESSONS_DIR / scene_id
+    return d / "scene.md", d / "scene.json"
 
 
 def find_scene_ids():
-    """仓库内已有的场景 id（scenes/scene-<id>.md 存在即算），供缺省选择与报错提示。"""
-    return sorted(p.stem[len("scene-"):] for p in SCENES_DIR.glob("scene-*.md"))
+    """仓库内已有的场景 id（lessons/<id>/scene.md 存在即算），供缺省选择与报错提示。"""
+    return sorted(p.parent.name for p in LESSONS_DIR.glob("*/scene.md"))
+
+
+def analysis_dir(scene_id):
+    """id → lessons/<id>/analysis/（逐句解析 <locale>.json + _source/<locale>.md 的家）。"""
+    return LESSONS_DIR / scene_id / "analysis"
 
 
 def _split_md(md):
@@ -95,7 +104,7 @@ def parse_spec(md):
     """
     sec0 = _split_md(md).get("0", "")
     if not sec0.strip():
-        raise ValueError("缺 §0 场景规格节（机读体例，见 scenes/scene-colors.md §0）")
+        raise ValueError("缺 §0 场景规格节（机读体例，见 lessons/colors/scene.md §0）")
 
     def meta_val(key):
         m = re.search(rf"^{key}:\s*(.+)$", sec0, re.M)
@@ -183,7 +192,7 @@ def _norm_pose(code):
 
 
 def parse_line(line):
-    """一行台词 → {speaker, mood, text, romanization, gloss, gesture:{word,poses}, exits}"""
+    """一行台词 → {speaker, mood, text, romanization, gloss, note, gesture:{word,poses}, exits}"""
     m = re.match(r"^[ \t]*(?:→)?- \*\*([AB])\*\*（(\w+)）：(.*)$", line.strip())
     if not m:
         return None
@@ -198,10 +207,15 @@ def parse_line(line):
     if rom_m:
         tail = tail[rom_m.end():]
 
-    gl_m = re.search(r"——(.*?)(?:｜|$)", tail)       # 中文对照（到 ｜ 或行尾）
-    gloss = gl_m.group(1).strip() if gl_m else ""
+    # 注记段（⚑）先剥离：注记文字里允许出现「——」，不得被下面的对照解析吃掉
+    parts = tail.split("｜")[1:]                                 # ｜ 后的段（注记 + 手势）
+    note_parts = [x for x in parts if x.strip().startswith("⚑")]
+    note = re.sub(r"^\s*⚑\s*", "", note_parts[0]).strip() if note_parts else ""
+    seg = "｜".join(x for x in parts if not x.strip().startswith("⚑"))
 
-    seg = tail.split("｜", 1)[1] if "｜" in tail else ""          # 手势段
+    # 中文对照只认首段（第一个 ｜ 之前）的「——」：手势段/注记段的「——」是行内批注，不是翻译
+    gl_m = re.search(r"——(.*?)(?:｜|$)", tail.split("｜")[0])
+    gloss = gl_m.group(1).strip() if gl_m else ""
     poses = [_norm_pose(x) for x in re.findall(r"`([a-zA-Z][a-zA-Z0-9_-]*)`", seg)]
     wm = re.search(r"(?:「([^」]+)」|“([^”]+)”|«([^»]+)»|\"([^\"]+)\")\s*处", seg)
     word = next((g.strip() for g in (wm.groups() if wm else ()) if g), "") if wm else ""
@@ -212,6 +226,7 @@ def parse_line(line):
         "text": text.strip(),
         "romanization": romanization,
         "gloss": gloss,
+        "note": note,
         "gesture": {"word": word, "poses": poses},
         "exits": "出画" in seg,
     }
@@ -239,7 +254,7 @@ def parse_locales(md, devices):
         if len(dialogue) < 2:
             raise ValueError(f"{locale} 台词仅 {len(dialogue)} 行，疑似解析漏行")
 
-        # 位置骨架（scene-colors.md §1.1 体例）：0 开场提议 / 1 应答 / 2..n-4 一来一往
+        # 位置骨架（lessons/colors/scene.md §1.1 体例）：0 开场提议 / 1 应答 / 2..n-4 一来一往
         # （偶数行=问句）/ n-3 收束总结 / n-2 与 n-1 再会。台词行数由剧本自定，骨架只按位置。
         n = len(dialogue)
         for i, ln in enumerate(dialogue):
@@ -352,9 +367,9 @@ def parse_scene(scene_id):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="通用教学场景解析：scene-<id>.md → scene_<id>.json")
+    ap = argparse.ArgumentParser(description="通用教学场景解析：lessons/<id>/scene.md → lessons/<id>/scene.json")
     ap.add_argument("--scene", default="colors",
-                    help="场景 id（对应 scenes/scene-<id>.md；缺省 colors；可运行 --list 查看已有）")
+                    help="场景 id（对应 lessons/<id>/scene.md；缺省 colors；可运行 --list 查看已有）")
     ap.add_argument("--list", action="store_true", help="列出已有场景 id")
     args = ap.parse_args()
     if args.list:

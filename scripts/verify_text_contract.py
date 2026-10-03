@@ -13,7 +13,7 @@ from usine.qa_scene import (  # noqa: E402
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENE = json.loads((ROOT / "scene_colors.json").read_text(encoding="utf-8"))
+SCENE = json.loads((ROOT / "lessons" / "colors" / "scene.json").read_text(encoding="utf-8"))
 
 
 def punct_bad(lines):

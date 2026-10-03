@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""把 scene_colors.json 导成人可读 / agent 可读的逐语种源文本，供逐句解析委派使用。
+"""把 lessons/<id>/scene.json 导成人可读 / agent 可读的逐语种源文本，供逐句解析委派使用。
 
-事实源是 scene_colors.json（由 parse_scene.py 从 scene-colors.md 抽取），本脚本只排版不改写。
-输出：lesson_analysis/_source/<locale>.md，14 个语种各一份。
+事实源是 lessons/<id>/scene.json（由 parse_scene.py 从 lessons/<id>/scene.md 抽取），本脚本只排版不改写。
+输出：lessons/<id>/analysis/_source/<locale>.md，14 个语种各一份。
 
 用法：
-    uv run usine-dump-lesson              # 全部语种
-    uv run usine-dump-lesson ja-JP ko-KR  # 指定语种
+    uv run usine-dump-lesson                                # colors 课全部语种
+    uv run usine-dump-lesson --scene colors --only ja-JP    # 指定课程/语种
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
 
 from usine import ROOT
-SCENE_JSON = ROOT / "scene_colors.json"
-OUT_DIR = ROOT / "lesson_analysis" / "_source"
+from .parse_scene import analysis_dir, find_scene_ids, scene_paths
 
 ROLE_CN = {
     "open": "开场",
@@ -84,23 +84,34 @@ def dump(locale: str, data: dict, scene: dict) -> str:
         L.append(f"- **原文**：{d.get('text', '')}")
         L.append(f"- **注音**：{d.get('romanization') or '—'}")
         L.append(f"- **中文翻译**：{d.get('gloss', '')}")
+        if d.get("note"):
+            L.append(f"- **文化/语言注记**：{d['note']}")
         L.append("")
 
     return "\n".join(L)
 
 
 def main() -> int:
-    if not SCENE_JSON.exists():
-        print(f"缺少 {SCENE_JSON.name}，先跑：uv run usine-parse --scene colors", file=sys.stderr)
+    ap = argparse.ArgumentParser(description="lessons/<id>/scene.json → 逐语种解析源文本（只排版不改写）")
+    ap.add_argument("--scene", default="colors", choices=find_scene_ids(),
+                    help="课程 id（对应 lessons/<id>/；缺省 colors）")
+    ap.add_argument("--only", default="", help="逗号分隔的 locale 列表，如 zh-CN,ja-JP")
+    args, extra = ap.parse_known_args()
+    _, scene_json = scene_paths(args.scene)
+    if not scene_json.exists():
+        print(f"缺少 {scene_json.relative_to(ROOT)}，先跑：uv run usine-parse --scene {args.scene}",
+              file=sys.stderr)
         return 1
-    scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
-    locales = sys.argv[1:] or list(scene["locales"].keys())
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    scene = json.loads(scene_json.read_text(encoding="utf-8"))
+    locales = ([x.strip() for x in args.only.split(",") if x.strip()] or extra
+               or list(scene["locales"].keys()))
+    out_dir = analysis_dir(args.scene) / "_source"
+    out_dir.mkdir(parents=True, exist_ok=True)
     for lc in locales:
         if lc not in scene["locales"]:
             print(f"跳过未知语种 {lc}", file=sys.stderr)
             continue
-        out = OUT_DIR / f"{lc}.md"
+        out = out_dir / f"{lc}.md"
         out.write_text(dump(lc, scene, scene), encoding="utf-8")
         print(f"{out.relative_to(ROOT)}  ({len(scene['locales'][lc]['dialogue'])} 行)")
     return 0

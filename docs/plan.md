@@ -4,7 +4,7 @@ title: "多语言教学视频人物班底：人设与实现规划"
 description: "为十四个语种各设男女一位、共二十八位固定人物的班底规划：符合各语命名习惯的名字、实测锁定的 Neural 音色、token 化调色板、帧函数化动作与挂件；示范场景《问路与指路》开箱即用，换场景人物零改动；音色/用色/动作全链路高质量且幂等。"
 tags: [plan, character-design, multilingual, teaching-video, tts]
 generated: { by: dsh/fuyao-work, at: 2026-10-02 }
-updated: { by: dsh/fuyao-work, at: 2026-10-03, note: "§8.3 人物几何重设计（肩楔/肩同宽/臂内收）、§8.4 管线一落地实况、§8.5 降为备选、§9 里程碑对齐现状；§4 schema 补 relation/quirk 与构建版差异注记（对标台账见 benchmark-duolingo.md）" }
+updated: { by: dsh/fuyao-work, at: 2026-10-03, note: "人物形象差异化打磨：§8.3 脸型 2 型→6 型（FACE_SPECS 按人设分配，heart/square 另有下颌绘制）；§4 schema 补 outfit 服装轮廓槽（skirt/tunic/pinafore/vest/buttons）；发型去重（short_part/short_neat）；配饰去雷同（背包 5→2，新增 zipper/clipboard/towel_shoulder，§5 各行已同步）；§8.4 管线一落地实况、§8.5 降为备选、§9 里程碑对齐现状（对标台账见 benchmark-duolingo.md）；colors 课重制：§4 schema 补 moves 排他动作槽位表（28 人，同台 A/B 零交集）" }
 inputs:
   - requirement.md                      # 需求输入：界面布局 + 人物设定四模块
   - adr-character-tech.md               # 人物生成技术选型裁定（§8.5 备选案的决策记录）
@@ -113,13 +113,28 @@ type Persona = {
   };
 
   movement: {                       // ── requirement §3.2 动态 ──
-    face: "round" | "tall";         // 脸型 → rig 的 path 家族
+    face: "round" | "tall" | "oval" | "wide" | "heart" | "square";   // 脸型 → face_geo 规格（§8.3；heart=圆收下巴（贝塞尔弧收底，禁尖角）/square=方颌，另有下颌绘制）
     bounce: number;                 // spring damping：越小越弹（个性参数）
     blinkCycleSec: number;          // 眨眼周期（帧函数，相位由 seed 错开）
     breathAmp: number;              // 待机呼吸幅度（0.4Hz 正弦）
     signature: string[];            // 招牌动作原语 id（见 §4.2 原语库）
     seed: string;                   // = id；random(seed) 的命名空间
     gaze: "camera";                 // 视线跟随镜头（rig 层统一实现）
+  };
+
+  moves?: {                        // ── 场景线排他动作槽位表（2026-10-03 新增；缺省 = 槽名回退）──
+    // 剧本 `` `pose` `` 注记只写槽位语义（point/nod/wave…），渲染时 persona_pose() 查本表
+    // 映射成该人专属姿态码：同一槽位每人一码、逐人单射；活泼池 ∩ 沉稳池 = ∅，
+    // 故同台 A/B 的动作词汇表零交集由构造保证（qa_scene §3 有排他探针）。
+    point: string; palm_open: string; both_hands: string; nod: string;
+    jump_celebrate: string; mini_jump: string; wave: string;
+    scratch_head: string; deadpan_nod: string;
+  };
+
+  outfit?: {                        // ── 服装轮廓槽（可选；2026-10-03 打磨新增，缺省=长裤零改动）──
+    bottom?: "skirt";               // A 字裙：腿画肤色＋裙身取 outfitBottom 色
+    kind?: "tunic" | "pinafore" | "vest";   // 长衫（下摆过臀）/ 背带裙（护胸+背带）/ 马甲（中开襟片）
+    buttons?: boolean;              // 前襟扣排（衬衫通勤感）
   };
 
   palette: {                        // ── requirement §3.3 色彩 ──
@@ -184,8 +199,8 @@ type Persona = {
 | 名字 | 林小满 *Lín Xiǎomǎn*——节气名"小满"，将满未满，元气与好奇写在名字里 | 江远 *Jiāng Yuǎn*——江与远，走得再远也认得路 |
 | 人设 | 元气提问者：先举手再思考 | 人形路标：话不多，指路一步不差 |
 | 音色 | `zh-CN-XiaoxiaoNeural`：明亮少女声，颗粒清晰，尾音轻快；基线 `+7% / +5Hz` | `zh-CN-YunxiNeural`：温润青年声，低中音，字字落定；基线 `−6% / −3Hz` |
-| 色彩 | 发 `#332E38`/`#524B5E` 高马尾；肤 `#F5C9A2`/`#E0A87E`；卫衣 `#F2EDE4`＋丹宁 `#4A6398` | 发 `#2B2730`/`#46414F`；肤 `#F3D4B8`/`#DDB295`；夹克 `#35486E`＋白 T `#F5F3EE` |
-| 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`bounce-in`＋`wave` | tall；bounce `16`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`nod`＋`palm-open` |
+| 色彩 | 发 `#332E38`/`#524B5E` 高马尾；肤 `#F5C9A2`/`#E0A87E`；卫衣 `#F2EDE4`＋丹宁 A 字裙 `#4A6398` | 发 `#2B2730`/`#46414F` 侧分短发；肤 `#F3D4B8`/`#DDB295`；夹克 `#35486E`＋白 T `#F5F3EE` |
+| 动作 | heart（圆收下巴）；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`bounce-in`＋`wave` | square（方颌）；bounce `16`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`nod`＋`palm-open` |
 | 挂件 | 红发绳〔头〕；双肩包（标识色）〔prop·bounce〕 | 帆布斜挎包〔prop〕；颈挂耳机〔neck·swing〕 |
 
 标识色用法：小满的发绳／江远的胸徽——**每人恰一处**，语种一眼可辨。
@@ -198,7 +213,7 @@ type Persona = {
 | 人设 | 街角咖啡馆掌柜：话不多但句句带钩 | 旅行型选手：热情过剩，方向感为零 |
 | 音色 | `en-US-JennyNeural`：亲切成熟女声，微哑的咖啡感；基线 `−4% / −2Hz` | `en-US-GuyNeural`：开朗青年声，音区偏高语速易赶；基线 `+8% / +4Hz` |
 | 色彩 | 发 `#8C4A32`/`#B26844` 波浪 lob；肤 `#F7DCC4`/`#E2B896`；白衬衫 `#F4F1EA`＋墨绿围裙 `#2E6B57` | 发 `#C7995C`/`#E0B87A` 微卷；肤 `#FAE3D0`/`#E5BEA4`；钴蓝 T `#4657D8`＋卡其裤 `#B9A279` |
-| 动作 | tall；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`brow-raise`＋`nod` | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`scratch-head`＋`shrug` |
+| 动作 | oval；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`brow-raise`＋`nod` | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`scratch-head`＋`shrug` |
 | 挂件 | 圆框眼镜〔face·reflect〕；名牌挂绳（标识色）〔neck·swing〕 | 相机挂绳〔neck·swing〕；折叠地图〔prop〕 |
 
 ### 5.3 法语 `fr-FR`｜法兰西玫瑰 `#CE5290`｜同楼邻居：风风火火 × 从容
@@ -208,7 +223,7 @@ type Persona = {
 | 名字 | Chloé——法国常年前十的女名，明快上口 | Théo——法国常年前列的男名，短而温和 |
 | 人设 | 踩滑板的急先锋：说走就走 | 慢先生：先竖一根手指说"等等"，再把路讲清 |
 | 音色 | `fr-FR-DeniseNeural`：圆润活泼女声，元音饱满；基线 `+7% / +5Hz` | `fr-FR-HenriNeural`：沉稳男中音，胸腔共鸣，句读分明；基线 `−6% / −3Hz` |
-| 色彩 | 发 `#4A342A`/`#6B4E3F` 短波波头；肤 `#F6D8BE`/`#E1B898`；玫瑰针织 `#D67BAB`＋炭灰 `#3F3B45` | 发 `#33261F`/`#524036`；肤 `#EDC9A8`/`#D6A883`；灰蓝衬衫 `#7A93B5`＋白 T `#F5F3EE` |
+| 色彩 | 发 `#4A342A`/`#6B4E3F` 短波波头；肤 `#F6D8BE`/`#E1B898`；玫瑰针织 `#D67BAB`＋炭灰 A 字裙 `#3F3B45` | 发 `#33261F`/`#524036` 利落短发平刘海；肤 `#EDC9A8`/`#D6A883`；灰蓝衬衫 `#7A93B5`＋白 T `#F5F3EE` |
 | 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`twirl`＋`wave` | tall；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`index-wait`＋`point` |
 | 挂件 | 滑板〔prop〕；帆布单肩包〔prop〕 | 口袋书〔prop〕；长围巾（标识色）〔neck·swing〕 |
 
@@ -219,8 +234,8 @@ type Persona = {
 | 名字 | Lena——德国常年榜首段的女名，干净利落 | Felix——拉丁语"幸运的"，德国常青男名 |
 | 人设 | 人形日程表：路要掰着指头讲，一步不多一步不少 | 说走就走的徒步咖：先出发再想路线 |
 | 音色 | `de-DE-KatjaNeural`：清晰标准女声，节奏均匀如节拍器；基线 `−5% / −2Hz` | `de-DE-ConradNeural`：温厚男声，带笑意的亮度；基线 `+8% / +5Hz` |
-| 色彩 | 发 `#9C7A52`/`#BC9A6E` 一丝不苟低髻；肤 `#F6DFCB`/`#E1BB9F`；白衬衫 `#F5F2EA`＋炭西装 `#3F4149` | 发 `#C09A5E`/`#DCBB82` 爆炸短卷；肤 `#F7DEC6`/`#E2BBA0`；芥末黄 T `#EBC357`＋卡其短裤 `#A98F68` |
-| 动作 | tall；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`finger-count`＋`nod` | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`hand-shoot`＋`bounce-in` |
+| 色彩 | 发 `#9C7A52`/`#BC9A6E` 一丝不苟低髻；肤 `#F6DFCB`/`#E1BB9F`；白衬衫（前襟扣排）`#F5F2EA`＋炭色长裤 `#3F4149` | 发 `#C09A5E`/`#DCBB82` 爆炸短卷；肤 `#F7DEC6`/`#E2BBA0`；芥末黄 T `#EBC357`＋卡其短裤 `#A98F68` |
+| 动作 | oval；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`finger-count`＋`nod` | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`hand-shoot`＋`bounce-in` |
 | 挂件 | 细框眼镜〔face·reflect〕；活页手账〔prop〕 | 登山双肩包〔prop·bounce〕；水壶挂扣〔prop·swing〕 |
 
 ### 5.5 西班牙语 `es-ES`｜石榴橙 `#E0782C`｜表姐弟：明快 × 从容
@@ -230,8 +245,8 @@ type Persona = {
 | 名字 | Lucía——"光"，西班牙近年女名榜首段 | Mateo——西班牙近年男名榜首段 |
 | 人设 | 市场里的百灵鸟：热情先到，词尾跟上 | 慢板绅士：不急不躁，路在胸中 |
 | 音色 | `es-ES-ElviraNeural`：明快女声，句首起势高；基线 `+7% / +6Hz` | `es-ES-AlvaroNeural`：从容男中音，收句干净；基线 `−7% / −4Hz` |
-| 色彩 | 发 `#3E2B26`/`#60453C` 大波浪；肤 `#EAC096`/`#D09B6E`；白上衣 `#F6F1E8`＋橙裙 `#E0782C` | 发 `#33291F`/`#52443A` 短卷；肤 `#DFB18A`/`#C48D61`；海蓝条纹衬衫 `#AECBE3`＋白裤 `#F1EDE3` |
-| 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`twirl`＋`clap` | tall；bounce `16`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`palm-open`（慢）＋`nod` |
+| 色彩 | 发 `#3E2B26`/`#60453C` 大波浪；肤 `#EAC096`/`#D09B6E`；白上衣 `#F6F1E8`＋橙 A 字裙 `#E0782C` | 发 `#33291F`/`#52443A` 短卷；肤 `#DFB18A`/`#C48D61`；海蓝衬衫（前襟扣排）`#AECBE3`＋白裤 `#F1EDE3` |
+| 动作 | oval；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`twirl`＋`clap` | tall；bounce `16`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`palm-open`（慢）＋`nod` |
 | 挂件 | 金圆耳环〔neck·swing〕；藤编包〔prop〕 | 腕表（标识色表带）〔prop〕；太阳镜挂领〔neck·swing·reflect〕 |
 
 ### 5.6 俄语 `ru-RU`｜深湖蓝 `#3E7FBF`｜同院邻居：轻柔 × 热肠
@@ -241,9 +256,9 @@ type Persona = {
 | 名字 | Аня（Anya）—— Anna 的经典昵称，全俄通吃 | Миша（Misha）—— Mikhail 的昵称，"小熊"般的国民名字 |
 | 人设 | 院子里的小仙子：轻声细语，却认识每个门洞 | 热心大哥：拍着胸脯保证，笑声先到 |
 | 音色 | `ru-RU-SvetlanaNeural`：轻柔女声，气息偏多；基线 `−6% / −3Hz` | `ru-RU-DmitryNeural`：厚实男声，胸腔共鸣；基线 `+6% / +3Hz` |
-| 色彩 | 发 `#D8B57A`/`#EDD0A0` 长麻花辫；肤 `#F8E2D2`/`#E6C1AC`；湖蓝毛衣 `#3E7FBF`＋深灰裙 `#4A4753` | 发 `#8A6A42`/`#A98A5F` 短发微乱；肤 `#F5D9C9`/`#DDB49C`；森林绿夹克 `#3E6B4F`＋米色高领 `#EFE8DA` |
-| 动作 | round；bounce `13`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`head-tilt`＋眨眼凝视 | round；bounce `10`；眨眼 `3.0s`；呼吸 `0.012`；招牌＝`chest-pat`＋大笑点头 |
-| 挂件 | 针织帽〔head·bounce〕；围巾（标识色）〔neck·swing〕 | 后背包〔prop〕（络腮短须为脸型特征，非挂件） |
+| 色彩 | 发 `#D8B57A`/`#EDD0A0` 长麻花辫；肤 `#F8E2D2`/`#E6C1AC`；湖蓝毛衣 `#3E7FBF`＋深灰 A 字裙 `#4A4753` | 发 `#8A6A42`/`#A98A5F` 短发微乱；肤 `#F5D9C9`/`#DDB49C`；森林绿夹克 `#3E6B4F`＋米色高领 `#EFE8DA` |
+| 动作 | round；bounce `13`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`head-tilt`＋眨眼凝视 | wide（宽和）；bounce `10`；眨眼 `3.0s`；呼吸 `0.012`；招牌＝`chest-pat`＋大笑点头 |
+| 挂件 | 针织帽〔head·bounce〕；围巾（标识色）〔neck·swing〕 | 外套拉链（标识色拉链头）〔prop〕（络腮短须为脸型特征，非挂件） |
 
 ### 5.7 希腊语 `el-GR`｜爱琴青 `#1FAE9E`｜表兄妹：火爆 × 沉思
 
@@ -264,7 +279,7 @@ type Persona = {
 | 人设 | 安静的向导：掌心向上，路便指好 | 开心果同事：拇指一竖，笑先到话后到 |
 | 音色 | `ar-SA-ZariyahNeural`：柔和女声，气声细腻；基线 `−6% / −3Hz` | `ar-SA-HamedNeural`：醇厚男声，带笑纹质感；基线 `+6% / +3Hz` |
 | 色彩 | 发 `#26222B`/`#453F4E` 长直发；肤 `#E2B18C`/`#C28F68`；绿长衫 `#1E9E6E`＋米色长裤 `#EFE7D8` | 发 `#2B2530`/`#4B4453` 短卷＋络腮须（脸型特征）；肤 `#C89873`/`#A97852`；白衬衫 `#F5F1E8`＋绿马甲 `#1E9E6E` |
-| 动作 | tall；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`palm-open`（雅致指引） | round；bounce `10`；眨眼 `3.0s`；呼吸 `0.012`；招牌＝`thumbs-up`＋`mini-jump` |
+| 动作 | oval；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`palm-open`（雅致指引） | round；bounce `10`；眨眼 `3.0s`；呼吸 `0.012`；招牌＝`thumbs-up`＋`mini-jump` |
 | 挂件 | 金细项链〔neck·swing〕；手环〔prop〕 | 太阳镜顶戴〔head·reflect〕；皮质手环〔prop〕 |
 
 RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；双人站位对调（A 右 B 左）——rig 层由 `dir` 参数统一处理，不进 persona。
@@ -276,9 +291,9 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 名字 | प्रिया（Priya）——"被爱的"，印度最经典女名之一 | अर्जुन（Arjun）——史诗神射手，常青男名 |
 | 人设 | 蹦跳的提问机器：好奇比害羞多一步 | 笔记狂人：地图折得方方正正，答案按条给 |
 | 音色 | `hi-IN-SwaraNeural`：甜美女声，节奏弹跳；基线 `+7% / +5Hz` | `hi-IN-MadhurNeural`：稳重男声，吐字工整；基线 `−5% / −2Hz` |
-| 色彩 | 发 `#2A2430`/`#4A4152` 长辫；肤 `#C68F62`/`#A9714A`；藏红花 kurta `#F0993E`＋白下装 `#F6F1E7` | 发 `#262230`/`#443D4D` 微卷；肤 `#B07E52`/`#936238`；淡蓝衬衫 `#A9C4DE`＋深色牛仔裤 `#3A4258` |
-| 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`clap`＋`head-tilt` | tall；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`nod`（认真）＋`point`（点图） |
-| 挂件 | 金耳环〔neck·swing〕；托特书袋〔prop〕 | 后背包（标识色织带）〔prop〕；口袋钢笔〔prop〕 |
+| 色彩 | 发 `#2A2430`/`#4A4152` 长辫；肤 `#C68F62`/`#A9714A`；藏红花 kurta `#F0993E`＋白 A 字裙 `#F6F1E7` | 发 `#262230`/`#443D4D` 微卷；肤 `#B07E52`/`#936238`；淡蓝衬衫 `#A9C4DE`＋深色牛仔裤 `#3A4258` |
+| 动作 | heart（圆收下巴）；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`clap`＋`head-tilt` | square（方颌）；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`nod`（认真）＋`point`（点图） |
+| 挂件 | 金耳环〔neck·swing〕；托特书袋〔prop〕 | 笔记夹板（标识色夹扣）〔prop〕；口袋钢笔〔prop〕 |
 
 ### 5.10 日语 `ja-JP`｜樱色 `#EE8FA9`｜同级生：元气 × 面瘫
 
@@ -287,7 +302,7 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 名字 | ハルカ（遥）——"辽远"，常年高频女名 | リク（陸）——"大地"，近年榜首段男名 |
 | 人设 | 元气应援团：双手挥起来才算打招呼 | 面瘫导航：表情零起伏，指路零误差 |
 | 音色 | `ja-JP-NanamiNeural`：清亮少女声，音高高；基线 `+8% / +5Hz` | `ja-JP-KeitaNeural`：平直少年声，几乎无起伏；基线 `−7% / −5Hz` |
-| 色彩 | 发 `#6B4A36`/`#8F6A50` 齐肩内扣；肤 `#F6DCC6`/`#E1BBA1`；白 T `#F7F4EE`＋樱粉开衫 `#F2A4BC`＋丹宁 `#4B5E8C` | 发 `#2A2A33`/`#474755` 一根呆毛；肤 `#F4DBC8`/`#DEBBA4`；炭灰连帽衫 `#4E4E58`＋白 T `#F5F3EE` |
+| 色彩 | 发 `#6B4A36`/`#8F6A50` 齐肩内扣；肤 `#F6DCC6`/`#E1BBA1`；白 T `#F7F4EE`＋樱粉开衫 `#F2A4BC`＋丹宁 A 字裙 `#4B5E8C` | 发 `#2A2A33`/`#474755` 一根呆毛；肤 `#F4DBC8`/`#DEBBA4`；炭灰连帽衫 `#4E4E58`＋白 T `#F5F3EE` |
 | 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`both-hands`（挥手）＋`mini-jump` | tall（垂眉）；bounce `17`；眨眼 `3.8s`；呼吸 `0.008`；招牌＝`deadpan-nod`＋拇指 `point` |
 | 挂件 | 樱粉发夹〔头〕；斜挎小包〔prop〕 | 头戴耳机〔neck〕 |
 
@@ -299,7 +314,7 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 人设 | 手账少女：合上本子的一刻就是答案 | 反戴帽子的鬼灵精：正经不超过三秒 |
 | 音色 | `ko-KR-SunHiNeural`：清晰女声，收音利落；基线 `−4% / −2Hz` | `ko-KR-InJoonNeural`：活泼男声，句尾上挑；基线 `+7% / +4Hz` |
 | 色彩 | 发 `#3A2E2A`/`#5A4A42` 低马尾；肤 `#F9E1D2`/`#E6C1AD`；白衬衫 `#F6F3EC`＋灰西装外套 `#565A6E` | 发 `#2C2832`/`#4D4757` 紫挑染 `#8B5CD6`；肤 `#F5DCC8`/`#DFB9A0`；奶油黄卫衣 `#F2D06B`＋丹宁 `#4A5E8C` |
-| 动作 | tall；bounce `13`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`planner-snap`＋`nod`（自信） | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.014`；招牌＝`cap-tap`＋运球节奏点头 |
+| 动作 | oval；bounce `13`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`planner-snap`＋`nod`（自信） | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.014`；招牌＝`cap-tap`＋运球节奏点头 |
 | 挂件 | 方框眼镜〔face·reflect〕；手账本〔prop〕 | 反戴棒球帽（标识色）〔head·bounce〕；篮球〔prop·bounce〕 |
 
 ### 5.12 意大利语 `it-IT`｜阿祖罗蓝 `#4FA3E3`｜合租室友：明媚 × 松弛
@@ -309,9 +324,9 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 名字 | Giulia——意大利女名榜首段 | Luca——意大利国民男名 |
 | 人设 | 飞吻告别的行动派：ciao 先行 | 插兜慢步的老好人：肩一耸，路就在那儿 |
 | 音色 | `it-IT-ElsaNeural`：明媚女声，元音开放；基线 `+7% / +5Hz` | `it-IT-DiegoNeural`：松弛男声，喉音柔和；基线 `−7% / −4Hz` |
-| 色彩 | 发 `#3B2A22`/`#5C4536` 蓬蓬卷马尾；肤 `#E9C199`/`#D0A070`；阿祖罗娃娃衫 `#6CB2EA`＋白裙 `#F5F1E8` | 发 `#40302A`/`#5F4B41` 随意微卷＋短须（脸型特征）；肤 `#E3B58C`/`#C89465`；亚麻蓝衬衫 `#7FB3E8`＋白 T＋卡其裤 `#B5A17E` |
-| 动作 | round；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`ciao-wave`＋`mini-jump` | tall；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`pocket-sway`＋半 `shrug` |
-| 挂件 | 红发带（三色旗 wink）〔头〕；小挎包〔prop〕 | 挂绳太阳镜〔neck·swing·reflect〕；帆布托特〔prop〕 |
+| 色彩 | 发 `#3B2A22`/`#5C4536` 蓬蓬卷马尾；肤 `#E9C199`/`#D0A070`；阿祖罗娃娃衫 `#6CB2EA`＋白裤 `#F5F1E8` | 发 `#40302A`/`#5F4B41` 随意微卷＋短须（脸型特征）；肤 `#E3B58C`/`#C89465`；亚麻蓝衬衫 `#7FB3E8`＋白 T＋卡其裤 `#B5A17E` |
+| 动作 | heart（圆收下巴）；bounce `8`；眨眼 `2.8s`；呼吸 `0.015`；招牌＝`ciao-wave`＋`mini-jump` | tall；bounce `14`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`pocket-sway`＋半 `shrug` |
+| 挂件 | 红发带（三色旗 wink）〔头〕；小挎包〔prop〕 | 挂绳太阳镜〔neck·swing·reflect〕 |
 
 ### 5.13 希伯来语 `he-IL`｜石榴紫红 `#C2385A`｜邻居：好奇 × 慢板
 
@@ -321,7 +336,7 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 人设 | 挎相机的观察者：探身凑近才肯罢休 | 慢悠悠的老哥：招手说"跟我来"，步子不快但稳 |
 | 音色 | `he-IL-HilaNeural`：清脆女声，问句上扬；基线 `+6% / +4Hz` | `he-IL-AvriNeural`：温和男声，慢板；基线 `−6% / −3Hz` |
 | 色彩 | 发 `#3A2C26`/`#5A473D` 高马尾碎发；肤 `#F4D5BE`/`#DEB196`；石榴红 T `#C75573`＋卡其工装短裤 `#A8926C` | 发 `#2E2723`/`#4C423B` 短卷 undercut；肤 `#E8BC94`/`#CD9670`；灰绿衬衫 `#8FA08C`＋白 T `#F5F3EE` |
-| 动作 | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.014`；招牌＝`lean-in`＋`brow-raise` | tall；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`come-along`＋`nod`（慢） |
+| 动作 | round；bounce `9`；眨眼 `2.8s`；呼吸 `0.014`；招牌＝`lean-in`＋`brow-raise` | wide（宽和）；bounce `15`；眨眼 `3.6s`；呼吸 `0.008`；招牌＝`come-along`＋`nod`（慢） |
 | 挂件 | 挎相机〔prop·swing〕；防晒帽（标识色）〔head·bounce〕 | 编织手环〔prop〕；大水壶〔prop·swing〕 |
 
 ### 5.14 粤语 `zh-HK`｜洋紫荆 `#B45EB8`｜街坊：心直口快 × 憨直
@@ -333,13 +348,13 @@ RTL 语种（阿/希伯来）：文字区、气泡尾巴、名牌全部镜像；
 | 音色 | `zh-HK-HiuMaanNeural`：明快女声，九声利落；基线 `−5% / −2Hz` | `zh-HK-WanLungNeural`：厚朴男声，尾音带笑；基线 `+7% / +4Hz` |
 | 色彩 | 发 `#2B2632`/`#494253` 长直发空气刘海；肤 `#F3CBAA`/`#DDA582`；白 T `#F7F4EE`＋洋紫荆背带裙 `#B45EB8` | 发 `#2C2833`/`#4B4553` 碎盖头；肤 `#EDBD98`/`#D49C74`；米白 T `#F0EBDF`＋工装裤 `#6B7285` |
 | 动作 | round；bounce `13`；眨眼 `3.4s`；呼吸 `0.009`；招牌＝`wave`（快）＋`head-tilt` | tall；bounce `11`；眨眼 `3.0s`；呼吸 `0.012`；招牌＝`scratch-head`（憨笑）＋`thumbs-up` |
-| 挂件 | 透明发夹〔头〕；珍珠耳钉〔neck〕 | 胶框眼镜〔face·reflect〕；帆布背包（标识色织带）〔prop〕 |
+| 挂件 | 透明发夹〔头〕；珍珠耳钉〔neck〕 | 胶框眼镜〔face·reflect〕；肩搭白毛巾（标识色毛巾条）〔prop〕 |
 
 ---
 
 ## 6. 示范场景开箱即用：《问路与指路》
 
-> 场景二《说到颜色，你会想到什么》（六色一来一往问答）内容种子已成稿：[scene-colors.md](../scenes/scene-colors.md)——同走本节 casting 范式（一来一往变体：双方互问互答）。**文化相关场景按语种独立原生创作，不设母本、不互译**：共享的只有骨架（六轮一来一往 + 再会），句式/联想物/道具/笑点逐语种独立设计（其 §1.2 为通用创作规则）。
+> 场景二《说到颜色，你会想到什么》（六色一来一往问答）内容种子已成稿：[scene.md](../lessons/colors/scene.md)——同走本节 casting 范式（一来一往变体：双方互问互答）。**文化相关场景按语种独立原生创作，不设母本、不互译**：共享的只有骨架（六轮一来一往 + 再会），句式/联想物/道具/笑点逐语种独立设计（其 §1.2 为通用创作规则）。
 
 ### 6.1 Casting 表（speaker → persona）
 
@@ -480,9 +495,22 @@ synthesize(text, persona, mood):
 
 ### 8.3 人物绘制规格（多邻国式头身，单一事实源 `intro_cards.face_geo()`）
 
-单位 = 头高 H（圆脸 356px / 长脸 396px；头宽 = 0.955H / 0.78H）。渲染与 qa 探针都从
-`face_geo()` 取派生几何，永不漂移。**躯干与肩同宽、臂嵌进躯干轮廓、肩楔填平头-肩缺口**
-（2026-10-03 重设计：剪影连续是硬要求，杜绝"头身手脱节/手像悬挂"——见 render-handbook.md §5 坑⑪）：
+单位 = 头高 H。脸型规格表 `FACE_SPECS`（2026-10-03 人物形象打磨：2 型 → **6 型按人设分配**，
+不再"活泼一律圆脸、沉稳一律长脸"；heart＝上圆下贝塞尔圆收下巴（禁尖角——尖下巴观感像鬼）、square＝方颌，下颌轮廓由
+`draw_character` 组合绘制，其余型为纯椭圆）：
+
+| 脸型 | 头高 H | 头宽系数 WH/H | 观感 | 分配示例 |
+|---|---|---|---|---|
+| round | 356 | 0.955 | 婴儿圆宽头 | Miles/Chloé/Felix/Anya/Eleni/Omar/Haruka/Doyun/Noa/阿晴 |
+| tall | 396 | 0.78 | 清瘦窄长 | Théo/Mateo/Nikos/Riku/Luca/阿豪 |
+| oval | 386 | 0.84 | 端正匀称 | Ruby/Lena/Lucía/Layla/Seoyeon |
+| wide | 348 | 1.02 | 宽和大气 | Misha/Yuval |
+| heart | 372 | 0.90 | 圆收下巴俏丽 | 小满/Priya/Giulia |
+| square | 392 | 0.88 | 方颌硬朗 | 江远/Arjun |
+
+渲染与 qa 探针都从 `face_geo()` 取派生几何，永不漂移。**躯干与肩同宽、臂嵌进躯干轮廓、
+肩楔填平头-肩缺口**（2026-10-03 重设计：剪影连续是硬要求，杜绝"头身手脱节/手像悬挂"——
+见 render-handbook.md §5 坑⑪）：
 
 | 部位 | 比例 | 说明 |
 |---|---|---|
@@ -572,7 +600,7 @@ Pillow 管线（§8.4）续役；本节规格保留，作为人物生成路线�
 - 技术裁定：[adr-character-tech.md](adr-character-tech.md)（人物生成四路线裁定：Pillow 续役，H3+Remotion 备选）
 - 工程沉淀：[render-handbook.md](render-handbook.md)（架构/参数地图/验收/踩坑实录）
 - 示范场景：[asking-and-giving-directions.md](../../kb/arts-and-humanities/linguistics/comparative/example/asking-and-giving-directions.md) · [expressions/directions.md](../../kb/arts-and-humanities/linguistics/comparative/expressions/directions.md)（十一语对齐语料）
-- 示范场景二（内容种子）：[scene-colors.md](../scenes/scene-colors.md)（六色联想问答：14 语种原生剧本 / course.json 种子 / 六色词表——文化场景不设母本、不互译）
+- 示范场景二（内容种子）：[scene.md](../lessons/colors/scene.md)（六色联想问答：14 语种原生剧本 / course.json 种子 / 六色词表——文化场景不设母本、不互译）
 - 现役管线：[make_video.py](../../kb/arts-and-humanities/linguistics/comparative/example/scripts/make_video.py) · [tts_page.py](../../kb/arts-and-humanities/linguistics/comparative/example/scripts/tts_page.py) · [kb/AGENTS.md](../../kb/AGENTS.md)（语言映射与 TTS 架构规范）
 - 技术参考：[character-animation.md](../../kb/tech/media/character-animation.md)（persona schema/原语库/确定性 idle） · [lip-sync.md](../../kb/tech/media/lip-sync.md)（路线 B） · [audio-narration.md](../../kb/tech/media/audio-narration.md)（烘焙音频立场/内容缓存） · [teaching-video-patterns.md](../../kb/tech/media/teaching-video-patterns.md)（五幕/双人对白/思考停顿） · [remotion.md](../../kb/tech/media/remotion.md)（确定性守则/版本快照） · [speech-systems.md](../../kb/tech/system-admin/speech-systems.md)（九语音色生态矩阵与质量工程）
 - 产品参考：[多邻国知识库/01-人物角色档案.md](../../多邻国知识库/01-人物角色档案.md)（命名工程/对立人格/反刻板十则） · [02-角色在产品中的作用.md](../../多邻国知识库/02-角色在产品中的作用.md)（声学多样性/叙事捷径） · [03-技术实现.md](../../多邻国知识库/03-技术实现.md)（定制 TTS 混合方案/viseme 管线）

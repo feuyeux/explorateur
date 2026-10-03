@@ -21,7 +21,8 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
     p = personas[pid]
     pal = p["palette"]
     im = Image.open(frame).convert("RGB")
-    G = face_geo(p["movement"]["face"])
+    face = p["movement"]["face"]
+    G = face_geo(face)
     u = lambda f: f * G["H"]
     rx, ry = G["rx"], G["ry"]
     hy = G["hy"] - hop
@@ -32,6 +33,11 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
     lift = MOOD_FACE[mood]["lift"]  # 眉形与渲染同源（MOOD_FACE 单一事实源）
     acc = {a["code"] for a in p.get("accessories", [])}
     accf = {a["code"]: a for a in p.get("accessories", [])}
+    out = p.get("outfit", {})  # 服装轮廓槽（渲染同源：skirt/tunic/pinafore/vest/buttons）
+    skirt = out.get("bottom") == "skirt"
+    tunic = out.get("kind") == "tunic"
+    pinafore = out.get("kind") == "pinafore"
+    vest = out.get("kind") == "vest"
     ident = hexc(p["identity"])
     skin = hexc(pal["skin"])
     eye_k = EYE_MOOD[mood]
@@ -66,15 +72,44 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
             look("hair_top", hx, hy - ry * 0.55, hexc(pal["hair"]), 44)
     # 鼻梁：两眼之间，嘴/腮红/胡子/耳全避开，全员通用
     look("face_skin", hx, hy + ry * 0.40, skin, 48)
+    # ---- 脸型轮廓探针（face_geo 6 型；采样点全部从 rx/ry 推导） ----
+    if face == "heart":  # 尖下巴：三角收尖处（椭圆底缘之外）应是肤色
+        look("chin_tip", hx, hy + ry * 1.02, skin, 48)
+    if face == "square":  # 方颌：椭圆底缘之外的下颌角应是肤色
+        look("jaw_square", hx - rx * 0.70, hy + ry * 0.90, skin, 48)
     if "beard" not in acc:  # 大胡子遮颈（坑⑨ 遮挡感知：misha/nikos 胡子盖住颈前）
         # 颈部：skinShade 压深（NECK_SHADE_F 与渲染同源）；下移 0.03H 避开头底缘/下颌影
-        look("neck_shade", hx, G["chin"] + u(0.03) - hop,
+        # heart 尖下巴垂到颈前中轴 → 采样点外移至颈侧（尖下巴半宽之外）
+        look("neck_shade", hx + (u(0.078) if face == "heart" else 0), G["chin"] + u(0.03) - hop,
              mix(skin, hexc(pal["skinShade"]), NECK_SHADE_F), 48)
-    # 躯干：取左胸点（右手道具常举在右侧/胸前中央）
-    look("torso_top", G["cx"] + dx - G["torso_hw"] * 0.5, G["torso_top"] + G["torso_h"] * 0.45 - hop,
-         hexc(pal["outfitTop"]), 48)
-    look("leg_bottom", G["cx"] + dx - G["leg_cx"], G["torso_top"] + G["torso_h"] + u(0.16) - hop,
-         hexc(pal["outfitBottom"]), 48)
+    # 躯干：取左胸点（右手道具常举在右侧/胸前中央）；马甲中开缝 → 采中缝露白处
+    if vest:
+        look("torso_top", G["cx"] + dx, G["torso_top"] + G["torso_h"] * 0.45 - hop,
+             hexc(pal["outfitTop"]), 48)
+        look("vest_panel", G["cx"] + dx - G["torso_hw"] * 0.44, G["torso_top"] + G["torso_h"] * 0.45 - hop,
+             hexc(pal["outfitBottom"]), 48)
+    elif pinafore:  # 背带裙护胸盖左胸 → 采护胸与垂臂之间露出的白 T
+        look("torso_top", G["cx"] + dx - G["torso_hw"] * 0.64, G["torso_top"] + G["torso_h"] * 0.45 - hop,
+             hexc(pal["outfitTop"]), 48)
+    else:
+        look("torso_top", G["cx"] + dx - G["torso_hw"] * 0.5, G["torso_top"] + G["torso_h"] * 0.45 - hop,
+             hexc(pal["outfitTop"]), 48)
+    # ---- 下装探针（outfit 槽感知；tunic 下摆过臀 → 腿采样下移） ----
+    leg_top_g = G["torso_top"] + G["torso_h"] - u(0.10)
+    leg_bot_g = G["foot_cy"] - G["foot_h"] * 0.30
+    if skirt:  # A 字裙：裙色在腰下、肤色露腿在摆下
+        look("skirt_bottom", G["cx"] + dx, G["torso_top"] + G["torso_h"] + u(0.16) - hop,
+             hexc(pal["outfitBottom"]), 48)
+        look("leg_skin", G["cx"] + dx - G["leg_cx"],
+             leg_top_g + (leg_bot_g - leg_top_g) * 0.85 - hop, skin, 52)
+    elif tunic:
+        look("tunic_hem", G["cx"] + dx - G["torso_hw"] * 0.5,
+             G["torso_top"] + G["torso_h"] * 1.15 - hop, hexc(pal["outfitTop"]), 48)
+        look("leg_bottom", G["cx"] + dx - G["leg_cx"],
+             G["torso_top"] + G["torso_h"] * 1.30 + u(0.06) - hop, hexc(pal["outfitBottom"]), 48)
+    else:
+        look("leg_bottom", G["cx"] + dx - G["leg_cx"], G["torso_top"] + G["torso_h"] + u(0.16) - hop,
+             hexc(pal["outfitBottom"]), 48)
     shoe_x = G["cx"] + dx - G["leg_cx"] - G["foot_splay"]
     if "shoe_accent" in acc:
         look("shoe_ident", shoe_x, G["foot_cy"] - hop, ident, 48)
@@ -92,6 +127,25 @@ def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, m
     if p["gender"] == "female" and p["energy"] == "lively":
         look("blush_pastel", hx - 0.42 * G["WH"], G["blush_y"] - hop, THEME["blush"], 48)
     # ---- 新视觉特征探针（不变量⑩：新视觉特征 ⇒ 配套探针，采样点从 face_geo 推导）----
+    if out.get("buttons"):  # 前襟扣排：采顶扣（胸前置物如手账/墨镜会遮住下扣）
+        bcol = mix(hexc(pal["outfitTop"]), THEME["shade_dark"], 0.38)
+        look("button_row", G["cx"] + dx, G["torso_top"] + G["torso_h"] * 0.22 - hop, bcol, 55)
+    if pinafore:  # 背带裙：护胸＋金色背带扣
+        look("pinafore_bib", G["cx"] + dx, G["torso_top"] + G["torso_h"] * 0.35 - hop,
+             hexc(pal["outfitBottom"]), 48)
+        look("pinafore_buckle", G["cx"] + dx - u(0.115), G["torso_top"] + u(0.096) - hop, THEME["gold"], 50)
+    if "zipper" in acc:  # 拉链头（标识色坠）
+        look("zipper_pull", G["cx"] + dx, G["torso_top"] + u(0.17) - hop, ident, 55)
+    if "clipboard" in acc:  # 胸前夹板：板纸
+        look("clip_paper", G["cx"] + dx + G["torso_hw"] * 0.42, G["torso_top"] + u(0.25) - hop,
+             THEME["paper"], 50)
+    if "towel_shoulder" in acc:  # 肩搭白毛巾
+        look("towel_white", G["cx"] + dx - G["torso_hw"], G["torso_top"] - u(0.02) - hop,
+             (246, 246, 240), 45)
+    if p["hairStyle"] == "short_neat":  # 平直刘海边
+        look("fringe_flat", hx - rx * 0.60, hy - ry * 0.42, hexc(pal["hair"]), 44)
+    if p["hairStyle"] == "short_part":  # 侧分斜扫刘海
+        look("fringe_sweep", hx + rx * 0.10, hy - ry * 0.56, hexc(pal["hair"]), 44)
     for code in ("backpack", "hikingpack", "canvas_backpack"):
         if code in acc and accf[code].get("accent"):  # 标识色织带（挂件行）
             look("strap_ident", G["cx"] - 76, G["torso_top"] + 22 - hop,
