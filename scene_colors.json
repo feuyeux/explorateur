@@ -7,6 +7,18 @@
   "ar-SA",
   "he-IL"
  ],
+ "durationBudget": [
+  40.0,
+  55.0
+ ],
+ "speechLevels": {
+  "ko-KR": {
+   "levelA": "반말",
+   "levelB": "해요체",
+   "marker": "요",
+   "note": "도윤 반말 × 서연 敬语体（§6 变位与语体）"
+  }
+ },
  "tokenOrder": [
   "red",
   "blue",
@@ -3392,7 +3404,7 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "Καλά. Πώς παίζεται;",
+     "text": "Καλά. Πώς παίζεται;",
      "romanization": "Kalá. Pós pézete?",
      "gloss": "好。怎么玩？",
      "gesture": {
@@ -3413,7 +3425,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "Όταν λέω \"κόκκινο\" — σε τι σκέφτεσαι;",
+     "text": "Όταν λέω \"κόκκινο\" — σε τι σκέφτεσαι;",
      "romanization": "Ótan léo \"kókkino\" — se ti skéftese?",
      "gloss": "我说\"κόκκινο\"（红色）——你会想起什么？",
      "gesture": {
@@ -3461,7 +3473,7 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "Και \"μπλε\";",
+     "text": "Και \"μπλε\";",
      "romanization": "Ke \"ble\"?",
      "gloss": "那\"μπλε\"（蓝色）呢？",
      "gesture": {
@@ -3509,7 +3521,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "\"Πράσινο\";",
+     "text": "\"Πράσινο\";",
      "romanization": "\"Prássino\"?",
      "gloss": "\"πράσινο\"（绿色）呢？",
      "gesture": {
@@ -3557,7 +3569,7 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "Και \"κίτρινο\";",
+     "text": "Και \"κίτρινο\";",
      "romanization": "Ke \"kítrino\"?",
      "gloss": "那\"κίτρινο\"（黄色）呢？",
      "gesture": {
@@ -3605,7 +3617,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "\"Μαύρο\";",
+     "text": "\"Μαύρο\";",
      "romanization": "\"Mávro\"?",
      "gloss": "\"μαύρο\"（黑色）呢？",
      "gesture": {
@@ -3653,7 +3665,7 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "Και \"άσπρο\";",
+     "text": "Και \"άσπρο\";",
      "romanization": "Ke \"áspro\"?",
      "gloss": "那\"άσπρο\"（白色）呢？",
      "gesture": {
@@ -3802,9 +3814,9 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "ليلى! هيا نلعب لعبة الألوان!",
-     "romanization": "lay-la! ha-ya nal-ʿab la-ʿi-bat al-al-wan!",
-     "gloss": "ليلى！来玩颜色游戏吧！",
+     "text": "ليلى! هيا نلعب الألوان!",
+     "romanization": "lay-la! ha-ya nal-ʿab al-al-wan!",
+     "gloss": "ليلى！来玩颜色吧！",
      "gesture": {
       "word": "الألوان",
       "poses": [
@@ -3826,9 +3838,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "حسناً. كيف نلعب؟",
-     "romanization": "ha-sa-nan. kay-fa nal-ʿab?",
-     "gloss": "好。怎么玩？",
+     "text": "كيف نلعب؟",
+     "romanization": "kay-fa nal-ʿab?",
+     "gloss": "怎么玩？",
      "gesture": {
       "word": "",
       "poses": [
@@ -4135,9 +4147,9 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "ستة ألوان كاملة! يا سلام!",
-     "romanization": "sit-tat al-wan ka-mi-la! ya sa-lam!",
-     "gloss": "六种颜色全齐！太棒啦！",
+     "text": "ستة ألوان! يا سلام!",
+     "romanization": "sit-tat al-wan! ya sa-lam!",
+     "gloss": "六种颜色！太棒啦！",
      "gesture": {
       "word": "ستة",
       "poses": [
@@ -4236,8 +4248,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "अर्जुन! चलो, रंगों का खेल खेलें!",
-     "romanization": "ar-jun! cha-lo, ran-gon ka khel khe-len!",
+     "text": "अर्जुन! रंगों का खेल खेलें!",
+     "romanization": "ar-jun! ran-gon ka khel khe-len!",
      "gloss": "अर्जुन！来，玩个颜色游戏！",
      "gesture": {
       "word": "खेल",
@@ -4449,9 +4461,9 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "मैं हल्दी सोचती हूँ! रसोई की हल्दी।",
-     "romanization": "main hal-di so-chi-ti hun! ras-sui ki hal-di.",
-     "gloss": "我会想起姜黄！厨房里的姜黄。",
+     "text": "मैं हल्दी सोचती हूँ! रसोई वाली।",
+     "romanization": "main hal-di so-chi-ti hun! ras-sui va-li!",
+     "gloss": "我会想起姜黄！厨房的那种。",
      "gesture": {
       "word": "हल्दी",
       "poses": [
@@ -4497,9 +4509,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "मैं काजल सोचता हूँ। और मेरी कलम की स्याही।",
-     "romanization": "main ka-jal so-che-ta hun. aur me-ri ka-lam ki sya-hi.",
-     "gloss": "我会想起眼妆墨（काजल）。还有我钢笔里的墨水。",
+     "text": "मैं काजल सोचता हूँ। कलम की स्याही।",
+     "romanization": "main ka-jal so-che-ta hun. ka-lam ki sya-hi.",
+     "gloss": "我会想起眼妆墨（काजל）。还有钢笔墨水。",
      "gesture": {
       "word": "काजल",
       "poses": [
@@ -4569,8 +4581,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "छह रंग पूरे! कितना मज़ा आया!",
-     "romanization": "chhah rang pu-re! kit-na ma-za a-ya!",
+     "text": "छह रंग पूरे! मज़ा आया!",
+     "romanization": "chhah rang pu-re! ma-za a-ya!",
      "gloss": "六种颜色全齐！真好玩！",
      "gesture": {
       "word": "छह",
@@ -5104,8 +5116,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "야, 서연아! 가기 전에 색깔 게임 하나만!",
-     "romanization": "ya, seo-yeon-a! ga-gi jeo-ne saek-kkap ge-im ha-na-man!",
+     "text": "야, 서연아! 색깔 게임 하나만!",
+     "romanization": "ya, seo-yeon-a! saek-kkap ge-im ha-na-man!",
      "gloss": "喂서연！走之前来一局颜色游戏呗！",
      "gesture": {
       "word": "게임",
@@ -5128,8 +5140,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "좋아. 어떻게 해?",
-     "romanization": "jo-a. eo-tteo-ke hae?",
+     "text": "좋아요. 어떻게 해요?",
+     "romanization": "jo-a-yo. eo-tteo-ke hae-yo?",
      "gloss": "好。怎么玩？",
      "gesture": {
       "word": "",
@@ -5173,8 +5185,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "태극기가 떠올라.",
-     "romanization": "tae-geuk-gi-ga tteo-ol-la.",
+     "text": "태극기가 떠올라요.",
+     "romanization": "tae-geuk-gi-ga tteo-ol-la-yo.",
      "gloss": "会想起太极旗。",
      "gesture": {
       "word": "태극기",
@@ -5197,8 +5209,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "파란색 하면?",
-     "romanization": "pa-ran-saek ha-myeon?",
+     "text": "파란색 하면요?",
+     "romanization": "pa-ran-saek ha-myeon-yo?",
      "gloss": "那「파란색」（蓝色）呢？",
      "gesture": {
       "word": "",
@@ -5269,8 +5281,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "할머니 댁 산이 떠올라. 온통 초록!",
-     "romanization": "hal-meo-ni taek sa-ni tteo-ol-la. on-tong cho-rok!",
+     "text": "할머니 댁 산이 떠올라요. 온통 초록!",
+     "romanization": "hal-meo-ni taek sa-ni tteo-ol-la-yo. on-tong cho-rok!",
      "gloss": "会想起奶奶家的山。满山都是绿！",
      "gesture": {
       "word": "산",
@@ -5293,8 +5305,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "노란색 하면?",
-     "romanization": "no-ran-saek ha-myeon?",
+     "text": "노란색 하면요?",
+     "romanization": "no-ran-saek ha-myeon-yo?",
      "gloss": "那「노란색」（黄色）呢？",
      "gesture": {
       "word": "",
@@ -5365,8 +5377,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "먹이 떠올라. 붓글씨 먹.",
-     "romanization": "meo-gi tteo-ol-la. but-geul-ssi meok.",
+     "text": "먹이 떠올라요. 붓글씨 먹이에요.",
+     "romanization": "meo-gi tteo-ol-la-yo. but-geul-ssi meo-gi-e-yo.",
      "gloss": "会想起墨。写毛笔字的墨。",
      "gesture": {
       "word": "먹",
@@ -5389,8 +5401,8 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "흰색 하면?",
-     "romanization": "huin-saek ha-myeon?",
+     "text": "흰색 하면요?",
+     "romanization": "huin-saek ha-myeon-yo?",
      "gloss": "那「흰색」（白色）呢？",
      "gesture": {
       "word": "",
@@ -5413,8 +5425,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "흰 옷! 옛날 조상들은 늘 흰 옷을 입었대!",
-     "romanization": "huin ot! yen-nal jo-son-deu-reun neul huin o-seul i-beot-dae!",
+     "text": "흰 옷! 옛날 조상들이 늘 입었대!",
+     "romanization": "huin ot! yen-nal jo-sang-deu-ri neul i-beot-dae!",
      "gloss": "白衣！听说从前的祖先们总穿白衣！",
      "gesture": {
       "word": "흰 옷",
@@ -5437,8 +5449,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "여섯 색깔 다 했다! 재밌다!",
-     "romanization": "yeo-seot saek-kkap da haet-da! jae-mit-da!",
+     "text": "여섯 색깔 다! 재밌다!",
+     "romanization": "yeo-seot saek-kkap da! jae-mit-da!",
      "gloss": "六色全玩了！真有意思！",
      "gesture": {
       "word": "여섯",
@@ -5461,8 +5473,8 @@
     {
      "speaker": "B",
      "mood": "encouraging",
-     "text": "그럼, 내일 봐, 도윤아.",
-     "romanization": "geu-reom, na-il bwa, do-yun-a.",
+     "text": "그럼, 내일 봐요, 도윤아.",
+     "romanization": "geu-reom, na-il bwa-yo, do-yun-a.",
      "gloss": "那，明天见，도윤。",
      "gesture": {
       "word": "내일",
@@ -5972,8 +5984,8 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "יובל! לפני השקיעה – משחק אחד בצבעים!",
-     "romanization": "yu-val! lif-ney ha-shki-a – mis-chach e-chad ba-tze-va-im!",
+     "text": "יובל! משחק אחד בצבעים לפני השקיעה!",
+     "romanization": "yu-val! mis-chach e-chad ba-tze-va-im lif-ney ha-shki-a!",
      "gloss": "יובל！日落前来一局颜色游戏！",
      "gesture": {
       "word": "צבעים",
@@ -5996,9 +6008,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "בסדר. איך משחקים?",
-     "romanization": "be-seder. eich mis-chach-im?",
-     "gloss": "行。怎么玩？",
+     "text": "איך משחקים?",
+     "romanization": "eich mis-chach-im?",
+     "gloss": "怎么玩？",
      "gesture": {
       "word": "",
       "poses": [
@@ -6065,9 +6077,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "וכשאני אומר \"ירוק\" – במה את חושבת?",
-     "romanization": "u-kshe-a-ni o-mer \"ya-rok\" – be-ma at cho-shevet?",
-     "gloss": "那我说\"ירוק\"（绿色）——你会想起什么？（对 נועה 提问用阴性 חושבת）",
+     "text": "\"ירוק\" – במה את חושבת?",
+     "romanization": "\"ya-rok\" – be-ma at cho-shevet?",
+     "gloss": "那\"ירוק\"（绿色）呢——你会想起什么？（对 נועה 提问用阴性 חושבת）",
      "gesture": {
       "word": "ירוק",
       "poses": [
@@ -6089,9 +6101,9 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "אני חושבת על עלי זית! על הדגל שלנו!",
-     "romanization": "a-ni cho-shevet al a-ley zayit! al ha-de-gel she-la-nu!",
-     "gloss": "我会想起橄榄叶！想起我们的国旗！",
+     "text": "אני חושבת על זית והדגל!",
+     "romanization": "a-ni cho-shevet al zayit ve-ha-de-gel!",
+     "gloss": "我会想起橄榄叶和国旗！",
      "gesture": {
       "word": "זית",
       "poses": [
@@ -6137,9 +6149,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "אני חושב על החול במדבר. שקט וחם.",
-     "romanization": "a-ni cho-shev al ha-chol ba-mid-bar. sha-ket ve-cham.",
-     "gloss": "我会想起沙漠的沙。安静，又热。",
+     "text": "אני חושב על חול המדבר. שקט וחם.",
+     "romanization": "a-ni cho-shev al chol ha-mid-bar. sha-ket ve-cham.",
+     "gloss": "沙漠的沙。安静，又热。",
      "gesture": {
       "word": "חול",
       "poses": [
@@ -6185,9 +6197,9 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "אני חושבת על הקפה של אמא בבוקר!",
-     "romanization": "a-ni cho-shevet al ha-ka-fe shel i-ma ba-boker!",
-     "gloss": "我会想起妈妈早晨的咖啡！",
+     "text": "אני חושבת על קפה של אמא בבוקר!",
+     "romanization": "a-ni cho-shevet al ka-fe shel i-ma ba-boker!",
+     "gloss": "妈妈早晨的咖啡！",
      "gesture": {
       "word": "קפה",
       "poses": [
@@ -6233,9 +6245,9 @@
     {
      "speaker": "B",
      "mood": "neutral",
-     "text": "אני חושב על קצף הגלים. מים!",
-     "romanization": "a-ni cho-shev al ke-tsef ha-ga-lim. ma-yim!",
-     "gloss": "我会想起浪尖的白沫。水！",
+     "text": "אני חושב על קצף הגלים! מים!",
+     "romanization": "a-ni cho-shev al ke-tsef ha-ga-lim! ma-yim!",
+     "gloss": "浪尖的白沫。水！",
      "gesture": {
       "word": "קצף",
       "poses": [
@@ -6329,9 +6341,9 @@
     {
      "speaker": "B",
      "mood": "encouraging",
-     "text": "כן. נתראה מחר, נועה.",
-     "romanization": "ken. nit-ra-e machar, no-a.",
-     "gloss": "嗯。明天见，נועה。",
+     "text": "נתראה מחר, נועה.",
+     "romanization": "nit-ra-e machar, no-a.",
+     "gloss": "明天见，נועה。",
      "gesture": {
       "word": "מחר",
       "poses": [

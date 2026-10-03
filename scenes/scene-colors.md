@@ -28,6 +28,7 @@ inputs:
 sceneId: colors-association
 title: 说到颜色，你会想到什么
 rtlLocales: ar-SA, he-IL
+durationBudget: 40-55
 
 ### 0.1 教学 token（书写序 = 出场序）
 
@@ -58,6 +59,20 @@ rtlLocales: ar-SA, he-IL
 | it-IT | fountain, awning, counter | gelato | round | 124 | 108 | | gelato 柜六色 |
 | he-IL | skyline, clothesline, shrubs | dyed_cloth | rect | 116 | 150 | | 晾绳六块染布 |
 | zh-HK | stall, neon_sign, window_grid | neon | round | 128 | 92 | #605862 | 六块 neon 小招牌 |
+
+### 0.3 语种文本规范（qa_scene.py 验收用——本表承诺的语体差必须在台词里真实成立）
+
+文化注记里写了「语体差本身就是关系戏」，就必须在文本层能验出来，否则注记是空头支票。
+本表把这类承诺声明成数据：验收时逐行检查 A 线不含 `区分标记`、B 线必含该标记。
+无语体差需求的语种不列行（缺行 = 不检查，不是「通过」）。
+
+| locale | 语体 A | 语体 B | 区分标记 | 说明 |
+| --- | --- | --- | --- | --- |
+| ko-KR | 반말 | 해요체 | 요 | 도윤 반말 × 서연 敬语体（§6 变位与语体） |
+
+> 标点不用声明、按文字系统自动判：疑问句终止符必须用该文字自己的问号
+> （希腊文 U+037E），半角分号在任何现代正字法里都不是句终止符，撞上即判错
+> （el-GR 曾用 U+003B 收 7 个疑问句，TTS 会读成陈述句）。
 
 ## 1. 规格总则
 
@@ -260,18 +275,18 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 **舞台**：港口长凳（Νίκος 主场）。**道具装置**：码头一排小门框各漆一色（基克拉泽斯式蓝门窗），每轮镜头轻摇向当前色那扇。
 
 - **A**（happy）：« Νίκο! Ας παίξουμε με τα χρώματα! »（*Níko! As péksoume me ta hrómata!*）——Νίκος！来玩颜色游戏吧！｜"χρώματα" 处 `both-hands`
-- **B**（neutral）：« Καλά. Πώς παίζεται; »（*Kalá. Pós pézete?*）——好。怎么玩？｜`nod`
-- **A**（happy）：« Όταν λέω "κόκκινο" — σε τι σκέφτεσαι; »（*Ótan léo "kókkino" — se ti skéftese?*）——我说"κόκκινο"（红色）——你会想起什么？｜"κόκκινο" 处 `point`
+- **B**（neutral）：« Καλά. Πώς παίζεται; »（*Kalá. Pós pézete?*）——好。怎么玩？｜`nod`
+- **A**（happy）：« Όταν λέω "κόκκινο" — σε τι σκέφτεσαι; »（*Ótan léo "kókkino" — se ti skéftese?*）——我说"κόκκινο"（红色）——你会想起什么？｜"κόκκινο" 处 `point`
 - **B**（neutral）：« Στο κόκκινο αυγό του Πάσχα. »（*Sto kókkino avyó tou Pásha.*）——复活节的红蛋。｜"αυγό" 处 `palm-open`
-- **B**（neutral）：« Και "μπλε"; »（*Ke "ble"?*）——那"μπλε"（蓝色）呢？｜`point`
+- **B**（neutral）：« Και "μπλε"; »（*Ke "ble"?*）——那"μπλε"（蓝色）呢？｜`point`
 - **A**（happy）：« Στη θάλασσα! Όπως εδώ! »（*Sti thálassa! Opos edó!*）——大海！就像这里！｜"θάλασσα" 处 `both-hands`——指向画外爱琴海
-- **A**（happy）：« "Πράσινο"; »（*"Prássino"?*）——"πράσινο"（绿色）呢？｜`point`
+- **A**（happy）：« "Πράσινο"; »（*"Prássino"?*）——"πράσινο"（绿色）呢？｜`point`
 - **B**（neutral）：« Στις ελιές του χωριού. »（*Stis eliés tou choriú.*）——村子里的橄榄树。｜"ελιές" 处 `palm-open`
-- **B**（neutral）：« Και "κίτρινο"; »（*Ke "kítrino"?*）——那"κίτρινο"（黄色）呢？｜`point`
+- **B**（neutral）：« Και "κίτρινο"; »（*Ke "kítrino"?*）——那"κίτρινο"（黄色）呢？｜`point`
 - **A**（happy）：« Στον ήλιο του καλοκαιριού! »（*Ston ílio tou kalokayriú!*）——夏天的太阳！｜"ήλιο" 处 `both-hands`
-- **A**（happy）：« "Μαύρο"; »（*"Mávro"?*）——"μαύρο"（黑色）呢？｜`point`
+- **A**（happy）：« "Μαύρο"; »（*"Mávro"?*）——"μαύρο"（黑色）呢？｜`point`
 - **B**（neutral）：« Στον καφέ το πρωί. Πικρός — όπως η ζωή. »（*Ston kafé to proí. Pikrós — opós i zoí.*）——早晨的咖啡。苦的——就像生活。｜"καφέ" 处 `palm-open`——Νίκос 哲学家人设
-- **B**（neutral）：« Και "άσπρο"; »（*Ke "áspro"?*）——那"άσπρο"（白色）呢？｜`point`
+- **B**（neutral）：« Και "άσπρο"; »（*Ke "áspro"?*）——那"άσπρο"（白色）呢？｜`point`
 - **A**（happy）：« Στα σύννεφα πάνω απ' τη θάλασσα! »（*Sta síntnefa páno ap' ti thálassa!*）——海面上方的云！｜"σύννεφα" 处 `mini-jump`
 - **A**（happy）：« Έξι χρώματα! Τέλεια παρτίδα! »（*Éxi hrómata! Télia partída!*）——六种颜色！完美一局！｜"Έξι" 处 `jump-celebrate`
 - **B**（encouraging）：« Ναι. Τα λέμε αύριο, Ελένη. »（*Ne. Ta léme ávrio, Eléni.*）——嗯。明天聊，Ελένη。｜"αύριο" 处 `wave`
@@ -283,8 +298,8 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 **舞台**：街角咖啡座（عمر 主场）。**道具装置**：一排六色小灯笼，每轮点亮一盏。RTL：文字区右起、名牌镜像、站位对调。
 
-- **A**（happy）：« ليلى! هيا نلعب لعبة الألوان! »（*lay-la! ha-ya nal-ʿab la-ʿi-bat al-al-wan!*）——ليلى！来玩颜色游戏吧！｜"الألوان" 处 `both-hands`
-- **B**（neutral）：« حسناً. كيف نلعب؟ »（*ha-sa-nan. kay-fa nal-ʿab?*）——好。怎么玩？｜`nod`
+- **A**（happy）：« ليلى! هيا نلعب الألوان! »（*lay-la! ha-ya nal-ʿab al-al-wan!*）——ليلى！来玩颜色吧！｜"الألوان" 处 `both-hands`
+- **B**（neutral）：« كيف نلعب؟ »（*kay-fa nal-ʿab?*）——怎么玩？｜`nod`
 - **A**（happy）：« إذا قلت "أحمر" — بماذا تفكرين؟ »（*i-dha qult "ah-mar" — bi-ma-dha taf-ki-rin?*）——我说"أحمر"（红色）——你会想起什么？（对 ليلى 用阴性 تفكرين）｜"أحمر" 处 `point`
 - **B**（neutral）：« أفكر في الورد... في ورد الطائف. »（*af-kir fi-l-ward... fi ward at-ta-if.*）——我会想起玫瑰……塔伊夫的玫瑰。｜"الورد" 处 `palm-open`
 - **B**（neutral）：« وإذا قلت "أخضر"؟ »（*wa-i-dha qult "akh-dar"?*）——那我说"أخضر"（绿色）呢？｜`point`
@@ -297,7 +312,7 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **B**（neutral）：« أفكر في الثلج... يوماً ما سأراه. »（*af-kir fi-th-thalj... yaw-man ma sa-ra-h.*）——我会想起雪……总有一天我要亲眼看看。｜"الثلج" 处 `palm-open`——沙漠视角的「未见之白」
 - **B**（neutral）：« و"أزرق"؟ »（*wa "azraq"?*）——那"أزرق"（蓝色）呢？｜"أزرق" 处 `point`
 - **A**（happy）：« أفكر في البحر! في جدة! »（*af-kir fi-l-baḥr! fi Jedda!*）——我想起大海！在吉达！｜"البحر" 处 `both-hands`——吉达海岸（本土意象）
-- **A**（happy）：« ستة ألوان كاملة! يا سلام! »（*sit-tat al-wan ka-mi-la! ya sa-lam!*）——六种颜色全齐！太棒啦！｜"ستة" 处 `jump-celebrate`
+- **A**（happy）：« ستة ألوان! يا سلام! »（*sit-tat al-wan! ya sa-lam!*）——六种颜色！太棒啦！｜"ستة" 处 `jump-celebrate`
 - **B**（encouraging）：« كان هذا جميلاً. إلى الغد يا عمر. »（*kan ha-dha ja-mi-lan. i-lal-ghad ya ʿu-mar.*）——真美好。明天见，عمر。｜"الغد" 处 `wave`
 - **A**（happy）：« إلى الغد! »（*i-lal-ghad!*）——明天见！｜`wave`＋出画
 
@@ -307,7 +322,7 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 **舞台**：大学的红砖走廊。**道具装置**：廊柱边摊开的六色 rangoli 彩粉（节日地画颜料），每轮指尖点出一色。
 
-- **A**（happy）：« अर्जुन! चलो, रंगों का खेल खेलें! »（*ar-jun! cha-lo, ran-gon ka khel khe-len!*）——अर्जुन！来，玩个颜色游戏！｜"खेल" 处 `both-hands`
+- **A**（happy）：« अर्जुन! रंगों का खेल खेलें! »（*ar-jun! ran-gon ka khel khe-len!*）——अर्जुन！来，玩个颜色游戏！｜"खेल" 处 `both-hands`
 - **B**（neutral）：« ठीक है। कैसे खेलेंगे? »（*thik hai. kai-se khe-len-ge?*）——好。怎么玩？｜`nod`
 - **A**（happy）：« मैं "लाल" कहूँ, तो तुम क्या सोचते हो? »（*main "lal" ka-hun, to tum kya so-che ho?*）——我说"लाल"（红色）——你会想起什么？｜"लाल" 处 `point`
 - **B**（neutral）：« मैं लाल किला सोचता हूँ। »（*main lal ki-la so-che-ta hun.*）——我会想起红堡。｜"लाल किला" 处 `palm-open`
@@ -316,12 +331,12 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 - **A**（happy）：« "हरा" कहूँ? »（*"ha-ra" ka-hun?*）——那"हरा"（绿色）呢？｜`point`
 - **B**（neutral）：« मैं हरी पत्तियाँ सोचता हूँ। »（*main ha-ri pat-ti-yan so-che-ta hun.*）——我会想起绿叶。｜"पत्तियाँ" 处 `palm-open`
 - **B**（neutral）：« और "पीला" कहूँ? »（*aur "pi-la" ka-hun?*）——那我说"पीला"（黄色）呢？｜`point`
-- **A**（happy）：« मैं हल्दी सोचती हूँ! रसोई की हल्दी। »（*main hal-di so-chi-ti hun! ras-sui ki hal-di.*）——我会想起姜黄！厨房里的姜黄。｜"हल्दी" 处 `both-hands`
+- **A**（happy）：« मैं हल्दी सोचती हूँ! रसोई वाली। »（*main hal-di so-chi-ti hun! ras-sui va-li!*）——我会想起姜黄！厨房的那种。｜"हल्दी" 处 `both-hands`
 - **A**（happy）：« "काला" कहूँ? »（*"ka-la" ka-hun?*）——那"काला"（黑色）呢？｜`point`
-- **B**（neutral）：« मैं काजल सोचता हूँ। और मेरी कलम की स्याही। »（*main ka-jal so-che-ta hun. aur me-ri ka-lam ki sya-hi.*）——我会想起眼妆墨（काजल）。还有我钢笔里的墨水。｜"काजल" 处 `palm-open`——काजल 与 काला 同根；口袋钢笔人设
+- **B**（neutral）：« मैं काजल सोचता हूँ। कलम की स्याही। »（*main ka-jal so-che-ta hun. ka-lam ki sya-hi.*）——我会想起眼妆墨（काजל）。还有钢笔墨水。｜"काजल" 处 `palm-open`——काजल 与 काला 同根；口袋钢笔人设
 - **B**（neutral）：« और "सफ़ेद" कहूँ? »（*aur "sa-fed" ka-hun?*）——那我说"सफ़ेद"（白色）呢？｜`point`
 - **A**（happy）：« मैं दूध सोचती हूँ! »（*main doodh so-chi-ti hun!*）——我会想起牛奶！｜"दूध" 处 `mini-jump`
-- **A**（happy）：« छह रंग पूरे! कितना मज़ा आया! »（*chhah rang pu-re! kit-na ma-za a-ya!*）——六种颜色全齐！真好玩！｜"छह" 处 `jump-celebrate`
+- **A**（happy）：« छह रंग पूरे! मज़ा आया! »（*chhah rang pu-re! ma-za a-ya!*）——六种颜色全齐！真好玩！｜"छह" 处 `jump-celebrate`
 - **B**（encouraging）：« हाँ। कल मिलते हैं, प्रिया। »（*haan. kal mil-te hain, pri-ya.*）——是啊。明天见，प्रिया。｜"कल" 处 `wave`
 - **A**（happy）：« कल मिलते हैं! »（*kal mil-te hain!*）——明天见！｜`wave`＋出画
 
@@ -355,22 +370,22 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 **舞台**：黄昏的街球场。**道具装置**：场边六只不同色的训练锥，每轮踢正一只。
 
-- **A**（happy）：「야, 서연아! 가기 전에 색깔 게임 하나만!」（*ya, seo-yeon-a! ga-gi jeo-ne saek-kkap ge-im ha-na-man!*）——喂서연！走之前来一局颜色游戏呗！｜「게임」处 `both-hands`
-- **B**（neutral）：「좋아. 어떻게 해?」（*jo-a. eo-tteo-ke hae?*）——好。怎么玩？｜`nod`
+- **A**（happy）：「야, 서연아! 색깔 게임 하나만!」（*ya, seo-yeon-a! saek-kkap ge-im ha-na-man!*）——喂서연！走之前来一局颜色游戏呗！｜「게임」处 `both-hands`
+- **B**（neutral）：「좋아요. 어떻게 해요?」（*jo-a-yo. eo-tteo-ke hae-yo?*）——好。怎么玩？｜`nod`
 - **A**（happy）：「빨간색 하면 뭐가 떠올라?」（*ppal-gan-saek ha-myeon mwo-ga tteo-ol-la?*）——说「빨간색」（红色）的话会想起什么？｜「빨간색」处 `point`
-- **B**（neutral）：「태극기가 떠올라.」（*tae-geuk-gi-ga tteo-ol-la.*）——会想起太极旗。｜「태극기」处 `palm-open`
-- **B**（neutral）：「파란색 하면?」（*pa-ran-saek ha-myeon?*）——那「파란색」（蓝色）呢？｜`point`
+- **B**（neutral）：「태극기가 떠올라요.」（*tae-geuk-gi-ga tteo-ol-la-yo.*）——会想起太极旗。｜「태극기」处 `palm-open`
+- **B**（neutral）：「파란색 하면요?」（*pa-ran-saek ha-myeon-yo?*）——那「파란색」（蓝色）呢？｜`point`
 - **A**（happy）：「하늘! 가을 하늘!」（*ha-neul! ga-eul ha-neul!*）——天空！秋天的天空！｜「하늘」处 `both-hands`
 - **A**（happy）：「초록색 하면?」（*cho-rok-saek ha-myeon?*）——那「초록색」（绿色）呢？｜`point`
-- **B**（neutral）：「할머니 댁 산이 떠올라. 온통 초록!」（*hal-meo-ni taek sa-ni tteo-ol-la. on-tong cho-rok!*）——会想起奶奶家的山。满山都是绿！｜「산」处 `palm-open`
-- **B**（neutral）：「노란색 하면?」（*no-ran-saek ha-myeon?*）——那「노란색」（黄色）呢？｜`point`
+- **B**（neutral）：「할머니 댁 산이 떠올라요. 온통 초록!」（*hal-meo-ni taek sa-ni tteo-ol-la-yo. on-tong cho-rok!*）——会想起奶奶家的山。满山都是绿！｜「산」处 `palm-open`
+- **B**（neutral）：「노란색 하면요?」（*no-ran-saek ha-myeon-yo?*）——那「노란색」（黄色）呢？｜`point`
 - **A**（happy）：「은행나무! 학교 앞에 있잖아!」（*eun-haeng-na-mu! hak-gyo a-pe it-ja-na!*）——银杏树！学校门口不是有嘛！｜「은행나무」处 `both-hands`
 - **A**（happy）：「검은색 하면?」（*geo-meun-saek ha-myeon?*）——那「검은색」（黑色）呢？｜`point`
-- **B**（neutral）：「먹이 떠올라. 붓글씨 먹.」（*meo-gi tteo-ol-la. but-geul-ssi meok.*）——会想起墨。写毛笔字的墨。｜「먹」处 `palm-open`
-- **B**（neutral）：「흰색 하면?」（*huin-saek ha-myeon?*）——那「흰색」（白色）呢？｜`point`
-- **A**（happy）：「흰 옷! 옛날 조상들은 늘 흰 옷을 입었대!」（*huin ot! yen-nal jo-son-deu-reun neul huin o-seul i-beot-dae!*）——白衣！听说从前的祖先们总穿白衣！｜「흰 옷」处 `mini-jump`——백의민족（白衣民族）
-- **A**（happy）：「여섯 색깔 다 했다! 재밌다!」（*yeo-seot saek-kkap da haet-da! jae-mit-da!*）——六色全玩了！真有意思！｜「여섯」处 `jump-celebrate`
-- **B**（encouraging）：「그럼, 내일 봐, 도윤아.」（*geu-reom, na-il bwa, do-yun-a.*）——那，明天见，도윤。｜「내일」处 `wave`
+- **B**（neutral）：「먹이 떠올라요. 붓글씨 먹이에요.」（*meo-gi tteo-ol-la-yo. but-geul-ssi meo-gi-e-yo.*）——会想起墨。写毛笔字的墨。｜「먹」处 `palm-open`
+- **B**（neutral）：「흰색 하면요?」（*huin-saek ha-myeon-yo?*）——那「흰색」（白色）呢？｜`point`
+- **A**（happy）：「흰 옷! 옛날 조상들이 늘 입었대!」（*huin ot! yen-nal jo-sang-deu-ri neul i-beot-dae!*）——白衣！听说从前的祖先们总穿白衣！｜「흰 옷」处 `mini-jump`——백의민족（白衣民族）
+- **A**（happy）：「여섯 색깔 다! 재밌다!」（*yeo-seot saek-kkap da! jae-mit-da!*）——六色全玩了！真有意思！｜「여섯」处 `jump-celebrate`
+- **B**（encouraging）：「그럼, 내일 봐요, 도윤아.」（*geu-reom, na-il bwa-yo, do-yun-a.*）——那，明天见，도윤。｜「내일」处 `wave`
 - **A**（happy）：「내일 봐!」（*na-il bwa!*）——明天见！｜`wave`＋拍球出画
 
 **文化注记**：「～하면 떠오르다」是韩语固有联想句式（非「说到」直译）；오방색（传统五方色：红蓝黄白黑——恰为本课六色中的五个，旁白必讲）；은행나무（秋日首尔）、먹（文房）、백의민족（白衣民族）；도윤 反语体 × 서연 敬语体——语体差本身就是两人的关系戏。
@@ -403,22 +418,22 @@ A1 词汇为主，单句 4–12 词；全片估算 40–55s（以 tts 实测为�
 
 **舞台**：城市天台（נועה 主场）。**道具装置**：晾衣绳上六块染布，每轮风掀开一块。RTL：文字区右起、名牌镜像、站位对调。
 
-- **A**（happy）：« יובל! לפני השקיעה – משחק אחד בצבעים! »（*yu-val! lif-ney ha-shki-a – mis-chach e-chad ba-tze-va-im!*）——יובל！日落前来一局颜色游戏！｜"צבעים" 处 `both-hands`
-- **B**（neutral）：« בסדר. איך משחקים? »（*be-seder. eich mis-chach-im?*）——行。怎么玩？｜`nod`
+- **A**（happy）：« יובל! משחק אחד בצבעים לפני השקיעה! »（*yu-val! mis-chach e-chad ba-tze-va-im lif-ney ha-shki-a!*）——יובל！日落前来一局颜色游戏！｜"צבעים" 处 `both-hands`
+- **B**（neutral）：« איך משחקים? »（*eich mis-chach-im?*）——怎么玩？｜`nod`
 - **A**（happy）：« כשאני אומרת "אדום" – במה אתה חושב? »（*kshe-a-ni o-me-ret "a-dom" – be-ma a-ta cho-shev?*）——我说"אדום"（红色）——你会想起什么？（נועה 说话用阴性 אומרת）｜"אדום" 处 `point`
 - **B**（neutral）：« אני חושב על הכלניות בנגב. »（*a-ni cho-shev al ha-kal-a-niyot ba-negev.*）——我会想起内盖夫的银莲花。｜"כלניות" 处 `palm-open`
-- **B**（neutral）：« וכשאני אומר "ירוק" – במה את חושבת? »（*u-kshe-a-ni o-mer "ya-rok" – be-ma at cho-shevet?*）——那我说"ירוק"（绿色）——你会想起什么？（对 נועה 提问用阴性 חושבת）｜"ירוק" 处 `point`
-- **A**（happy）：« אני חושבת על עלי זית! על הדגל שלנו! »（*a-ni cho-shevet al a-ley zayit! al ha-de-gel she-la-nu!*）——我会想起橄榄叶！想起我们的国旗！｜"זית" 处 `both-hands`
+- **B**（neutral）：« "ירוק" – במה את חושבת? »（*"ya-rok" – be-ma at cho-shevet?*）——那"ירוק"（绿色）呢——你会想起什么？（对 נועה 提问用阴性 חושבת）｜"ירוק" 处 `point`
+- **A**（happy）：« אני חושבת על זית והדגל! »（*a-ni cho-shevet al zayit ve-ha-de-gel!*）——我会想起橄榄叶和国旗！｜"זית" 处 `both-hands`
 - **A**（happy）：« "צהוב" – במה אתה חושב? »（*"tza-hov" – be-ma a-ta cho-shev?*）——那"צהוב"（黄色）呢——你会想起什么？｜`point`
-- **B**（neutral）：« אני חושב על החול במדבר. שקט וחם. »（*a-ni cho-shev al ha-chol ba-mid-bar. sha-ket ve-cham.*）——我会想起沙漠的沙。安静，又热。｜"חול" 处 `palm-open`
+- **B**（neutral）：« אני חושב על חול המדבר. שקט וחם. »（*a-ni cho-shev al chol ha-mid-bar. sha-ket ve-cham.*）——沙漠的沙。安静，又热。｜"חול" 处 `palm-open`
 - **B**（neutral）：« "שחור" – במה את חושבת? »（*"sha-chor" – be-ma at cho-shevet?*）——那"שחור"（黑色）呢——你会想起什么？｜`point`
-- **A**（happy）：« אני חושבת על הקפה של אמא בבוקר! »（*a-ni cho-shevet al ha-ka-fe shel i-ma ba-boker!*）——我会想起妈妈早晨的咖啡！｜"קפה" 处 `mini-jump`
+- **A**（happy）：« אני חושבת על קפה של אמא בבוקר! »（*a-ni cho-shevet al ka-fe shel i-ma ba-boker!*）——妈妈早晨的咖啡！｜"קפה" 处 `mini-jump`
 - **A**（happy）：« "לבן" – במה אתה חושב? »（*"la-van" – be-ma a-ta cho-shev?*）——那"לבן"（白色）呢——你会想起什么？｜`point`
-- **B**（neutral）：« אני חושב על קצף הגלים. מים! »（*a-ni cho-shev al ke-tsef ha-ga-lim. ma-yim!*）——我会想起浪尖的白沫。水！｜"קצף" 处 `palm-open`——יובל 大水壶人设
+- **B**（neutral）：« אני חושב על קצף הגלים! מים! »（*a-ni cho-shev al ke-tsef ha-ga-lim! ma-yim!*）——浪尖的白沫。水！｜"קצף" 处 `palm-open`——יובל 大水壶人设
 - **B**（neutral）：« "כחול" – במה את חושבת? »（*"ka-chol" – be-ma at cho-shevet?*）——那"כחול"（蓝色）呢——你会想起什么？｜`point`
 - **A**（happy）：« אני חושבת על הדגים באקווריום! »（*a-ni cho-shevet al ha-dagim be-aquarium!*）——我想起水族箱里的鱼！｜"הדגים" 处 `both-hands`——家庭日常（以 aquarium 而非天空/浪花）
 - **A**（happy）：« שישה צבעים! איזה כיף! »（*shi-sha tze-va-im! ei-ze kef!*）——六种颜色！真开心！｜"שישה" 处 `jump-celebrate`
-- **B**（encouraging）：« כן. נתראה מחר, נועה. »（*ken. nit-ra-e machar, no-a.*）——嗯。明天见，נועה。｜"מחר" 处 `wave`
+- **B**（encouraging）：« נתראה מחר, נועה. »（*nit-ra-e machar, no-a.*）——明天见，נועה。｜"מחר" 处 `wave`
 - **A**（happy）：« נתראה מחר! »（*nit-ra-e machar!*）——明天见！｜`wave`＋出画
 
 **文化注记**：希语问句按**说话者×听者双方性别**各变位（אומרת/אומר、חושב/חושבת）——he 脚本必须双套动词（§6 验收）；כלניות（内盖夫红银莲花花季）、עלי זית（国旗橄榄枝）；תכלת（圣经蓝）可入旁白拓展。；**蓝色一轮为补写**（原剧本缺蓝色致全片只 5 轮）：问句沿用 he 版短式 «"X" – במה את חושבת?»（B=יובל 问 A=נועה，阴性变位），联想物取 «הדגים באקווריום»（水族箱的鱼，以色列家庭日常），刻意避开 en/ru/hi/zh 已用的「天空」与本版白轮已用的「浪花」。补写后六色零遗漏零重复、A 问三 / B 问三成立；出场次序为 红-绿-黄-黑-白-蓝。
