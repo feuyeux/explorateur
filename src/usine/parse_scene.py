@@ -18,6 +18,9 @@ md 体例（见 scenes/scene-colors.md §0，照抄即可）：
     ### 0.x 教学 token 表    | key | chip |          chip = #hex 色片 或 "文本" 字牌
     ### 0.x 装置规格表       | locale | scenes | style | shape | cellW | cellH | well | label |
                              （locale 缺行 = 该语种无装置纯对话）
+    durationBudget: 40-55   可选；给了 qa_scene 就按此卡时长，超时按 §1.4 回改文本
+    ### 0.x 语种文本规范表  | locale | 语体 A | 语体 B | 区分标记 | 说明 |
+                             （把「语体差即关系戏」这类注记承诺声明成可验收的数据；缺行 = 不检查）
   ## 2. 各语种剧本           ### <label>｜<aName> × <bName>（label 内含 locale 码）
     台词行：- **A**（happy）：「原文」（*注音*）——中文对照｜「手势词」处 `pose`
             汉字圈用「」、法/俄/希/阿用 «»、en 用 ""；引号内单引号不影响取词
@@ -25,8 +28,9 @@ md 体例（见 scenes/scene-colors.md §0，照抄即可）：
   ## 5. token 词表           | locale | <token1 词> | … |（列序 = §0.1 token 书写序；
                             单元格 `词 = 别形`（注音）——全部书写形都可逐字命中台词）
 
-输出 scene_<id>.json：{id, sceneId, title, source, rtlLocales, tokenOrder, tokens,
- tokenWords:{locale:[{key,word,forms,romanization}]}, locales:{locale:{…,dialogue[]}}}。
+输出 scene_<id>.json：{id, sceneId, title, source, rtlLocales, durationBudget,
+ speechLevels, tokenOrder, tokens, tokenWords:{locale:[{key,word,forms,romanization}]},
+ locales:{locale:{…,dialogue[]}}}。
 """
 import argparse
 import json
@@ -83,10 +87,11 @@ def _tables(text):
 
 
 def parse_spec(md):
-    """§0 机读规格 → (meta{sceneId,title,rtlLocales}, tokenOrder, tokens, devices)。
+    """§0 机读规格 → (meta{sceneId,title,rtlLocales,durationBudget?}, tokenOrder, tokens, devices, levels)。
 
     tokens: {key: chip}；chip 以 # 开头 = 色片，否则 = 字牌文本。
     devices: {locale: {scenes,style,shape,cellW,cellH,well,label}}；缺行语种不在表内。
+    levels:  {locale: {levelA,levelB,marker,note}}（§0.3 语种文本规范；缺行 = 该语种不做语体检查）。
     """
     sec0 = _split_md(md).get("0", "")
     if not sec0.strip():
@@ -103,6 +108,14 @@ def parse_spec(md):
     }
     if not meta["sceneId"] or not meta["title"]:
         raise ValueError("§0 缺 sceneId / title")
+
+    # durationBudget: "40-55" → [40.0, 55.0]；缺省不设预算（验收跳过时长检查而非判过）
+    budget = meta_val("durationBudget")
+    if budget:
+        m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*", budget)
+        if not m:
+            raise ValueError(f"§0 durationBudget 格式应为 40-55，实得：{budget!r}")
+        meta["durationBudget"] = [float(m.group(1)), float(m.group(2))]
 
     token_order, tokens = [], {}
     for header, body in _tables(sec0):
@@ -133,7 +146,18 @@ def parse_spec(md):
                     "well": row[6] if len(row) > 6 and row[6] else "",
                     "label": row[7] if len(row) > 7 else "",
                 }
-    return meta, token_order, tokens, devices
+    levels = {}
+    for header, body in _tables(sec0):
+        if len(header) >= 4 and header[0] == "locale" and "区分标记" in header:
+            for row in body:
+                if not row[0]:
+                    continue
+                levels[row[0]] = {
+                    "levelA": row[1], "levelB": row[2],
+                    "marker": row[3], "note": row[4] if len(row) > 4 else "",
+                }
+
+    return meta, token_order, tokens, devices, levels
 
 
 QUOTE_PAIRS = [("「", "」"), ("«", "»"), ("“", "”"), ('"', '"')]
@@ -302,7 +326,7 @@ def parse_scene(scene_id):
     if not md_path.exists():
         raise SystemExit(f"剧本不存在：{md_path}（已有场景：{', '.join(find_scene_ids()) or '无'}）")
     md = md_path.read_text("utf-8")
-    meta, token_order, tokens, devices = parse_spec(md)
+    meta, token_order, tokens, devices, levels = parse_spec(md)
     token_words = parse_token_words(md, token_order)
     locales = parse_locales(md, devices)
     if token_order:
@@ -317,6 +341,8 @@ def parse_scene(scene_id):
         "title": meta["title"],
         "source": md_path.name,
         "rtlLocales": meta["rtlLocales"],
+        "durationBudget": meta.get("durationBudget", []),
+        "speechLevels": levels,
         "tokenOrder": token_order,
         "tokens": tokens,
         "tokenWords": token_words,

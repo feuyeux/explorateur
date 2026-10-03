@@ -27,7 +27,7 @@
 .\run.ps1 scene            # 教学场景 A/B 对话线：parse → tts → assets → render（-Scene <id> 选场景，缺省 colors）
 .\run.ps1 scene -Only zh-CN,ja-JP
 .\run.ps1 scene-list       # 场景概览（token 序 / RTL / 装置 / 时长）
-.\run.ps1 qa-scene         # 场景线验收（qa_scene.py --scene <id>：规格/选角/画面探针/音频契约/幂等）
+.\run.ps1 qa-scene         # 场景线验收（qa_scene.py --scene <id>：规格/文本契约/选角/画面探针/音频契约/幂等）
 ```
 
 直连命令（run.ps1 的等价形式）：
@@ -124,6 +124,26 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | `qa_all.py` | 32 单元全量（28 卡 + 4 个 `<id>_f` 变体，变体共享人设探针）：时长=10.0±0.05s、aac、t=3.0 探针（mood 从时间线推导）、收尾帧按 9.4s 活跃码查躯干（跑出画族跳过） | `ALL 32 UNITS PASS` |
 | `qa_motion.py` | 卡拉OK LTR 覆盖率递增 / RTL 高亮中位 x 左移、口型开合+收尾闭合、RTL 气泡镜像、眨眼跌落、进度条推进、名牌/语言牌弹出、项链吊坠摆动、镜片反光位移、瞳孔视线漂移、呆毛颤动（采样框全部从 face_geo/布局常量推导） | `MOTION QA PASS` |
 | 幂等抽检 | **qa_motion 内置**：重渲一卡 → `ffmpeg -f hash -hash md5`（`-map 0:v`） | **视频流逐帧一致**（容器字节差来自 ffmpeg 元数据，属正常——曾误报"逐字节一致"，见 §5 坑⑫） |
+| `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架 / 画面探针 / 音频契约 / 幂等 | `N PASS / 0 FAIL` |
+
+**「文本契约」这组是踩过坑才加的**——三类问题都不影响渲染，ffmpeg 全部 `rc=0`，
+画面探针也照样 PASS，全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，
+所以统一做成数据声明 + 验收对账（数据在 `scene-<id>.md §0`，管线零改动）：
+
+| 检查 | 数据来源 | 抓的是什么 | 实例 |
+|---|---|---|---|
+| 句末标点 | 代码（Unicode 事实，非场景数据） | 句末不得是半角分号 `;`；疑问句须用本文字系统的问号（希腊文 `U+037E`） | el-GR 7 个疑问句用 ASCII 分号收尾，TTS 读成陈述句 |
+| 语体差 | `§0.3` 表 `locale \| 语体 A \| 语体 B \| 区分标记` | A 线不得含标记、B 线必须含标记——「语体差即关系戏」只能在文本层验 | ko-KR 注记承诺「서연 敬语体」，成片里 B 全线해체 |
+| 时长预算 | `§0` 的 `durationBudget: 40-55` | 超时即 FAIL，处方是回改文本（不变量②，绝不动基线） | he-IL 60.04s / hi-IN 56.97s / ar-SA 56.45s |
+
+> 缺行 = **不检查**，不是「通过」——`§0.3` 没列的语种不会被静默认成合规。
+
+> 回归测试：`uv run python scripts/verify_text_contract.py` 把**修复前**的原始数据喂进
+> 同一套检查逻辑，要求三项全部判 FAIL、再喂修复后的数据要求全部 PASS。
+> 这条测试真抓到过一个 bug：`QMARK_BY_SCRIPT` 里的希腊问号在编辑过程中被工具链
+> 静默归一成 ASCII 分号，导致真跑验收时 7 个希腊问句全部误判。
+> **教训：形近码位（`;` U+003B / `;` U+037E）一律用 `chr(0x…)` 写死，
+> 不要在源码里直接敲字面字符，也不要靠肉眼看 diff。**
 
 **探针纪律**：新加视觉特性 = 同时加对应探针；探针采样点必须从 `face_geo` 算，
 不许手抄坐标（今天 3 个"假失败"全是手抄坐标撞上大眼/气泡/帽檐——见 §5）。
@@ -230,12 +250,14 @@ python  parse_scene.py --list                    # 列出仓库内已有场景 i
 .\run.ps1 scene                                   # parse → tts → assets → render
 .\run.ps1 scene -Only zh-CN,ja-JP -Workers 6      # 只渲指定语种
 .\run.ps1 scene-list                              # 场景清单（token 序 / RTL / 装置 / 时长）
-.\run.ps1 qa-scene                                # qa_scene.py 五组验收
+.\run.ps1 qa-scene                                # qa_scene.py 六组验收
 ```
 
 - **新场景零代码接入**：新建 `scenes/scene-<id>.md` 照抄 §0 机读规格体例即可，解析器与渲染线不动。
-  §0 = `sceneId` / `title` / `rtlLocales` + §0.1 教学 token 表 + §0.2 装置规格表
-  （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）。
+  §0 = `sceneId` / `title` / `rtlLocales` / `durationBudget`（可选，`40-55`）
+  + §0.1 教学 token 表 + §0.2 装置规格表
+  （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）
+  + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）。
 - **token chip 两型**：`#hex` = 色片（井内实心填充）；`"文本"` = 字牌（Edge 渲 token 词文字层贴入井）。
   §0.2 `well` 缺省时由场景中性色推导——**浅色 chip 落在同色底上会看不见**，故显式给色是常用手段。
 - **人物 rig 零复制**：`scene_video.py` 从 `intro_cards` import `draw_character` / `face_geo` /
@@ -294,14 +316,14 @@ une_usine_avec_des_machines_rugissantes/
 │  ├─ scene_video.py                 # 场景线（M2，场景无关：tts/assets/render；选角/双人站位/token 装置/RTL 镜像）
 │  ├─ qa_scene.py                    # 场景线验收（§4.5，--scene <id>）
 │  ├─ dump_lesson_source.py          # scene_<id>.json → lesson_analysis/_source/<locale>.md（只排版不改写）
-│  └─ build_lesson.py                # 合并成 build/lesson/index.html（语系排序 9 组 + 逐句解析 + 每语种末尾嵌视频）
+│  └─ build_lesson.py                # 合并成 build/lesson/index.html（语系排序 9 组 + 逐句解析；视频走顶部 sticky 固定栏 + 语种 tab）
 ├─ lesson_analysis/                  # 教学文档侧的人工解析（与视频管线解耦）
 │  ├─ _source/<locale>.md            # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/舞台/创作注记）
 │  └─ <locale>.json × 14             # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
 ├─ personas/
 │  ├─ personas.json                  # ★ 28 人档案（人设唯一事实源）
 │  └─ intro-cards.json               # ★ 28 卡种子（cast/lines/moods/gestures/entry_pose/scene/close；RTL 卡带 variants[] 女性观众版）
-├─ scripts/                          # 发布侧（抖音）
+├─ scripts/                          # 发布侧（抖音）＋ 验收侧回归测试（verify_text_contract.py）
 └─ build/                            # 产物（.gitignore）
    ├─ intro/                         # 管线一产物
    │  ├─ <id>.mp4                     # 32 × 10s（28 卡 + 4 个 <id>_f 女性观众版）

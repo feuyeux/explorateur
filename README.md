@@ -55,7 +55,7 @@
 .\run.ps1 scene                                   # 场景线：parse → tts → assets → render（缺省场景 colors，14 语种，~20 分钟）
 .\run.ps1 scene -Scene colors -Only zh-CN,ja-JP   # 指定场景 / 只渲指定语种
 .\run.ps1 scene-list -Scene <id>                  # 列场景（台词行数 / 时长 / 选角 / 装置）
-.\run.ps1 qa-scene -Scene <id>                    # 场景线验收（规格 / 选角 / 画面探针 / 音频契约 / 幂等）
+.\run.ps1 qa-scene -Scene <id>                    # 场景线验收（规格 / 文本契约 / 选角 / 画面探针 / 音频契约 / 幂等）
 ```
 
 ### 场景线产物（示范场景二）

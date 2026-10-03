@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """qa_scene.py — 教学场景 M2 场景线验收（scene-<id>.md §6 + plan.md §9 M2 口径，场景无关）
 
-五组验收：
+六组验收：
   1. 产物规格    <locale> 视频：1080x1920@30fps / h264+aac / 时长 == 时间轴
-  2. 选角与骨架  A/B = intro-cards.json cast 事实源；问答对称；token 零遗漏零重复
-  3. 画面探针    双人同框站位（服装色质心落在本侧；RTL 语种左右对调）、文字带、token 装置全亮
-  4. 音频契约    逐行声线 = persona.voice + 情绪增量（缓存键独立，重跑命中）
-  5. 幂等        重渲一支比对视频流 framehash（逐帧一致，容器字节差属正常——不变量⑦）
+  2. 文本契约    §0.3 语体差真实成立；疑问句用本文字系统的问号；§0 durationBudget 卡时长
+  3. 选角与骨架  A/B = intro-cards.json cast 事实源；问答对称；token 零遗漏零重复
+  4. 画面探针    双人同框站位（服装色质心落在本侧；RTL 语种左右对调）、文字带、token 装置全亮
+  5. 音频契约    逐行声线 = persona.voice + 情绪增量（缓存键独立，重跑命中）
+  6. 幂等        重渲一支比对视频流 framehash（逐帧一致，容器字节差属正常——不变量⑦）
 
 用法：uv run python -m usine.qa_scene [--scene <id>] [--only zh-CN,...] [--no-idempotent]
 """
@@ -77,6 +78,34 @@ def char_colors(p):
     return cols or [hexrgb(p["palette"]["hair"])]
 
 
+# ---------- 文字系统 → 句末标点（Unicode 事实，属代码不属场景数据） ----------
+# 疑问句必须用**该文字自己的**问号。希腊文另有专用问号 U+037E；用 ASCII '?' 会被
+# TTS 读成陈述句（el-GR 曾 7 处用半角分号收问句，§0.3 记此坑）。
+SCRIPT_RANGES = (
+    ("greek", 0x0370, 0x03FF), ("hebrew", 0x0590, 0x05FF), ("arabic", 0x0600, 0x06FF),
+    ("devanagari", 0x0900, 0x097F), ("hangul", 0xAC00, 0xD7AF), ("kana", 0x3040, 0x30FF),
+    ("cyrillic", 0x0400, 0x04FF), ("han", 0x4E00, 0x9FFF),
+)
+QMARK_BY_SCRIPT = {
+    "greek":  chr(0x037E),   # 希腊问号 U+037E（形似分号，最常被 ASCII ; 顶替）
+    "arabic": chr(0x061F),   # 阿拉伯问号 U+061F ؟
+    "han":    chr(0xFF1F),   # 全角问号 U+FF1F ？（中日韩排版用全角，非 ASCII）
+    "kana":   chr(0xFF1F),   # 同上（日文假名）
+}
+# 未列出的文字系统（latin / cyrillic / hebrew / devanagari / hangul）通用 ASCII 问号      # 其余文字系统通用 ASCII '?'
+ASCII_SEMICOLON = ";"              # 现代正字法里它从不作句终止符
+
+
+def script_of(text):
+    """一行台词的主文字系统：取首个落在已知文字区间的码位。"""
+    for ch in text:
+        o = ord(ch)
+        for name, lo, hi in SCRIPT_RANGES:
+            if lo <= o <= hi:
+                return name
+    return "latin"
+
+
 def main():
     global PREFIX
     ap = argparse.ArgumentParser(description="教学场景线验收（M2）")
@@ -114,7 +143,48 @@ def main():
         check(f"{lc} 时长对齐时间轴", abs(dur - tl["duration"]) < 0.25,
               f'{dur:.2f}s vs {tl["duration"]:.2f}s')
 
-    print("\n== 2. 选角与骨架")
+    print("\n== 2. 文本契约（§0.3 语体/标点 + §0 durationBudget）")
+    budget = scene.get("durationBudget") or []
+    levels = scene.get("speechLevels") or {}
+    for lc in locales:
+        loc = scene["locales"][lc]
+        lines = loc["dialogue"]
+
+        # 2a 标点：句末不得是半角分号；疑问句须用本文字系统的问号
+        bad_term, bad_q = [], []
+        for ln in lines:
+            txt = (ln["text"] or "").strip()
+            if not txt:
+                continue
+            if txt[-1] == ASCII_SEMICOLON:
+                bad_term.append(f"#{ln['i']}")
+            if ln["isQuestion"]:
+                want = QMARK_BY_SCRIPT.get(script_of(txt), "?")
+                if txt[-1] != want:
+                    bad_q.append(f"#{ln['i']}(U+{ord(txt[-1]):04X}≠U+{ord(want):04X})")
+        check(f"{lc} 句末无半角分号", not bad_term, " ".join(bad_term))
+        check(f"{lc} 疑问句用本文字系统问号", not bad_q, " ".join(bad_q))
+
+        # 2b 语体：§0.3 承诺的 A/B 语体差必须在文本里真的成立（缺行 = 不检查，不算通过）
+        lv = levels.get(lc)
+        if lv:
+            mk = lv["marker"]
+            a_on = [str(ln["i"]) for ln in lines if ln["speaker"] == "A" and mk in ln["text"]]
+            b_off = [str(ln["i"]) for ln in lines if ln["speaker"] == "B" and mk not in ln["text"]]
+            check(f"{lc} 语体差成立 A={lv['levelA']}/B={lv['levelB']}",
+                  not a_on and not b_off,
+                  (f"A 含标记#{'#'.join(a_on)} " if a_on else "")
+                  + (f"B 缺标记#{'#'.join(b_off)}" if b_off else ""))
+
+        # 2c 时长：§1.4 预算（缺省不给预算则跳过，不假装通过）
+        if budget:
+            lo, hi = budget
+            tlp = AUDIO_DIR / f"{PREFIX}_{lc}.timeline.json"
+            if tlp.exists():
+                d = json.loads(tlp.read_text("utf-8"))["duration"]
+                check(f"{lc} 时长在 {lo:g}–{hi:g}s 预算内", lo <= d <= hi, f"{d:.2f}s")
+
+    print("\n== 3. 选角与骨架")
     for lc in locales:
         tl = json.loads((AUDIO_DIR / f"{PREFIX}_{lc}.timeline.json").read_text("utf-8"))
         loc = scene["locales"][lc]
@@ -146,7 +216,7 @@ def main():
         check(f"{lc} 问答对称 A{ask['A']}/B{ask['B']}",
               ask["A"] == ask["B"], f'A{ask["A"]}/B{ask["B"]}')
 
-    print("\n== 3. 画面探针")
+    print("\n== 4. 画面探针")
     ink = hexrgb(UI_INK)
     for lc in locales:
         if not (ROOT / f"{PREFIX}_{lc}.mp4").exists():
@@ -193,7 +263,7 @@ def main():
             lit += 1 if hit > 20 else 0
         check(f"{lc} 装置已点亮 {lit}/{len(scene['tokenOrder'])}", lit == len(scene["tokenOrder"]))
 
-    print("\n== 4. 音频契约")
+    print("\n== 5. 音频契约")
     for lc in locales:
         tl = json.loads((AUDIO_DIR / f"{PREFIX}_{lc}.timeline.json").read_text("utf-8"))
         ok_rate, moods = True, set()
@@ -208,7 +278,7 @@ def main():
               f'{personas[tl["cast"]["A"]]["voice"]["voiceId"]} / '
               f'{personas[tl["cast"]["B"]]["voice"]["voiceId"]}')
 
-    print("\n== 5. 幂等（视频流 framehash）")
+    print("\n== 6. 幂等（视频流 framehash）")
     if args.no_idempotent:
         print("  [SKIP] --no-idempotent")
     else:
