@@ -1,6 +1,6 @@
 {
   "$schema": "self-introductions.md#3.1",
-  "note": "28 × 10s 亮相卡的机器可读种子：每卡 lines 按 mood 分段（单段=单行）；gestures 为词触发的招牌手势；scene 为背景原语列表",
+  "note": "28 × 10s 亮相卡的机器可读种子：每卡 lines 按 mood 分段（单段=单行）；gestures 为词触发的招牌手势（锚词必须真实存在于台词）；entry/entry_pose=入场位移/入场姿态；close 为收尾动作（单码或按序码列）；RTL 卡附 variants（女性观众版，双版本独立缓存键）；scene 为背景原语列表",
   "moods": {
     "neutral": [
       0,
@@ -72,7 +72,8 @@
           "text": "大家好！我叫林小满，“小满”是节气里的小满。我最爱问“为什么”——今天也请多多指教！",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "wave"
     },
     {
       "id": "jiangyuan",
@@ -88,7 +89,8 @@
           "text": "你好，我是江远。路怎么走都可以问我——我慢慢指给你看。",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "nod"
     },
     {
       "id": "ruby",
@@ -101,7 +103,7 @@
       ],
       "gestures": [
         {
-          "at": "Lost",
+          "at": "Ask",
           "do": "brow_raise",
           "dur": 0.8
         }
@@ -111,12 +113,16 @@
           "text": "Hi, I'm Ruby, from the coffee corner. Ask me — I know every street.",
           "mood": "neutral"
         }
-      ]
+      ],
+      "entry_pose": "brow_raise"
     },
     {
       "id": "miles",
       "entry": "bounce_in",
-      "close": "thumbs_up",
+      "close": [
+        "thumbs_up",
+        "mini_jump"
+      ],
       "scene": [
         "windows_big",
         "board_timetable",
@@ -124,7 +130,7 @@
       ],
       "gestures": [
         {
-          "at": "and",
+          "at": "lost",
           "do": "scratch_head",
           "dur": 1.6
         }
@@ -142,12 +148,16 @@
           "text": "Let's find the way together!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "hand_shoot"
     },
     {
       "id": "chloe",
       "entry": "bounce_in",
-      "close": "kick",
+      "close": [
+        "kick",
+        "wave"
+      ],
       "scene": [
         "cobble_arcs",
         "fountain",
@@ -158,6 +168,10 @@
           "text": "Salut ! Moi, c'est Chloé ! J'adore aller vite, sur mon skateboard. Viens — on explore la ville !",
           "mood": "happy"
         }
+      ],
+      "entry_pose": [
+        "twirl",
+        "clap"
       ]
     },
     {
@@ -171,7 +185,7 @@
       ],
       "gestures": [
         {
-          "at": "Attends",
+          "at": "question",
           "do": "index_wait",
           "dur": 1.0
         }
@@ -185,7 +199,8 @@
           "text": "Une question ? Je te montre le chemin.",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "nod"
     },
     {
       "id": "lena",
@@ -213,7 +228,8 @@
           "text": "Hallo! Ich bin Lena. Ich plane Schritt für Schritt. Zählen wir zusammen!",
           "mood": "neutral"
         }
-      ]
+      ],
+      "entry_pose": "planner_snap"
     },
     {
       "id": "felix",
@@ -236,12 +252,16 @@
           "text": "Hallo, hallo! Ich bin Felix — der Glücksbringer! Komm mit, das wird großartig!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "hand_shoot"
     },
     {
       "id": "lucia",
       "entry": "bounce_in",
-      "close": "mini_jump",
+      "close": [
+        "clap",
+        "wave"
+      ],
       "scene": [
         "awning_market",
         "crates",
@@ -252,6 +272,10 @@
           "text": "¡Hola! ¡Soy Lucía! Me encanta la fruta del mercado. ¡Ven, te presento mi barrio!",
           "mood": "happy"
         }
+      ],
+      "entry_pose": [
+        "twirl",
+        "clap"
       ]
     },
     {
@@ -265,7 +289,7 @@
       ],
       "gestures": [
         {
-          "at": "Tranquilo",
+          "at": "Perdido",
           "do": "palm_open",
           "dur": 1.2
         }
@@ -279,7 +303,8 @@
           "text": "¿Perdido? Te muestro el camino.",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "palm_open"
     },
     {
       "id": "anya",
@@ -299,12 +324,16 @@
           "text": "Спрашивай — я покажу тебе дорогу.",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "head_tilt"
     },
     {
       "id": "misha",
       "entry": "bounce_in",
-      "close": "come_along",
+      "close": [
+        "come_along",
+        "mini_jump"
+      ],
       "scene": [
         "bench",
         "tree",
@@ -322,12 +351,16 @@
           "text": "Привет, друзья! Я Миша! Хочешь увидеть город? Пойдём вместе!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "chest_pat"
     },
     {
       "id": "eleni",
       "entry": "bounce_in",
-      "close": "mini_jump",
+      "close": [
+        "mini_jump",
+        "wave"
+      ],
       "scene": [
         "domes",
         "water",
@@ -335,7 +368,7 @@
       ],
       "gestures": [
         {
-          "at": "μεγάλες",
+          "at": "πλατείες",
           "do": "both_hands",
           "dur": 1.2
         }
@@ -345,7 +378,8 @@
           "text": "Γεια σας! Είμαι η Ελένη! Λατρεύω τις πλατείες και τη μουσική. Έλα, να σου δείξω τη γειτονιά!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "both_hands"
     },
     {
       "id": "nikos",
@@ -358,7 +392,7 @@
       ],
       "gestures": [
         {
-          "at": "σκεφτώ",
+          "at": "κάτσε",
           "do": "beads_ponder",
           "dur": 1.4
         }
@@ -368,7 +402,8 @@
           "text": "Καλησπέρα. Με λένε Νίκο. Ξέρω όλους τους δρόμους — κάτσε, θα σου πω.",
           "mood": "neutral"
         }
-      ]
+      ],
+      "entry_pose": "brow_raise"
     },
     {
       "id": "layla",
@@ -388,12 +423,32 @@
           "text": "اسألني، وسأدلك عليه.",
           "mood": "encouraging"
         }
+      ],
+      "entry_pose": "nod",
+      "variants": [
+        {
+          "id": "layla_f",
+          "label": "女性观众版",
+          "lines": [
+            {
+              "text": "مرحباً، أنا ليلى. أحب الهدوء.",
+              "mood": "neutral"
+            },
+            {
+              "text": "اسأليني، وسأدلك عليه.",
+              "mood": "encouraging"
+            }
+          ]
+        }
       ]
     },
     {
       "id": "omar",
       "entry": "bounce_in",
-      "close": "mini_jump",
+      "close": [
+        "mini_jump",
+        "wave"
+      ],
       "scene": [
         "pot_brass",
         "carpet",
@@ -411,12 +466,28 @@
           "text": "أهلاً! أنا عمر! أحب الضحك والقهوة. تعال — أعرف كل الطرق!",
           "mood": "happy"
         }
+      ],
+      "entry_pose": "thumbs_up",
+      "variants": [
+        {
+          "id": "omar_f",
+          "label": "女性观众版",
+          "lines": [
+            {
+              "text": "أهلاً! أنا عمر! أحب الضحك والقهوة. تعالي — أعرف كل الطرق!",
+              "mood": "happy"
+            }
+          ]
+        }
       ]
     },
     {
       "id": "priya",
       "entry": "bounce_in",
-      "close": "wave",
+      "close": [
+        "head_tilt",
+        "wave"
+      ],
       "scene": [
         "brick_arches",
         "board",
@@ -434,7 +505,8 @@
           "text": "नमस्ते! मैं प्रिया हूँ। मुझे सवाल पसंद हैं। चलो, रास्ता खोजें!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "clap"
     },
     {
       "id": "arjun",
@@ -447,7 +519,7 @@
       ],
       "gestures": [
         {
-          "at": "घबराइए",
+          "at": "भूल",
           "do": "palm_open",
           "dur": 1.2
         }
@@ -461,12 +533,16 @@
           "text": "रास्ता भूल गए? मैं बता देता हूँ।",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "nod"
     },
     {
       "id": "haruka",
       "entry": "bounce_in",
-      "close": "mini_jump",
+      "close": [
+        "mini_jump",
+        "wave"
+      ],
       "scene": [
         "lantern_row",
         "shopfront",
@@ -474,7 +550,7 @@
       ],
       "gestures": [
         {
-          "at": "わくわく",
+          "at": "だいすき",
           "do": "fist",
           "dur": 0.9
         }
@@ -484,7 +560,8 @@
           "text": "こんにちは！ハルカです！新しい場所がだいすき。いっしょに探検しよう！",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "both_hands"
     },
     {
       "id": "riku",
@@ -499,6 +576,18 @@
         {
           "text": "……リク。道なら、任せて。この街は、ぜんぶ頭の中にある。",
           "mood": "neutral"
+        }
+      ],
+      "gestures": [
+        {
+          "at": "任せ",
+          "do": "deadpan_nod",
+          "dur": 1.0
+        },
+        {
+          "at": "ぜんぶ",
+          "do": "deadpan_nod",
+          "dur": 1.0
         }
       ]
     },
@@ -518,7 +607,7 @@
           "dur": 1.0
         },
         {
-          "at": "잠시만요",
+          "at": "알려",
           "do": "index_wait",
           "dur": 1.0
         }
@@ -532,12 +621,13 @@
           "text": "길을 잃으셨나요? 제가 알려 드릴게요.",
           "mood": "encouraging"
         }
-      ]
+      ],
+      "entry_pose": "planner_snap"
     },
     {
       "id": "doyun",
       "entry": "bounce_in",
-      "close": "run_out",
+      "close": "shoot_run",
       "scene": [
         "hoop",
         "fence",
@@ -555,12 +645,16 @@
           "text": "안녕! 나 도윤! 궁금한 건 뭐든 물어봐. 오늘은 어디로 갈까?",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "cap_tap"
     },
     {
       "id": "giulia",
       "entry": "bounce_in",
-      "close": "mini_jump",
+      "close": [
+        "ciao_wave",
+        "mini_jump"
+      ],
       "scene": [
         "fountain",
         "sun_low",
@@ -578,7 +672,8 @@
           "text": "Ciao! Sono Giulia! Adoro i tramonti, la musica e le nuove avventure. Vieni — ti faccio visitare la mia città!",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "ciao_wave"
     },
     {
       "id": "luca",
@@ -591,7 +686,7 @@
       ],
       "gestures": [
         {
-          "at": "Respiro",
+          "at": "accompagno",
           "do": "breath",
           "dur": 1.2
         }
@@ -601,7 +696,8 @@
           "text": "Ciao, sono Luca. Qui si va piano, come me. Ti accompagno.",
           "mood": "neutral"
         }
-      ]
+      ],
+      "entry_pose": "pocket_sway"
     },
     {
       "id": "noa",
@@ -612,17 +708,23 @@
         "clothesline",
         "sky_dusk"
       ],
-      "gestures": [
-        {
-          "at": "שאלה",
-          "do": "brow_raise",
-          "dur": 0.8
-        }
-      ],
       "lines": [
         {
           "text": "שלום! אני נועה. אני אוהבת לצלם ולגלות. בוא נגלה יחד!",
           "mood": "happy"
+        }
+      ],
+      "entry_pose": "lean_in",
+      "variants": [
+        {
+          "id": "noa_f",
+          "label": "女性观众版",
+          "lines": [
+            {
+              "text": "שלום! אני נועה. אני אוהבת לצלם ולגלות. בואי נגלה יחד!",
+              "mood": "happy"
+            }
+          ]
         }
       ]
     },
@@ -637,7 +739,7 @@
       ],
       "gestures": [
         {
-          "at": "מים",
+          "at": "אחריי",
           "do": "bottle_raise",
           "dur": 1.2
         }
@@ -651,12 +753,29 @@
           "text": "צריך כיוון? בוא אחריי, לאט.",
           "mood": "encouraging"
         }
+      ],
+      "entry_pose": "nod",
+      "variants": [
+        {
+          "id": "yuval_f",
+          "label": "女性观众版",
+          "lines": [
+            {
+              "text": "שלום, אני יובל.",
+              "mood": "neutral"
+            },
+            {
+              "text": "צריכה כיוון? בואי אחריי, לאט.",
+              "mood": "encouraging"
+            }
+          ]
+        }
       ]
     },
     {
       "id": "aaching",
       "entry": "walk_in",
-      "close": "snap",
+      "close": "head_tilt_smile",
       "scene": [
         "neon_sign",
         "window_grid",
@@ -664,8 +783,8 @@
       ],
       "gestures": [
         {
-          "at": "隨時",
-          "do": "snap",
+          "at": "全部",
+          "do": "nod",
           "dur": 0.9
         }
       ],
@@ -674,12 +793,13 @@
           "text": "哈囉，我係阿晴！唔識路？呢度我全部都知。",
           "mood": "neutral"
         }
-      ]
+      ],
+      "entry_pose": "wave"
     },
     {
       "id": "ahao",
       "entry": "bounce_in",
-      "close": "run_out",
+      "close": "thumbs_run",
       "scene": [
         "steamers",
         "stall",
@@ -697,7 +817,8 @@
           "text": "你好呀！我係阿豪！最鍾意幫人。唔識路？跟住我行！",
           "mood": "happy"
         }
-      ]
+      ],
+      "entry_pose": "scratch_head"
     }
   ]
 }

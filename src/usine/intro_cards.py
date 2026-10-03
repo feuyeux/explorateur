@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """intro_cards.py — 28 x 10s 班底亮相卡渲染管线（plan.md §8 契约的实现）
+RTL 4 卡另渲女性观众版 <id>_f.mp4（self-intro §1.4：双性别版本各渲一遍，缓存键互不串扰）
 
 数据：personas/personas.json + personas/intro-cards.json
 产物：build/intro/<id>.mp4（1080x1920, 30fps, 10.0s, 含烘焙音频）
 
-用法（两解释器分工）：
-  python  intro_cards.py tts     [--only id1,id2]   # 系统 Python（edge-tts 7.2.8）：逐行合成 + 词级时间戳
-  python  intro_cards.py assets  [--only id1,id2]   # 任意 Python：Edge headless 渲染文字层 PNG
-  python  intro_cards.py render  [--only id1,id2] [--workers 6]   # 捆绑 Python（Pillow）：帧渲染 + ffmpeg
+用法（uv 管理单一 .venv）：
+  uv run usine-cards tts     [--only id1,id2]   # edge-tts 7.2.8：逐行合成 + 词级时间戳
+  uv run usine-cards assets  [--only id1,id2]   # Edge headless 渲染文字层 PNG
+  uv run usine-cards render  [--only id1,id2] [--workers 6]   # Pillow：帧渲染 + ffmpeg
 """
 import argparse
 import asyncio
@@ -23,7 +24,9 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+from usine import ROOT
+
+HERE = ROOT                              # 仓库根（personas/ 与 build/ 的锚点，不依赖 cwd）
 BUILD = HERE / "build" / "intro"
 AUDIO_DIR = BUILD / "audio"
 TEXT_DIR = BUILD / "text"
@@ -32,10 +35,70 @@ OUT_DIR = BUILD
 W, H, FPS, DUR = 1080, 1920, 30, 10.0
 FRAMES = int(FPS * DUR)
 BAND_Y, BAND_H = 100, 300
-LINE_COLOR = "#4B4B4B"
 UI_INK = "#23283D"  # 名牌/语言牌/气泡描边与投影（与文字带底色同族的墨色）
 BAND_BG = (35, 40, 63)  # #23283F
+# 帧内布局基准（qa 探针同源引用，永不手抄——不变量⑩）
+BADGE_Y, BADGE_BOX_H = 470, 240        # 名牌：粘贴基准行
+PILL_Y, PILL_BOX_H = 726, 96           # 语言牌：粘贴基准行
+BUBBLE_CY, BUBBLE_CX = 915, 300        # 气泡：中心 y / LTR 中心 x（RTL 取 W−）
+PROG_X0, PROG_Y0, PROG_X1, PROG_Y1 = 60, 40, 1020, 56  # 进度条外框
 
+THEME = {  # 人物/道具常量色唯一事实源（plan §7.2-1：色值只存于 personas.json 与主题文件；qa_char 同源引用）
+    "ink": (46, 42, 54),             # 瞳孔/眉毛/口型线（无描边人物的唯一深色）
+    "mouth": (122, 54, 60), "tongue": (236, 120, 112), "blush": (247, 197, 185),
+    "shoe": (56, 56, 64),
+    "gold": (232, 194, 74), "pearl": (246, 242, 234), "beads": (162, 120, 70),
+    "bracelet_leather": (122, 88, 58), "bracelet_woven": (204, 172, 120),
+    "metal_dark": (44, 44, 52), "lens": (70, 76, 92), "camera_body": (70, 70, 78),
+    "headphones": (60, 60, 70), "lens_blue": (152, 194, 214), "glint_blue": (206, 226, 238),
+    "glint_soft": (226, 238, 246), "hairpin_clear": (206, 236, 246), "scarf_red": (196, 88, 74),
+    "glasses_plastic": (58, 74, 44), "glasses_thin": (66, 66, 76), "glasses_dark": (56, 60, 72),
+    "headband_red": (214, 69, 65),   # 红发带（意大利三色旗 wink 的红条）
+    "it_flag": ((0, 146, 70), (255, 255, 255), (214, 69, 65)),
+    "straw": (246, 240, 226), "apron": (238, 233, 221),
+    "paper": (250, 246, 236), "paper_map": (242, 235, 216), "paper_tote": (250, 246, 238),
+    "book_leather": (122, 94, 70), "pen_blue": (58, 72, 96), "satchel": (122, 92, 62),
+    "bottle_blue": (122, 184, 202), "bottle_green": (152, 202, 172), "bottle_green_dark": (120, 160, 132),
+    "ball": (232, 138, 66), "ball_line": (120, 60, 30),
+    "skate_deck": (240, 156, 84), "skate_wheel": (70, 70, 78),
+    "bag_canvas": (245, 240, 230), "bag_woven": (226, 200, 160), "bag_pouch": (238, 226, 208),
+    "sparkle": (255, 208, 92),
+    "shade_dark": (25, 25, 32),      # 服装体积影/袖口混入色
+}
+NECK_SHADE_F = 0.45                  # 颈部 skinShade 混入比（qa_char 同源）
+
+
+# 场景中性色（单一事实源：场景原语只引用本表 / pal 令牌 / mix()，禁写字面 RGB——不变量⑤）
+SCENE = {
+    "white": (255, 255, 255),    # 蒸汽/粉笔/高光
+    "lamp": (75, 75, 75),        # 灯杆/电线/护栏/路缘
+    "night_blue": (43, 48, 70),  # 夜色楼体/招牌底
+    "metal": (150, 150, 155),    # 卷帘门/金属构件
+    "sun1": (255, 214, 150),     # 晨昏天光三层
+    "sun2": (255, 205, 160),
+    "sun3": (255, 190, 140),
+    "lantern": (255, 214, 90),   # 灯笼/灯串暖黄
+    "glow": (255, 230, 160),     # 灯箱/窗光
+    "glow2": (255, 235, 190),    # 橱窗光
+    "chalk": (255, 235, 180),    # 暖粉笔/卷帘门亮条
+    "stem": (120, 150, 100),     # 花茎
+    "grass": (120, 165, 110),    # 草地/松枝
+    "grass2": (120, 160, 110),   # 远山绿
+    "wood": (140, 115, 90),      # 树干/木杆
+    "wood2": (230, 180, 90),     # 木牌/遮阳篷骨
+    "sky": (180, 220, 240),      # 天光/水面
+    "sky2": (200, 228, 245),     # 水族箱体
+    "sky3": (150, 200, 225),     # 镜面水面
+    "steam": (160, 210, 230),    # 蒸笼/蒸汽层
+    "flower": (255, 170, 90),    # 花瓣/灯串
+    "blossom": (255, 210, 110),  # 霓虹花瓣
+    "peach": (255, 170, 120),    # 灯罩暖光
+    "sign": (200, 90, 90),       # 招牌红
+    "cyan": (90, 220, 240),      # 霓虹青
+    "pink": (255, 170, 200),     # 霓虹粉
+    "snow": (250, 250, 250),     # 山顶积雪
+    "peach2": (255, 190, 120),   # 摊位灯罩暖光
+}
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
 
@@ -45,6 +108,27 @@ def load_data():
     personas = {p["id"]: p for p in json.loads((HERE / "personas" / "personas.json").read_text("utf-8"))["personas"]}
     cards_doc = json.loads((HERE / "personas" / "intro-cards.json").read_text("utf-8"))
     return personas, cards_doc
+
+
+def card_units(doc):
+    """渲染单元展开：主卡 + RTL 女性观众版变体（self-intro §1.4）。
+    变体共享人设/场景/收尾/手势，仅 lines 不同（缓存键随文本自然独立）。"""
+    units = []
+    for c in doc["cards"]:
+        units.append({"id": c["id"], "persona": c["id"], "card": c})
+        for v in c.get("variants", []):
+            units.append({"id": v["id"], "persona": c["id"], "card": c, "variant": v})
+    return units
+
+
+def find_card(doc, pid):
+    for c in doc["cards"]:
+        if c["id"] == pid:
+            return c, None
+        for v in c.get("variants", []):
+            if v["id"] == pid:
+                return c, v
+    raise KeyError(pid)
 
 
 def parse_signed(s, suffix):
@@ -72,6 +156,43 @@ def content_hash(*parts):
 def rnd(seed):
     h = hashlib.sha256(seed.encode("utf-8")).digest()
     return int.from_bytes(h[:8], "big") / float(1 << 64)
+
+
+def gaze(seed, t):
+    """视线跟随镜头（requirement §3.2 / plan §4 gaze="camera"）：瞳孔绕镜头注视点做
+    种子化微漂移＋短促扫视，确定性幂等。返回 (dx, dy)∈[-1,1]；
+    像素幅度 = (巩膜−瞳孔) 余量 × 0.35（探针安全余量内，qa_char 同源引用）。"""
+    ph = 2 * math.pi * rnd(f"{seed}:gaze")
+    gx = 0.45 * math.sin(2 * math.pi * 0.19 * t + ph)
+    gy = 0.30 * math.sin(2 * math.pi * 0.13 * t + ph * 1.7)
+    cyc = 2.6
+    t0 = rnd(f"{seed}:gaze:phase") * cyc
+    k = int((t + t0) / cyc)
+    tt = (t + t0) - k * cyc
+    if tt < 0.22:  # 短促扫视：幅度/方向按扫视序号锁定
+        amp = rnd(f"{seed}:sacc:{k}")
+        gx += 0.55 * amp * math.sin(2 * math.pi * rnd(f"{seed}:sxa:{k}"))
+        gy += 0.35 * amp * math.cos(2 * math.pi * rnd(f"{seed}:sya:{k}"))
+    return clamp(gx, -1, 1), clamp(gy, -1, 1)
+
+
+def phys(seed, code, kind, t):
+    """挂件物理（requirement §3.4 / plan §7.3-4 四锚点分层）：相位频率种子化，确定性幂等。
+    swing→(dx,dy) 摆动；bounce→(0,dy) 颠动；reflect→(dx,0) 高光位移。"""
+    ph = 2 * math.pi * rnd(f"{seed}:phys:{code}")
+    if kind == "swing":
+        return (5.0 * math.sin(2 * math.pi * 0.85 * t + ph),
+                1.6 * abs(math.cos(2 * math.pi * 0.85 * t + ph)))
+    if kind == "bounce":
+        return (0.0, -3.0 * abs(math.sin(2 * math.pi * 1.15 * t + ph)))
+    if kind == "reflect":
+        return (9.0 * math.sin(2 * math.pi * 0.55 * t + ph), 0.0)
+    return (0.0, 0.0)
+
+
+def jump_height(p):
+    """mini_jump 起跳高度：movement.bounce 越小越弹（plan §4 个性参数；qa_char 同源引用）。"""
+    return 60 + 28 * clamp(14.0 / p["movement"]["bounce"], 0.75, 1.6)
 
 
 # ---------- TTS 阶段（系统 Python + edge-tts） ----------
@@ -117,7 +238,10 @@ def compose_audio(card_id, line_files, starts, out_m4a):
         mixed = "[m]"
     else:
         mixed = mix
-    fc.append(f"{mixed}loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur={DUR},atrim=0:{DUR}[out]")
+    # apad 必须放在 loudnorm **之前**：loudnorm 后接 apad 是非确定的 EOF 冲刷竞态
+    # （2026-10-03 实测 10 连跑 3 次丢补尾 → theo 9.469s；前置 apad 10/10 全 10.0s；
+    #  loudnorm 为门控响度，补的静音不影响增益——手册坑③修正口径）
+    fc.append(f"{mixed}apad=whole_dur={DUR},loudnorm=I=-16:TP=-1.5:LRA=11,atrim=0:{DUR}[out]")
     cmd = ["ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc), "-map", "[out]",
            "-c:a", "aac", "-b:a", "192k", "-ar", "44100", str(out_m4a)]
     subprocess.run(cmd, check=True, capture_output=True)
@@ -127,14 +251,16 @@ def cmd_tts(only):
     personas, doc = load_data()
     moods = doc["moods"]
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    for card in doc["cards"]:
-        pid = card["id"]
-        if only and pid not in only:
+    for unit in card_units(doc):
+        card, variant = unit["card"], unit.get("variant")
+        pid = unit["id"]
+        if only and unit["persona"] not in only:
             continue
-        p = personas[pid]
+        p = personas[unit["persona"]]
+        card_lines = variant["lines"] if variant else card["lines"]
         entry = 0.8 if p["energy"] == "lively" else 1.2
         lines_out, files = [], []
-        for idx, ln in enumerate(card["lines"]):
+        for idx, ln in enumerate(card_lines):
             rate, pitch = effective_voice(p, ln["mood"], moods)
             key = content_hash(p["voice"]["voiceId"], rate, pitch, ln["text"])
             mp3_path = AUDIO_DIR / f"{key}.mp3"
@@ -173,7 +299,7 @@ def cmd_tts(only):
                 lo["start"] = t
                 t = lo["start"] + lo["dur"] + gap
             speech_end = t - gap
-        if speech_end > 9.7:
+        if speech_end > 8.5:  # 时长预算（handbook §2）：超限回改文本，绝不调声线
             print(f"[tts] WARN {pid} speech_end={speech_end:.2f}s exceeds budget")
         # 绝对词时间
         for lo in lines_out:
@@ -198,6 +324,14 @@ FONT_CSS = {
     "ja-JP": "'Yu Gothic UI', 'Meiryo', sans-serif", "ko-KR": "'Malgun Gothic', sans-serif",
     "hi-IN": "'Nirmala UI', sans-serif", "ar-SA": "'Segoe UI', 'Tahoma', sans-serif",
     "he-IL": "'Segoe UI', Arial, sans-serif",
+}
+
+FLAG = {  # plan §7.2-3：标识色永远与国旗 emoji＋语种文字双通道冗余（语言牌承载）。
+    # Windows Segoe UI Emoji 无国旗字形 → 回退渲染为双字母对（CN/DE…，Windows 全平台一致行为）；
+    # 国旗字形平台（macOS/移动端）渲染真旗。禁为"补旗"私画简化国旗（沙/港/印徽记不可简化，错旗比字母对更糟）。
+    "zh-CN": "🇨🇳", "en-US": "🇺🇸", "fr-FR": "🇫🇷", "de-DE": "🇩🇪", "es-ES": "🇪🇸",
+    "ru-RU": "🇷🇺", "el-GR": "🇬🇷", "ar-SA": "🇸🇦", "hi-IN": "🇮🇳", "ja-JP": "🇯🇵",
+    "ko-KR": "🇰🇷", "it-IT": "🇮🇹", "he-IL": "🇮🇱", "zh-HK": "🇭🇰",
 }
 
 HTML_HEAD = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -236,27 +370,32 @@ def badge_html(p, bg="#FFFFFF"):
       <div style="font-size:84px;line-height:94px;font-weight:800;color:#23283D;direction:{rtl};">{native}</div>
       <div style="font-size:30px;line-height:40px;color:#6A6F82;margin-top:6px;letter-spacing:1px;font-weight:600;">{sub}</div>
     </div></div>"""
-    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg, font=FONT_CSS[p["locale"]],
+    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg,
+                            font=f"{FONT_CSS[p['locale']]}, 'Microsoft YaHei', sans-serif",
                             dir="ltr", body=body)
 
 
-def pill_html(label, bg="#FFFFFF"):
+def pill_html(p, bg="#FFFFFF"):
+    """语言牌（plan §8.3）：国旗 emoji ＋ 语种文字双通道（plan §7.2-3），字体随语种走 FONT_CSS。
+    本机 Windows 无国旗字形：emoji 回退为 ISO 双字母对（CN 汉语）——见 FLAG 表注与手册坑⑬。"""
+    label = f"{FLAG[p['locale']]} {p['langLabel']}"
     body = f"""<div id="wrap"><div style="width:340px;height:88px;background:#FFFFFF;
       border:5px solid {UI_INK};border-radius:44px;text-align:center;line-height:80px;
       font-size:40px;font-weight:700;color:#23283D;box-shadow:0 8px 20px rgba(35,40,63,0.22);">{html_escape(label)}</div></div>"""
-    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg, font="'Microsoft YaHei', sans-serif",
+    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg,
+                            font=f"{FONT_CSS[p['locale']]}, 'Segoe UI Emoji', 'Microsoft YaHei', sans-serif",
                             dir="ltr", body=body)
 
 
-def bubble_html(text, tail_right, bg="#FFFFFF"):
-    """尾巴不用 CSS 画（transform 会破坏布局），由渲染端 PIL 补画（2x 层）"""
+def bubble_html(text, tail_right, font="'Microsoft YaHei', 'Segoe UI Emoji', sans-serif", bg="#FFFFFF"):
+    """尾巴不用 CSS 画（transform 会破坏布局），由渲染端 PIL 补画（2x 层）。
+    A 型气泡内嵌各语 native 名：字体栈由调用方传 locale 字体（勿只靠 Edge 回退）"""
     body = f"""<div id="wrap"><div style="width:460px;background:#FFFFFF;
       border:5px solid {UI_INK};border-radius:46px;padding:20px 32px;text-align:center;
       box-shadow:0 12px 28px rgba(35,40,63,0.25);">
       <span style="font-size:40px;line-height:1.3;font-weight:700;color:#23283D;">{html_escape(text)}</span>
     </div></div>"""
-    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg, font="'Microsoft YaHei', 'Segoe UI Emoji', sans-serif",
-                            dir="ltr", body=body)
+    return HTML_HEAD.format(w=W, h=BAND_H, bg=bg, font=font, dir="ltr", body=body)
 
 
 def matte_combine(png_w, png_b, out):
@@ -284,29 +423,34 @@ def cmd_assets(only):
     def matte_pair(name, kind, html_fn, *args):
         return (name, kind, [("_w", html_fn(*args, bg="#FFFFFF")), ("_b", html_fn(*args, bg="#000000"))])
 
-    for card in doc["cards"]:
-        pid = card["id"]
-        if only and pid not in only:
+    for unit in card_units(doc):
+        card, variant = unit["card"], unit.get("variant")
+        pid, base_pid = unit["id"], unit["persona"]
+        if only and base_pid not in only:
             continue
-        p = personas[pid]
+        p = personas[base_pid]
         rtl = bool(p.get("rtl"))
-        for i, ln in enumerate(card["lines"]):
+        card_lines = variant["lines"] if variant else card["lines"]
+        for i, ln in enumerate(card_lines):
             jobs.append((f"band_{pid}_{i}_base", "band",
                          [("_s", band_html(ln["text"], p["locale"], rtl, "#FFFFFF"))]))
             jobs.append((f"band_{pid}_{i}_hl", "band",
                          [("_s", band_html(ln["text"], p["locale"], rtl, lighten(p["identity"], 0.45)))]))
-        jobs.append(matte_pair(f"badge_{pid}", "badge", badge_html, p))
-        if doc["cast"][pid] == "A":
-            jobs.append(matte_pair(f"bubble_a_{pid}", "bubble",
-                                   bubble_html, f"跟我读：{p['name']['native']}", not rtl))
-    for mood, label in [("neutral", "平叙"), ("happy", "开心"), ("puzzled", "疑惑"), ("encouraging", "鼓励")]:
-        jobs.append(matte_pair(f"pill_{mood}", "pill", pill_html, f"语气 · {label}"))
+        if not variant:
+            jobs.append(matte_pair(f"badge_{pid}", "badge", badge_html, p))
+            if doc["cast"][pid] == "A":
+                jobs.append(matte_pair(f"bubble_a_{pid}", "bubble", bubble_html,
+                                       f"跟我读：{p['name']['native']}", not rtl,
+                                       f"{FONT_CSS[p['locale']]}, 'Microsoft YaHei', 'Segoe UI Emoji', sans-serif"))
+    for locale in sorted({p["locale"] for p in personas.values()}):  # 语言牌按语种共享（14 语）
+        q = next(p for p in personas.values() if p["locale"] == locale)
+        jobs.append(matte_pair(f"pill_{locale}", "pill", pill_html, q))
     jobs.append(matte_pair("bubble_b_r", "bubble", bubble_html, "问路找我 🗺", True))
     jobs.append(matte_pair("bubble_b_l", "bubble", bubble_html, "问路找我 🗺", False))
 
     # Edge headless 视口补偿：部分 Edge 版本 --window-size 含浏览器 UI 高度，
     # 截图视口 = window-size − chrome_px（本机实测 300→206）。先探一次差值，
-    # 之后所有截图用补偿后的窗口高度，保证 300px 画布完整入镜（坑⑨）。
+    # 之后所有截图用补偿后的窗口高度，保证 300px 画布完整入镜（坑⑩）。
     probe_html = TEXT_DIR / "_vp_probe.html"
     probe_html.write_text(HTML_HEAD.format(w=100, h=BAND_H, bg="#FFFFFF",
                                            font="sans-serif", dir="ltr",
@@ -367,14 +511,16 @@ def ease_out_cubic(u):
     return 1 - (1 - u) ** 3
 
 
-def pop_scale(t, t0, dur, overshoot=True):
+def pop_scale(t, t0, dur, overshoot=True, damp=None):
+    """damp=movement.bounce：越小越弹（入场弹跳按个性参数缩放，plan §4）"""
     if t <= t0:
         return 0.0
     u = (t - t0) / dur
     if u >= 1:
         return 1.0
     if overshoot:
-        return 1 - math.exp(-6.0 * u) * math.cos(9.0 * u)
+        k = clamp(14.0 / damp, 0.75, 1.6) if damp else 1.0
+        return 1 - math.exp(-6.0 * k * u) * math.cos(9.0 * k * u)
     return 1 - math.exp(-5.0 * u) * (1 + 5.0 * u)
 
 
@@ -470,32 +616,32 @@ def s_sun(d, pal):
     _sun(d, pal, x=780, y=480, color=pal["tint"])
     for i, r in enumerate((46, 66, 86)):
         d.arc([780 - r - 40, 480 - r - 40, 780 + r + 40, 480 + r + 40], 200, 340,
-              fill=mix(pal["tint"], (255, 255, 255), 0.4 - i * 0.15), width=6)
+              fill=mix(pal["tint"], SCENE["white"], 0.4 - i * 0.15), width=6)
 
 
 @scene("sun_low")
 def s_sunlow(d, pal):
-    _sun(d, pal, x=820, y=1020, r=120, color=mix((255, 214, 150), pal["accent"], 0.25))
+    _sun(d, pal, x=820, y=1020, r=120, color=mix(SCENE["sun1"], pal["accent"], 0.25))
 
 
 @scene("sky_dusk")
 def s_dusk(d, pal):
     for i in range(5):
         d.ellipse([120 + i * 190, 380 + (i % 2) * 40, 168 + i * 190, 428 + (i % 2) * 40],
-                  fill=mix((255, 205, 160), pal["accent"], 0.18))
+                  fill=mix(SCENE["sun2"], pal["accent"], 0.18))
 
 
 @scene("sky_sunset")
 def s_sunset(d, pal):
-    d.ellipse([700, 940, 1060, 1300], fill=mix((255, 190, 140), pal["accent"], 0.22))
-    d.line([0, 1010, 1080, 1010], fill=mix((255, 255, 255), pal["accent"], 0.30), width=8)
+    d.ellipse([700, 940, 1060, 1300], fill=mix(SCENE["sun3"], pal["accent"], 0.22))
+    d.line([0, 1010, 1080, 1010], fill=mix(SCENE["white"], pal["accent"], 0.30), width=8)
 
 
 @scene("mountains")
 def s_mountains(d, pal):
     d.polygon([(0, 1500), (260, 1060), (520, 1500)], fill=pal["soft2"])
     d.polygon([(300, 1500), (620, 980), (940, 1500)], fill=pal["soft"])
-    d.polygon([(556, 1078), (620, 980), (684, 1078)], fill=(250, 250, 250))
+    d.polygon([(556, 1078), (620, 980), (684, 1078)], fill=SCENE["snow"])
 
 
 @scene("gate_arch")
@@ -508,24 +654,24 @@ def s_arch(d, pal):
 
 @scene("flowers")
 def s_flowers(d, pal):
-    for x, y, c in [(180, 1560, pal["accent"]), (250, 1620, (255, 214, 90)), (900, 1580, pal["accent"]),
-                    (840, 1640, (255, 255, 255))]:
+    for x, y, c in [(180, 1560, pal["accent"]), (250, 1620, SCENE["lantern"]), (900, 1580, pal["accent"]),
+                    (840, 1640, SCENE["white"])]:
         d.ellipse([x - 16, y - 16, x + 16, y + 16], fill=c)
-        d.line([x, y + 16, x, y + 52], fill=(120, 150, 100), width=6)
+        d.line([x, y + 16, x, y + 52], fill=SCENE["stem"], width=6)
 
 
 @scene("lamp")
 def s_lamp(d, pal):
     d.line([200, 980, 200, 1500], fill=pal["soft2"], width=14)
-    d.ellipse([160, 920, 240, 1000], fill=mix((255, 230, 160), pal["accent"], 0.3))
+    d.ellipse([160, 920, 240, 1000], fill=mix(SCENE["glow"], pal["accent"], 0.3))
 
 
 @scene("bus_sign")
 def s_bus(d, pal):
     d.rounded_rectangle([830, 1180, 920, 1500], 16, fill=pal["soft2"])
     d.rounded_rectangle([780, 1060, 970, 1200], 16, fill=pal["accent"], outline=pal["ink"], width=6)
-    d.rectangle([800, 1090, 950, 1114], fill=(255, 255, 255))
-    d.rectangle([800, 1130, 920, 1154], fill=(255, 255, 255))
+    d.rectangle([800, 1090, 950, 1114], fill=SCENE["white"])
+    d.rectangle([800, 1130, 920, 1154], fill=SCENE["white"])
 
 
 @scene("bench")
@@ -540,7 +686,7 @@ def s_bench(d, pal):
 def s_awning(d, pal):
     d.rounded_rectangle([60, 700, 560, 1240], 30, fill=pal["tint2"], outline=pal["ink"], width=6)
     for i in range(6):
-        c = pal["accent"] if i % 2 == 0 else (255, 255, 255)
+        c = pal["accent"] if i % 2 == 0 else SCENE["white"]
         d.polygon([(60 + i * 84, 700), (60 + (i + 1) * 84, 700), (60 + (i + 1) * 84 - 6, 780), (60 + i * 84 - 6, 780)], fill=c)
 
 
@@ -553,22 +699,22 @@ def s_counter(d, pal):
 @scene("steam")
 def s_steam(d, pal):
     for x, y0 in [(240, 1120), (330, 1080)]:
-        d.arc([x - 30, y0, x + 30, y0 + 90], 180, 360, fill=(255, 255, 255), width=10)
-        d.arc([x - 30, y0 - 70, x + 30, y0 + 20], 0, 180, fill=(255, 255, 255), width=10)
+        d.arc([x - 30, y0, x + 30, y0 + 90], 180, 360, fill=SCENE["white"], width=10)
+        d.arc([x - 30, y0 - 70, x + 30, y0 + 20], 0, 180, fill=SCENE["white"], width=10)
 
 
 @scene("windows_big")
 def s_windows(d, pal):
     d.rectangle([80, 640, 520, 1220], fill=pal["tint2"], outline=pal["ink"], width=6)
-    d.line([300, 640, 300, 1220], fill=(75, 75, 75), width=6)
-    d.line([80, 930, 520, 930], fill=(75, 75, 75), width=6)
+    d.line([300, 640, 300, 1220], fill=SCENE["lamp"], width=6)
+    d.line([80, 930, 520, 930], fill=SCENE["lamp"], width=6)
 
 
 @scene("board_timetable")
 def s_board(d, pal):
-    d.rounded_rectangle([640, 620, 1040, 1000], 24, fill=(43, 48, 70), outline=pal["ink"], width=6)
+    d.rounded_rectangle([640, 620, 1040, 1000], 24, fill=SCENE["night_blue"], outline=pal["ink"], width=6)
     for r in range(4):
-        d.rectangle([670, 660 + r * 80, 940, 700 + r * 80], fill=mix((43, 48, 70), pal["accent"], 0.5))
+        d.rectangle([670, 660 + r * 80, 940, 700 + r * 80], fill=mix(SCENE["night_blue"], pal["accent"], 0.5))
 
 
 @scene("luggage")
@@ -585,8 +731,8 @@ def s_cobble(d, pal):
 
 @scene("fountain")
 def s_fountain(d, pal):
-    d.ellipse([120, 1360, 460, 1500], fill=mix((180, 220, 240), pal["accent"], 0.25))
-    d.ellipse([200, 1390, 380, 1470], fill=(255, 255, 255))
+    d.ellipse([120, 1360, 460, 1500], fill=mix(SCENE["sky"], pal["accent"], 0.25))
+    d.ellipse([200, 1390, 380, 1470], fill=SCENE["white"])
 
 
 @scene("pigeons")
@@ -598,7 +744,7 @@ def s_pigeons(d, pal):
 
 @scene("pigeons_on_wire")
 def s_powire(d, pal):
-    d.line([0, 700, 1080, 760], fill=(75, 75, 75), width=5)
+    d.line([0, 700, 1080, 760], fill=SCENE["lamp"], width=5)
     for x in (260, 460, 700):
         y = 700 + (760 - 700) * x / 1080
         d.ellipse([x - 14, y - 26, x + 14, y + 2], fill=pal["soft2"])
@@ -607,7 +753,7 @@ def s_powire(d, pal):
 @scene("shopfront")
 def s_shopfront(d, pal):
     d.rounded_rectangle([620, 760, 1020, 1500], 26, fill=pal["tint2"], outline=pal["ink"], width=6)
-    d.rectangle([660, 900, 980, 1200], fill=mix((255, 235, 190), pal["accent"], 0.25))
+    d.rectangle([660, 900, 980, 1200], fill=mix(SCENE["glow2"], pal["accent"], 0.25))
 
 
 @scene("books_stack")
@@ -625,10 +771,10 @@ def s_desklamp(d, pal):
 
 @scene("window")
 def s_window(d, pal):
-    d.rounded_rectangle([700, 620, 1000, 1060], 40, fill=mix((200, 228, 245), pal["accent"], 0.15),
+    d.rounded_rectangle([700, 620, 1000, 1060], 40, fill=mix(SCENE["sky2"], pal["accent"], 0.15),
                         outline=pal["ink"], width=6)
-    d.line([850, 620, 850, 1060], fill=(75, 75, 75), width=5)
-    d.line([700, 840, 1000, 840], fill=(75, 75, 75), width=5)
+    d.line([850, 620, 850, 1060], fill=SCENE["lamp"], width=5)
+    d.line([700, 840, 1000, 840], fill=SCENE["lamp"], width=5)
 
 
 @scene("shelf")
@@ -657,9 +803,9 @@ def s_trail(d, pal):
 @scene("awning_market")
 def s_mawning(d, pal):
     for i in range(5):
-        c = pal["accent"] if i % 2 == 0 else (255, 255, 255)
+        c = pal["accent"] if i % 2 == 0 else SCENE["white"]
         d.polygon([(620 + i * 90, 820), (620 + (i + 1) * 90, 820), (614 + (i + 1) * 90, 900), (614 + i * 90, 900)], fill=c)
-    d.rectangle([620, 820, 1070, 838], fill=(75, 75, 75))
+    d.rectangle([620, 820, 1070, 838], fill=SCENE["lamp"])
 
 
 @scene("crates")
@@ -670,14 +816,14 @@ def s_crates(d, pal):
 
 @scene("fruit_balls")
 def s_fruit(d, pal):
-    for x, y, c in [(180, 1300, (255, 170, 90)), (240, 1330, (255, 210, 110)), (300, 1300, pal["accent"])]:
+    for x, y, c in [(180, 1300, SCENE["flower"]), (240, 1330, SCENE["blossom"]), (300, 1300, pal["accent"])]:
         d.ellipse([x - 34, y - 34, x + 34, y + 34], fill=c)
 
 
 @scene("umbrella")
 def s_umbrella(d, pal):
     d.chord([700, 760, 1080, 1100], 180, 360, fill=pal["accent"])
-    d.line([890, 930, 890, 1400], fill=(75, 75, 75), width=12)
+    d.line([890, 930, 890, 1400], fill=SCENE["lamp"], width=12)
 
 
 @scene("table")
@@ -685,12 +831,12 @@ def s_table(d, pal):
     d.rounded_rectangle([700, 1420, 1000, 1470], 12, fill=pal["soft2"])
     d.rectangle([730, 1470, 750, 1620], fill=pal["soft2"])
     d.rectangle([950, 1470, 970, 1620], fill=pal["soft2"])
-    d.ellipse([770, 1360, 830, 1420], fill=(255, 255, 255))
+    d.ellipse([770, 1360, 830, 1420], fill=SCENE["white"])
 
 
 @scene("plant")
 def s_plant(d, pal):
-    d.polygon([(180, 1600), (260, 1380), (340, 1600)], fill=mix((120, 160, 110), pal["accent"], 0.3))
+    d.polygon([(180, 1600), (260, 1380), (340, 1600)], fill=mix(SCENE["grass2"], pal["accent"], 0.3))
     d.rounded_rectangle([200, 1600, 320, 1690], 14, fill=pal["soft2"])
 
 
@@ -709,44 +855,44 @@ def s_fence(d, pal):
 
 @scene("tree")
 def s_tree(d, pal):
-    d.rectangle([880, 1250, 916, 1600], fill=(140, 115, 90))
-    d.ellipse([770, 1000, 1030, 1300], fill=mix((120, 165, 110), pal["accent"], 0.25))
+    d.rectangle([880, 1250, 916, 1600], fill=SCENE["wood"])
+    d.ellipse([770, 1000, 1030, 1300], fill=mix(SCENE["grass"], pal["accent"], 0.25))
 
 
 @scene("domes")
 def s_domes(d, pal):
     d.chord([120, 900, 400, 1240], 180, 360, fill=pal["accent"])
     d.chord([330, 960, 560, 1220], 180, 360, fill=pal["soft2"])
-    d.rectangle([240, 1070, 280, 1100], fill=(255, 255, 255))
+    d.rectangle([240, 1070, 280, 1100], fill=SCENE["white"])
 
 
 @scene("water")
 def s_water(d, pal):
-    d.rectangle([0, 1480, 560, 1700], fill=mix((150, 200, 225), pal["accent"], 0.30))
+    d.rectangle([0, 1480, 560, 1700], fill=mix(SCENE["sky3"], pal["accent"], 0.30))
     for y in (1540, 1620):
-        d.arc([100, y, 300, y + 60], 180, 360, fill=(255, 255, 255), width=8)
+        d.arc([100, y, 300, y + 60], 180, 360, fill=SCENE["white"], width=8)
 
 
 @scene("bunting")
 def s_bunting(d, pal):
-    d.line([0, 640, 1080, 700], fill=(75, 75, 75), width=4)
+    d.line([0, 640, 1080, 700], fill=SCENE["lamp"], width=4)
     for i in range(9):
         x = 40 + i * 120
         y = 640 + (700 - 640) * x / 1080
-        c = [pal["accent"], (255, 214, 90), (255, 255, 255)][i % 3]
+        c = [pal["accent"], SCENE["lantern"], SCENE["white"]][i % 3]
         d.polygon([(x, y), (x + 56, y + 4), (x + 28, y + 64)], fill=c)
 
 
 @scene("masts")
 def s_masts(d, pal):
     for x in (180, 360):
-        d.line([x, 940, x, 1480], fill=(75, 75, 75), width=8)
-        d.polygon([(x, 960), (x, 1200), (x - 90, 1120)], fill=(255, 255, 255))
+        d.line([x, 940, x, 1480], fill=SCENE["lamp"], width=8)
+        d.polygon([(x, 960), (x, 1200), (x - 90, 1120)], fill=SCENE["white"])
 
 
 @scene("tree_shadow")
 def s_tshadow(d, pal):
-    d.ellipse([140, 800, 520, 1160], fill=mix((120, 165, 110), pal["accent"], 0.20))
+    d.ellipse([140, 800, 520, 1160], fill=mix(SCENE["grass"], pal["accent"], 0.20))
     d.arc([120, 1120, 540, 1420], 180, 360, fill=pal["soft"], width=12)
 
 
@@ -754,20 +900,20 @@ def s_tshadow(d, pal):
 @scene("lanterns")
 def s_lantern(d, pal):
     d.rounded_rectangle([140, 700, 210, 830], 20, fill=pal["accent"])
-    d.rectangle([150, 830, 200, 850], fill=(75, 75, 75))
-    d.rounded_rectangle([860, 730, 930, 860], 20, fill=mix((255, 190, 120), pal["accent"], 0.4))
+    d.rectangle([150, 830, 200, 850], fill=SCENE["lamp"])
+    d.rounded_rectangle([860, 730, 930, 860], 20, fill=mix(SCENE["peach2"], pal["accent"], 0.4))
 
 
 @scene("pot_brass")
 def s_pot(d, pal):
-    d.chord([720, 1180, 1000, 1480], 180, 360, fill=mix((230, 180, 90), pal["accent"], 0.3))
-    d.rectangle([840, 1140, 880, 1190], fill=(230, 180, 90))
+    d.chord([720, 1180, 1000, 1480], 180, 360, fill=mix(SCENE["wood2"], pal["accent"], 0.3))
+    d.rectangle([840, 1140, 880, 1190], fill=SCENE["wood2"])
 
 
 @scene("carpet")
 def s_carpet(d, pal):
-    d.rounded_rectangle([100, 1500, 420, 1620], 16, fill=mix((200, 90, 90), pal["accent"], 0.4))
-    d.rectangle([130, 1530, 390, 1590], fill=(255, 255, 255))
+    d.rounded_rectangle([100, 1500, 420, 1620], 16, fill=mix(SCENE["sign"], pal["accent"], 0.4))
+    d.rectangle([130, 1530, 390, 1590], fill=SCENE["white"])
 
 
 @scene("brick_arches")
@@ -787,10 +933,10 @@ def s_boardn(d, pal):
 
 @scene("palm")
 def s_palm(d, pal):
-    d.rectangle([170, 1150, 200, 1500], fill=(140, 115, 90))
+    d.rectangle([170, 1150, 200, 1500], fill=SCENE["wood"])
     for dx, dy in [(-120, -60), (120, -60), (-80, -130), (80, -130), (0, -160)]:
         d.ellipse([185 + dx - 70, 1150 + dy - 26, 185 + dx + 70, 1150 + dy + 26],
-                  fill=mix((120, 165, 110), pal["accent"], 0.25))
+                  fill=mix(SCENE["grass"], pal["accent"], 0.25))
 
 
 @scene("mapwall")
@@ -811,42 +957,42 @@ def s_columns(d, pal):
 @scene("lantern_row")
 def s_lrow(d, pal):
     for i, x in enumerate((120, 320, 900)):
-        d.line([x, 620, x, 700], fill=(75, 75, 75), width=6)
-        d.ellipse([x - 34, 700, x + 34, 810], fill=mix((255, 170, 120), pal["accent"], 0.35 - i * 0.08))
+        d.line([x, 620, x, 700], fill=SCENE["lamp"], width=6)
+        d.ellipse([x - 34, 700, x + 34, 810], fill=mix(SCENE["peach"], pal["accent"], 0.35 - i * 0.08))
 
 
 @scene("wires")
 def s_wires(d, pal):
-    d.line([0, 620, 1080, 680], fill=(75, 75, 75), width=5)
-    d.line([0, 700, 1080, 650], fill=(75, 75, 75), width=4)
+    d.line([0, 620, 1080, 680], fill=SCENE["lamp"], width=5)
+    d.line([0, 700, 1080, 650], fill=SCENE["lamp"], width=4)
 
 
 @scene("hoop")
 def s_hoop(d, pal):
     d.rectangle([820, 900, 852, 1500], outline=pal["ink"], width=8)
-    d.ellipse([740, 800, 940, 1000], outline=(230, 120, 60), width=14)
-    d.line([740, 950, 940, 950], fill=(255, 255, 255), width=10)
+    d.ellipse([740, 800, 940, 1000], outline=pal["ink"], width=14)
+    d.line([740, 950, 940, 950], fill=SCENE["white"], width=10)
 
 
 @scene("fence")
 def s_fenceH(d, pal):
     for x in range(80, 480, 90):
-        d.rectangle([x, 1180, x + 26, 1500], fill=(150, 150, 155))
+        d.rectangle([x, 1180, x + 26, 1500], fill=SCENE["metal"])
     for y in (1240, 1380):
-        d.rectangle([80, y, 460, y + 20], fill=(150, 150, 155))
+        d.rectangle([80, y, 460, y + 20], fill=SCENE["metal"])
 
 
 @scene("skyline")
 def s_skyline(d, pal):
     for x, w, h in [(60, 120, 300), (220, 90, 420), (740, 140, 360), (920, 100, 260)]:
         d.rectangle([x, 1500 - h, x + w, 1500], fill=pal["soft2"])
-        d.rectangle([x + 20, 1500 - h + 30, x + 40, 1500 - h + 60], fill=(255, 235, 180))
+        d.rectangle([x + 20, 1500 - h + 30, x + 40, 1500 - h + 60], fill=SCENE["chalk"])
 
 
 @scene("clothesline")
 def s_cline(d, pal):
-    d.line([60, 860, 520, 900], fill=(75, 75, 75), width=5)
-    for i, c in enumerate([(255, 255, 255), pal["accent"], (255, 214, 90)]):
+    d.line([60, 860, 520, 900], fill=SCENE["lamp"], width=5)
+    for i, c in enumerate([SCENE["white"], pal["accent"], SCENE["lantern"]]):
         x = 120 + i * 130
         y = 860 + (900 - 860) * x / 520
         d.rounded_rectangle([x, y, x + 70, y + 90], 12, fill=c)
@@ -855,20 +1001,20 @@ def s_cline(d, pal):
 @scene("stairs")
 def s_stairs(d, pal):
     for i in range(4):
-        d.rectangle([680 + i * 60, 1660 - i * 90, 1080, 1680 - i * 90], fill=mix(pal["soft"], (255, 255, 255), i * 0.12))
+        d.rectangle([680 + i * 60, 1660 - i * 90, 1080, 1680 - i * 90], fill=mix(pal["soft"], SCENE["white"], i * 0.12))
 
 
 @scene("shrubs")
 def s_shrubs(d, pal):
     for x, y in [(180, 1560), (300, 1600)]:
-        d.ellipse([x - 60, y - 50, x + 60, y + 50], fill=mix((120, 165, 110), pal["accent"], 0.2))
+        d.ellipse([x - 60, y - 50, x + 60, y + 50], fill=mix(SCENE["grass"], pal["accent"], 0.2))
 
 
 @scene("neon_sign")
 def s_neon(d, pal):
-    d.rounded_rectangle([720, 760, 1020, 940], 26, outline=mix((90, 220, 240), pal["accent"], 0.4), width=10)
-    d.rectangle([780, 800, 960, 830], fill=mix((90, 220, 240), pal["accent"], 0.4))
-    d.rectangle([780, 860, 900, 890], fill=mix((255, 170, 200), pal["accent"], 0.4))
+    d.rounded_rectangle([720, 760, 1020, 940], 26, outline=mix(SCENE["cyan"], pal["accent"], 0.4), width=10)
+    d.rectangle([780, 800, 960, 830], fill=mix(SCENE["cyan"], pal["accent"], 0.4))
+    d.rectangle([780, 860, 900, 890], fill=mix(SCENE["pink"], pal["accent"], 0.4))
 
 
 @scene("window_grid")
@@ -876,7 +1022,7 @@ def s_wgrid(d, pal):
     for r in range(3):
         for c in range(2):
             x, y = 110 + c * 150, 820 + r * 180
-            d.rounded_rectangle([x, y, x + 110, y + 130], 18, fill=(160, 210, 230), outline=pal["ink"], width=5)
+            d.rounded_rectangle([x, y, x + 110, y + 130], 18, fill=SCENE["steam"], outline=pal["ink"], width=5)
 
 
 @scene("stall")
@@ -890,7 +1036,7 @@ def s_steamers(d, pal):
     for i, x in enumerate((160, 260)):
         d.ellipse([x, 1280, x + 90, 1350], fill=pal["soft2"], outline=pal["ink"], width=5)
         for k in range(3):
-            d.arc([x + 10 + k * 26, 1240, x + 36 + k * 26, 1290], 180, 360, fill=(255, 255, 255), width=6)
+            d.arc([x + 10 + k * 26, 1240, x + 36 + k * 26, 1290], 180, 360, fill=SCENE["white"], width=6)
 
 
 # ---- 人物 ----
@@ -903,6 +1049,8 @@ MOOD_FACE = {
     "emphatic": dict(lift=2, tilt=-6, smile=0.5),
     "teach": dict(lift=2, tilt=0, smile=0.55),
 }
+EYE_MOOD = {"neutral": 1.0, "happy": 0.94, "puzzled": 1.05, "encouraging": 0.98, "emphatic": 0.97, "teach": 1.0}
+# 眼形缩放（巩膜 ry 系数）：happy 微闭笑眼 / puzzled 睁大（plan §4 眼神变化）
 
 
 def face_geo(face):
@@ -939,10 +1087,15 @@ def draw_character(img, d, p, t, ctx):
     ident = hexc(p["identity"])
     face = p["movement"]["face"]
     female = p["gender"] == "female"
-    cx, ground = 540.0, 1700.0
+    seed = p["id"]  # 一切随机走人设 id 命名空间（不变量⑦；qa 探针同源可复算）
+    skin_sh = hexc(pal["skinShade"])
+    sk = p.get("skin", {})  # 皮肤层叠加槽（plan §1/§3 原则五：做旧/补丁，不改基型配色）
+    # ---- 头身规格（face_geo 单一事实源；cx/ground 永不手抄——不变量①）----
+    G = face_geo(face)
+    cx, ground = G["cx"], G["ground"]
     sc = ctx["scale"]
     q = ctx["squash"]
-    sx, sy = sc * (1 + q * 0.6), sc * (1 - q)
+    sx, sy = sc * (1 + q * 0.6) * ctx.get("xscale", 1.0), sc * (1 - q)
     bx, by = ctx["xoff"], ctx["yoff"]
     hdx, hdy = ctx["head_dx"], ctx["head_dy"]
     pose = ctx["pose"]
@@ -950,8 +1103,10 @@ def draw_character(img, d, p, t, ctx):
     has = lambda c: c in acc
     ss = ctx.get("ss", 1.0)
 
-    # ---- 头身规格（face_geo 单一事实源）----
-    G = face_geo(face)
+    def pfy(code, kind):
+        """挂件物理偏移：数据声明了对应 physics 才生效（plan §4 accessories.physics）"""
+        return phys(seed, code, kind, t) if has(code) and acc[code].get("physics") == kind else (0.0, 0.0)
+
     u = lambda f: f * G["H"]
     rx, ry = G["rx"], G["ry"]
     hx, hy = cx + hdx, G["hy"] + hdy
@@ -1012,11 +1167,13 @@ def draw_character(img, d, p, t, ctx):
             E(hx + rx * fx - r, hy + ry * fy - r, hx + rx * fx + r, hy + ry * fy + r, fill=hair_c)
     if style in ("braid", "braid_long"):
         n = 4 if style == "braid" else 6
+        br_ph = 2 * math.pi * rnd(f"{seed}:braid")
         for i in range(n):
             fy = -0.02 + i * (0.52 if style == "braid" else 0.40)
             fx = -1.00 + (0.10 if i % 2 else -0.10) - i * 0.02
             r = 30 - i * 3
-            E(hx + rx * fx - r, hy + ry * fy - r, hx + rx * fx + r, hy + ry * fy + r, fill=hair_c)
+            sw = 4.0 * math.sin(2 * math.pi * 0.7 * t + br_ph + i * 0.7) * i / n  # 辫子摆动（种子相位）
+            E(hx + rx * fx + sw - r, hy + ry * fy - r, hx + rx * fx + sw + r, hy + ry * fy + r, fill=hair_c)
     if style in ("wavy_lob", "wavy_long", "long_straight", "long_bangs"):
         y_end = 0.85 if style == "wavy_lob" else 1.45
         RR(hx - rx - 46, hy - ry * 0.55, hx - rx + 30, hy + ry * y_end, 60, fill=hair_c)
@@ -1031,28 +1188,43 @@ def draw_character(img, d, p, t, ctx):
     legL_ang, legR_ang = pose.get("legL", 0), pose.get("legR", 0)
     leg_top = torso_bot - u(0.10)
     leg_bot = foot_cy - foot_h * 0.30
+    worn_bottom = "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白（plan §1 皮肤层）
     for s, ang in ((-1, legL_ang), (1, legR_ang)):
         lx = cx + s * leg_cx
         RR(lx - leg_w / 2, leg_top, lx + leg_w / 2, leg_bot, leg_w / 2, fill=bottom)
-        RR(lx - leg_w / 2, leg_bot - u(0.05), lx + leg_w / 2, leg_bot, 10, fill=mix(bottom, (20, 20, 20), 0.16))
+        if worn_bottom:
+            wy = leg_top + (leg_bot - leg_top) * 0.42
+            RR(lx - leg_w / 2, wy, lx + leg_w / 2, leg_bot, leg_w / 2, fill=mix(bottom, (255, 255, 255), 0.10))
+        RR(lx - leg_w / 2, leg_bot - u(0.05), lx + leg_w / 2, leg_bot, 10, fill=mix(bottom, THEME["shade_dark"], 0.16))
+        for pd in sk.get("patches", []):  # 膝盖补丁：位置从 face_geo 腿几何推导（不变量①）
+            if pd.get("on") == "bottom" and pd.get("where") == ("knee_L" if s < 0 else "knee_R"):
+                pc = hexc(pd["color"])
+                ky = (leg_top + leg_bot) / 2
+                RR(lx - leg_w * 0.62, ky - leg_w * 0.40, lx + leg_w * 0.62, ky + leg_w * 0.40, 10, fill=pc)
+                for dyy in (-leg_w * 0.50, leg_w * 0.50):  # 补丁缝线
+                    LN([(lx - leg_w * 0.52, ky + dyy), (lx + leg_w * 0.52, ky + dyy)], 3,
+                       fill=mix(pc, THEME["shade_dark"], 0.35))
         fxp = lx + s * G["foot_splay"] + math.sin(math.radians(ang)) * 72
         RR(fxp - foot_l / 2, foot_cy - foot_h / 2, fxp + foot_l / 2, foot_cy + foot_h / 2,
-           foot_h * 0.46, fill=(56, 56, 64))
+           foot_h * 0.46, fill=THEME["shoe"])
         E(fxp + s * foot_l * 0.16 - u(0.05), foot_cy - foot_h * 0.36,
           fxp + s * foot_l * 0.16 + u(0.05), foot_cy - foot_h * 0.04,
-          fill=mix((56, 56, 64), (255, 255, 255), 0.30))  # 鞋头高光
+          fill=mix(THEME["shoe"], (255, 255, 255), 0.30))  # 鞋头高光
         if has("shoe_accent"):
             E(fxp - foot_l * 0.24, foot_cy - foot_h * 0.06, fxp + foot_l * 0.24, foot_cy + foot_h * 0.24,
               fill=ident)
     if has("skateboard"):
         kick = pose.get("skate_kick", 0)
-        yy = 1746 - kick * 60
-        E(540 - 128, yy - 16, 540 + 128, yy + 16, fill=(240, 156, 84))
+        yy = 1746 - kick * 60 + pfy("skateboard", "bounce")[1]
+        E(540 - 128, yy - 16, 540 + 128, yy + 16, fill=THEME["skate_deck"])
+        if acc["skateboard"].get("accent"):  # 标识色贴纸（分镜 卡05：玫瑰点缀——滑板贴纸）
+            RR(540 - 92, yy - 10, 540 + 92, yy + 2, 8, fill=ident)
         for wx in (540 - 78, 540 + 78):
-            E(wx - 14, yy + 12, wx + 14, yy + 30, fill=(70, 70, 78))
+            E(wx - 14, yy + 12, wx + 14, yy + 30, fill=THEME["skate_wheel"])
     if has("basketball"):
-        E(540 + 196, 1618, 540 + 302, 1724, fill=(232, 138, 66))
-        ARC(540 + 196, 1618, 540 + 302, 1724, 100, 250, 4, fill=(120, 60, 30))
+        bax, bay = pfy("basketball", "bounce")
+        E(540 + 196 + bax, 1618 + bay, 540 + 302 + bax, 1724 + bay, fill=THEME["ball"])
+        ARC(540 + 196 + bax, 1618 + bay, 540 + 302 + bax, 1724 + bay, 100, 250, 4, fill=THEME["ball_line"])
 
     # ================= 躯干与背带/挂件 =================
     RR(cx - torso_hw, torso_top, cx + torso_hw, torso_bot, torso_hw * 0.62, fill=top)
@@ -1062,83 +1234,110 @@ def draw_character(img, d, p, t, ctx):
                    T((cx + s * (torso_hw + u(0.02)), sh_y + u(0.06))),
                    T((cx + s * u(0.10), sh_y + u(0.10)))], fill=top)
     RR(cx + torso_hw - u(0.11), torso_top + u(0.06), cx + torso_hw - u(0.025), torso_bot - u(0.05),
-       u(0.08), fill=mix(top, (25, 25, 32), 0.10))  # 右侧体积影
+       u(0.08), fill=mix(top, THEME["shade_dark"], 0.10))  # 右侧体积影
     ARC(cx - 0.20 * G["WH"], torso_top - u(0.055), cx + 0.20 * G["WH"], torso_top + u(0.075),
-        180, 360, u(0.032), fill=mix(top, (25, 25, 32), 0.20))  # 领口
+        180, 360, u(0.032), fill=mix(top, THEME["shade_dark"], 0.20))  # 领口
     if has("apron"):
-        RR(540 - 128, torso_top + 46, 540 + 128, torso_bot - 4, 44, fill=(238, 233, 221))
-        CAP((540 - 88, torso_top + 16), (540 - 62, torso_top + 52), 14, fill=(238, 233, 221))
-        CAP((540 + 88, torso_top + 16), (540 + 62, torso_top + 52), 14, fill=(238, 233, 221))
+        RR(540 - 128, torso_top + 46, 540 + 128, torso_bot - 4, 44, fill=THEME["apron"])
+        CAP((540 - 88, torso_top + 16), (540 - 62, torso_top + 52), 14, fill=THEME["apron"])
+        CAP((540 + 88, torso_top + 16), (540 + 62, torso_top + 52), 14, fill=THEME["apron"])
     if has("cardigan_accent"):
         RR(cx - torso_hw - u(0.03), torso_top, cx - torso_hw + u(0.09), torso_bot, u(0.05), fill=mix(ident, top, 0.45))
         RR(cx + torso_hw - u(0.09), torso_top, cx + torso_hw + u(0.03), torso_bot, u(0.05), fill=mix(ident, top, 0.45))
     for code in ("backpack", "hikingpack", "canvas_backpack"):
         if has(code):
             dark = mix(top, (30, 30, 30), 0.30)
-            CAP((540 - 96, torso_top + 4), (540 - 56, torso_top + 40), 20, fill=dark)
-            CAP((540 + 96, torso_top + 4), (540 + 56, torso_top + 40), 20, fill=dark)
-            RR(540 + 150, torso_top + 130, 540 + 220, torso_top + 214, 20, fill=dark)
+            web = mix(ident, top, 0.25) if acc[code].get("accent") else dark  # 标识色织带（挂件行）
+            CAP((540 - 96, torso_top + 4), (540 - 56, torso_top + 40), 20, fill=web)
+            CAP((540 + 96, torso_top + 4), (540 + 56, torso_top + 40), 20, fill=web)
+            bx_p, by_p = pfy(code, "bounce")
+            RR(540 + 150 + bx_p, torso_top + 130 + by_p, 540 + 220 + bx_p, torso_top + 214 + by_p, 20, fill=dark)
             if has("bottle"):
-                RR(540 + 160, torso_top + 104, 540 + 192, torso_top + 152, 12, fill=(122, 184, 202))
+                bo_x, bo_y = pfy("bottle", "swing")
+                RR(540 + 160 + bo_x, torso_top + 104 + bo_y, 540 + 192 + bo_x, torso_top + 152 + bo_y, 12,
+                   fill=THEME["bottle_blue"])
     if has("satchel"):
-        CAP((540 - 116, torso_top + 8), (540 + 98, torso_bot - 46), 16, fill=(122, 92, 62))
-        RR(540 + 66, torso_bot - 84, 540 + 152, torso_bot + 2, 18, fill=(122, 92, 62))
-    for code, (bc, bw) in {"tote": ((245, 240, 230), 92), "woven_bag": ((226, 200, 160), 92),
-                           "book_tote": ((250, 246, 238), 92), "minibag": ((245, 240, 230), 66),
-                           "pouch": ((238, 226, 208), 58)}.items():
+        CAP((540 - 116, torso_top + 8), (540 + 98, torso_bot - 46), 16, fill=THEME["satchel"])
+        RR(540 + 66, torso_bot - 84, 540 + 152, torso_bot + 2, 18, fill=THEME["satchel"])
+    for code, (bc, bw) in {"tote": (THEME["bag_canvas"], 92), "woven_bag": (THEME["bag_woven"], 92),
+                           "book_tote": (THEME["paper_tote"], 92), "minibag": (THEME["bag_canvas"], 66),
+                           "pouch": (THEME["bag_pouch"], 58)}.items():
         if has(code):
             bxr = 540 + 152
-            ARC(bxr - bw // 2 + 14, torso_top + 40, bxr + bw // 2 - 14, torso_top + 128, 180, 360, 8, fill=bc)
-            RR(bxr - bw // 2, torso_top + 76, bxr + bw // 2, torso_top + 76 + bw + 22, 20, fill=bc)
+            kind = acc[code].get("physics")  # 挎包物理：swing 摆 / bounce 颠（plan §7.3-4）
+            sx_p, sy_p = phys(seed, code, kind, t) if kind else (0.0, 0.0)
+            ARC(bxr - bw // 2 + 14 + sx_p, torso_top + 40 + sy_p * 0.4, bxr + bw // 2 - 14 + sx_p,
+                torso_top + 128 + sy_p * 0.4, 180, 360, 8, fill=bc)
+            RR(bxr - bw // 2 + sx_p * 1.3, torso_top + 76 + sy_p, bxr + bw // 2 + sx_p * 1.3,
+               torso_top + 76 + bw + 22 + sy_p, 20, fill=bc)
+            if acc[code].get("accent"):  # 书袋挂饰（分镜 卡17：藏红花橙点缀——书袋挂饰）
+                E(bxr + sx_p * 1.3 - 10, torso_top + 76 + bw + 22 + sy_p, bxr + sx_p * 1.3 + 10,
+                  torso_top + 76 + bw + 32 + sy_p, fill=ident)
     if has("scarf"):
-        col = ident if acc["scarf"].get("accent") else (196, 88, 74)
+        col = ident if acc["scarf"].get("accent") else THEME["scarf_red"]
+        sc_x, sc_y = pfy("scarf", "swing")
         RR(540 - 104, torso_top - 30, 540 + 104, torso_top + 34, 30, fill=col)
-        RR(540 + 18, torso_top + 18, 540 + 66, torso_top + 128, 18, fill=col)
+        RR(540 + 18 + sc_x, torso_top + 18 + sc_y * 0.5, 540 + 66 + sc_x, torso_top + 128 + sc_y * 0.5, 18,
+           fill=col)  # 围巾垂尾随风摆
     if has("necklace"):
-        ARC(540 - 58, torso_top - 10, 540 + 58, torso_top + 96, 15, 165, 5, fill=(232, 194, 74))
-        E(532, torso_top + 64, 548, torso_top + 80, fill=(232, 194, 74))
+        nx, ny = pfy("necklace", "swing")
+        ARC(540 - 58 + nx * 0.3, torso_top - 10, 540 + 58 + nx * 0.3, torso_top + 96, 15, 165, 5, fill=THEME["gold"])
+        E(532 + nx, torso_top + 64 + ny, 548 + nx, torso_top + 80 + ny, fill=THEME["gold"])  # 吊坠摆动
     if has("lanyard"):
         CAP((540 - 52, torso_top - 2), (540 - 12, torso_top + 74), 9, fill=ident)
         CAP((540 + 52, torso_top - 2), (540 + 12, torso_top + 74), 9, fill=ident)
-        RR(540 - 28, torso_top + 70, 540 + 28, torso_top + 130, 12, fill=(255, 255, 255))
-        RR(540 - 28, torso_top + 70, 540 + 28, torso_top + 84, 6, fill=ident)
+        lx_p, ly_p = pfy("lanyard", "swing")
+        RR(540 - 28 + lx_p, torso_top + 70 + ly_p, 540 + 28 + lx_p, torso_top + 130 + ly_p, 12, fill=(255, 255, 255))
+        RR(540 - 28 + lx_p, torso_top + 70 + ly_p, 540 + 28 + lx_p, torso_top + 84 + ly_p, 6, fill=ident)
     if has("pin_badge"):
         E(540 - 104, torso_top + 60, 540 - 72, torso_top + 92, fill=ident)
     if has("pen"):
-        CAP((540 + 92, torso_top + 62), (540 + 104, torso_top + 100), 9, fill=(58, 72, 96))
+        CAP((540 + 92, torso_top + 62), (540 + 104, torso_top + 100), 9, fill=THEME["pen_blue"])
     if has("camera") or has("camera_neck"):
-        s2 = ident if has("strap_accent") else (70, 70, 78)
-        CAP((540 - 74, torso_top - 4), (540 - 30, torso_top + 66), 9, fill=s2)
-        CAP((540 + 74, torso_top - 4), (540 + 30, torso_top + 66), 9, fill=s2)
-        RR(540 - 48, torso_top + 52, 540 + 48, torso_top + 132, 16, fill=(70, 70, 78))
-        E(540 - 18, torso_top + 76, 540 + 18, torso_top + 112, fill=(152, 194, 214))
+        s2 = ident if has("strap_accent") else THEME["camera_body"]
+        ccode = "camera" if has("camera") else "camera_neck"
+        cx_p, cy_p = pfy(ccode, "swing")
+        CAP((540 - 74, torso_top - 4), (540 - 30 + cx_p * 0.4, torso_top + 66), 9, fill=s2)
+        CAP((540 + 74, torso_top - 4), (540 + 30 + cx_p * 0.4, torso_top + 66), 9, fill=s2)
+        RR(540 - 48 + cx_p, torso_top + 52 + cy_p, 540 + 48 + cx_p, torso_top + 132 + cy_p, 16, fill=THEME["camera_body"])
+        E(540 - 18 + cx_p, torso_top + 76 + cy_p, 540 + 18 + cx_p, torso_top + 112 + cy_p, fill=THEME["lens_blue"])
     if has("sunglasses_neck"):
-        RR(540 - 44, torso_top + 58, 540 + 44, torso_top + 94, 14, fill=(44, 44, 52))
-        CAP((540 - 40, torso_top + 68), (540 + 40, torso_top + 68), 6, fill=(44, 44, 52))
+        gx_n, _ = pfy("sunglasses_neck", "swing")
+        RR(540 - 44 + gx_n, torso_top + 58, 540 + 44 + gx_n, torso_top + 94, 14, fill=THEME["metal_dark"])
+        CAP((540 - 40 + gx_n, torso_top + 68), (540 + 40 + gx_n, torso_top + 68), 6, fill=THEME["metal_dark"])
+        E(540 - 34 + gx_n * 1.4, torso_top + 62, 540 - 12 + gx_n * 1.4, torso_top + 74,
+          fill=THEME["glint_blue"])  # 镜片反光（qa_motion 探针）
     if has("map"):
-        RR(540 - 178, torso_top + 118, 540 - 92, torso_top + 182, 10, fill=(242, 235, 216))
+        RR(540 - 178, torso_top + 118, 540 - 92, torso_top + 182, 10, fill=THEME["paper_map"])
         CAP((540 - 166, torso_top + 136), (540 - 104, torso_top + 162), 5, fill=ident)
     if has("planner"):
-        RR(540 - 70, torso_top + 96, 540 + 20, torso_top + 168, 12, fill=(250, 246, 236))
+        RR(540 - 70, torso_top + 96, 540 + 20, torso_top + 168, 12, fill=THEME["paper"])
         CAP((540 - 70, torso_top + 120), (540 + 20, torso_top + 120), 4, fill=ident)
     if has("pocketbook"):
-        RR(540 - 174, torso_top + 108, 540 - 82, torso_top + 178, 12, fill=(122, 94, 70))
+        RR(540 - 174, torso_top + 108, 540 - 82, torso_top + 178, 12, fill=THEME["book_leather"])
     if has("beads") and pose.get("hand_prop") != "beads":
+        bx_b, by_b = pfy("beads", "swing")
         for k in range(5):
             ak = k * 1.15
-            cxx, cyy = 540 + 162 + math.cos(ak) * 16, torso_top + 140 + math.sin(ak) * 16
-            E(cxx - 6, cyy - 6, cxx + 6, cyy + 6, fill=(162, 120, 70))
+            cxx = 540 + 162 + bx_b + math.cos(ak) * 16
+            cyy = torso_top + 140 + by_b * 0.6 + math.sin(ak) * 16
+            E(cxx - 6, cyy - 6, cxx + 6, cyy + 6, fill=THEME["beads"])
     if has("bottle_big") and pose.get("hand_prop") != "bottle":
-        RR(540 + 144, torso_top + 100, 540 + 182, torso_top + 180, 16, fill=(152, 202, 172))
+        bx_g, by_g = pfy("bottle_big", "swing")
+        RR(540 + 144 + bx_g, torso_top + 100 + by_g * 0.5, 540 + 182 + bx_g, torso_top + 180 + by_g * 0.5, 16,
+           fill=THEME["bottle_green"])
 
     # ================= 颈与头 =================
-    RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), torso_top + u(0.03), u(0.05), fill=skin)
+    neck_c = mix(skin, skin_sh, NECK_SHADE_F)  # 颈部受光少：skinShade 压深（qa_char 探针同源）
+    RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), torso_top + u(0.03), u(0.05), fill=neck_c)
+    RR(cx - u(0.105), G["chin"] - u(0.06), cx + u(0.105), G["chin"] - u(0.06) + u(0.022), u(0.02),
+       fill=mix(skin_sh, skin, 0.30))  # 下颌阴影
     E(hx - rx, hy - ry, hx + rx, hy + ry, fill=skin)
     for s in (-1, 1):  # 耳朵（多数发型被侧发覆盖，露出即增加真实感）
         eax = hx + s * rx * 0.94
         E(eax - u(0.045), eye_y - u(0.085), eax + u(0.045), eye_y + u(0.045), fill=skin)
         E(eax + s * u(0.005) - u(0.022), eye_y - u(0.058), eax + s * u(0.005) + u(0.022), eye_y - u(0.010),
-          fill=mix(skin, (150, 110, 85), 0.30))
+          fill=mix(skin, skin_sh, 0.30))  # 耳窝影走 skinShade（不再写死）
 
     # ================= 前发（有机圆润 + 高光） =================
     cap_lo = hy + ry * 0.45
@@ -1152,7 +1351,7 @@ def draw_character(img, d, p, t, ctx):
         yl = 0.55 if style in ("bob", "bob_bangs") else (0.95 if style == "wavy_lob" else 1.25)
         E(hx - rx - 34, hy - ry * 0.45, hx - rx + 26, hy + ry * yl, fill=hair_c)
         E(hx + rx - 26, hy - ry * 0.45, hx + rx + 34, hy + ry * yl, fill=hair_c)
-    if style in ("short", "short_messy", "short_gray", "short_stubble", "crop"):
+    if style in ("short", "short_messy", "short_gray", "short_stubble", "crop", "crop_ahoge"):
         for fx, fy, fr in ((-0.45, -1.02, 22), (0.05, -1.08, 24), (0.52, -1.00, 20)):
             E(hx + rx * fx - fr, hy + ry * fy - fr, hx + rx * fx + fr, hy + ry * fy + fr, fill=hair_c)
         if style == "short_messy":
@@ -1160,9 +1359,11 @@ def draw_character(img, d, p, t, ctx):
         if style == "short_stubble":
             ARC(hx - rx * 0.60, hy + ry * 0.50, hx + rx * 0.60, hy + ry * 1.05, 30, 150, 10,
                 fill=mix(hair_c, skin, 0.55))
-    if style == "short_ahoge":
-        CAP((hx + 10, hy - ry * 0.92), (hx + 52, hy - ry * 1.28), 12, fill=hair_c)
-        CAP((hx + 52, hy - ry * 1.28), (hx + 88, hy - ry * 1.08), 12, fill=hair_c)
+    if style in ("short_ahoge", "crop_ahoge"):  # 呆毛随晚风一颤（分镜 卡20 彩蛋；qa_motion 探针）
+        ax = 5.0 * math.sin(2 * math.pi * 0.9 * t + 2 * math.pi * rnd(f"{seed}:ahoge"))
+        CAP((hx + 10, hy - ry * 0.92), (hx + 52 + ax, hy - ry * 1.28 - abs(ax) * 0.35), 12, fill=hair_c)
+        CAP((hx + 52 + ax, hy - ry * 1.28 - abs(ax) * 0.35), (hx + 88 + ax * 1.5, hy - ry * 1.08 - abs(ax) * 0.15),
+            12, fill=hair_c)
     if style in ("short_wavy", "short_curly", "curly_short", "curly_volume", "undercut_curly"):
         a_lo, a_hi = (232, 308) if style == "undercut_curly" else (198, 342)
         n = 5 if style == "undercut_curly" else 7
@@ -1194,48 +1395,54 @@ def draw_character(img, d, p, t, ctx):
     mood = MOOD_FACE[ctx["mood"]]
     lift = mood["lift"] + ctx.get("brow_lift_extra", 0)
     tilt = mood["tilt"]
+    eye_k = EYE_MOOD[ctx["mood"]]  # 眼形：happy 微闭笑眼 / puzzled 睁大（plan §4 眼神变化）
+    gdx, gdy = gaze(seed, t)  # 视线跟随镜头：漂移 ≤ (巩膜−瞳孔) 余量 × 0.35（探针安全）
+    gpx = gdx * (scl_rx - pup_r) * 0.35
+    gpy = gdy * (scl_ry - pup_r * 1.2) * 0.35
     for s in (-1, 1):
         ex = hx + s * eye_dx
         if ctx["blink"]:
             ARC(ex - scl_rx * 0.92, eye_y - scl_ry * 0.45, ex + scl_rx * 0.92, eye_y + scl_ry * 0.55,
-                15, 165, u(0.024), fill=(46, 42, 54))
+                15, 165, u(0.024), fill=THEME["ink"])
         else:
-            E(ex - scl_rx, eye_y - scl_ry, ex + scl_rx, eye_y + scl_ry, fill=(255, 255, 255))
-            E(ex - pup_r, eye_y - pup_r * 1.15, ex + pup_r, eye_y + pup_r * 1.25, fill=(46, 42, 54))
-            E(ex - pup_r * 0.78, eye_y - pup_r * 0.90, ex - pup_r * 0.16, eye_y - pup_r * 0.16,
+            E(ex - scl_rx, eye_y - scl_ry * eye_k, ex + scl_rx, eye_y + scl_ry * eye_k, fill=(255, 255, 255))
+            px, py = ex + gpx, eye_y + gpy
+            E(px - pup_r, py - pup_r * 1.15, px + pup_r, py + pup_r * 1.25, fill=THEME["ink"])
+            E(px - pup_r * 0.78, py - pup_r * 0.90, px - pup_r * 0.16, py - pup_r * 0.16,
               fill=(255, 255, 255))
-            E(ex + pup_r * 0.25, eye_y + pup_r * 0.35, ex + pup_r * 0.70, eye_y + pup_r * 0.80,
+            E(px + pup_r * 0.25, py + pup_r * 0.35, px + pup_r * 0.70, py + pup_r * 0.80,
               fill=(255, 255, 255))
             if female:
-                CAP((ex + s * (scl_rx - u(0.008)), eye_y - scl_ry * 0.82),
-                    (ex + s * (scl_rx + u(0.040)), eye_y - scl_ry - u(0.040)), u(0.020), fill=(46, 42, 54))
+                CAP((ex + s * (scl_rx - u(0.008)), eye_y - scl_ry * eye_k * 0.82),
+                    (ex + s * (scl_rx + u(0.040)), eye_y - scl_ry * eye_k - u(0.040)), u(0.020), fill=THEME["ink"])
         brow_y = brow_y0 - lift
         CAP((ex - s * u(0.062), brow_y - tilt), (ex + s * u(0.078), brow_y + tilt * 0.4), u(0.036),
-            fill=(46, 42, 54))
+            fill=THEME["ink"])
     mcx, mcy = hx, mouth_y
     op = ctx["openness"]
     WH = G["WH"]
     if op > 0.07:
         mw, mo = WH * (0.155 + 0.05 * op), u(0.035) + u(0.10) * op
-        PIE(mcx - mw, mcy - mo, mcx + mw, mcy + mo, 0, 180, fill=(122, 54, 60))
+        PIE(mcx - mw, mcy - mo, mcx + mw, mcy + mo, 0, 180, fill=THEME["mouth"])
         mt = mo * 0.45
         PIE(mcx - mw * 0.60, mcy + mo * 0.35 - mt, mcx + mw * 0.60, mcy + mo * 0.35 + mt, 0, 180,
-            fill=(236, 120, 112))
+            fill=THEME["tongue"])
     else:
         sw = WH * (0.155 + 0.05 * mood["smile"])
         if mood["smile"] > 0.4:
-            ARC(mcx - sw, mcy - sw * 0.55, mcx + sw, mcy + sw * 0.80, 28, 152, u(0.026), fill=(46, 42, 54))
+            ARC(mcx - sw, mcy - sw * 0.55, mcx + sw, mcy + sw * 0.80, 28, 152, u(0.026), fill=THEME["ink"])
         else:
-            CAP((mcx - u(0.055), mcy), (mcx + u(0.055), mcy + (4 if tilt else 0)), u(0.022), fill=(46, 42, 54))
+            CAP((mcx - u(0.055), mcy), (mcx + u(0.055), mcy + (4 if tilt else 0)), u(0.022), fill=THEME["ink"])
     if p["energy"] == "lively":
         for s in (-1, 1):
             E(hx + s * 0.42 * WH - u(0.05), blush_y - u(0.028), hx + s * 0.42 * WH + u(0.05), blush_y + u(0.028),
-              fill=(247, 197, 185))
+              fill=THEME["blush"])
 
     # ================= 头部配饰 =================
     for code in ("glasses_round", "glasses_thin", "glasses_square", "glasses_plastic"):
         if has(code):
-            col = {"glasses_plastic": (58, 74, 44), "glasses_thin": (66, 66, 76)}.get(code, (56, 60, 72))
+            col = {"glasses_plastic": THEME["glasses_plastic"],
+                   "glasses_thin": THEME["glasses_thin"]}.get(code, THEME["glasses_dark"])
             wd = u(0.016) if code == "glasses_thin" else u(0.024)
             for s in (-1, 1):
                 ex = hx + s * eye_dx
@@ -1250,48 +1457,73 @@ def draw_character(img, d, p, t, ctx):
                     wd * 0.7, fill=col)  # 镜腿
             CAP((hx - eye_dx + scl_rx * 0.85, eye_y - scl_ry * 0.38), (hx + eye_dx - scl_rx * 0.85, eye_y - scl_ry * 0.38),
                 wd * 0.8, fill=col)  # 鼻梁
+            if acc[code].get("physics") == "reflect":  # 镜片反光随时间滑动（qa_motion 探针）
+                ggx = phys(seed, code, "reflect", t)[0]
+                for s2 in (-1, 1):
+                    ex2 = hx + s2 * eye_dx
+                    E(ex2 - scl_rx * 0.62 + ggx, eye_y - scl_ry * 0.58,
+                      ex2 - scl_rx * 0.30 + ggx, eye_y - scl_ry * 0.34, fill=THEME["glint_soft"])
     if has("sunglasses_head"):  # 顶戴：镜架倒扣在发顶，不遮眼
         sy0 = hy - ry * 0.80
+        ggx_h = pfy("sunglasses_head", "reflect")[0]
         for s in (-1, 1):
-            RR(hx + s * 52 - 32, sy0 - 22, hx + s * 52 + 32, sy0 + 14, 14, fill=(44, 44, 52))
-            E(hx + s * 52 - 24, sy0 - 16, hx + s * 52 + 24, sy0 + 10, fill=(70, 76, 92))
-        CAP((hx - 28, sy0 - 14), (hx + 28, sy0 - 18), 7, fill=(44, 44, 52))
+            RR(hx + s * 52 - 32, sy0 - 22, hx + s * 52 + 32, sy0 + 14, 14, fill=THEME["metal_dark"])
+            E(hx + s * 52 - 24, sy0 - 16, hx + s * 52 + 24, sy0 + 10, fill=THEME["lens"])
+            E(hx + s * 52 - 20 + ggx_h, sy0 - 14, hx + s * 52 - 4 + ggx_h, sy0 - 4, fill=THEME["glint_blue"])
+        CAP((hx - 28, sy0 - 14), (hx + 28, sy0 - 18), 7, fill=THEME["metal_dark"])
+    hbdy = pfy("knit_hat", "bounce")[1]  # 帽子随步伐/点头轻弹（挂件物理；分镜 卡11）
+    cbdy = pfy("cap_backward", "bounce")[1]
+    shdy = pfy("sun_hat", "bounce")[1]
     if has("knit_hat"):
-        PIE(hx - rx - 6, hy - ry - 16, hx + rx + 6, hy + ry * 0.17, 182, 358, fill=ident)
-        RR(hx - rx - 10, hy - ry * 0.46, hx + rx + 10, hy - ry * 0.24, 16, fill=(255, 255, 255))
-        E(hx - 26, hy - ry - 66, hx + 26, hy - ry - 14, fill=(255, 255, 255))
+        PIE(hx - rx - 6, hy - ry - 16 + hbdy, hx + rx + 6, hy + ry * 0.17, 182, 358, fill=ident)
+        RR(hx - rx - 10, hy - ry * 0.46 + hbdy, hx + rx + 10, hy - ry * 0.24 + hbdy, 16, fill=(255, 255, 255))
+        E(hx - 26, hy - ry - 66 + hbdy, hx + 26, hy - ry - 14 + hbdy, fill=(255, 255, 255))
     if has("cap_backward"):
-        PIE(hx - rx - 2, hy - ry - 8, hx + rx + 2, hy - ry * 0.10, 182, 358, fill=ident)
-        E(hx - rx * 1.42, hy - ry * 0.74, hx - rx * 0.20, hy - ry * 0.36, fill=ident)
+        PIE(hx - rx - 2, hy - ry - 8 + cbdy, hx + rx + 2, hy - ry * 0.10, 182, 358, fill=ident)
+        E(hx - rx * 1.42, hy - ry * 0.74 + cbdy, hx - rx * 0.20, hy - ry * 0.36 + cbdy, fill=ident)
     if has("sun_hat"):
-        E(hx - rx - 52, hy - ry * 0.78, hx + rx + 52, hy - ry * 0.32, fill=(246, 240, 226))
-        PIE(hx - rx * 0.78, hy - ry - 24, hx + rx * 0.78, hy + ry * 0.02, 182, 358, fill=(246, 240, 226))
-        E(hx - rx * 0.78, hy - ry * 0.54, hx + rx * 0.78, hy - ry * 0.36, fill=ident)
-    if has("headband_red"):
-        ARC(hx - rx, hy - ry * 0.68, hx + rx, hy - ry * 0.14, 195, 345, 16, fill=ident)
+        E(hx - rx - 52, hy - ry * 0.78 + shdy, hx + rx + 52, hy - ry * 0.32 + shdy, fill=THEME["straw"])
+        PIE(hx - rx * 0.78, hy - ry - 24 + shdy, hx + rx * 0.78, hy + ry * 0.02, 182, 358, fill=THEME["straw"])
+        E(hx - rx * 0.78, hy - ry * 0.54 + shdy, hx + rx * 0.78, hy - ry * 0.36 + shdy, fill=ident)
+    if has("headband_red"):  # 红发带＋意大利三色旗 wink（分镜 卡23：红发带飘起）
+        gbdy = pfy("headband_red", "bounce")[1]
+        ARC(hx - rx, hy - ry * 0.68 + gbdy, hx + rx, hy - ry * 0.14 + gbdy, 195, 345, 16, fill=THEME["headband_red"])
+        for i, c in enumerate(THEME["it_flag"]):  # 右鬓角三色小条（绿白红；qa_char 探针）
+            RR(hx + rx * 0.86 + i * 9, hy - ry * 0.52 + gbdy, hx + rx * 0.86 + i * 9 + 7, hy - ry * 0.24 + gbdy,
+               2, fill=c)
     if has("hairpin"):
         CAP((hx + rx * 0.36, hy - ry * 0.80), (hx + rx * 0.64, hy - ry * 0.58), 12, fill=ident)
     if has("hairpin_clear"):
-        CAP((hx + rx * 0.38, hy - ry * 0.74), (hx + rx * 0.68, hy - ry * 0.54), 10, fill=(206, 236, 246))
+        CAP((hx + rx * 0.38, hy - ry * 0.74), (hx + rx * 0.68, hy - ry * 0.54), 10, fill=THEME["hairpin_clear"])
+        if acc["hairpin_clear"].get("physics") == "reflect":  # 透明发夹一闪（分镜 卡27；qa_motion 探针）
+            hgx = phys(seed, "hairpin_clear", "reflect", t)[0]
+            E(hx + rx * 0.50 - 4 + hgx * 0.6, hy - ry * 0.68, hx + rx * 0.50 + 4 + hgx * 0.6, hy - ry * 0.60,
+              fill=(255, 255, 255))
     if has("earrings_hoop"):
+        hox, hoy = pfy("earrings_hoop", "swing")
         for s in (-1, 1):
-            ARC(hx + s * rx * 0.96 - 14, hy + ry * 0.38, hx + s * rx * 0.96 + 14, hy + ry * 0.38 + 28,
-                0, 360, 5, fill=(232, 194, 74))
+            ARC(hx + s * rx * 0.96 - 14 + hox, hy + ry * 0.38 + hoy, hx + s * rx * 0.96 + 14 + hox,
+                hy + ry * 0.38 + 28 + hoy, 0, 360, 5, fill=THEME["gold"])
     if has("jhumki"):
+        jhx, jhy = pfy("jhumki", "swing")
         for s in (-1, 1):
             ex2 = hx + s * rx * 0.97
-            E(ex2 - 9, hy + ry * 0.36, ex2 + 9, hy + ry * 0.36 + 18, fill=(232, 194, 74))
+            E(ex2 - 9 + jhx, hy + ry * 0.36 + jhy, ex2 + 9 + jhx, hy + ry * 0.36 + jhy + 18, fill=THEME["gold"])
     if has("earrings_pearl"):
         for s in (-1, 1):
             E(hx + s * rx * 0.97 - 9, hy + ry * 0.36, hx + s * rx * 0.97 + 9, hy + ry * 0.36 + 18,
-              fill=(246, 242, 234))
+              fill=THEME["pearl"])
+            E(hx + s * rx * 0.97 - 4, hy + ry * 0.36 + 4, hx + s * rx * 0.97 + 1, hy + ry * 0.36 + 9,
+              fill=(255, 255, 255))  # 珍珠高光
     if has("headphones_neck") or has("headphones_one_ear"):
-        ARC(hx - rx * 0.90, hy + ry * 0.52, hx + rx * 0.90, hy + ry * 1.35, 15, 165, 13, fill=(60, 60, 70))
+        hpc = "headphones_one_ear" if has("headphones_one_ear") else "headphones_neck"
+        hdy2 = pfy(hpc, "bounce")[1]
+        ARC(hx - rx * 0.90, hy + ry * 0.52, hx + rx * 0.90, hy + ry * 1.35, 15, 165, 13, fill=THEME["headphones"])
         sides = (-1,) if has("headphones_one_ear") else (-1, 1)
         for s in sides:
-            E(hx + s * rx * 0.95 - 24, hy + ry * 0.88, hx + s * rx * 0.95 + 24, hy + ry * 0.88 + 52,
-              fill=(60, 60, 70))
-            E(hx + s * rx * 0.95 - 12, hy + ry * 0.88 + 14, hx + s * rx * 0.95 + 12, hy + ry * 0.88 + 38,
+            E(hx + s * rx * 0.95 - 24, hy + ry * 0.88 + hdy2, hx + s * rx * 0.95 + 24, hy + ry * 0.88 + 52 + hdy2,
+              fill=THEME["headphones"])
+            E(hx + s * rx * 0.95 - 12, hy + ry * 0.88 + 14 + hdy2, hx + s * rx * 0.95 + 12, hy + ry * 0.88 + 38 + hdy2,
               fill=ident)
 
     # ================= 手臂（胶囊袖 + 圆手 + 袖口） =================
@@ -1308,7 +1540,7 @@ def draw_character(img, d, p, t, ctx):
         CAP(el, ha, arm_w * 0.88, fill=top)
         c0 = (el[0] + (ha[0] - el[0]) * 0.72, el[1] + (ha[1] - el[1]) * 0.72)
         c1 = (el[0] + (ha[0] - el[0]) * 0.88, el[1] + (ha[1] - el[1]) * 0.88)
-        CAP(c0, c1, arm_w * 0.90, fill=mix(top, (25, 25, 32), 0.16))  # 袖口
+        CAP(c0, c1, arm_w * 0.90, fill=mix(top, THEME["shade_dark"], 0.16))  # 袖口
         hr = hand_r
         E(ha[0] - hr, ha[1] - hr, ha[0] + hr, ha[1] + hr, fill=skin)
         if hand == "thumb":
@@ -1319,24 +1551,24 @@ def draw_character(img, d, p, t, ctx):
             tip = (ha[0] + s * math.sin(ai) * u(0.13), ha[1] + math.cos(ai) * u(0.13))
             CAP((ha[0] + s * u(0.018), ha[1] - u(0.018)), tip, u(0.036), fill=skin)
         if prop == "bottle":
-            RR(ha[0] - u(0.055), ha[1] - u(0.197), ha[0] + u(0.055), ha[1] - u(0.028), u(0.04), fill=(152, 202, 172))
-            RR(ha[0] - u(0.028), ha[1] - u(0.242), ha[0] + u(0.028), ha[1] - u(0.186), u(0.018), fill=(120, 160, 132))
+            RR(ha[0] - u(0.055), ha[1] - u(0.197), ha[0] + u(0.055), ha[1] - u(0.028), u(0.04), fill=THEME["bottle_green"])
+            RR(ha[0] - u(0.028), ha[1] - u(0.242), ha[0] + u(0.028), ha[1] - u(0.186), u(0.018), fill=THEME["bottle_green_dark"])
         if prop == "beads":
             for k in range(6):
                 ak = k * 1.05
                 cxx, cyy = ha[0] + math.cos(ak) * u(0.062), ha[1] + u(0.017) + math.sin(ak) * u(0.062)
-                E(cxx - u(0.02), cyy - u(0.02), cxx + u(0.02), cyy + u(0.02), fill=(162, 120, 70))
+                E(cxx - u(0.02), cyy - u(0.02), cxx + u(0.02), cyy + u(0.02), fill=THEME["beads"])
         if prop == "camera":
-            RR(ha[0] - u(0.096), ha[1] - u(0.073), ha[0] + u(0.096), ha[1] + u(0.073), u(0.034), fill=(70, 70, 78))
-            E(ha[0] - u(0.039), ha[1] - u(0.039), ha[0] + u(0.039), ha[1] + u(0.039), fill=(152, 194, 214))
+            RR(ha[0] - u(0.096), ha[1] - u(0.073), ha[0] + u(0.096), ha[1] + u(0.073), u(0.034), fill=THEME["camera_body"])
+            E(ha[0] - u(0.039), ha[1] - u(0.039), ha[0] + u(0.039), ha[1] + u(0.039), fill=THEME["lens_blue"])
         return ha, wr
 
     aL = pose.get("armL") or (7 + 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
     aR = pose.get("armR") or (7 - 5 * math.sin(2 * math.pi * t * 0.55), 8, "open", None)
     arm(-1, aL[0], aL[1], aL[2], aL[3] if len(aL) > 3 else None)
     ha_pos, wr_pos = arm(1, aR[0], aR[1], aR[2], aR[3] if len(aR) > 3 else None)
-    for code, bc in (("watch", ident), ("bracelet", (232, 194, 74)),
-                     ("bracelet_leather", (122, 88, 58)), ("bracelet_woven", (204, 172, 120))):
+    for code, bc in (("watch", ident), ("bracelet", THEME["gold"]),
+                     ("bracelet_leather", THEME["bracelet_leather"]), ("bracelet_woven", THEME["bracelet_woven"])):
         if has(code):
             CAP((wr_pos[0] - u(0.05), wr_pos[1] - u(0.022)), (wr_pos[0] + u(0.05), wr_pos[1] - u(0.022)),
                 u(0.042), fill=bc)
@@ -1345,15 +1577,26 @@ def draw_character(img, d, p, t, ctx):
             r0, r1 = hand_r * 0.85, hand_r * 1.52
             CAP((ha_pos[0] + math.cos(math.radians(ang3)) * r0, ha_pos[1] + math.sin(math.radians(ang3)) * r0),
                 (ha_pos[0] + math.cos(math.radians(ang3)) * r1, ha_pos[1] + math.sin(math.radians(ang3)) * r1),
-                u(0.02), fill=(255, 208, 92))
+                u(0.02), fill=THEME["sparkle"])
     if pose.get("hand_prop") == "flash":
         E(ha_pos[0] - u(0.18), ha_pos[1] - u(0.18), ha_pos[0] + u(0.18), ha_pos[1] + u(0.18), fill=(255, 250, 214))
     if pose.get("face_cam"):
-        RR(hx - u(0.20), hy - u(0.11), hx + u(0.20), hy + u(0.11), u(0.05), fill=(70, 70, 78))
-        E(hx - u(0.062), hy - u(0.056), hx + u(0.062), hy + u(0.056), fill=(152, 194, 214))
+        RR(hx - u(0.20), hy - u(0.11), hx + u(0.20), hy + u(0.11), u(0.05), fill=THEME["camera_body"])
+        E(hx - u(0.062), hy - u(0.056), hx + u(0.062), hy + u(0.056), fill=THEME["lens_blue"])
 
 
 # ---- 姿态库 ----
+
+# pose_for 已实现的姿态码全集（场景线据此校验剧本标注，勿与 pose_for 实现脱节）
+POSE_CODES = frozenset({
+    "wave", "ciao_wave", "thumbs_up", "palm_open", "point", "nod", "shrug", "mini_jump",
+    "jump_celebrate", "run_out", "turn_freeze", "come_along", "kick", "snap", "camera_snap",
+    "chest_pat", "index_wait", "finger_count", "both_hands", "beads_ponder", "cap_tap",
+    "scratch_head", "hand_shoot", "brow_raise", "head_tilt", "breath", "planner_snap",
+    "clap", "fist", "bottle_raise", "deadpan_nod", "twirl", "lean_in", "pocket_sway",
+    "head_tilt_smile", "thumbs_run", "shoot_run",
+})
+
 
 def pose_for(code, u, t, p):
     """返回姿态参数：armL/armR=(a1,a2,hand), legL/legR, head_dx/dy, squash, yoff, extras"""
@@ -1375,11 +1618,19 @@ def pose_for(code, u, t, p):
         P["yoff"] = -10
         P["head_dy"] = -4
     elif code == "mini_jump":
-        hop = -abs(math.sin(u * math.pi * 2)) * 88
+        hop = -abs(math.sin(u * math.pi * 2)) * jump_height(p)  # 起跳高度随 movement.bounce（plan §4）
         P["yoff"] = hop
         P["squash"] = 0.05 * math.sin(u * math.pi * 4)
         P["armL"] = (96, 30, "open")
         P["armR"] = (96, 30, "open")
+    elif code == "jump_celebrate":  # 跳跃庆祝（plan §4.2 原语；示范场景二幕八专用）
+        # squash-stretch：起跳蓄力下压 → 腾空纵向拉伸 → 落地压扁回弹
+        air = abs(math.sin(u * math.pi * 2))
+        P["yoff"] = -air * jump_height(p) * 1.15
+        P["squash"] = 0.085 * math.cos(u * math.pi * 4) * (1 - 0.45 * air)
+        P["armL"] = (152 - 14 * air, 18, "open")
+        P["armR"] = (152 - 14 * air, 18, "open")
+        P["head_dy"] = -5 * air
     elif code == "run_out":
         P["xoff"] = 1500 * ease_out_cubic(u)
         P["legL"] = 28 * math.sin(t * 16)
@@ -1449,6 +1700,48 @@ def pose_for(code, u, t, p):
         P["armR"] = (46, 114, "fist")
     elif code == "bottle_raise":
         P["armR"] = (64, 92, "open", "bottle")
+    elif code == "deadpan_nod":  # 卡20：面无表情点头（数据触发两次＝分镜"只两次"）
+        P["head_dy"] = 10 * math.sin(min(u, 1) * math.pi * 2) * (1 - 0.4 * min(u, 1))
+    elif code == "twirl":  # 卡05/09 入场旋转：水平压缩翻转读作转身
+        P["xscale"] = 0.16 + 0.84 * abs(math.cos(min(u, 1) * math.pi * 2))
+        P["yoff"] = -14 * abs(math.sin(min(u, 1) * math.pi * 2))
+        P["armL"] = (96, 26, "open")
+        P["armR"] = (96, 26, "open")
+    elif code == "lean_in":  # 卡25：探身取景
+        P["head_dx"] = 8
+        P["head_dy"] = 5
+        P["armR"] = (104, 38, "open")
+    elif code == "pocket_sway":  # 卡24：插兜晃身
+        P["armL"] = (14, 10, "open")
+        P["armR"] = (14, 10, "open")
+        P["head_dx"] = 6 * math.sin(min(u, 1) * math.pi * 2)
+    elif code == "head_tilt_smile":  # 卡27：侧头一笑定格
+        P["head_dx"] = 13
+        P["head_dy"] = 2
+        P["armR"] = (58, 30, "open")
+    elif code == "thumbs_run":  # 卡28：thumbs-up 后招手小跑出画
+        if u < 0.45:
+            P["armR"] = (150, 18, "thumb")
+            P["armL"] = (60, 30, "open")
+        else:
+            P["xoff"] = 1500 * ease_out_cubic((u - 0.45) / 0.55)
+            P["legL"] = 28 * math.sin(t * 16)
+            P["legR"] = -28 * math.sin(t * 16)
+            P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
+            P["armR"] = (140, 26 + 26 * math.sin(t * 11), "open")
+            P["yoff"] = -6 * abs(math.sin(t * 16))
+    elif code == "shoot_run":  # 卡22：投篮手势后追球跑出画
+        if u < 0.5:
+            P["armL"] = (128, 60, "open")
+            P["armR"] = (128, 60, "open")
+            P["squash"] = 0.04 * math.sin(min(u / 0.5, 1) * math.pi)
+        else:
+            P["xoff"] = 1500 * ease_out_cubic((u - 0.5) / 0.5)
+            P["legL"] = 28 * math.sin(t * 16)
+            P["legR"] = -28 * math.sin(t * 16)
+            P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
+            P["armR"] = (40 - 20 * math.sin(t * 16), 40, "open")
+            P["yoff"] = -6 * abs(math.sin(t * 16))
     return P
 
 
@@ -1486,13 +1779,13 @@ def frac_at(pts, t):
     return 1.0
 
 
-def openness_at(lines, t):
+def openness_at(lines, t, seed=""):
     op = 0.0
     for line in lines:
         if t < line["start"] - 0.05 or t > line["start"] + line["dur"] + 0.2:
             continue
         for w in line["words"]:
-            amp = 0.55 + 0.45 * rnd(w["w"] + str(round(w["s"], 2)))
+            amp = 0.55 + 0.45 * rnd(f"{seed}:open:{w['w']}:{round(w['s'], 2)}")  # 种子命名空间（不变量⑦）
             if w["s"] <= t <= w["e"]:
                 op = max(op, amp)
             elif w["e"] < t < w["e"] + 0.13:
@@ -1504,15 +1797,16 @@ def openness_at(lines, t):
 
 def render_card(pid, personas, doc):
     from PIL import Image, ImageDraw
-    p = personas[pid]
-    card = next(c for c in doc["cards"] if c["id"] == pid)
+    card, variant = find_card(doc, pid)
+    base_pid = card["id"]
+    p = personas[base_pid]  # 变体共享人设/场景/收尾/手势，仅 lines 不同（self-intro §1.4）
     tl = load_timeline(pid)
     lines = tl["lines"]
     rtl = bool(p.get("rtl"))
-    seed = pid
+    seed = base_pid  # 角色级随机（眨眼/张口/视线）走人设命名空间：变体与主卡同相位，qa 可复算
     blink_cyc = p["movement"]["blinkCycleSec"]
     breath = p["movement"]["breathAmp"]
-    cast = doc["cast"][pid]
+    cast = doc["cast"][base_pid]
 
     bg = prerender_bg(p, card)
     bands = []
@@ -1526,11 +1820,10 @@ def render_card(pid, personas, doc):
         box = a.getbbox()
         return im.crop(box) if box else im
 
-    badge = tight(Image.open(TEXT_DIR / f"badge_{pid}.png").convert("RGBA"))
-    pills = {m: tight(Image.open(TEXT_DIR / f"pill_{m}.png").convert("RGBA"))
-             for m in ("neutral", "happy", "puzzled", "encouraging")}
+    badge = tight(Image.open(TEXT_DIR / f"badge_{base_pid}.png").convert("RGBA"))
+    pill = tight(Image.open(TEXT_DIR / f"pill_{p['locale']}.png").convert("RGBA"))  # 语言牌（plan §8.3）
     if cast == "A":
-        bubble = tight(Image.open(TEXT_DIR / f"bubble_a_{pid}.png").convert("RGBA"))
+        bubble = tight(Image.open(TEXT_DIR / f"bubble_a_{base_pid}.png").convert("RGBA"))
     else:
         bubble = tight(Image.open(TEXT_DIR / ("bubble_b_l.png" if rtl else "bubble_b_r.png")).convert("RGBA"))
 
@@ -1543,13 +1836,32 @@ def render_card(pid, personas, doc):
         triggers.append((t0, g["do"], g["dur"]))
 
     speech_end = tl["speechEnd"]
-    close_code = card["close"]
-    close_start = min(speech_end + 0.15, DUR - 0.9)
-    close_dur = {"run_out": DUR - close_start - 0.1, "mini_jump": 1.1, "turn_freeze": 0.9,
-                 "snap": 0.9, "camera_snap": 1.0}.get(close_code, 1.3)
-    bubble_t = (max(lines[-1]["start"] + 0.6, speech_end - 2.6)) if cast == "A" else max(speech_end - 2.3, lines[-1]["start"] + 0.5)
     entry = tl["entry"]
     ident = hexc(p["identity"])
+    # 收尾码列（分镜：单码或按序码列；跑出画族占满剩余时长）
+    close_seq = card["close"]
+    close_seq = close_seq if isinstance(close_seq, list) else [close_seq]
+    close_start = min(speech_end + 0.15, DUR - 0.9)
+
+    def close_dur_for(cc, t0):
+        if cc in ("run_out", "thumbs_run", "shoot_run"):
+            return DUR - t0 - 0.1
+        return {"mini_jump": 1.1, "turn_freeze": 0.9, "snap": 0.9, "camera_snap": 1.0}.get(cc, 1.3)
+
+    close_list = []
+    tt = close_start
+    for cc in close_seq:
+        dd = close_dur_for(cc, tt)
+        close_list.append((tt, dd, cc))
+        tt += dd
+    # 入场姿态（分镜 entry_pose；取代旧的"活泼统一挥手"硬编码）
+    ep_codes = card.get("entry_pose") or []
+    ep_codes = [ep_codes] if isinstance(ep_codes, str) else list(ep_codes)
+    ep_end = min(entry, 1.2)
+    ep_list = ([(0.05 + (ep_end - 0.05) * k / len(ep_codes),
+                 0.05 + (ep_end - 0.05) * (k + 1) / len(ep_codes), c)
+                for k, c in enumerate(ep_codes)]) if ep_codes else []
+    bubble_t = (max(lines[-1]["start"] + 0.6, speech_end - 2.6)) if cast == "A" else max(speech_end - 2.3, lines[-1]["start"] + 0.5)
 
     out_path = OUT_DIR / f"{pid}.mp4"
     cmd = ["ffmpeg", "-y",
@@ -1571,9 +1883,9 @@ def render_card(pid, personas, doc):
         lds = DrawScaled(ld, SS)
 
         # 进度条
-        lds.rounded_rectangle([60, 40, 1020, 56], 8, fill=mix((255, 255, 255), ident, 0.25))
-        fw = 60 + (1020 - 60) * (t / DUR)
-        lds.rounded_rectangle([60, 40, fw, 56], 8, fill=ident)
+        lds.rounded_rectangle([PROG_X0, PROG_Y0, PROG_X1, PROG_Y1], 8, fill=mix((255, 255, 255), ident, 0.25))
+        fw = PROG_X0 + (PROG_X1 - PROG_X0) * (t / DUR)
+        lds.rounded_rectangle([PROG_X0, PROG_Y0, fw, PROG_Y1], 8, fill=ident)
 
         # 文字带（卡拉OK高亮 + 行间交叉淡化）
         li = 0
@@ -1604,40 +1916,48 @@ def render_card(pid, personas, doc):
         pose = {}
         scale, xoff, yoff, squash = 1.0, 0.0, 0.0, 0.0
         if p["energy"] == "lively":
-            scale = max(0.02, pop_scale(t, 0.0, entry, True))
+            scale = max(0.02, pop_scale(t, 0.0, entry, True, damp=p["movement"]["bounce"]))
         else:
             u = min(1.0, t / entry)
             xoff = -300 * (1 - ease_out_cubic(u))
             yoff = -5 * abs(math.sin(u * math.pi * 3))
-        if p["energy"] == "lively" and t < 1.1:
-            pose["armR"] = (132, 30 + 26 * math.sin(t * 12), "open")
         # 词触发手势
         g_active = None
         for t0, gcode, gdur in triggers:
             if t0 <= t < t0 + gdur:
                 g_active = (gcode, (t - t0) / gdur)
                 break
-        # 收尾招牌
+        # 入场姿态（分镜 entry_pose）
+        e_active = None
+        for d0, d1, ecode in ep_list:
+            if d0 <= t < d1:
+                e_active = (ecode, (t - d0) / (d1 - d0))
+                break
+        # 收尾招牌（码列按序衔接）
         c_active = None
-        if t >= close_start:
-            u = min(1.0, (t - close_start) / close_dur)
-            c_active = (close_code, u)
+        for t0, cdur, ccode in close_list:
+            if t0 <= t < t0 + cdur:
+                c_active = (ccode, (t - t0) / cdur)
+                break
         src = None
         if c_active:
             src = c_active
         elif g_active:
             src = g_active
+        elif e_active:
+            src = e_active
         if src:
             pose.update(pose_for(src[0], src[1], t, p))
         # 说话时轻摆
-        if not src and openness_at(lines, t) > 0.05:
+        if not src and openness_at(lines, t, seed) > 0.05:
             pose.setdefault("armR", (16 - 5 * math.sin(2 * math.pi * t * 0.9), 12, "open"))
 
         yoff += pose.pop("yoff", 0)
         xoff += pose.pop("xoff", 0)
         squash = pose.pop("squash", 0) + breath * (0.5 - 0.5 * math.cos(2 * math.pi * t * 0.42))
         if p["energy"] == "lively":
-            yoff += -4 * abs(math.sin(2 * math.pi * t * 0.85))
+            kb = clamp(14.0 / p["movement"]["bounce"], 0.75, 1.6)  # 呼吸起伏随 bounce 缩放
+            yoff += -4 * kb * abs(math.sin(2 * math.pi * t * 0.85))
 
         # 眨眼
         n = int(t / blink_cyc)
@@ -1645,20 +1965,21 @@ def render_card(pid, personas, doc):
         jit = 0.15 + 0.65 * rnd(f"{seed}:blink:{n}")
         blink = jit <= ph <= jit + 0.05
 
-        op = openness_at(lines, t)
+        op = openness_at(lines, t, seed)
         if t >= speech_end + 0.05 or t < entry:
             op = 0.0
 
         ctx = dict(scale=scale, xoff=xoff, yoff=yoff, squash=squash,
+                   xscale=pose.pop("xscale", 1.0),
                    head_dx=pose.pop("head_dx", 0), head_dy=pose.pop("head_dy", 0),
                    brow_lift_extra=pose.pop("brow_lift_extra", 0),
                    pose=pose, openness=op, blink=blink, mood=mood, ss=SS)
         draw_character(layer, ld, p, t, ctx)
 
         # 气泡尾（画进 2x 层 → 抗锯齿；本体粘贴时盖住尾根）
-        cx_t = 300 if not rtl else W - 300
+        cx_t = BUBBLE_CX if not rtl else W - BUBBLE_CX
         if t >= bubble_t and pop_scale(t, bubble_t, 0.5, True) > 0.98:
-            by0 = 915 - bub_h // 2
+            by0 = BUBBLE_CY - bub_h // 2
             yb = by0 + bub_h - 2
             xa = cx_t + int(bub_w * (0.20 if not rtl else -0.20))
             p0 = (xa - 24, yb - 34)
@@ -1680,17 +2001,16 @@ def render_card(pid, personas, doc):
             b = badge
             if bs < 0.995:
                 b = badge.resize((max(2, int(badge.width * bs)), max(2, int(badge.height * bs))), Image.Resampling.LANCZOS)
-            img.paste(b, (540 - b.width // 2, 470 + (240 - b.height) // 2), b)
+            img.paste(b, (540 - b.width // 2, BADGE_Y + (BADGE_BOX_H - b.height) // 2), b)
 
-        # 语气标签（换段 0.2s 交叉淡化）
-        pill = pills[mood]
+        # 语言牌（入场前 0.3s 弹出；国旗 emoji＋语种文字，plan §8.3）
         if t >= entry - 0.3:
             ps = pop_scale(t, entry - 0.3, 0.4, True)
             if ps > 0.02:
                 pl = pill
                 if ps < 0.995:
                     pl = pill.resize((max(2, int(pill.width * ps)), max(2, int(pill.height * ps))), Image.Resampling.LANCZOS)
-                img.paste(pl, (540 - pl.width // 2, 726 + (96 - pl.height) // 2), pl)
+                img.paste(pl, (540 - pl.width // 2, PILL_Y + (PILL_BOX_H - pl.height) // 2), pl)
 
         # 气泡（尾巴已在 2x 层画好；中心点定位）
         if t >= bubble_t:
@@ -1700,7 +2020,7 @@ def render_card(pid, personas, doc):
                 if us < 0.995:
                     bb = bubble.resize((max(2, int(bubble.width * us)), max(2, int(bubble.height * us))), Image.Resampling.LANCZOS)
                 bx0 = cx_t - bb.width // 2
-                by0 = 915 - bb.height // 2
+                by0 = BUBBLE_CY - bb.height // 2
                 img.paste(bb, (bx0, by0), bb)
 
         proc.stdin.write(img.tobytes())
@@ -1712,7 +2032,7 @@ def render_card(pid, personas, doc):
 def cmd_render(only, workers):
     from multiprocessing import Pool
     personas, doc = load_data()
-    ids = [c["id"] for c in doc["cards"] if not only or c["id"] in only]
+    ids = [u["id"] for u in card_units(doc) if not only or u["persona"] in only]
     with Pool(min(workers, len(ids))) as pool:
         pool.starmap(render_card, [(pid, personas, doc) for pid in ids])
 

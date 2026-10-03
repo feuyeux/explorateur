@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""qa_char.py — 角色形象专项验收：对照调色板逐区域校验（多邻国风格要素）。
+几何从 intro_cards.face_geo 导入（单一事实源，探针永不与渲染漂移）；
+眉形/眼形/视线/颈影/主题色全部与渲染同源（MOOD_FACE/EYE_MOOD/gaze/THEME/mix）；
+支持 hop（mini_jump 起跳，jump_height 同源）与 walk（走位横向偏移）；
+懂帽子/发带/顶戴墨镜/眼镜/鞋饰/腮红/织带/滑板贴纸/书袋挂饰/膝盖补丁/三色旗（不变量⑩）。"""
+import json
+
+from PIL import Image
+
+from .intro_cards import (EYE_MOOD, MOOD_FACE, NECK_SHADE_F, THEME, face_geo, gaze,
+                          hexc, jump_height, mix)
+from usine import ROOT
+
+P = json.load(open(ROOT / "personas" / "personas.json", encoding="utf-8"))
+personas = {p["id"]: p for p in P["personas"]}
+
+
+def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, mood="neutral"):
+    p = personas[pid]
+    pal = p["palette"]
+    im = Image.open(frame).convert("RGB")
+    G = face_geo(p["movement"]["face"])
+    u = lambda f: f * G["H"]
+    rx, ry = G["rx"], G["ry"]
+    hy = G["hy"] - hop
+    hx = G["cx"] + dx
+    eye_y, eye_dx = G["eye_y"] - hop, G["eye_dx"]
+    scl_rx, scl_ry, pup_r = G["scl_rx"], G["scl_ry"], G["pup_r"]
+    brow_y = G["brow_y"] - hop
+    lift = MOOD_FACE[mood]["lift"]  # 眉形与渲染同源（MOOD_FACE 单一事实源）
+    acc = {a["code"] for a in p.get("accessories", [])}
+    accf = {a["code"]: a for a in p.get("accessories", [])}
+    ident = hexc(p["identity"])
+    skin = hexc(pal["skin"])
+    eye_k = EYE_MOOD[mood]
+    # 视线跟随镜头：瞳孔/高光探针随 gaze 同源偏移（t 缺省＝镜头正中）
+    gpx = gaze(pid, t)[0] * (scl_rx - pup_r) * 0.35 if t is not None else 0.0
+    gpy = gaze(pid, t)[1] * (scl_ry - pup_r * 1.2) * 0.35 if t is not None else 0.0
+    results = []
+
+    def look(name, x, y, want, tol=40):
+        px = im.getpixel((int(x), int(y)))
+        ok = sum((a - b) ** 2 for a, b in zip(px, want)) ** 0.5 <= tol
+        results.append((name, ok, px, want))
+
+    ex = hx - eye_dx  # 左眼中心
+    # 头顶采样：有帽/发带者探帽或发带，否则探发色。
+    # 起跳顶点时头顶会撞进气泡图层（气泡在前属正常遮挡）→ probe_crown=False 跳过。
+    if probe_crown:
+        if "sun_hat" in acc:
+            look("hat_brim", hx + rx * 0.90, hy - ry * 0.42, THEME["straw"], 40)
+        elif "knit_hat" in acc:
+            look("knit_ident", hx, hy - ry * 0.78, ident, 40)
+        elif "cap_backward" in acc:
+            look("cap_ident", hx, hy - ry * 0.72, ident, 40)
+        elif "headband_red" in acc:
+            # 弧顶点在包围盒上缘（hy-0.68ry）+ 半描边宽 → 采在描边正中；红发带走主题红
+            look("headband_red", hx, hy - ry * 0.68 + u(0.022), THEME["headband_red"], 46)
+            look("it_flag_green", hx + rx * 0.86 + 3, hy - ry * 0.38, THEME["it_flag"][0], 50)
+        elif "sunglasses_head" in acc:
+            look("glasses_perch", hx - 52, hy - ry * 0.76, THEME["metal_dark"], 55)
+            look("hair_top", hx - rx * 0.55, hy - ry * 0.42, hexc(pal["hair"]), 44)
+        else:
+            look("hair_top", hx, hy - ry * 0.55, hexc(pal["hair"]), 44)
+    # 鼻梁：两眼之间，嘴/腮红/胡子/耳全避开，全员通用
+    look("face_skin", hx, hy + ry * 0.40, skin, 48)
+    if "beard" not in acc:  # 大胡子遮颈（坑⑨ 遮挡感知：misha/nikos 胡子盖住颈前）
+        # 颈部：skinShade 压深（NECK_SHADE_F 与渲染同源）；下移 0.03H 避开头底缘/下颌影
+        look("neck_shade", hx, G["chin"] + u(0.03) - hop,
+             mix(skin, hexc(pal["skinShade"]), NECK_SHADE_F), 48)
+    # 躯干：取左胸点（右手道具常举在右侧/胸前中央）
+    look("torso_top", G["cx"] + dx - G["torso_hw"] * 0.5, G["torso_top"] + G["torso_h"] * 0.45 - hop,
+         hexc(pal["outfitTop"]), 48)
+    look("leg_bottom", G["cx"] + dx - G["leg_cx"], G["torso_top"] + G["torso_h"] + u(0.16) - hop,
+         hexc(pal["outfitBottom"]), 48)
+    shoe_x = G["cx"] + dx - G["leg_cx"] - G["foot_splay"]
+    if "shoe_accent" in acc:
+        look("shoe_ident", shoe_x, G["foot_cy"] - hop, ident, 48)
+    else:
+        look("shoe_dark", shoe_x, G["foot_cy"] - hop, THEME["shoe"], 48)
+    # 巩膜白：区域采样计数（坑⑨ 遮挡感知——单点会撞镜框边缘/瞳孔位移/镜片反光）
+    sbx0, sbx1 = int(ex - scl_rx * 0.78), int(ex + scl_rx * 0.78)
+    sby0, sby1 = int(eye_y - scl_ry * eye_k * 0.82), int(eye_y + scl_ry * eye_k * 0.82)
+    n_white = sum(1 for yy in range(sby0, sby1, 3) for xx in range(sbx0, sbx1, 3)
+                  if im.getpixel((xx, yy)) >= (235, 235, 235))
+    results.append(("sclera_white", n_white >= 60, f"{n_white}px", ">=60 开眼白px"))
+    look("pupil_dark", ex + gpx, eye_y + gpy + pup_r * 0.30, THEME["ink"], 60)
+    look("glint_white", ex + gpx - pup_r * 0.47, eye_y + gpy - pup_r * 0.53, (255, 255, 255), 60)
+    look("brow_charcoal", ex - u(0.02), brow_y - lift, THEME["ink"], 70)
+    if p["gender"] == "female" and p["energy"] == "lively":
+        look("blush_pastel", hx - 0.42 * G["WH"], G["blush_y"] - hop, THEME["blush"], 48)
+    # ---- 新视觉特征探针（不变量⑩：新视觉特征 ⇒ 配套探针，采样点从 face_geo 推导）----
+    for code in ("backpack", "hikingpack", "canvas_backpack"):
+        if code in acc and accf[code].get("accent"):  # 标识色织带（挂件行）
+            look("strap_ident", G["cx"] - 76, G["torso_top"] + 22 - hop,
+                 mix(ident, hexc(pal["outfitTop"]), 0.25), 50)
+    if "skateboard" in acc and accf["skateboard"].get("accent"):  # 滑板贴纸（卡05 分镜）
+        look("skate_sticker", G["cx"], 1742, ident, 55)
+    if "book_tote" in acc and accf["book_tote"].get("accent"):  # 书袋挂饰（卡17 分镜）
+        look("tote_charm", G["cx"] + 152, G["torso_top"] + 76 + 92 + 27 - hop, ident, 55)
+    sk = p.get("skin", {})
+    for pd in sk.get("patches", []):  # 膝盖补丁（皮肤层；位置从腿几何推导）
+        if pd.get("on") == "bottom":
+            sgn = -1 if pd.get("where") == "knee_L" else 1
+            knee_y = (G["torso_top"] + G["torso_h"] - u(0.10) + G["foot_cy"] - G["foot_h"] * 0.30) / 2
+            look(f"patch_{pd['where']}", G["cx"] + sgn * G["leg_cx"], knee_y - hop, hexc(pd["color"]), 48)
+    n_fail = sum(1 for r in results if not r[1])
+    if verbose:
+        print(f"== {pid} @ {frame} (hop={hop}, dx={dx}, t={t}, mood={mood}) ==")
+        for name, ok, px, want in results:
+            print(f"  {'OK ' if ok else '!!!'} {name:16s} px={px} want={want}")
+    return n_fail
+
+
+if __name__ == "__main__":
+    import subprocess
+    from pathlib import Path
+
+    OUT = Path("build/intro")
+
+    def grab(t, tag):
+        png = OUT / f"qa_c_{tag}.png"
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", str(t), "-i", str(OUT / "xiaoman.mp4"),
+                        "-frames:v", "1", str(png)], check=True)
+        return str(png)
+
+    f = 0
+    f += check("xiaoman", grab(3.0, "3.0"), t=3.0, mood="happy")
+    # mini_jump 真实顶点：close_start(=speechEnd+0.15) + 0.275，跳过会被气泡遮挡的头顶采样
+    tl = json.loads((OUT / "audio" / "xiaoman.timeline.json").read_text("utf-8"))
+    apex = min(tl["speechEnd"] + 0.15, 9.1) + 0.275
+    f += check("xiaoman", grab(apex, "apex"), hop=jump_height(personas["xiaoman"]), probe_crown=False)
+    print("TOTAL FAILS:", f)

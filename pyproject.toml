@@ -1,0 +1,31 @@
+[project]
+name = "usine"
+version = "0.1.0"
+description = "多语种教学视频渲染管线：人物亮相卡 + A/B 对话教学场景（Pillow 渲染 + edge-tts 配音 + Edge headless 文字层）"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# 版本对齐原双解释器环境并锁定：Pillow 12.3.0 = 渲染像素基线（framehash 幂等的保证），
+# edge-tts 7.2.8 = 词级时间戳口径；升级前必须重验 framehash 基线。
+dependencies = [
+    "edge-tts==7.2.8",
+    "pillow==12.3.0",
+    "numpy==2.3.5",
+]
+
+[dependency-groups]
+# 抖音发布工具（scripts/*.py）专用，不进主环境：uv sync --group douyin 后还需 playwright install chromium
+douyin = ["playwright>=1.40"]
+
+[project.scripts]
+usine-cards = "usine.intro_cards:main"          # 亮相卡管线：tts / assets / render
+usine-parse = "usine.parse_scene:main"          # scene-<id>.md -> scene_<id>.json
+usine-scene = "usine.scene_video:main"          # 教学场景管线：tts / assets / render / list
+usine-lesson = "usine.build_lesson:main"        # scene_<id>.json + lesson_analysis -> 教学文档 HTML
+usine-dump-lesson = "usine.dump_lesson_source:main"  # scene_<id>.json -> 逐语种解析源文本
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/usine"]

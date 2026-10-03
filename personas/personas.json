@@ -1,315 +1,1434 @@
 {
   "$schema": "plan.md#4",
-  "note": "全班底 28 人档案——personas.json 是人物参数唯一事实源（plan.md §4 schema 的构建版子集）",
-  "line": "#4B4B4B",
+  "note": "全班底 28 人档案——personas.json 是人物参数唯一事实源（schema 见 plan.md §4；档案维度对标多邻国补全 gloss/timbre/relation/quirk，见 benchmark-duolingo.md）",
   "personas": [
     {
-      "id": "xiaoman", "locale": "zh-CN", "langLabel": "汉语", "gender": "female", "energy": "lively",
-      "name": { "native": "林小满", "latin": "Lín Xiǎomǎn" },
+      "id": "xiaoman",
+      "locale": "zh-CN",
+      "langLabel": "汉语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "林小满",
+        "latin": "Lín Xiǎomǎn",
+        "gloss": "小满＝节气名，将满未满"
+      },
       "archetype": "元气提问者：先举手再思考",
       "identity": "#D8453B",
-      "palette": { "hair": "#332E38", "hairHighlight": "#524B5E", "skin": "#F5C9A2", "skinShade": "#E0A87E", "outfitTop": "#F2EDE4", "outfitBottom": "#4A6398" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#332E38",
+        "hairHighlight": "#524B5E",
+        "skin": "#F5C9A2",
+        "skinShade": "#E0A87E",
+        "outfitTop": "#F2EDE4",
+        "outfitBottom": "#4A6398"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "ponytail_high",
-      "voice": { "voiceId": "zh-CN-XiaoxiaoNeural", "rate": "+7%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "backpack", "accent": true }, { "code": "hair_tie", "accent": true } ]
+      "voice": {
+        "voiceId": "zh-CN-XiaoxiaoNeural",
+        "rate": "+7%",
+        "pitch": "+5Hz",
+        "timbre": "明亮少女声，颗粒清晰，尾音轻快"
+      },
+      "accessories": [
+        {
+          "code": "backpack",
+          "accent": true,
+          "physics": "bounce"
+        },
+        {
+          "code": "hair_tie",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "jiangyuan",
+        "label": "发小"
+      },
+      "quirk": "书包侧袋里有一沓写着“为什么”的小卡片，问完一张就送人一张"
     },
     {
-      "id": "jiangyuan", "locale": "zh-CN", "langLabel": "汉语", "gender": "male", "energy": "steady",
-      "name": { "native": "江远", "latin": "Jiāng Yuǎn" },
+      "id": "jiangyuan",
+      "locale": "zh-CN",
+      "langLabel": "汉语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "江远",
+        "latin": "Jiāng Yuǎn",
+        "gloss": "江与远，行远不忘路"
+      },
       "archetype": "人形路标：话不多，指路一步不差",
       "identity": "#D8453B",
-      "palette": { "hair": "#2B2730", "hairHighlight": "#46414F", "skin": "#F3D4B8", "skinShade": "#DDB295", "outfitTop": "#35486E", "outfitBottom": "#F5F3EE" },
-      "movement": { "face": "tall", "bounce": 16, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#2B2730",
+        "hairHighlight": "#46414F",
+        "skin": "#F3D4B8",
+        "skinShade": "#DDB295",
+        "outfitTop": "#35486E",
+        "outfitBottom": "#F5F3EE"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 16,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short",
-      "voice": { "voiceId": "zh-CN-YunxiNeural", "rate": "-6%", "pitch": "-3Hz" },
-      "accessories": [ { "code": "satchel" }, { "code": "headphones_neck" }, { "code": "pin_badge", "accent": true } ]
+      "voice": {
+        "voiceId": "zh-CN-YunxiNeural",
+        "rate": "-6%",
+        "pitch": "-3Hz",
+        "timbre": "温润青年声，低中音，字字落定"
+      },
+      "accessories": [
+        {
+          "code": "satchel"
+        },
+        {
+          "code": "headphones_neck",
+          "physics": "swing"
+        },
+        {
+          "code": "pin_badge",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "xiaoman",
+        "label": "发小"
+      },
+      "quirk": "指路从不看地图——全城公交站牌的位置他都记得"
     },
     {
-      "id": "ruby", "locale": "en-US", "langLabel": "英语", "gender": "female", "energy": "steady",
-      "name": { "native": "Ruby", "latin": "Ruby" },
+      "id": "ruby",
+      "locale": "en-US",
+      "langLabel": "英语",
+      "gender": "female",
+      "energy": "steady",
+      "name": {
+        "native": "Ruby",
+        "latin": "Ruby",
+        "gloss": "宝石红，经典暖名"
+      },
       "archetype": "街角咖啡馆掌柜：话不多但句句带钩",
       "identity": "#4657D8",
-      "palette": { "hair": "#8C4A32", "hairHighlight": "#B26844", "skin": "#F7DCC4", "skinShade": "#E2B896", "outfitTop": "#F4F1EA", "outfitBottom": "#2E6B57" },
-      "movement": { "face": "tall", "bounce": 14, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#8C4A32",
+        "hairHighlight": "#B26844",
+        "skin": "#F7DCC4",
+        "skinShade": "#E2B896",
+        "outfitTop": "#F4F1EA",
+        "outfitBottom": "#2E6B57"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 14,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "wavy_lob",
-      "voice": { "voiceId": "en-US-JennyNeural", "rate": "-4%", "pitch": "-2Hz" },
-      "accessories": [ { "code": "glasses_round" }, { "code": "lanyard", "accent": true }, { "code": "apron" } ]
+      "voice": {
+        "voiceId": "en-US-JennyNeural",
+        "rate": "-4%",
+        "pitch": "-2Hz",
+        "timbre": "亲切成熟女声，微哑的咖啡感"
+      },
+      "accessories": [
+        {
+          "code": "glasses_round",
+          "physics": "reflect"
+        },
+        {
+          "code": "lanyard",
+          "accent": true,
+          "physics": "swing"
+        },
+        {
+          "code": "apron"
+        }
+      ],
+      "relation": {
+        "partner": "miles",
+        "label": "街坊"
+      },
+      "quirk": "外带杯上会画一张迷你小地图——比导航还准"
     },
     {
-      "id": "miles", "locale": "en-US", "langLabel": "英语", "gender": "male", "energy": "lively",
-      "name": { "native": "Miles", "latin": "Miles" },
+      "id": "miles",
+      "locale": "en-US",
+      "langLabel": "英语",
+      "gender": "male",
+      "energy": "lively",
+      "name": {
+        "native": "Miles",
+        "latin": "Miles",
+        "gloss": "英里，天生在路上"
+      },
       "archetype": "旅行型选手：热情过剩，方向感为零",
       "identity": "#4657D8",
-      "palette": { "hair": "#C7995C", "hairHighlight": "#E0B87A", "skin": "#FAE3D0", "skinShade": "#E5BEA4", "outfitTop": "#4657D8", "outfitBottom": "#B9A279" },
-      "movement": { "face": "round", "bounce": 9, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#C7995C",
+        "hairHighlight": "#E0B87A",
+        "skin": "#FAE3D0",
+        "skinShade": "#E5BEA4",
+        "outfitTop": "#4657D8",
+        "outfitBottom": "#B9A279"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 9,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "short_wavy",
-      "voice": { "voiceId": "en-US-GuyNeural", "rate": "+8%", "pitch": "+4Hz" },
-      "accessories": [ { "code": "camera" }, { "code": "map" }, { "code": "strap_accent" } ]
+      "voice": {
+        "voiceId": "en-US-GuyNeural",
+        "rate": "+8%",
+        "pitch": "+4Hz",
+        "timbre": "开朗青年声，音区偏高语速易赶"
+      },
+      "accessories": [
+        {
+          "code": "camera",
+          "physics": "swing"
+        },
+        {
+          "code": "map"
+        },
+        {
+          "code": "strap_accent"
+        }
+      ],
+      "relation": {
+        "partner": "ruby",
+        "label": "街坊"
+      },
+      "quirk": "同一座机场能迷路三次，却总能带回一个好故事"
     },
     {
-      "id": "chloe", "locale": "fr-FR", "langLabel": "法语", "gender": "female", "energy": "lively",
-      "name": { "native": "Chloé", "latin": "Chloé" },
+      "id": "chloe",
+      "locale": "fr-FR",
+      "langLabel": "法语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "Chloé",
+        "latin": "Chloé",
+        "gloss": "法国常年前十女名，明快上口"
+      },
       "archetype": "踩滑板的急先锋：说走就走",
       "identity": "#CE5290",
-      "palette": { "hair": "#4A342A", "hairHighlight": "#6B4E3F", "skin": "#F6D8BE", "skinShade": "#E1B898", "outfitTop": "#D67BAB", "outfitBottom": "#3F3B45" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#4A342A",
+        "hairHighlight": "#6B4E3F",
+        "skin": "#F6D8BE",
+        "skinShade": "#E1B898",
+        "outfitTop": "#D67BAB",
+        "outfitBottom": "#3F3B45"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "bob",
-      "voice": { "voiceId": "fr-FR-DeniseNeural", "rate": "+7%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "skateboard", "accent": true }, { "code": "tote" } ]
+      "voice": {
+        "voiceId": "fr-FR-DeniseNeural",
+        "rate": "+7%",
+        "pitch": "+5Hz",
+        "timbre": "圆润活泼女声，元音饱满"
+      },
+      "accessories": [
+        {
+          "code": "skateboard",
+          "accent": true,
+          "physics": "bounce"
+        },
+        {
+          "code": "tote"
+        }
+      ],
+      "relation": {
+        "partner": "theo",
+        "label": "同楼邻居"
+      },
+      "quirk": "走路永远比滑板慢半拍，所以她几乎不走路"
     },
     {
-      "id": "theo", "locale": "fr-FR", "langLabel": "法语", "gender": "male", "energy": "steady",
-      "name": { "native": "Théo", "latin": "Théo" },
+      "id": "theo",
+      "locale": "fr-FR",
+      "langLabel": "法语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "Théo",
+        "latin": "Théo",
+        "gloss": "法国常年前列男名，短而温和"
+      },
       "archetype": "慢先生：先说等等，再把路讲清",
       "identity": "#CE5290",
-      "palette": { "hair": "#33261F", "hairHighlight": "#524036", "skin": "#EDC9A8", "skinShade": "#D6A883", "outfitTop": "#7A93B5", "outfitBottom": "#F5F3EE" },
-      "movement": { "face": "tall", "bounce": 15, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#33261F",
+        "hairHighlight": "#524036",
+        "skin": "#EDC9A8",
+        "skinShade": "#D6A883",
+        "outfitTop": "#7A93B5",
+        "outfitBottom": "#F5F3EE"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 15,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short",
-      "voice": { "voiceId": "fr-FR-HenriNeural", "rate": "-6%", "pitch": "-3Hz" },
-      "accessories": [ { "code": "pocketbook" }, { "code": "scarf", "accent": true } ]
+      "voice": {
+        "voiceId": "fr-FR-HenriNeural",
+        "rate": "-6%",
+        "pitch": "-3Hz",
+        "timbre": "沉稳男中音，胸腔共鸣，句读分明"
+      },
+      "accessories": [
+        {
+          "code": "pocketbook"
+        },
+        {
+          "code": "scarf",
+          "accent": true,
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "chloe",
+        "label": "同楼邻居"
+      },
+      "quirk": "口袋书翻到哪页都夹一枚枫叶书签；“等等”是他的开场白"
     },
     {
-      "id": "lena", "locale": "de-DE", "langLabel": "德语", "gender": "female", "energy": "steady",
-      "name": { "native": "Lena", "latin": "Lena" },
+      "id": "lena",
+      "locale": "de-DE",
+      "langLabel": "德语",
+      "gender": "female",
+      "energy": "steady",
+      "name": {
+        "native": "Lena",
+        "latin": "Lena",
+        "gloss": "德国常年榜首段女名，干净利落"
+      },
       "archetype": "人形日程表：路要掰着指头讲",
       "identity": "#D9A62E",
-      "palette": { "hair": "#9C7A52", "hairHighlight": "#BC9A6E", "skin": "#F6DFCB", "skinShade": "#E1BB9F", "outfitTop": "#F5F2EA", "outfitBottom": "#3F4149" },
-      "movement": { "face": "tall", "bounce": 15, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#9C7A52",
+        "hairHighlight": "#BC9A6E",
+        "skin": "#F6DFCB",
+        "skinShade": "#E1BB9F",
+        "outfitTop": "#F5F2EA",
+        "outfitBottom": "#3F4149"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 15,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "bun",
-      "voice": { "voiceId": "de-DE-KatjaNeural", "rate": "-5%", "pitch": "-2Hz" },
-      "accessories": [ { "code": "glasses_thin" }, { "code": "planner", "accent": true } ]
+      "voice": {
+        "voiceId": "de-DE-KatjaNeural",
+        "rate": "-5%",
+        "pitch": "-2Hz",
+        "timbre": "清晰标准女声，节奏均匀如节拍器"
+      },
+      "accessories": [
+        {
+          "code": "glasses_thin",
+          "physics": "reflect"
+        },
+        {
+          "code": "planner",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "felix",
+        "label": "大学同窗"
+      },
+      "quirk": "手账里连“发呆”都排了时间段，而且从不超时"
     },
     {
-      "id": "felix", "locale": "de-DE", "langLabel": "德语", "gender": "male", "energy": "lively",
-      "name": { "native": "Felix", "latin": "Felix" },
+      "id": "felix",
+      "locale": "de-DE",
+      "langLabel": "德语",
+      "gender": "male",
+      "energy": "lively",
+      "name": {
+        "native": "Felix",
+        "latin": "Felix",
+        "gloss": "拉丁语“幸运的”"
+      },
       "archetype": "幸运符本符：抬腿就走，看看会遇见什么",
       "identity": "#D9A62E",
-      "palette": { "hair": "#C09A5E", "hairHighlight": "#DCBB82", "skin": "#F7DEC6", "skinShade": "#E2BBA0", "outfitTop": "#EBC357", "outfitBottom": "#A98F68" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#C09A5E",
+        "hairHighlight": "#DCBB82",
+        "skin": "#F7DEC6",
+        "skinShade": "#E2BBA0",
+        "outfitTop": "#EBC357",
+        "outfitBottom": "#A98F68"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "curly_short",
-      "voice": { "voiceId": "de-DE-ConradNeural", "rate": "+8%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "hikingpack", "accent": true }, { "code": "bottle" } ]
+      "voice": {
+        "voiceId": "de-DE-ConradNeural",
+        "rate": "+8%",
+        "pitch": "+5Hz",
+        "timbre": "温厚男声，带笑意的亮度"
+      },
+      "accessories": [
+        {
+          "code": "hikingpack",
+          "accent": true,
+          "physics": "bounce"
+        },
+        {
+          "code": "bottle",
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "lena",
+        "label": "大学同窗"
+      },
+      "quirk": "登山包里永远多带一份三明治——他说那是“幸运的分量”"
     },
     {
-      "id": "lucia", "locale": "es-ES", "langLabel": "西班牙语", "gender": "female", "energy": "lively",
-      "name": { "native": "Lucía", "latin": "Lucía" },
+      "id": "lucia",
+      "locale": "es-ES",
+      "langLabel": "西班牙语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "Lucía",
+        "latin": "Lucía",
+        "gloss": "“光”，西班牙女名榜首段"
+      },
       "archetype": "市场里的百灵鸟：热情先到，词尾跟上",
       "identity": "#E0782C",
-      "palette": { "hair": "#3E2B26", "hairHighlight": "#60453C", "skin": "#EAC096", "skinShade": "#D09B6E", "outfitTop": "#F6F1E8", "outfitBottom": "#E0782C" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#3E2B26",
+        "hairHighlight": "#60453C",
+        "skin": "#EAC096",
+        "skinShade": "#D09B6E",
+        "outfitTop": "#F6F1E8",
+        "outfitBottom": "#E0782C"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "wavy_long",
-      "voice": { "voiceId": "es-ES-ElviraNeural", "rate": "+7%", "pitch": "+6Hz" },
-      "accessories": [ { "code": "earrings_hoop" }, { "code": "woven_bag" }, { "code": "awning_accent" } ]
+      "voice": {
+        "voiceId": "es-ES-ElviraNeural",
+        "rate": "+7%",
+        "pitch": "+6Hz",
+        "timbre": "明快女声，句首起势高"
+      },
+      "accessories": [
+        {
+          "code": "earrings_hoop",
+          "physics": "swing"
+        },
+        {
+          "code": "woven_bag"
+        }
+      ],
+      "relation": {
+        "partner": "mateo",
+        "label": "表姐弟"
+      },
+      "quirk": "能听声辨果贩——谁家的橙子最甜，她一进门就知道"
     },
     {
-      "id": "mateo", "locale": "es-ES", "langLabel": "西班牙语", "gender": "male", "energy": "steady",
-      "name": { "native": "Mateo", "latin": "Mateo" },
+      "id": "mateo",
+      "locale": "es-ES",
+      "langLabel": "西班牙语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "Mateo",
+        "latin": "Mateo",
+        "gloss": "西班牙男名榜首段"
+      },
       "archetype": "慢板绅士：不急不躁，路在胸中",
       "identity": "#E0782C",
-      "palette": { "hair": "#33291F", "hairHighlight": "#52443A", "skin": "#DFB18A", "skinShade": "#C48D61", "outfitTop": "#AECBE3", "outfitBottom": "#F1EDE3" },
-      "movement": { "face": "tall", "bounce": 16, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#33291F",
+        "hairHighlight": "#52443A",
+        "skin": "#DFB18A",
+        "skinShade": "#C48D61",
+        "outfitTop": "#AECBE3",
+        "outfitBottom": "#F1EDE3"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 16,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short_curly",
-      "voice": { "voiceId": "es-ES-AlvaroNeural", "rate": "-7%", "pitch": "-4Hz" },
-      "accessories": [ { "code": "watch", "accent": true }, { "code": "sunglasses_neck" } ]
+      "voice": {
+        "voiceId": "es-ES-AlvaroNeural",
+        "rate": "-7%",
+        "pitch": "-4Hz",
+        "timbre": "从容男中音，收句干净"
+      },
+      "accessories": [
+        {
+          "code": "watch",
+          "accent": true
+        },
+        {
+          "code": "sunglasses_neck",
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "lucia",
+        "label": "表姐弟"
+      },
+      "quirk": "手表永远拨快三分钟，好让“不着急”名副其实"
     },
     {
-      "id": "anya", "locale": "ru-RU", "langLabel": "俄语", "gender": "female", "energy": "steady",
-      "name": { "native": "Аня", "latin": "Anya" },
+      "id": "anya",
+      "locale": "ru-RU",
+      "langLabel": "俄语",
+      "gender": "female",
+      "energy": "steady",
+      "name": {
+        "native": "Аня",
+        "latin": "Anya",
+        "gloss": "Anna 的经典昵称，全俄通吃"
+      },
       "archetype": "院子里的小仙子：轻声细语，认识每个门洞",
       "identity": "#3E7FBF",
-      "palette": { "hair": "#D8B57A", "hairHighlight": "#EDD0A0", "skin": "#F8E2D2", "skinShade": "#E6C1AC", "outfitTop": "#3E7FBF", "outfitBottom": "#4A4753" },
-      "movement": { "face": "round", "bounce": 13, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#D8B57A",
+        "hairHighlight": "#EDD0A0",
+        "skin": "#F8E2D2",
+        "skinShade": "#E6C1AC",
+        "outfitTop": "#3E7FBF",
+        "outfitBottom": "#4A4753"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 13,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "braid",
-      "voice": { "voiceId": "ru-RU-SvetlanaNeural", "rate": "-6%", "pitch": "-3Hz" },
-      "accessories": [ { "code": "knit_hat" }, { "code": "scarf", "accent": true } ]
+      "voice": {
+        "voiceId": "ru-RU-SvetlanaNeural",
+        "rate": "-6%",
+        "pitch": "-3Hz",
+        "timbre": "轻柔女声，气息偏多"
+      },
+      "accessories": [
+        {
+          "code": "knit_hat",
+          "physics": "bounce"
+        },
+        {
+          "code": "scarf",
+          "accent": true,
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "misha",
+        "label": "同院邻居"
+      },
+      "quirk": "说话轻得像自言自语，但院子里所有的猫都听她的"
     },
     {
-      "id": "misha", "locale": "ru-RU", "langLabel": "俄语", "gender": "male", "energy": "lively",
-      "name": { "native": "Миша", "latin": "Misha" },
+      "id": "misha",
+      "locale": "ru-RU",
+      "langLabel": "俄语",
+      "gender": "male",
+      "energy": "lively",
+      "name": {
+        "native": "Миша",
+        "latin": "Misha",
+        "gloss": "Mikhail 的昵称，“小熊”般的国民名"
+      },
       "archetype": "热心大哥：拍着胸脯保证，笑声先到",
       "identity": "#3E7FBF",
-      "palette": { "hair": "#8A6A42", "hairHighlight": "#A98A5F", "skin": "#F5D9C9", "skinShade": "#DDB49C", "outfitTop": "#3E6B4F", "outfitBottom": "#EFE8DA" },
-      "movement": { "face": "round", "bounce": 10, "blinkCycleSec": 3.0, "breathAmp": 0.012 },
+      "palette": {
+        "hair": "#8A6A42",
+        "hairHighlight": "#A98A5F",
+        "skin": "#F5D9C9",
+        "skinShade": "#DDB49C",
+        "outfitTop": "#3E6B4F",
+        "outfitBottom": "#EFE8DA"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 10,
+        "blinkCycleSec": 3.0,
+        "breathAmp": 0.012
+      },
       "hairStyle": "short_messy",
-      "voice": { "voiceId": "ru-RU-DmitryNeural", "rate": "+6%", "pitch": "+3Hz" },
-      "accessories": [ { "code": "backpack" }, { "code": "beard" } ]
+      "voice": {
+        "voiceId": "ru-RU-DmitryNeural",
+        "rate": "+6%",
+        "pitch": "+3Hz",
+        "timbre": "厚实男声，胸腔共鸣"
+      },
+      "accessories": [
+        {
+          "code": "backpack",
+          "physics": "bounce"
+        },
+        {
+          "code": "beard"
+        }
+      ],
+      "relation": {
+        "partner": "anya",
+        "label": "同院邻居"
+      },
+      "quirk": "拍胸脯保证的事没有一件落空；笑声能惊起一公园的鸽子"
     },
     {
-      "id": "eleni", "locale": "el-GR", "langLabel": "希腊语", "gender": "female", "energy": "lively",
-      "name": { "native": "Ελένη", "latin": "Eleni" },
+      "id": "eleni",
+      "locale": "el-GR",
+      "langLabel": "希腊语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "Ελένη",
+        "latin": "Eleni",
+        "gloss": "“光炬”，希腊第一国民女名"
+      },
       "archetype": "双手比划的演说家：路线讲成一场戏",
       "identity": "#1FAE9E",
-      "palette": { "hair": "#3E2A22", "hairHighlight": "#5E4234", "skin": "#E8BE98", "skinShade": "#CE9C74", "outfitTop": "#F4F0E6", "outfitBottom": "#1FAE9E" },
-      "movement": { "face": "round", "bounce": 9, "blinkCycleSec": 2.8, "breathAmp": 0.014 },
+      "palette": {
+        "hair": "#3E2A22",
+        "hairHighlight": "#5E4234",
+        "skin": "#E8BE98",
+        "skinShade": "#CE9C74",
+        "outfitTop": "#F4F0E6",
+        "outfitBottom": "#1FAE9E"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 9,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.014
+      },
       "hairStyle": "curly_volume",
-      "voice": { "voiceId": "el-GR-AthinaNeural", "rate": "+7%", "pitch": "+4Hz" },
-      "accessories": [ { "code": "sunglasses_neck" }, { "code": "earrings_hoop" } ]
+      "voice": {
+        "voiceId": "el-GR-AthinaNeural",
+        "rate": "+7%",
+        "pitch": "+4Hz",
+        "timbre": "明亮女声，重音干脆"
+      },
+      "accessories": [
+        {
+          "code": "sunglasses_neck",
+          "physics": "swing"
+        },
+        {
+          "code": "earrings_hoop",
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "nikos",
+        "label": "表兄妹"
+      },
+      "quirk": "广场上每家咖啡馆的桌布，她都暗中评过级"
     },
     {
-      "id": "nikos", "locale": "el-GR", "langLabel": "希腊语", "gender": "male", "energy": "steady",
-      "name": { "native": "Νίκος", "latin": "Nikos" },
+      "id": "nikos",
+      "locale": "el-GR",
+      "langLabel": "希腊语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "Νίκος",
+        "latin": "Nikos",
+        "gloss": "“胜利”，Nikolaos 的通称"
+      },
       "archetype": "海边哲学家：捻着串珠想清楚，再挥手一指",
       "identity": "#1FAE9E",
-      "palette": { "hair": "#3A353F", "hairHighlight": "#7C7684", "skin": "#D9A479", "skinShade": "#BC835C", "outfitTop": "#EDE4D2", "outfitBottom": "#3A4E75" },
-      "movement": { "face": "tall", "bounce": 16, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#3A353F",
+        "hairHighlight": "#7C7684",
+        "skin": "#D9A479",
+        "skinShade": "#BC835C",
+        "outfitTop": "#EDE4D2",
+        "outfitBottom": "#3A4E75"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 16,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short_gray",
-      "voice": { "voiceId": "el-GR-NestorasNeural", "rate": "-8%", "pitch": "-4Hz" },
-      "accessories": [ { "code": "beads" } ]
+      "voice": {
+        "voiceId": "el-GR-NestorasNeural",
+        "rate": "-8%",
+        "pitch": "-4Hz",
+        "timbre": "低沉男声，句尾下落如叹息"
+      },
+      "accessories": [
+        {
+          "code": "beads",
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "eleni",
+        "label": "表兄妹"
+      },
+      "quirk": "串珠捻完一圈才开口——回答得慢，但从没错过一个路口"
     },
     {
-      "id": "layla", "locale": "ar-SA", "langLabel": "阿拉伯语", "gender": "female", "energy": "steady", "rtl": true,
-      "name": { "native": "ليلى", "latin": "Layla" },
+      "id": "layla",
+      "locale": "ar-SA",
+      "langLabel": "阿拉伯语",
+      "gender": "female",
+      "energy": "steady",
+      "rtl": true,
+      "name": {
+        "native": "ليلى",
+        "latin": "Layla",
+        "gloss": "“夜”，古典诗歌里的国民女名"
+      },
       "archetype": "安静的向导：掌心向上，路便指好",
       "identity": "#1E9E6E",
-      "palette": { "hair": "#26222B", "hairHighlight": "#453F4E", "skin": "#E2B18C", "skinShade": "#C28F68", "outfitTop": "#1E9E6E", "outfitBottom": "#EFE7D8" },
-      "movement": { "face": "tall", "bounce": 15, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#26222B",
+        "hairHighlight": "#453F4E",
+        "skin": "#E2B18C",
+        "skinShade": "#C28F68",
+        "outfitTop": "#1E9E6E",
+        "outfitBottom": "#EFE7D8"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 15,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "long_straight",
-      "voice": { "voiceId": "ar-SA-ZariyahNeural", "rate": "-6%", "pitch": "-3Hz" },
-      "accessories": [ { "code": "necklace" }, { "code": "bracelet" } ]
+      "voice": {
+        "voiceId": "ar-SA-ZariyahNeural",
+        "rate": "-6%",
+        "pitch": "-3Hz",
+        "timbre": "柔和女声，气声细腻"
+      },
+      "accessories": [
+        {
+          "code": "necklace",
+          "physics": "swing"
+        },
+        {
+          "code": "bracelet"
+        }
+      ],
+      "relation": {
+        "partner": "omar",
+        "label": "同事"
+      },
+      "quirk": "书摊上的旧书，她按“安静程度”分类摆放"
     },
     {
-      "id": "omar", "locale": "ar-SA", "langLabel": "阿拉伯语", "gender": "male", "energy": "lively", "rtl": true,
-      "name": { "native": "عمر", "latin": "Omar" },
+      "id": "omar",
+      "locale": "ar-SA",
+      "langLabel": "阿拉伯语",
+      "gender": "male",
+      "energy": "lively",
+      "rtl": true,
+      "name": {
+        "native": "عمر",
+        "latin": "Omar",
+        "gloss": "“旺盛的生命”，极高频男名"
+      },
       "archetype": "开心果同事：拇指一竖，笑先到话后到",
       "identity": "#1E9E6E",
-      "palette": { "hair": "#2B2530", "hairHighlight": "#4B4453", "skin": "#C89873", "skinShade": "#A97852", "outfitTop": "#F5F1E8", "outfitBottom": "#1E9E6E" },
-      "movement": { "face": "round", "bounce": 10, "blinkCycleSec": 3.0, "breathAmp": 0.012 },
+      "palette": {
+        "hair": "#2B2530",
+        "hairHighlight": "#4B4453",
+        "skin": "#C89873",
+        "skinShade": "#A97852",
+        "outfitTop": "#F5F1E8",
+        "outfitBottom": "#1E9E6E"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 10,
+        "blinkCycleSec": 3.0,
+        "breathAmp": 0.012
+      },
       "hairStyle": "short_curly",
-      "voice": { "voiceId": "ar-SA-HamedNeural", "rate": "+6%", "pitch": "+3Hz" },
-      "accessories": [ { "code": "sunglasses_head" }, { "code": "bracelet_leather" } ]
+      "voice": {
+        "voiceId": "ar-SA-HamedNeural",
+        "rate": "+6%",
+        "pitch": "+3Hz",
+        "timbre": "醇厚男声，带笑纹质感"
+      },
+      "accessories": [
+        {
+          "code": "sunglasses_head",
+          "physics": "reflect"
+        },
+        {
+          "code": "bracelet_leather"
+        }
+      ],
+      "relation": {
+        "partner": "layla",
+        "label": "同事"
+      },
+      "quirk": "咖啡永远点两杯——一杯自己喝，一杯讲笑话的时候举着"
     },
     {
-      "id": "priya", "locale": "hi-IN", "langLabel": "印地语", "gender": "female", "energy": "lively",
-      "name": { "native": "प्रिया", "latin": "Priya" },
+      "id": "priya",
+      "locale": "hi-IN",
+      "langLabel": "印地语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "प्रिया",
+        "latin": "Priya",
+        "gloss": "“被爱的”，印度经典女名"
+      },
       "archetype": "蹦跳的提问机器：好奇比害羞多一步",
       "identity": "#F0993E",
-      "palette": { "hair": "#2A2430", "hairHighlight": "#4A4152", "skin": "#C68F62", "skinShade": "#A9714A", "outfitTop": "#F0993E", "outfitBottom": "#F6F1E7" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#2A2430",
+        "hairHighlight": "#4A4152",
+        "skin": "#C68F62",
+        "skinShade": "#A9714A",
+        "outfitTop": "#F0993E",
+        "outfitBottom": "#F6F1E7"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "braid_long",
-      "voice": { "voiceId": "hi-IN-SwaraNeural", "rate": "+7%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "jhumki" }, { "code": "book_tote", "accent": true } ]
+      "voice": {
+        "voiceId": "hi-IN-SwaraNeural",
+        "rate": "+7%",
+        "pitch": "+5Hz",
+        "timbre": "甜美女声，节奏弹跳"
+      },
+      "accessories": [
+        {
+          "code": "jhumki",
+          "physics": "swing"
+        },
+        {
+          "code": "book_tote",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "arjun",
+        "label": "大学好友"
+      },
+      "quirk": "笔记本第一页永远是问题清单，答案写在最后一页"
     },
     {
-      "id": "arjun", "locale": "hi-IN", "langLabel": "印地语", "gender": "male", "energy": "steady",
-      "name": { "native": "अर्जुन", "latin": "Arjun" },
+      "id": "arjun",
+      "locale": "hi-IN",
+      "langLabel": "印地语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "अर्जुन",
+        "latin": "Arjun",
+        "gloss": "史诗神射手，常青男名"
+      },
       "archetype": "笔记狂人：地图折得方方正正，答案按条给",
       "identity": "#F0993E",
-      "palette": { "hair": "#262230", "hairHighlight": "#443D4D", "skin": "#B07E52", "skinShade": "#936238", "outfitTop": "#A9C4DE", "outfitBottom": "#3A4258" },
-      "movement": { "face": "tall", "bounce": 14, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#262230",
+        "hairHighlight": "#443D4D",
+        "skin": "#B07E52",
+        "skinShade": "#936238",
+        "outfitTop": "#A9C4DE",
+        "outfitBottom": "#3A4258"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 14,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short_wavy",
-      "voice": { "voiceId": "hi-IN-MadhurNeural", "rate": "-5%", "pitch": "-2Hz" },
-      "accessories": [ { "code": "backpack", "accent": true }, { "code": "pen" } ]
+      "voice": {
+        "voiceId": "hi-IN-MadhurNeural",
+        "rate": "-5%",
+        "pitch": "-2Hz",
+        "timbre": "稳重男声，吐字工整"
+      },
+      "accessories": [
+        {
+          "code": "backpack",
+          "accent": true,
+          "physics": "bounce"
+        },
+        {
+          "code": "pen"
+        }
+      ],
+      "relation": {
+        "partner": "priya",
+        "label": "大学好友"
+      },
+      "quirk": "地图必须沿着原来的折痕折——折错了就重折一遍再出发"
     },
     {
-      "id": "haruka", "locale": "ja-JP", "langLabel": "日语", "gender": "female", "energy": "lively",
-      "name": { "native": "ハルカ", "latin": "Haruka" },
+      "id": "haruka",
+      "locale": "ja-JP",
+      "langLabel": "日语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "ハルカ",
+        "latin": "Haruka",
+        "gloss": "“辽远”，高频女名"
+      },
       "archetype": "元气应援团：双手挥起来才算打招呼",
       "identity": "#EE8FA9",
-      "palette": { "hair": "#6B4A36", "hairHighlight": "#8F6A50", "skin": "#F6DCC6", "skinShade": "#E1BBA1", "outfitTop": "#F7F4EE", "outfitBottom": "#4B5E8C" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#6B4A36",
+        "hairHighlight": "#8F6A50",
+        "skin": "#F6DCC6",
+        "skinShade": "#E1BBA1",
+        "outfitTop": "#F7F4EE",
+        "outfitBottom": "#4B5E8C"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "bob_bangs",
-      "voice": { "voiceId": "ja-JP-NanamiNeural", "rate": "+8%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "hairpin", "accent": true }, { "code": "minibag" }, { "code": "cardigan_accent" } ]
+      "voice": {
+        "voiceId": "ja-JP-NanamiNeural",
+        "rate": "+8%",
+        "pitch": "+5Hz",
+        "timbre": "清亮少女声，音高高"
+      },
+      "accessories": [
+        {
+          "code": "hairpin",
+          "accent": true
+        },
+        {
+          "code": "minibag",
+          "physics": "bounce"
+        },
+        {
+          "code": "cardigan_accent"
+        }
+      ],
+      "relation": {
+        "partner": "riku",
+        "label": "同级生"
+      },
+      "quirk": "到新地方必拍三张照片：入口、招牌，还有一起去的伙伴"
     },
     {
-      "id": "riku", "locale": "ja-JP", "langLabel": "日语", "gender": "male", "energy": "steady",
-      "name": { "native": "リク", "latin": "Riku" },
+      "id": "riku",
+      "locale": "ja-JP",
+      "langLabel": "日语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "リク",
+        "latin": "Riku",
+        "gloss": "“大地”，近年榜首段男名"
+      },
       "archetype": "面瘫导航：表情零起伏，指路零误差",
       "identity": "#EE8FA9",
-      "palette": { "hair": "#2A2A33", "hairHighlight": "#474755", "skin": "#F4DBC8", "skinShade": "#DEBBA4", "outfitTop": "#4E4E58", "outfitBottom": "#F5F3EE" },
-      "movement": { "face": "tall", "bounce": 17, "blinkCycleSec": 3.8, "breathAmp": 0.008 },
-      "hairStyle": "short_ahoge",
-      "voice": { "voiceId": "ja-JP-KeitaNeural", "rate": "-7%", "pitch": "-5Hz" },
-      "accessories": [ { "code": "headphones_one_ear" }, { "code": "shoe_accent", "accent": true } ]
+      "palette": {
+        "hair": "#2A2A33",
+        "hairHighlight": "#474755",
+        "skin": "#F4DBC8",
+        "skinShade": "#DEBBA4",
+        "outfitTop": "#4E4E58",
+        "outfitBottom": "#F5F3EE"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 17,
+        "blinkCycleSec": 3.8,
+        "breathAmp": 0.008
+      },
+      "hairStyle": "crop_ahoge",
+      "voice": {
+        "voiceId": "ja-JP-KeitaNeural",
+        "rate": "-7%",
+        "pitch": "-5Hz",
+        "timbre": "平直少年声，几乎无起伏"
+      },
+      "accessories": [
+        {
+          "code": "headphones_one_ear",
+          "physics": "bounce"
+        },
+        {
+          "code": "shoe_accent",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "haruka",
+        "label": "同级生"
+      },
+      "quirk": "整条街都装在脑子里，但问他“今天开心吗”要等三秒"
     },
     {
-      "id": "seoyeon", "locale": "ko-KR", "langLabel": "韩语", "gender": "female", "energy": "steady",
-      "name": { "native": "서연", "latin": "Seoyeon" },
+      "id": "seoyeon",
+      "locale": "ko-KR",
+      "langLabel": "韩语",
+      "gender": "female",
+      "energy": "steady",
+      "name": {
+        "native": "서연",
+        "latin": "Seoyeon",
+        "gloss": "2010 年代韩国女名榜首段"
+      },
       "archetype": "手账少女：合上本子的一刻就是答案",
       "identity": "#8B5CD6",
-      "palette": { "hair": "#3A2E2A", "hairHighlight": "#5A4A42", "skin": "#F9E1D2", "skinShade": "#E6C1AD", "outfitTop": "#F6F3EC", "outfitBottom": "#565A6E" },
-      "movement": { "face": "tall", "bounce": 13, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#3A2E2A",
+        "hairHighlight": "#5A4A42",
+        "skin": "#F9E1D2",
+        "skinShade": "#E6C1AD",
+        "outfitTop": "#F6F3EC",
+        "outfitBottom": "#565A6E"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 13,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "ponytail_low",
-      "voice": { "voiceId": "ko-KR-SunHiNeural", "rate": "-4%", "pitch": "-2Hz" },
-      "accessories": [ { "code": "glasses_square" }, { "code": "planner", "accent": true } ]
+      "voice": {
+        "voiceId": "ko-KR-SunHiNeural",
+        "rate": "-4%",
+        "pitch": "-2Hz",
+        "timbre": "清晰女声，收音利落"
+      },
+      "accessories": [
+        {
+          "code": "glasses_square",
+          "physics": "reflect"
+        },
+        {
+          "code": "planner",
+          "accent": true
+        }
+      ],
+      "relation": {
+        "partner": "doyun",
+        "label": "幼稚园起的伙伴"
+      },
+      "quirk": "手账合上的那声“啪”，就是“没问题”的意思"
     },
     {
-      "id": "doyun", "locale": "ko-KR", "langLabel": "韩语", "gender": "male", "energy": "lively",
-      "name": { "native": "도윤", "latin": "Doyun" },
+      "id": "doyun",
+      "locale": "ko-KR",
+      "langLabel": "韩语",
+      "gender": "male",
+      "energy": "lively",
+      "name": {
+        "native": "도윤",
+        "latin": "Doyun",
+        "gloss": "同期男名榜首段"
+      },
       "archetype": "反戴帽子的鬼灵精：正经不超过三秒",
       "identity": "#8B5CD6",
-      "palette": { "hair": "#2C2832", "hairHighlight": "#4D4757", "skin": "#F5DCC8", "skinShade": "#DFB9A0", "outfitTop": "#F2D06B", "outfitBottom": "#4A5E8C" },
-      "movement": { "face": "round", "bounce": 9, "blinkCycleSec": 2.8, "breathAmp": 0.014 },
+      "palette": {
+        "hair": "#2C2832",
+        "hairHighlight": "#4D4757",
+        "skin": "#F5DCC8",
+        "skinShade": "#DFB9A0",
+        "outfitTop": "#F2D06B",
+        "outfitBottom": "#4A5E8C"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 9,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.014
+      },
       "hairStyle": "short",
-      "voice": { "voiceId": "ko-KR-InJoonNeural", "rate": "+7%", "pitch": "+4Hz" },
-      "accessories": [ { "code": "cap_backward", "accent": true }, { "code": "basketball" } ]
+      "voice": {
+        "voiceId": "ko-KR-InJoonNeural",
+        "rate": "+7%",
+        "pitch": "+4Hz",
+        "timbre": "活泼男声，句尾上挑"
+      },
+      "accessories": [
+        {
+          "code": "cap_backward",
+          "accent": true,
+          "physics": "bounce"
+        },
+        {
+          "code": "basketball",
+          "physics": "bounce"
+        }
+      ],
+      "skin": {
+        "note": "皮肤层叠加（plan §3 原则五）：做旧与补丁不改基型配色",
+        "worn": [
+          "bottom"
+        ],
+        "patches": [
+          {
+            "on": "bottom",
+            "where": "knee_L",
+            "color": "#3E5278"
+          },
+          {
+            "on": "bottom",
+            "where": "knee_R",
+            "color": "#3E5278"
+          }
+        ]
+      },
+      "relation": {
+        "partner": "seoyeon",
+        "label": "幼稚园起的伙伴"
+      },
+      "quirk": "帽子反戴时点子最多，戴正了反而卡壳"
     },
     {
-      "id": "giulia", "locale": "it-IT", "langLabel": "意大利语", "gender": "female", "energy": "lively",
-      "name": { "native": "Giulia", "latin": "Giulia" },
+      "id": "giulia",
+      "locale": "it-IT",
+      "langLabel": "意大利语",
+      "gender": "female",
+      "energy": "lively",
+      "name": {
+        "native": "Giulia",
+        "latin": "Giulia",
+        "gloss": "意大利女名榜首段"
+      },
       "archetype": "飞吻告别的行动派：ciao 先行",
       "identity": "#4FA3E3",
-      "palette": { "hair": "#3B2A22", "hairHighlight": "#5C4536", "skin": "#E9C199", "skinShade": "#D0A070", "outfitTop": "#6CB2EA", "outfitBottom": "#F5F1E8" },
-      "movement": { "face": "round", "bounce": 8, "blinkCycleSec": 2.8, "breathAmp": 0.015 },
+      "palette": {
+        "hair": "#3B2A22",
+        "hairHighlight": "#5C4536",
+        "skin": "#E9C199",
+        "skinShade": "#D0A070",
+        "outfitTop": "#6CB2EA",
+        "outfitBottom": "#F5F1E8"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 8,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.015
+      },
       "hairStyle": "curly_ponytail",
-      "voice": { "voiceId": "it-IT-ElsaNeural", "rate": "+7%", "pitch": "+5Hz" },
-      "accessories": [ { "code": "headband_red" }, { "code": "pouch" } ]
+      "voice": {
+        "voiceId": "it-IT-ElsaNeural",
+        "rate": "+7%",
+        "pitch": "+5Hz",
+        "timbre": "明媚女声，元音开放"
+      },
+      "accessories": [
+        {
+          "code": "headband_red",
+          "physics": "bounce"
+        },
+        {
+          "code": "pouch"
+        }
+      ],
+      "relation": {
+        "partner": "luca",
+        "label": "合租室友"
+      },
+      "quirk": "告别要说两次 ciao——一次给离开的人，一次给落日"
     },
     {
-      "id": "luca", "locale": "it-IT", "langLabel": "意大利语", "gender": "male", "energy": "steady",
-      "name": { "native": "Luca", "latin": "Luca" },
+      "id": "luca",
+      "locale": "it-IT",
+      "langLabel": "意大利语",
+      "gender": "male",
+      "energy": "steady",
+      "name": {
+        "native": "Luca",
+        "latin": "Luca",
+        "gloss": "意大利国民男名"
+      },
       "archetype": "插兜慢步的老好人：肩一耸，路就在那儿",
       "identity": "#4FA3E3",
-      "palette": { "hair": "#40302A", "hairHighlight": "#5F4B41", "skin": "#E3B58C", "skinShade": "#C89465", "outfitTop": "#7FB3E8", "outfitBottom": "#B5A17E" },
-      "movement": { "face": "tall", "bounce": 14, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#40302A",
+        "hairHighlight": "#5F4B41",
+        "skin": "#E3B58C",
+        "skinShade": "#C89465",
+        "outfitTop": "#7FB3E8",
+        "outfitBottom": "#B5A17E"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 14,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "short_stubble",
-      "voice": { "voiceId": "it-IT-DiegoNeural", "rate": "-7%", "pitch": "-4Hz" },
-      "accessories": [ { "code": "sunglasses_neck" }, { "code": "tote" } ]
+      "voice": {
+        "voiceId": "it-IT-DiegoNeural",
+        "rate": "-7%",
+        "pitch": "-4Hz",
+        "timbre": "松弛男声，喉音柔和"
+      },
+      "accessories": [
+        {
+          "code": "sunglasses_neck",
+          "physics": "swing"
+        },
+        {
+          "code": "tote"
+        }
+      ],
+      "relation": {
+        "partner": "giulia",
+        "label": "合租室友"
+      },
+      "quirk": "广场的鸽群会跟着他散步，一只也不飞走"
     },
     {
-      "id": "noa", "locale": "he-IL", "langLabel": "希伯来语", "gender": "female", "energy": "lively", "rtl": true,
-      "name": { "native": "נועה", "latin": "Noa" },
+      "id": "noa",
+      "locale": "he-IL",
+      "langLabel": "希伯来语",
+      "gender": "female",
+      "energy": "lively",
+      "rtl": true,
+      "name": {
+        "native": "נועה",
+        "latin": "Noa",
+        "gloss": "“律动”，以色列女名榜首段"
+      },
       "archetype": "挎相机的观察者：探身凑近才肯罢休",
       "identity": "#C2385A",
-      "palette": { "hair": "#3A2C26", "hairHighlight": "#5A473D", "skin": "#F4D5BE", "skinShade": "#DEB196", "outfitTop": "#C75573", "outfitBottom": "#A8926C" },
-      "movement": { "face": "round", "bounce": 9, "blinkCycleSec": 2.8, "breathAmp": 0.014 },
+      "palette": {
+        "hair": "#3A2C26",
+        "hairHighlight": "#5A473D",
+        "skin": "#F4D5BE",
+        "skinShade": "#DEB196",
+        "outfitTop": "#C75573",
+        "outfitBottom": "#A8926C"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 9,
+        "blinkCycleSec": 2.8,
+        "breathAmp": 0.014
+      },
       "hairStyle": "ponytail_high",
-      "voice": { "voiceId": "he-IL-HilaNeural", "rate": "+6%", "pitch": "+4Hz" },
-      "accessories": [ { "code": "camera_neck" }, { "code": "sun_hat", "accent": true } ]
+      "voice": {
+        "voiceId": "he-IL-HilaNeural",
+        "rate": "+6%",
+        "pitch": "+4Hz",
+        "timbre": "清脆女声，问句上扬"
+      },
+      "accessories": [
+        {
+          "code": "camera_neck",
+          "physics": "swing"
+        },
+        {
+          "code": "sun_hat",
+          "accent": true,
+          "physics": "bounce"
+        }
+      ],
+      "relation": {
+        "partner": "yuval",
+        "label": "邻居"
+      },
+      "quirk": "相册按“第一次看见”分类——同一个路口，她永远拍不腻"
     },
     {
-      "id": "yuval", "locale": "he-IL", "langLabel": "希伯来语", "gender": "male", "energy": "steady", "rtl": true,
-      "name": { "native": "יובל", "latin": "Yuval" },
+      "id": "yuval",
+      "locale": "he-IL",
+      "langLabel": "希伯来语",
+      "gender": "male",
+      "energy": "steady",
+      "rtl": true,
+      "name": {
+        "native": "יובל",
+        "latin": "Yuval",
+        "gloss": "“溪流/号角”，常青男名"
+      },
       "archetype": "慢悠悠的老哥：招手说跟我来，步子不快但稳",
       "identity": "#C2385A",
-      "palette": { "hair": "#2E2723", "hairHighlight": "#4C423B", "skin": "#E8BC94", "skinShade": "#CD9670", "outfitTop": "#8FA08C", "outfitBottom": "#F5F3EE" },
-      "movement": { "face": "tall", "bounce": 15, "blinkCycleSec": 3.6, "breathAmp": 0.008 },
+      "palette": {
+        "hair": "#2E2723",
+        "hairHighlight": "#4C423B",
+        "skin": "#E8BC94",
+        "skinShade": "#CD9670",
+        "outfitTop": "#8FA08C",
+        "outfitBottom": "#F5F3EE"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 15,
+        "blinkCycleSec": 3.6,
+        "breathAmp": 0.008
+      },
       "hairStyle": "undercut_curly",
-      "voice": { "voiceId": "he-IL-AvriNeural", "rate": "-6%", "pitch": "-3Hz" },
-      "accessories": [ { "code": "bracelet_woven" }, { "code": "bottle_big" } ]
+      "voice": {
+        "voiceId": "he-IL-AvriNeural",
+        "rate": "-6%",
+        "pitch": "-3Hz",
+        "timbre": "温和男声，慢板"
+      },
+      "accessories": [
+        {
+          "code": "bracelet_woven"
+        },
+        {
+          "code": "bottle_big",
+          "physics": "swing"
+        }
+      ],
+      "relation": {
+        "partner": "noa",
+        "label": "邻居"
+      },
+      "quirk": "大水壶永远装满——他说，愿意分享水的地方就会有人问路"
     },
     {
-      "id": "aaching", "locale": "zh-HK", "langLabel": "粤语", "gender": "female", "energy": "steady",
-      "name": { "native": "阿晴", "latin": "aa3 cing4" },
+      "id": "aaching",
+      "locale": "zh-HK",
+      "langLabel": "粤语",
+      "gender": "female",
+      "energy": "steady",
+      "name": {
+        "native": "阿晴",
+        "latin": "aa3 cing4",
+        "gloss": "阿＋单字街坊称谓，晴＝明快"
+      },
       "archetype": "街坊百事通：淡定利落，边条巷有几级台阶都知",
       "identity": "#B45EB8",
-      "palette": { "hair": "#2B2632", "hairHighlight": "#494253", "skin": "#F3CBAA", "skinShade": "#DDA582", "outfitTop": "#F7F4EE", "outfitBottom": "#B45EB8" },
-      "movement": { "face": "round", "bounce": 13, "blinkCycleSec": 3.4, "breathAmp": 0.009 },
+      "palette": {
+        "hair": "#2B2632",
+        "hairHighlight": "#494253",
+        "skin": "#F3CBAA",
+        "skinShade": "#DDA582",
+        "outfitTop": "#F7F4EE",
+        "outfitBottom": "#B45EB8"
+      },
+      "movement": {
+        "face": "round",
+        "bounce": 13,
+        "blinkCycleSec": 3.4,
+        "breathAmp": 0.009
+      },
       "hairStyle": "long_bangs",
-      "voice": { "voiceId": "zh-HK-HiuMaanNeural", "rate": "-5%", "pitch": "-2Hz" },
-      "accessories": [ { "code": "hairpin_clear" }, { "code": "earrings_pearl" } ]
+      "voice": {
+        "voiceId": "zh-HK-HiuMaanNeural",
+        "rate": "-5%",
+        "pitch": "-2Hz",
+        "timbre": "明快女声，九声利落"
+      },
+      "accessories": [
+        {
+          "code": "hairpin_clear",
+          "physics": "reflect"
+        },
+        {
+          "code": "earrings_pearl"
+        }
+      ],
+      "relation": {
+        "partner": "ahao",
+        "label": "街坊"
+      },
+      "quirk": "菜单簿的空白页上画着迷你地图——边条巷有几级台阶都标了"
     },
     {
-      "id": "ahao", "locale": "zh-HK", "langLabel": "粤语", "gender": "male", "energy": "lively",
-      "name": { "native": "阿豪", "latin": "aa3 hou4" },
+      "id": "ahao",
+      "locale": "zh-HK",
+      "langLabel": "粤语",
+      "gender": "male",
+      "energy": "lively",
+      "name": {
+        "native": "阿豪",
+        "latin": "aa3 hou4",
+        "gloss": "同款命名法，港式常名（家豪/豪仔）"
+      },
       "archetype": "心直口快的好心人：挠着头憨笑，路没指错",
       "identity": "#B45EB8",
-      "palette": { "hair": "#2C2833", "hairHighlight": "#4B4553", "skin": "#EDBD98", "skinShade": "#D49C74", "outfitTop": "#F0EBDF", "outfitBottom": "#6B7285" },
-      "movement": { "face": "tall", "bounce": 11, "blinkCycleSec": 3.0, "breathAmp": 0.012 },
+      "palette": {
+        "hair": "#2C2833",
+        "hairHighlight": "#4B4553",
+        "skin": "#EDBD98",
+        "skinShade": "#D49C74",
+        "outfitTop": "#F0EBDF",
+        "outfitBottom": "#6B7285"
+      },
+      "movement": {
+        "face": "tall",
+        "bounce": 11,
+        "blinkCycleSec": 3.0,
+        "breathAmp": 0.012
+      },
       "hairStyle": "crop",
-      "voice": { "voiceId": "zh-HK-WanLungNeural", "rate": "+7%", "pitch": "+4Hz" },
-      "accessories": [ { "code": "glasses_plastic" }, { "code": "canvas_backpack", "accent": true } ]
+      "voice": {
+        "voiceId": "zh-HK-WanLungNeural",
+        "rate": "+7%",
+        "pitch": "+4Hz",
+        "timbre": "厚朴男声，尾音带笑"
+      },
+      "accessories": [
+        {
+          "code": "glasses_plastic",
+          "physics": "reflect"
+        },
+        {
+          "code": "canvas_backpack",
+          "accent": true,
+          "physics": "bounce"
+        }
+      ],
+      "relation": {
+        "partner": "aaching",
+        "label": "街坊"
+      },
+      "quirk": "给人指路会顺便带到巷口——蒸笼的白雾就是他的路标"
     }
   ]
 }

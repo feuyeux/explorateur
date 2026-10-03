@@ -1,0 +1,6808 @@
+{
+ "id": "colors",
+ "sceneId": "colors-association",
+ "title": "说到颜色，你会想到什么",
+ "source": "scene-colors.md",
+ "rtlLocales": [
+  "ar-SA",
+  "he-IL"
+ ],
+ "tokenOrder": [
+  "red",
+  "blue",
+  "green",
+  "yellow",
+  "black",
+  "white"
+ ],
+ "tokens": {
+  "red": "#D8453B",
+  "blue": "#4657D8",
+  "green": "#1E9E6E",
+  "yellow": "#D9A62E",
+  "black": "#26262E",
+  "white": "#F5F3EE"
+ },
+ "tokenWords": {
+  "zh-CN": [
+   {
+    "key": "red",
+    "word": "红",
+    "forms": [
+     "红"
+    ],
+    "romanization": "hóng"
+   },
+   {
+    "key": "blue",
+    "word": "蓝",
+    "forms": [
+     "蓝"
+    ],
+    "romanization": "lán"
+   },
+   {
+    "key": "green",
+    "word": "绿",
+    "forms": [
+     "绿"
+    ],
+    "romanization": "lǜ"
+   },
+   {
+    "key": "yellow",
+    "word": "黄",
+    "forms": [
+     "黄"
+    ],
+    "romanization": "huáng"
+   },
+   {
+    "key": "black",
+    "word": "黑",
+    "forms": [
+     "黑"
+    ],
+    "romanization": "hēi"
+   },
+   {
+    "key": "white",
+    "word": "白",
+    "forms": [
+     "白"
+    ],
+    "romanization": "bái"
+   }
+  ],
+  "en-US": [
+   {
+    "key": "red",
+    "word": "red",
+    "forms": [
+     "red"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "blue",
+    "word": "blue",
+    "forms": [
+     "blue"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "green",
+    "word": "green",
+    "forms": [
+     "green"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "yellow",
+    "word": "yellow",
+    "forms": [
+     "yellow"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "black",
+    "word": "black",
+    "forms": [
+     "black"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "white",
+    "word": "white",
+    "forms": [
+     "white"
+    ],
+    "romanization": ""
+   }
+  ],
+  "fr-FR": [
+   {
+    "key": "red",
+    "word": "rouge",
+    "forms": [
+     "rouge"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "blue",
+    "word": "bleu",
+    "forms": [
+     "bleu"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "green",
+    "word": "vert",
+    "forms": [
+     "vert"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "yellow",
+    "word": "jaune",
+    "forms": [
+     "jaune"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "black",
+    "word": "noir",
+    "forms": [
+     "noir"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "white",
+    "word": "blanc",
+    "forms": [
+     "blanc"
+    ],
+    "romanization": ""
+   }
+  ],
+  "de-DE": [
+   {
+    "key": "red",
+    "word": "Rot",
+    "forms": [
+     "Rot"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "blue",
+    "word": "Blau",
+    "forms": [
+     "Blau"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "green",
+    "word": "Grün",
+    "forms": [
+     "Grün"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "yellow",
+    "word": "Gelb",
+    "forms": [
+     "Gelb"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "black",
+    "word": "Schwarz",
+    "forms": [
+     "Schwarz"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "white",
+    "word": "Weiß",
+    "forms": [
+     "Weiß"
+    ],
+    "romanization": ""
+   }
+  ],
+  "es-ES": [
+   {
+    "key": "red",
+    "word": "rojo",
+    "forms": [
+     "rojo"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "blue",
+    "word": "azul",
+    "forms": [
+     "azul"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "green",
+    "word": "verde",
+    "forms": [
+     "verde"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "yellow",
+    "word": "amarillo",
+    "forms": [
+     "amarillo"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "black",
+    "word": "negro",
+    "forms": [
+     "negro"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "white",
+    "word": "blanco",
+    "forms": [
+     "blanco"
+    ],
+    "romanization": ""
+   }
+  ],
+  "ru-RU": [
+   {
+    "key": "red",
+    "word": "красный",
+    "forms": [
+     "красный"
+    ],
+    "romanization": "krasnyj"
+   },
+   {
+    "key": "blue",
+    "word": "синий",
+    "forms": [
+     "синий"
+    ],
+    "romanization": "sinij"
+   },
+   {
+    "key": "green",
+    "word": "зелёный",
+    "forms": [
+     "зелёный"
+    ],
+    "romanization": "zelyonyj"
+   },
+   {
+    "key": "yellow",
+    "word": "жёлтый",
+    "forms": [
+     "жёлтый"
+    ],
+    "romanization": "zhyoltyj"
+   },
+   {
+    "key": "black",
+    "word": "чёрный",
+    "forms": [
+     "чёрный"
+    ],
+    "romanization": "chyornyj"
+   },
+   {
+    "key": "white",
+    "word": "белый",
+    "forms": [
+     "белый"
+    ],
+    "romanization": "belyj"
+   }
+  ],
+  "el-GR": [
+   {
+    "key": "red",
+    "word": "κόκκινο",
+    "forms": [
+     "κόκκινο"
+    ],
+    "romanization": "kókkino"
+   },
+   {
+    "key": "blue",
+    "word": "μπλε",
+    "forms": [
+     "μπλε"
+    ],
+    "romanization": "ble"
+   },
+   {
+    "key": "green",
+    "word": "πράσινο",
+    "forms": [
+     "πράσινο"
+    ],
+    "romanization": "prássino"
+   },
+   {
+    "key": "yellow",
+    "word": "κίτρινο",
+    "forms": [
+     "κίτρινο"
+    ],
+    "romanization": "kítrino"
+   },
+   {
+    "key": "black",
+    "word": "μαύρο",
+    "forms": [
+     "μαύρο"
+    ],
+    "romanization": "mávro"
+   },
+   {
+    "key": "white",
+    "word": "άσπρο",
+    "forms": [
+     "άσπρο"
+    ],
+    "romanization": "áspro"
+   }
+  ],
+  "ar-SA": [
+   {
+    "key": "red",
+    "word": "أحمر",
+    "forms": [
+     "أحمر"
+    ],
+    "romanization": "aḥ-mar"
+   },
+   {
+    "key": "blue",
+    "word": "أزرق",
+    "forms": [
+     "أزرق"
+    ],
+    "romanization": "az-raq"
+   },
+   {
+    "key": "green",
+    "word": "أخضر",
+    "forms": [
+     "أخضر"
+    ],
+    "romanization": "akh-ḍar"
+   },
+   {
+    "key": "yellow",
+    "word": "أصفر",
+    "forms": [
+     "أصفر"
+    ],
+    "romanization": "aṣ-far"
+   },
+   {
+    "key": "black",
+    "word": "أسود",
+    "forms": [
+     "أسود"
+    ],
+    "romanization": "as-wad"
+   },
+   {
+    "key": "white",
+    "word": "أبيض",
+    "forms": [
+     "أبيض"
+    ],
+    "romanization": "ab-yaḍ"
+   }
+  ],
+  "hi-IN": [
+   {
+    "key": "red",
+    "word": "लाल",
+    "forms": [
+     "लाल"
+    ],
+    "romanization": "lāl"
+   },
+   {
+    "key": "blue",
+    "word": "नीला",
+    "forms": [
+     "नीला"
+    ],
+    "romanization": "nī-lā"
+   },
+   {
+    "key": "green",
+    "word": "हरा",
+    "forms": [
+     "हरा"
+    ],
+    "romanization": "ha-rā"
+   },
+   {
+    "key": "yellow",
+    "word": "पीला",
+    "forms": [
+     "पीला"
+    ],
+    "romanization": "pī-lā"
+   },
+   {
+    "key": "black",
+    "word": "काला",
+    "forms": [
+     "काला"
+    ],
+    "romanization": "kā-lā"
+   },
+   {
+    "key": "white",
+    "word": "सफ़ेद",
+    "forms": [
+     "सफ़ेद"
+    ],
+    "romanization": "sa-fed"
+   }
+  ],
+  "ja-JP": [
+   {
+    "key": "red",
+    "word": "あか",
+    "forms": [
+     "あか",
+     "赤"
+    ],
+    "romanization": "a-ka"
+   },
+   {
+    "key": "blue",
+    "word": "あお",
+    "forms": [
+     "あお",
+     "青"
+    ],
+    "romanization": "a-o"
+   },
+   {
+    "key": "green",
+    "word": "みどり",
+    "forms": [
+     "みどり",
+     "緑"
+    ],
+    "romanization": "mi-do-ri"
+   },
+   {
+    "key": "yellow",
+    "word": "きいろ",
+    "forms": [
+     "きいろ",
+     "黄色"
+    ],
+    "romanization": "ki-i-ro"
+   },
+   {
+    "key": "black",
+    "word": "くろ",
+    "forms": [
+     "くろ",
+     "黒"
+    ],
+    "romanization": "ku-ro"
+   },
+   {
+    "key": "white",
+    "word": "しろ",
+    "forms": [
+     "しろ",
+     "白"
+    ],
+    "romanization": "shi-ro"
+   }
+  ],
+  "ko-KR": [
+   {
+    "key": "red",
+    "word": "빨간색",
+    "forms": [
+     "빨간색"
+    ],
+    "romanization": "ppal-gan-saek"
+   },
+   {
+    "key": "blue",
+    "word": "파란색",
+    "forms": [
+     "파란색"
+    ],
+    "romanization": "pa-ran-saek"
+   },
+   {
+    "key": "green",
+    "word": "초록색",
+    "forms": [
+     "초록색"
+    ],
+    "romanization": "cho-rok-saek"
+   },
+   {
+    "key": "yellow",
+    "word": "노란색",
+    "forms": [
+     "노란색"
+    ],
+    "romanization": "no-ran-saek"
+   },
+   {
+    "key": "black",
+    "word": "검은색",
+    "forms": [
+     "검은색"
+    ],
+    "romanization": "geo-meun-saek"
+   },
+   {
+    "key": "white",
+    "word": "흰색",
+    "forms": [
+     "흰색"
+    ],
+    "romanization": "huin-saek"
+   }
+  ],
+  "it-IT": [
+   {
+    "key": "red",
+    "word": "rosso",
+    "forms": [
+     "rosso"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "blue",
+    "word": "blu",
+    "forms": [
+     "blu"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "green",
+    "word": "verde",
+    "forms": [
+     "verde"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "yellow",
+    "word": "giallo",
+    "forms": [
+     "giallo"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "black",
+    "word": "nero",
+    "forms": [
+     "nero"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "white",
+    "word": "bianco",
+    "forms": [
+     "bianco"
+    ],
+    "romanization": ""
+   }
+  ],
+  "he-IL": [
+   {
+    "key": "red",
+    "word": "אדום",
+    "forms": [
+     "אדום"
+    ],
+    "romanization": "a-dom"
+   },
+   {
+    "key": "blue",
+    "word": "כחול",
+    "forms": [
+     "כחול"
+    ],
+    "romanization": "ka-chol"
+   },
+   {
+    "key": "green",
+    "word": "ירוק",
+    "forms": [
+     "ירוק"
+    ],
+    "romanization": "ya-rok"
+   },
+   {
+    "key": "yellow",
+    "word": "צהוב",
+    "forms": [
+     "צהוב"
+    ],
+    "romanization": "tza-hov"
+   },
+   {
+    "key": "black",
+    "word": "שחור",
+    "forms": [
+     "שחור"
+    ],
+    "romanization": "sha-chor"
+   },
+   {
+    "key": "white",
+    "word": "לבן",
+    "forms": [
+     "לבן"
+    ],
+    "romanization": "la-van"
+   }
+  ],
+  "zh-HK": [
+   {
+    "key": "red",
+    "word": "紅",
+    "forms": [
+     "紅"
+    ],
+    "romanization": "hung4"
+   },
+   {
+    "key": "blue",
+    "word": "藍",
+    "forms": [
+     "藍"
+    ],
+    "romanization": "laam4"
+   },
+   {
+    "key": "green",
+    "word": "綠",
+    "forms": [
+     "綠"
+    ],
+    "romanization": "luk6"
+   },
+   {
+    "key": "yellow",
+    "word": "黃",
+    "forms": [
+     "黃"
+    ],
+    "romanization": "wong4"
+   },
+   {
+    "key": "black",
+    "word": "黑",
+    "forms": [
+     "黑"
+    ],
+    "romanization": "hak1"
+   },
+   {
+    "key": "white",
+    "word": "白",
+    "forms": [
+     "白"
+    ],
+    "romanization": "baak6"
+   }
+  ]
+ },
+ "locales": {
+  "zh-CN": {
+   "locale": "zh-CN",
+   "langLabel": "汉语",
+   "aName": "林小满",
+   "bName": "江远",
+   "stage": "放学后的美术教室",
+   "prop": {
+    "scenes": [
+     "arch_windows",
+     "table",
+     "shelf"
+    ],
+    "device": {
+     "scenes": [
+      "arch_windows",
+      "table",
+      "shelf"
+     ],
+     "style": "palette",
+     "shape": "circle",
+     "cellW": 118,
+     "cellH": 118,
+     "well": "",
+     "label": "六格调色盘"
+    },
+    "label": "六格调色盘",
+    "desc": "长桌上一只六格调色盘，每轮问答对应颜料格弹起一格（bounce）。"
+   },
+   "notes": "红→灯笼（春节）、黄→银杏叶（秋日城市）——zh 版自有意象；「外套」彩蛋仅当答案指向搭档真实色板时保留（§6 验收）。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "江远江远！放学别走——我们来玩个颜色游戏吧！",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "游戏",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "游戏"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "好。怎么玩？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "说到红色，你会想到什么？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "红色",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "红",
+     "bubble": {
+      "kind": "think",
+      "text": "红"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "我会想到——过年的灯笼。",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "灯笼",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "红",
+     "bubble": {
+      "kind": "hint",
+      "text": "灯笼"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "说到蓝色呢？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "蓝",
+     "bubble": {
+      "kind": "think",
+      "text": "蓝"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "我会想到天空！还有你的外套！",
+     "romanization": "",
+     "gloss": "班底彩蛋：江远夹克 `#35486E`",
+     "gesture": {
+      "word": "外套",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "蓝",
+     "bubble": {
+      "kind": "hint",
+      "text": "外套"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "说到绿色，你会想到什么？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "绿",
+     "bubble": {
+      "kind": "think",
+      "text": "绿"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "我会想到草地。",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "草地",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "绿",
+     "bubble": {
+      "kind": "hint",
+      "text": "草地"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "说到黄色呢？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "黄",
+     "bubble": {
+      "kind": "think",
+      "text": "黄"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "我会想到银杏叶！",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "银杏叶",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "黄",
+     "bubble": {
+      "kind": "hint",
+      "text": "银杏叶"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "说到黑色，你会想到什么？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "黑",
+     "bubble": {
+      "kind": "think",
+      "text": "黑"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "我会想到夜晚。",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "夜晚",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "黑",
+     "bubble": {
+      "kind": "hint",
+      "text": "夜晚"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "说到白色呢？",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "think",
+      "text": "白"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "我会想到雪！",
+     "romanization": "",
+     "gloss": "六格全亮",
+     "gesture": {
+      "word": "雪",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "hint",
+      "text": "雪"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "六个颜色，都问完啦！真好玩！",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "都问完",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "hint",
+      "text": "都问完"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "明天见。",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "明天见！",
+     "romanization": "",
+     "gloss": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": null
+    }
+   ]
+  },
+  "en-US": {
+   "locale": "en-US",
+   "langLabel": "英语",
+   "aName": "Miles",
+   "bName": "Ruby",
+   "stage": "打烊前的街角咖啡馆",
+   "prop": {
+    "scenes": [
+     "shopfront",
+     "awning",
+     "counter"
+    ],
+    "device": {
+     "scenes": [
+      "shopfront",
+      "awning",
+      "counter"
+     ],
+     "style": "chalkboard",
+     "shape": "round",
+     "cellW": 128,
+     "cellH": 104,
+     "well": "#5C6660",
+     "label": "门口小黑板"
+    },
+    "label": "门口小黑板",
+    "desc": "店门口小黑板——每轮 Ruby 用对应色粉笔写下当前色词，「当前色被写出来」即高亮。"
+   },
+   "notes": "问句用惯用语 *what comes to mind*（非「说到」直译）；意象全美式（fire truck / yellow cab / black coffee）；两条班底色板彩蛋全在馆内道具上。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Hey Ruby! One last game before you close — the color game!",
+     "romanization": "",
+     "gloss": "嘿 Ruby！打烊前最后一局——颜色游戏！",
+     "gesture": {
+      "word": "game",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "game"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Fine. How does it work?",
+     "romanization": "",
+     "gloss": "行。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "What comes to mind when I say... 'red'?",
+     "romanization": "",
+     "gloss": "我说\"red\"（红色）时，你会想起什么？",
+     "gesture": {
+      "word": "red",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "red",
+     "bubble": {
+      "kind": "think",
+      "text": "red"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Stop signs. And fire trucks.",
+     "romanization": "",
+     "gloss": "停车牌。还有消防车。",
+     "gesture": {
+      "word": "signs",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "red",
+     "bubble": {
+      "kind": "hint",
+      "text": "signs"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "And 'blue'?",
+     "romanization": "",
+     "gloss": "那\"blue\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "blue",
+     "bubble": {
+      "kind": "think",
+      "text": "blue"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "The sky! And my camera strap!",
+     "romanization": "",
+     "gloss": "天空！还有我的相机背带！",
+     "gesture": {
+      "word": "strap",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "blue",
+     "bubble": {
+      "kind": "hint",
+      "text": "strap"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "'Green'?",
+     "romanization": "",
+     "gloss": "\"green\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "green",
+     "bubble": {
+      "kind": "think",
+      "text": "green"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "My apron, obviously.",
+     "romanization": "",
+     "gloss": "我的围裙，明摆着。——冷幽默",
+     "gesture": {
+      "word": "apron",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "green",
+     "bubble": {
+      "kind": "hint",
+      "text": "apron"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "'Yellow'?",
+     "romanization": "",
+     "gloss": "\"yellow\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "yellow",
+     "bubble": {
+      "kind": "think",
+      "text": "yellow"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Yellow cabs! I once took one to the wrong airport.",
+     "romanization": "",
+     "gloss": "黄色出租车！我有次坐它坐错了机场。",
+     "gesture": {
+      "word": "cabs",
+      "poses": [
+       "scratch_head"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "yellow",
+     "bubble": {
+      "kind": "hint",
+      "text": "cabs"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "'Black'?",
+     "romanization": "",
+     "gloss": "\"black\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "black",
+     "bubble": {
+      "kind": "think",
+      "text": "black"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Black coffee. No sugar.",
+     "romanization": "",
+     "gloss": "黑咖啡。不加糖。——馆主本色",
+     "gesture": {
+      "word": "coffee",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "black",
+     "bubble": {
+      "kind": "hint",
+      "text": "coffee"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "'White'?",
+     "romanization": "",
+     "gloss": "\"white\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "white",
+     "bubble": {
+      "kind": "think",
+      "text": "white"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Snow! Snowball fight tomorrow?",
+     "romanization": "",
+     "gloss": "雪！明天打雪仗？",
+     "gesture": {
+      "word": "Snow",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "white",
+     "bubble": {
+      "kind": "hint",
+      "text": "Snow"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "All six colors! That was fun!",
+     "romanization": "",
+     "gloss": "六个颜色全说完啦！真好玩！",
+     "gesture": {
+      "word": "six",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "white",
+     "bubble": {
+      "kind": "hint",
+      "text": "six"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Sure. See you tomorrow, Miles.",
+     "romanization": "",
+     "gloss": "好啊。明天见，Miles。",
+     "gesture": {
+      "word": "tomorrow",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "white",
+     "bubble": {
+      "kind": "hint",
+      "text": "tomorrow"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "See you!",
+     "romanization": "",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "white",
+     "bubble": null
+    }
+   ]
+  },
+  "fr-FR": {
+   "locale": "fr-FR",
+   "langLabel": "法语",
+   "aName": "Chloé",
+   "bName": "Théo",
+   "stage": "黄昏的书店门口台阶",
+   "prop": {
+    "scenes": [
+     "shopfront",
+     "stairs",
+     "window"
+    ],
+    "device": {
+     "scenes": [
+      "shopfront",
+      "stairs",
+      "window"
+     ],
+     "style": "bookspine",
+     "shape": "rect",
+     "cellW": 104,
+     "cellH": 168,
+     "well": "",
+     "label": "橱窗六色书脊"
+    },
+    "label": "橱窗六色书脊",
+    "desc": "橱窗里立着六本书脊各一色的书，每轮抽亮一本。"
+   },
+   "notes": "tu 体（同楼年轻人）；口语问句 « tu penses à quoi ? »（非倒装）；mimosa 二月南法花季——fr 版原生意象。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Théo ! On joue au jeu des couleurs avant la nuit ?",
+     "romanization": "",
+     "gloss": "Théo！天黑前来一局颜色游戏？",
+     "gesture": {
+      "word": "couleurs",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "couleurs"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Pourquoi pas. Comment on joue ?",
+     "romanization": "",
+     "gloss": "为什么不。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Quand je dis \"rouge\"... tu penses à quoi ?",
+     "romanization": "",
+     "gloss": "我说\"rouge\"（红色）……你会想起什么？",
+     "gesture": {
+      "word": "rouge",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rouge",
+     "bubble": {
+      "kind": "think",
+      "text": "rouge"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Aux fraises du marché.",
+     "romanization": "",
+     "gloss": "市集的草莓。",
+     "gesture": {
+      "word": "fraises",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rouge",
+     "bubble": {
+      "kind": "hint",
+      "text": "fraises"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Et \"bleu\" ?",
+     "romanization": "",
+     "gloss": "那\"bleu\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "bleu",
+     "bubble": {
+      "kind": "think",
+      "text": "bleu"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "À la mer !",
+     "romanization": "",
+     "gloss": "大海！",
+     "gesture": {
+      "word": "mer",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "bleu",
+     "bubble": {
+      "kind": "hint",
+      "text": "mer"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Vert\" ?",
+     "romanization": "",
+     "gloss": "\"vert\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "vert",
+     "bubble": {
+      "kind": "think",
+      "text": "vert"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "À l'herbe des parcs.",
+     "romanization": "",
+     "gloss": "公园的草地。",
+     "gesture": {
+      "word": "herbe",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "vert",
+     "bubble": {
+      "kind": "hint",
+      "text": "herbe"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Et \"jaune\" ?",
+     "romanization": "",
+     "gloss": "那\"jaune\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "jaune",
+     "bubble": {
+      "kind": "think",
+      "text": "jaune"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Au soleil ! Et aux mimosas en février !",
+     "romanization": "",
+     "gloss": "太阳！还有二月的含羞花！",
+     "gesture": {
+      "word": "soleil",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "jaune",
+     "bubble": {
+      "kind": "hint",
+      "text": "soleil"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Noir\" ?",
+     "romanization": "",
+     "gloss": "\"noir\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "noir",
+     "bubble": {
+      "kind": "think",
+      "text": "noir"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "À un café, bien serré.",
+     "romanization": "",
+     "gloss": "一杯咖啡，浓浓的。",
+     "gesture": {
+      "word": "café",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "noir",
+     "bubble": {
+      "kind": "hint",
+      "text": "café"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Et \"blanc\" ?",
+     "romanization": "",
+     "gloss": "那\"blanc\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanc",
+     "bubble": {
+      "kind": "think",
+      "text": "blanc"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "À la neige des Alpes !",
+     "romanization": "",
+     "gloss": "阿尔卑斯的雪！",
+     "gesture": {
+      "word": "neige",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanc",
+     "bubble": {
+      "kind": "hint",
+      "text": "neige"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Six couleurs, six idées ! C'était chouette !",
+     "romanization": "",
+     "gloss": "六种颜色，六个念头！真棒！",
+     "gesture": {
+      "word": "Six",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanc",
+     "bubble": {
+      "kind": "hint",
+      "text": "Six"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Oui. À demain, Chloé.",
+     "romanization": "",
+     "gloss": "嗯。明天见，Chloé。",
+     "gesture": {
+      "word": "demain",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanc",
+     "bubble": {
+      "kind": "hint",
+      "text": "demain"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "À demain !",
+     "romanization": "",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanc",
+     "bubble": null
+    }
+   ]
+  },
+  "de-DE": {
+   "locale": "de-DE",
+   "langLabel": "德语",
+   "aName": "Felix",
+   "bName": "Lena",
+   "stage": "山径起点的徒步小屋",
+   "prop": {
+    "scenes": [
+     "mountains",
+     "trail",
+     "signpost"
+    ],
+    "device": {
+     "scenes": [
+      "mountains",
+      "trail",
+      "signpost"
+     ],
+     "style": "signpost",
+     "shape": "round",
+     "cellW": 136,
+     "cellH": 62,
+     "well": "",
+     "label": "指路牌柱六色小牌"
+    },
+    "label": "指路牌柱六色小牌",
+    "desc": "路口的指路牌柱——六块不同色的小牌，每轮翻亮一块（德国徒步路牌文化）。"
+   },
+   "notes": "du 体；Marienkäfer / Schwarzwald / gelbe Wegweiser 全德式；结尾 weiß 双关是德语原生玩梗，其他语种不需要、也不应该有对应物。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Lena! Bevor wir losgehen – eine Runde Farbenspiel!",
+     "romanization": "",
+     "gloss": "Lena！出发前来一局颜色游戏！",
+     "gesture": {
+      "word": "Farbenspiel",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "Farbenspiel"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Einverstanden. Wie geht das?",
+     "romanization": "",
+     "gloss": "同意。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Wenn ich \"Rot\" sage – woran denkst du?",
+     "romanization": "",
+     "gloss": "我说\"Rot\"（红色）——你会想起什么？",
+     "gesture": {
+      "word": "Rot",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "Rot",
+     "bubble": {
+      "kind": "think",
+      "text": "Rot"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "An den Marienkäfer auf meinem Notizbuch.",
+     "romanization": "",
+     "gloss": "我计划本封面上的瓢虫。",
+     "gesture": {
+      "word": "Marienkäfer",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "Rot",
+     "bubble": {
+      "kind": "hint",
+      "text": "Marienkäfer"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Und \"Blau\"?",
+     "romanization": "",
+     "gloss": "那\"Blau\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "Blau",
+     "bubble": {
+      "kind": "think",
+      "text": "Blau"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "An den Himmel über den Gipfeln!",
+     "romanization": "",
+     "gloss": "山峰上方的天空！",
+     "gesture": {
+      "word": "Himmel",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "Blau",
+     "bubble": {
+      "kind": "hint",
+      "text": "Himmel"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Grün\"?",
+     "romanization": "",
+     "gloss": "\"Grün\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "Grün",
+     "bubble": {
+      "kind": "think",
+      "text": "Grün"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "An den Wald. Den Weg durch den Wald.",
+     "romanization": "",
+     "gloss": "森林。穿过森林的那条路。",
+     "gesture": {
+      "word": "Wald",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "Grün",
+     "bubble": {
+      "kind": "hint",
+      "text": "Wald"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Und \"Gelb\"?",
+     "romanization": "",
+     "gloss": "那\"Gelb\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "Gelb",
+     "bubble": {
+      "kind": "think",
+      "text": "Gelb"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "An die gelben Schilder am Wanderweg!",
+     "romanization": "",
+     "gloss": "徒步道上的黄色路牌！",
+     "gesture": {
+      "word": "Schilder",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "Gelb",
+     "bubble": {
+      "kind": "hint",
+      "text": "Schilder"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Schwarz\"?",
+     "romanization": "",
+     "gloss": "\"Schwarz\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "Schwarz",
+     "bubble": {
+      "kind": "think",
+      "text": "Schwarz"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "An den Schwarzwald. Dort war ich als Kind.",
+     "romanization": "",
+     "gloss": "黑森林。我小时候去过。",
+     "gesture": {
+      "word": "Schwarzwald",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "Schwarz",
+     "bubble": {
+      "kind": "hint",
+      "text": "Schwarzwald"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Und \"Weiß\"?",
+     "romanization": "",
+     "gloss": "那\"Weiß\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "Weiß",
+     "bubble": {
+      "kind": "think",
+      "text": "Weiß"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "An den Schnee auf dem Gipfel!",
+     "romanization": "",
+     "gloss": "峰顶的雪！",
+     "gesture": {
+      "word": "Schnee",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "Weiß",
+     "bubble": {
+      "kind": "hint",
+      "text": "Schnee"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Sechs Farben – und jetzt weiß ich alles über dich!",
+     "romanization": "",
+     "gloss": "六种颜色——现在我\"weiß\"（知道）你的一切啦！",
+     "gesture": {
+      "word": "weiß",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "Weiß",
+     "bubble": {
+      "kind": "hint",
+      "text": "weiß"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Nicht alles. Bis morgen, Felix.",
+     "romanization": "",
+     "gloss": "可没全知道。明天见，Felix。",
+     "gesture": {
+      "word": "morgen",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "Weiß",
+     "bubble": {
+      "kind": "hint",
+      "text": "morgen"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Bis morgen!",
+     "romanization": "",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "Weiß",
+     "bubble": null
+    }
+   ]
+  },
+  "es-ES": {
+   "locale": "es-ES",
+   "langLabel": "西班牙语",
+   "aName": "Lucía",
+   "bName": "Mateo",
+   "stage": "清晨的果摊（Lucía 主场——颜色游戏在市场里天然成立）",
+   "prop": {
+    "scenes": [
+     "awning_market",
+     "crates",
+     "fruit_balls"
+    ],
+    "device": {
+     "scenes": [
+      "awning_market",
+      "crates",
+      "fruit_balls"
+     ],
+     "style": "fruit_basket",
+     "shape": "circle",
+     "cellW": 120,
+     "cellH": 108,
+     "well": "",
+     "label": "六个果筐"
+    },
+    "label": "六个果筐",
+    "desc": "六个果筐各对应一色，每轮推亮一筐。"
+   },
+   "notes": "tú 体；市场语境自带道具（番茄/面粉/橄榄都在摊上）；girasoles（卡斯蒂利亚向日葵田）；旁白可拓展：pueblos blancos（安达卢西亚白墙小镇）。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡Mateo! Antes de abrir el mercado – ¡el juego de los colores!",
+     "romanization": "",
+     "gloss": "Mateo！开市前来玩颜色游戏！",
+     "gesture": {
+      "word": "colores",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "colores"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Vale. ¿Cómo se juega?",
+     "romanization": "",
+     "gloss": "好。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Cuando digo \"rojo\"... ¿en qué piensas?",
+     "romanization": "",
+     "gloss": "我说\"rojo\"（红色）……你会想起什么？",
+     "gesture": {
+      "word": "rojo",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rojo",
+     "bubble": {
+      "kind": "think",
+      "text": "rojo"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "En los tomates del mercado, claro.",
+     "romanization": "",
+     "gloss": "市场的番茄，当然。",
+     "gesture": {
+      "word": "tomates",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rojo",
+     "bubble": {
+      "kind": "hint",
+      "text": "tomates"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "¿Y \"azul\"?",
+     "romanization": "",
+     "gloss": "那\"azul\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "azul",
+     "bubble": {
+      "kind": "think",
+      "text": "azul"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡En el mar! ¡Y en el cielo de agosto!",
+     "romanization": "",
+     "gloss": "大海！还有八月的天空！",
+     "gesture": {
+      "word": "mar",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "azul",
+     "bubble": {
+      "kind": "hint",
+      "text": "mar"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¿\"Verde\"?",
+     "romanization": "",
+     "gloss": "\"verde\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "verde",
+     "bubble": {
+      "kind": "think",
+      "text": "verde"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "En las aceitunas de mi abuelo.",
+     "romanization": "",
+     "gloss": "我爷爷的橄榄。",
+     "gesture": {
+      "word": "aceitunas",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "verde",
+     "bubble": {
+      "kind": "hint",
+      "text": "aceitunas"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "¿Y \"amarillo\"?",
+     "romanization": "",
+     "gloss": "那\"amarillo\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "amarillo",
+     "bubble": {
+      "kind": "think",
+      "text": "amarillo"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡En los girasoles de Castilla!",
+     "romanization": "",
+     "gloss": "卡斯蒂利亚的向日葵！",
+     "gesture": {
+      "word": "girasoles",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "amarillo",
+     "bubble": {
+      "kind": "hint",
+      "text": "girasoles"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¿\"Negro\"?",
+     "romanization": "",
+     "gloss": "\"negro\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "negro",
+     "bubble": {
+      "kind": "think",
+      "text": "negro"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "En la noche de verano. Silencio y estrellas.",
+     "romanization": "",
+     "gloss": "夏夜。安静，满天星。",
+     "gesture": {
+      "word": "noche",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "negro",
+     "bubble": {
+      "kind": "hint",
+      "text": "noche"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "¿Y \"blanco\"?",
+     "romanization": "",
+     "gloss": "那\"blanco\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanco",
+     "bubble": {
+      "kind": "think",
+      "text": "blanco"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡En la harina para el pan!",
+     "romanization": "",
+     "gloss": "做面包的面粉！",
+     "gesture": {
+      "word": "harina",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanco",
+     "bubble": {
+      "kind": "hint",
+      "text": "harina"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡Seis colores y seis historias! ¡Qué divertido!",
+     "romanization": "",
+     "gloss": "六种颜色六个故事！真好玩！",
+     "gesture": {
+      "word": "Seis",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanco",
+     "bubble": {
+      "kind": "hint",
+      "text": "Seis"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Sí. Hasta mañana, Lucía.",
+     "romanization": "",
+     "gloss": "是啊。明天见，Lucía。",
+     "gesture": {
+      "word": "mañana",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanco",
+     "bubble": {
+      "kind": "hint",
+      "text": "mañana"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "¡Hasta mañana!",
+     "romanization": "",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "blanco",
+     "bubble": null
+    }
+   ]
+  },
+  "ru-RU": {
+   "locale": "ru-RU",
+   "langLabel": "俄语",
+   "aName": "Миша",
+   "bName": "Аня",
+   "stage": "老庭院的花坛旁",
+   "prop": {
+    "scenes": [
+     "tree",
+     "shrubs",
+     "water"
+    ],
+    "device": {
+     "scenes": [
+      "tree",
+      "shrubs",
+      "water"
+     ],
+     "style": "chalk_stone",
+     "shape": "circle",
+     "cellW": 112,
+     "cellH": 112,
+     "well": "",
+     "label": "石板路上六色粉笔圈"
+    },
+    "label": "石板路上六色粉笔圈",
+    "desc": "花坛边一盒六色粉笔，每轮 Аня 在石板路上圈出当前色。"
+   },
+   "notes": "красный 与 красивый（美丽）同根——Красная площадь「红场」本义「美场」（旁白素材）；чёрный чай＝中文的「红茶」——同一杯茶两种命名，跨文化对比素材；белый→初雪＝冬日节庆感（俄式）。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Аня, а давай в цвета поиграем!",
+     "romanization": "Anya, a davay v tsveta poigrayem!",
+     "gloss": "Аня，来玩颜色游戏吧！",
+     "gesture": {
+      "word": "цвета",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "цвета"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Давай. А как играть?",
+     "romanization": "Davay. A kak igrat'?",
+     "gloss": "来吧。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Скажу \"красный\" — о чём ты подумаешь?",
+     "romanization": "Skazhu \"krasnyy\" — o chyom ty podumayesh?",
+     "gloss": "我说\"красный\"（红色）——你会想起什么？",
+     "gesture": {
+      "word": "красный",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "красный",
+     "bubble": {
+      "kind": "think",
+      "text": "красный"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "О клубнике в саду у бабушки.",
+     "romanization": "O klubnike v sadu u babushki.",
+     "gloss": "奶奶花园里的草莓。",
+     "gesture": {
+      "word": "клубнике",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "красный",
+     "bubble": {
+      "kind": "hint",
+      "text": "клубнике"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "А \"синий\"?",
+     "romanization": "A \"siniy\"?",
+     "gloss": "那\"синий\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "синий",
+     "bubble": {
+      "kind": "think",
+      "text": "синий"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "О небе над нашим двором!",
+     "romanization": "O nebe nad nashim dvorom!",
+     "gloss": "我们院子上方的天空！",
+     "gesture": {
+      "word": "небе",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "синий",
+     "bubble": {
+      "kind": "hint",
+      "text": "небе"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Зелёный\"?",
+     "romanization": "\"Zelyonyy\"?",
+     "gloss": "\"зелёный\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "зелёный",
+     "bubble": {
+      "kind": "think",
+      "text": "зелёный"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "О наших берёзах.",
+     "romanization": "O nashikh beryozakh.",
+     "gloss": "我们的白桦树。",
+     "gesture": {
+      "word": "берёзах",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "зелёный",
+     "bubble": {
+      "kind": "hint",
+      "text": "берёзах"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "А \"жёлтый\"?",
+     "romanization": "A \"zhyoltyy\"?",
+     "gloss": "那\"жёлтый\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "жёлтый",
+     "bubble": {
+      "kind": "think",
+      "text": "жёлтый"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "О подсолнухах! Они, как я, всегда смотрят на солнце.",
+     "romanization": "O podsolnukhakh! Oni, kak ya, vsegda smotryat na solntse.",
+     "gloss": "向日葵！它们跟我一样，永远朝着太阳。",
+     "gesture": {
+      "word": "подсолнухах",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "жёлтый",
+     "bubble": {
+      "kind": "hint",
+      "text": "подсолнухах"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Чёрный\"?",
+     "romanization": "\"Chyornyy\"?",
+     "gloss": "\"чёрный\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "чёрный",
+     "bubble": {
+      "kind": "think",
+      "text": "чёрный"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "О чёрном чае вечером.",
+     "romanization": "O chyornom chaye vecherom.",
+     "gloss": "晚上的黑茶。",
+     "gesture": {
+      "word": "чае",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "чёрный",
+     "bubble": {
+      "kind": "hint",
+      "text": "чае"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "А \"белый\"?",
+     "romanization": "A \"belyy\"?",
+     "gloss": "那\"белый\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "белый",
+     "bubble": {
+      "kind": "think",
+      "text": "белый"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "О снеге! Первый снег — это праздник!",
+     "romanization": "O snege! Pervyy sneg — eto prazdnik!",
+     "gloss": "雪！初雪就是节日！",
+     "gesture": {
+      "word": "снеге",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "белый",
+     "bubble": {
+      "kind": "hint",
+      "text": "снеге"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Все шесть! Вот это игра!",
+     "romanization": "Vse shest'! Vot eta igra!",
+     "gloss": "六个全齐！这才叫游戏！",
+     "gesture": {
+      "word": "шесть",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "белый",
+     "bubble": {
+      "kind": "hint",
+      "text": "шесть"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Спасибо, Миша. До завтра.",
+     "romanization": "Spasibo, Misha. Do zavtra.",
+     "gloss": "谢谢你，Миша。明天见。",
+     "gesture": {
+      "word": "завтра",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "белый",
+     "bubble": {
+      "kind": "hint",
+      "text": "завтра"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "До завтра!",
+     "romanization": "Do zavtra!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "белый",
+     "bubble": null
+    }
+   ]
+  },
+  "el-GR": {
+   "locale": "el-GR",
+   "langLabel": "希腊语",
+   "aName": "Ελένη",
+   "bName": "Νίκος",
+   "stage": "港口长凳（Νίκος 主场）",
+   "prop": {
+    "scenes": [
+     "water",
+     "masts",
+     "bench"
+    ],
+    "device": {
+     "scenes": [
+      "water",
+      "masts",
+      "bench"
+     ],
+     "style": "doorframe",
+     "shape": "rect",
+     "cellW": 100,
+     "cellH": 172,
+     "well": "",
+     "label": "码头漆色门框"
+    },
+    "label": "码头漆色门框",
+    "desc": "码头一排小门框各漆一色（基克拉泽斯式蓝门窗），每轮镜头轻摇向当前色那扇。"
+   },
+   "notes": "κόκκινο αυγό（希腊复活节染红蛋传统）；θάλασσα（爱琴海即景）；语言彩蛋：μπλε 是法语 bleu 借词，而白色是原生词 άσπρο——颜色词最能照出希腊语的借词层（旁白素材）。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Νίκο! Ας παίξουμε με τα χρώματα!",
+     "romanization": "Níko! As péksoume me ta hrómata!",
+     "gloss": "Νίκος！来玩颜色游戏吧！",
+     "gesture": {
+      "word": "χρώματα",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "χρώματα"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Καλά. Πώς παίζεται;",
+     "romanization": "Kalá. Pós pézete?",
+     "gloss": "好。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Όταν λέω \"κόκκινο\" — σε τι σκέφτεσαι;",
+     "romanization": "Ótan léo \"kókkino\" — se ti skéftese?",
+     "gloss": "我说\"κόκκινο\"（红色）——你会想起什么？",
+     "gesture": {
+      "word": "κόκκινο",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "κόκκινο",
+     "bubble": {
+      "kind": "think",
+      "text": "κόκκινο"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Στο κόκκινο αυγό του Πάσχα.",
+     "romanization": "Sto kókkino avyó tou Pásha.",
+     "gloss": "复活节的红蛋。",
+     "gesture": {
+      "word": "αυγό",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "κόκκινο",
+     "bubble": {
+      "kind": "hint",
+      "text": "αυγό"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Και \"μπλε\";",
+     "romanization": "Ke \"ble\"?",
+     "gloss": "那\"μπλε\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "μπλε",
+     "bubble": {
+      "kind": "think",
+      "text": "μπλε"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Στη θάλασσα! Όπως εδώ!",
+     "romanization": "Sti thálassa! Opos edó!",
+     "gloss": "大海！就像这里！",
+     "gesture": {
+      "word": "θάλασσα",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "μπλε",
+     "bubble": {
+      "kind": "hint",
+      "text": "θάλασσα"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Πράσινο\";",
+     "romanization": "\"Prássino\"?",
+     "gloss": "\"πράσινο\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "πράσινο",
+     "bubble": {
+      "kind": "think",
+      "text": "πράσινο"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Στις ελιές του χωριού.",
+     "romanization": "Stis eliés tou choriú.",
+     "gloss": "村子里的橄榄树。",
+     "gesture": {
+      "word": "ελιές",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "πράσινο",
+     "bubble": {
+      "kind": "hint",
+      "text": "ελιές"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Και \"κίτρινο\";",
+     "romanization": "Ke \"kítrino\"?",
+     "gloss": "那\"κίτρινο\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "κίτρινο",
+     "bubble": {
+      "kind": "think",
+      "text": "κίτρινο"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Στον ήλιο του καλοκαιριού!",
+     "romanization": "Ston ílio tou kalokayriú!",
+     "gloss": "夏天的太阳！",
+     "gesture": {
+      "word": "ήλιο",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "κίτρινο",
+     "bubble": {
+      "kind": "hint",
+      "text": "ήλιο"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Μαύρο\";",
+     "romanization": "\"Mávro\"?",
+     "gloss": "\"μαύρο\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "μαύρο",
+     "bubble": {
+      "kind": "think",
+      "text": "μαύρο"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Στον καφέ το πρωί. Πικρός — όπως η ζωή.",
+     "romanization": "Ston kafé to proí. Pikrós — opós i zoí.",
+     "gloss": "早晨的咖啡。苦的——就像生活。",
+     "gesture": {
+      "word": "καφέ",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "μαύρο",
+     "bubble": {
+      "kind": "hint",
+      "text": "καφέ"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Και \"άσπρο\";",
+     "romanization": "Ke \"áspro\"?",
+     "gloss": "那\"άσπρο\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "άσπρο",
+     "bubble": {
+      "kind": "think",
+      "text": "άσπρο"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Στα σύννεφα πάνω απ' τη θάλασσα!",
+     "romanization": "Sta síntnefa páno ap' ti thálassa!",
+     "gloss": "海面上方的云！",
+     "gesture": {
+      "word": "σύννεφα",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "άσπρο",
+     "bubble": {
+      "kind": "hint",
+      "text": "σύννεφα"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Έξι χρώματα! Τέλεια παρτίδα!",
+     "romanization": "Éxi hrómata! Télia partída!",
+     "gloss": "六种颜色！完美一局！",
+     "gesture": {
+      "word": "Έξι",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "άσπρο",
+     "bubble": {
+      "kind": "hint",
+      "text": "Έξι"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Ναι. Τα λέμε αύριο, Ελένη.",
+     "romanization": "Ne. Ta léme ávrio, Eléni.",
+     "gloss": "嗯。明天聊，Ελένη。",
+     "gesture": {
+      "word": "αύριο",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "άσπρο",
+     "bubble": {
+      "kind": "hint",
+      "text": "αύριο"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Τα λέμε!",
+     "romanization": "Ta léme!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "άσπρο",
+     "bubble": null
+    }
+   ]
+  },
+  "ar-SA": {
+   "locale": "ar-SA",
+   "langLabel": "阿拉伯语",
+   "aName": "عمر",
+   "bName": "ليلى",
+   "stage": "街角咖啡座（عمر 主场）",
+   "prop": {
+    "scenes": [
+     "lantern_row",
+     "awning",
+     "counter"
+    ],
+    "device": {
+     "scenes": [
+      "lantern_row",
+      "awning",
+      "counter"
+     ],
+     "style": "lanterns",
+     "shape": "circle",
+     "cellW": 108,
+     "cellH": 116,
+     "well": "",
+     "label": "一排六色小灯笼"
+    },
+    "label": "一排六色小灯笼",
+    "desc": "一排六色小灯笼，每轮点亮一盏。RTL：文字区右起、名牌镜像、站位对调。"
+   },
+   "notes": "问句按**听者性别**变位（对 ليلى 用 تفكرين、对 عمر 用 تفكر）——阿语脚本必须双套问句（§6 验收）；ورد الطائف（塔伊夫玫瑰）、النخيل（绿洲椰枣）；أبيض→雪是「想见未见之白」，沙漠视角的独立设计。；**蓝色一轮为补写**（原剧本缺蓝色致全片只 5 轮）：问句沿用 ar 版短式 «و\"X\"؟»（B 问 A，不触变位），联想物取沙特本土的 «البحر! في جدة!»——与 en/ru/hi 的「天空」、fr/it/es/el 的「大海」均不逐词对译。补写后六色零遗漏零重复、A 问三 / B 问三、一来一往逐幕交替成立；出场次序为 红-绿-黄-黑-白-蓝（蓝置于末轮，不打乱原有台词与问方）。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "ليلى! هيا نلعب لعبة الألوان!",
+     "romanization": "lay-la! ha-ya nal-ʿab la-ʿi-bat al-al-wan!",
+     "gloss": "ليلى！来玩颜色游戏吧！",
+     "gesture": {
+      "word": "الألوان",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "الألوان"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "حسناً. كيف نلعب؟",
+     "romanization": "ha-sa-nan. kay-fa nal-ʿab?",
+     "gloss": "好。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "إذا قلت \"أحمر\" — بماذا تفكرين؟",
+     "romanization": "i-dha qult \"ah-mar\" — bi-ma-dha taf-ki-rin?",
+     "gloss": "我说\"أحمر\"（红色）——你会想起什么？（对 ليلى 用阴性 تفكرين）",
+     "gesture": {
+      "word": "أحمر",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "أحمر",
+     "bubble": {
+      "kind": "think",
+      "text": "أحمر"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "أفكر في الورد... في ورد الطائف.",
+     "romanization": "af-kir fi-l-ward... fi ward at-ta-if.",
+     "gloss": "我会想起玫瑰……塔伊夫的玫瑰。",
+     "gesture": {
+      "word": "الورد",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "أحمر",
+     "bubble": {
+      "kind": "hint",
+      "text": "الورد"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "وإذا قلت \"أخضر\"؟",
+     "romanization": "wa-i-dha qult \"akh-dar\"?",
+     "gloss": "那我说\"أخضر\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "أخضر",
+     "bubble": {
+      "kind": "think",
+      "text": "أخضر"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "أفكر في النخيل في مزرعة جدي!",
+     "romanization": "af-kir fi-n-na-khil fi maz-ra-ʿat ja-di!",
+     "gloss": "我会想起爷爷农场里的椰枣树！",
+     "gesture": {
+      "word": "النخيل",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "أخضر",
+     "bubble": {
+      "kind": "hint",
+      "text": "النخيل"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "و\"أصفر\"؟",
+     "romanization": "wa \"as-far\"?",
+     "gloss": "那\"أصفر\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "أصفر",
+     "bubble": {
+      "kind": "think",
+      "text": "أصفر"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "أفكر في الرمل عند الغروب.",
+     "romanization": "af-kir fi-r-ram-l ʿind al-ghu-rub.",
+     "gloss": "我会想起日落时的沙子。",
+     "gesture": {
+      "word": "الرمل",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "أصفر",
+     "bubble": {
+      "kind": "hint",
+      "text": "الرمل"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "و\"أسود\"؟",
+     "romanization": "wa \"as-wad\"?",
+     "gloss": "那\"أسود\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "أسود",
+     "bubble": {
+      "kind": "think",
+      "text": "أسود"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "أفكر في الليل... مثلك يا ليلى!",
+     "romanization": "af-kir fi-l-layl... mith-lak ya lay-la!",
+     "gloss": "我会想起夜（ليل）……跟你一样，ليلى！",
+     "gesture": {
+      "word": "الليل",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "أسود",
+     "bubble": {
+      "kind": "hint",
+      "text": "الليل"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "و\"أبيض\"؟",
+     "romanization": "wa \"ab-yad\"?",
+     "gloss": "那\"أبيض\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "أبيض",
+     "bubble": {
+      "kind": "think",
+      "text": "أبيض"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "أفكر في الثلج... يوماً ما سأراه.",
+     "romanization": "af-kir fi-th-thalj... yaw-man ma sa-ra-h.",
+     "gloss": "我会想起雪……总有一天我要亲眼看看。",
+     "gesture": {
+      "word": "الثلج",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "أبيض",
+     "bubble": {
+      "kind": "hint",
+      "text": "الثلج"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "و\"أزرق\"؟",
+     "romanization": "wa \"azraq\"?",
+     "gloss": "那\"أزرق\"（蓝色）呢？",
+     "gesture": {
+      "word": "أزرق",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "أزرق",
+     "bubble": {
+      "kind": "think",
+      "text": "أزرق"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "أفكر في البحر! في جدة!",
+     "romanization": "af-kir fi-l-baḥr! fi Jedda!",
+     "gloss": "我想起大海！在吉达！",
+     "gesture": {
+      "word": "البحر",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "أزرق",
+     "bubble": {
+      "kind": "hint",
+      "text": "البحر"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "ستة ألوان كاملة! يا سلام!",
+     "romanization": "sit-tat al-wan ka-mi-la! ya sa-lam!",
+     "gloss": "六种颜色全齐！太棒啦！",
+     "gesture": {
+      "word": "ستة",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "أزرق",
+     "bubble": {
+      "kind": "hint",
+      "text": "ستة"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "كان هذا جميلاً. إلى الغد يا عمر.",
+     "romanization": "kan ha-dha ja-mi-lan. i-lal-ghad ya ʿu-mar.",
+     "gloss": "真美好。明天见，عمر。",
+     "gesture": {
+      "word": "الغد",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "أزرق",
+     "bubble": {
+      "kind": "hint",
+      "text": "الغد"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "إلى الغد!",
+     "romanization": "i-lal-ghad!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "أزرق",
+     "bubble": null
+    }
+   ]
+  },
+  "hi-IN": {
+   "locale": "hi-IN",
+   "langLabel": "印地语",
+   "aName": "प्रिया",
+   "bName": "अर्जुन",
+   "stage": "大学的红砖走廊",
+   "prop": {
+    "scenes": [
+     "brick_arches",
+     "columns",
+     "plant"
+    ],
+    "device": {
+     "scenes": [
+      "brick_arches",
+      "columns",
+      "plant"
+     ],
+     "style": "rangoli",
+     "shape": "circle",
+     "cellW": 104,
+     "cellH": 104,
+     "well": "",
+     "label": "rangoli 六色彩粉"
+    },
+    "label": "rangoli 六色彩粉",
+    "desc": "廊柱边摊开的六色 rangoli 彩粉（节日地画颜料），每轮指尖点出一色。"
+   },
+   "notes": "तुम 体 + 动词阴阳性双叉（प्रिया सोचती हूँ / अर्जुन सोचता हूँ；问句 सोचते हो / सोचती हो）——印地语脚本必须双套动词（§6 验收）；लाल किला（德里红堡）、हल्दी（厨房姜黄）、काजल（同根词）全印地原生。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "अर्जुन! चलो, रंगों का खेल खेलें!",
+     "romanization": "ar-jun! cha-lo, ran-gon ka khel khe-len!",
+     "gloss": "अर्जुन！来，玩个颜色游戏！",
+     "gesture": {
+      "word": "खेल",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "खेल"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "ठीक है। कैसे खेलेंगे?",
+     "romanization": "thik hai. kai-se khe-len-ge?",
+     "gloss": "好。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "मैं \"लाल\" कहूँ, तो तुम क्या सोचते हो?",
+     "romanization": "main \"lal\" ka-hun, to tum kya so-che ho?",
+     "gloss": "我说\"लाल\"（红色）——你会想起什么？",
+     "gesture": {
+      "word": "लाल",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "लाल",
+     "bubble": {
+      "kind": "think",
+      "text": "लाल"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "मैं लाल किला सोचता हूँ।",
+     "romanization": "main lal ki-la so-che-ta hun.",
+     "gloss": "我会想起红堡。",
+     "gesture": {
+      "word": "लाल किला",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "लाल",
+     "bubble": {
+      "kind": "hint",
+      "text": "लाल किला"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "और \"नीला\" कहूँ?",
+     "romanization": "aur \"ni-la\" ka-hun?",
+     "gloss": "那我说\"नीला\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "नीला",
+     "bubble": {
+      "kind": "think",
+      "text": "नीला"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "मैं आसमान सोचती हूँ! और तुम्हारी जीन्स!",
+     "romanization": "main a-sa-man so-chi-ti hun! aur tum-ha-ri jins!",
+     "gloss": "我会想起天空！还有你的牛仔裤！",
+     "gesture": {
+      "word": "जीन्स",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "नीला",
+     "bubble": {
+      "kind": "hint",
+      "text": "जीन्स"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"हरा\" कहूँ?",
+     "romanization": "\"ha-ra\" ka-hun?",
+     "gloss": "那\"हरा\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "हरा",
+     "bubble": {
+      "kind": "think",
+      "text": "हरा"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "मैं हरी पत्तियाँ सोचता हूँ।",
+     "romanization": "main ha-ri pat-ti-yan so-che-ta hun.",
+     "gloss": "我会想起绿叶。",
+     "gesture": {
+      "word": "पत्तियाँ",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "हरा",
+     "bubble": {
+      "kind": "hint",
+      "text": "पत्तियाँ"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "और \"पीला\" कहूँ?",
+     "romanization": "aur \"pi-la\" ka-hun?",
+     "gloss": "那我说\"पीला\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "पीला",
+     "bubble": {
+      "kind": "think",
+      "text": "पीला"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "मैं हल्दी सोचती हूँ! रसोई की हल्दी।",
+     "romanization": "main hal-di so-chi-ti hun! ras-sui ki hal-di.",
+     "gloss": "我会想起姜黄！厨房里的姜黄。",
+     "gesture": {
+      "word": "हल्दी",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "पीला",
+     "bubble": {
+      "kind": "hint",
+      "text": "हल्दी"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"काला\" कहूँ?",
+     "romanization": "\"ka-la\" ka-hun?",
+     "gloss": "那\"काला\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "काला",
+     "bubble": {
+      "kind": "think",
+      "text": "काला"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "मैं काजल सोचता हूँ। और मेरी कलम की स्याही।",
+     "romanization": "main ka-jal so-che-ta hun. aur me-ri ka-lam ki sya-hi.",
+     "gloss": "我会想起眼妆墨（काजल）。还有我钢笔里的墨水。",
+     "gesture": {
+      "word": "काजल",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "काला",
+     "bubble": {
+      "kind": "hint",
+      "text": "काजल"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "और \"सफ़ेद\" कहूँ?",
+     "romanization": "aur \"sa-fed\" ka-hun?",
+     "gloss": "那我说\"सफ़ेद\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "सफ़ेद",
+     "bubble": {
+      "kind": "think",
+      "text": "सफ़ेद"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "मैं दूध सोचती हूँ!",
+     "romanization": "main doodh so-chi-ti hun!",
+     "gloss": "我会想起牛奶！",
+     "gesture": {
+      "word": "दूध",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "सफ़ेद",
+     "bubble": {
+      "kind": "hint",
+      "text": "दूध"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "छह रंग पूरे! कितना मज़ा आया!",
+     "romanization": "chhah rang pu-re! kit-na ma-za a-ya!",
+     "gloss": "六种颜色全齐！真好玩！",
+     "gesture": {
+      "word": "छह",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "सफ़ेद",
+     "bubble": {
+      "kind": "hint",
+      "text": "छह"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "हाँ। कल मिलते हैं, प्रिया।",
+     "romanization": "haan. kal mil-te hain, pri-ya.",
+     "gloss": "是啊。明天见，प्रिया。",
+     "gesture": {
+      "word": "कल",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "सफ़ेद",
+     "bubble": {
+      "kind": "hint",
+      "text": "कल"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "कल मिलते हैं!",
+     "romanization": "kal mil-te hain!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "सफ़ेद",
+     "bubble": null
+    }
+   ]
+  },
+  "ja-JP": {
+   "locale": "ja-JP",
+   "langLabel": "日语",
+   "aName": "ハルカ",
+   "bName": "リク",
+   "stage": "放学后的商店街",
+   "prop": {
+    "scenes": [
+     "shopfront",
+     "wires",
+     "lantern"
+    ],
+    "device": {
+     "scenes": [
+      "shopfront",
+      "wires",
+      "lantern"
+     ],
+     "style": "traffic_lamp",
+     "shape": "circle",
+     "cellW": 92,
+     "cellH": 120,
+     "well": "",
+     "label": "信号灯与六色街灯"
+    },
+    "label": "信号灯与六色街灯",
+    "desc": "路口的行人信号灯——轮到「青」那一轮恰好转青，两人相视一笑；街边六盏小灯各罩一色玻璃纸，每轮亮一盏。"
+   },
+   "notes": "同级生常体（不用敬体）；青信号＝日语「あお」兼指绿灯——旁白必讲；白いごはん（白饭）、黒→自分の髪（面瘫自指）都是 ja 版自有笑点。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "ねえリク！帰る前に、色のゲームしようよ！",
+     "romanization": "nee ri-ku! ka-e-ru ma-e-ni, i-ro no ge-e-mu shi-yo-u yo!",
+     "gloss": "喂リク！回家前来玩颜色游戏嘛！",
+     "gesture": {
+      "word": "ゲーム",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "ゲーム"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "…いいよ。どうやる。",
+     "romanization": "... i-i yo. do-u ya-ru.",
+     "gloss": "……行啊。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "赤って言ったら、何を思い浮かべる？",
+     "romanization": "a-ka tte it-ta-ra, na-ni o o-mo-i u-ka-be-ru?",
+     "gloss": "说「あか」（红色）的话，会想起什么？",
+     "gesture": {
+      "word": "赤",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "あか",
+     "bubble": {
+      "kind": "think",
+      "text": "あか"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "…祭りの提灯。",
+     "romanization": "... ma-tsu-ri no cho-chin.",
+     "gloss": "……祭典的灯笼。",
+     "gesture": {
+      "word": "提灯",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "あか",
+     "bubble": {
+      "kind": "hint",
+      "text": "提灯"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "青って言ったら？",
+     "romanization": "a-o tte it-ta-ra?",
+     "gloss": "那「あお」（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "あお",
+     "bubble": {
+      "kind": "think",
+      "text": "あお"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "青信号！押したら渡れるやつ！",
+     "romanization": "a-o shin-go! o-shi-ta-ra wa-ta-re-ru yat-su!",
+     "gloss": "绿灯（青信号）！一按就能过马路的那种！",
+     "gesture": {
+      "word": "青信号",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "あお",
+     "bubble": {
+      "kind": "hint",
+      "text": "青信号"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "緑って言ったら？",
+     "romanization": "mi-do-ri tte it-ta-ra?",
+     "gloss": "那「みどり」（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "みどり",
+     "bubble": {
+      "kind": "think",
+      "text": "みどり"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "緑茶。",
+     "romanization": "ryo-ku-cha.",
+     "gloss": "绿茶。",
+     "gesture": {
+      "word": "緑茶",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "みどり",
+     "bubble": {
+      "kind": "hint",
+      "text": "緑茶"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "黄色って言ったら？",
+     "romanization": "ki-i-ro tte it-ta-ra?",
+     "gloss": "那「きいろ」（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "きいろ",
+     "bubble": {
+      "kind": "think",
+      "text": "きいろ"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "ひまわり！夏のひまわり！",
+     "romanization": "hi-ma-wa-ri! na-tsu no hi-ma-wa-ri!",
+     "gloss": "向日葵！夏天的向日葵！",
+     "gesture": {
+      "word": "ひまわり",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "きいろ",
+     "bubble": {
+      "kind": "hint",
+      "text": "ひまわり"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "黒って言ったら？",
+     "romanization": "ku-ro tte it-ta-ra?",
+     "gloss": "那「くろ」（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "くろ",
+     "bubble": {
+      "kind": "think",
+      "text": "くろ"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "…俺の髪。",
+     "romanization": "... o-re no ka-mi.",
+     "gloss": "……我的头发。",
+     "gesture": {
+      "word": "髪",
+      "poses": [
+       "deadpan_nod"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "くろ",
+     "bubble": {
+      "kind": "hint",
+      "text": "髪"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "白って言ったら？",
+     "romanization": "shi-ro tte it-ta-ra?",
+     "gloss": "那「しろ」（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "しろ",
+     "bubble": {
+      "kind": "think",
+      "text": "しろ"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "白いごはん！今日の晩ごはん！",
+     "romanization": "shi-ro-i go-han! kyo-u no ban go-han!",
+     "gloss": "白米饭！今天的晚饭！",
+     "gesture": {
+      "word": "ごはん",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "しろ",
+     "bubble": {
+      "kind": "hint",
+      "text": "ごはん"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "六色、全部やった！楽しかった！",
+     "romanization": "ro-ku i-ro, zen-bu ya-tta! ta-no-shi-ka-tta!",
+     "gloss": "六色全玩了！真开心！",
+     "gesture": {
+      "word": "全部",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "しろ",
+     "bubble": {
+      "kind": "hint",
+      "text": "全部"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "…悪くない。また明日。",
+     "romanization": "... wa-ru-ku na-i. ma-ta a-shi-ta.",
+     "gloss": "……不赖。明天见。",
+     "gesture": {
+      "word": "明日",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "しろ",
+     "bubble": {
+      "kind": "hint",
+      "text": "明日"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "また明日！",
+     "romanization": "ma-ta a-shi-ta!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "しろ",
+     "bubble": null
+    }
+   ]
+  },
+  "ko-KR": {
+   "locale": "ko-KR",
+   "langLabel": "韩语",
+   "aName": "도윤",
+   "bName": "서연",
+   "stage": "黄昏的街球场",
+   "prop": {
+    "scenes": [
+     "fence",
+     "sky_dusk",
+     "bunting"
+    ],
+    "device": {
+     "scenes": [
+      "fence",
+      "sky_dusk",
+      "bunting"
+     ],
+     "style": "cone",
+     "shape": "poly",
+     "cellW": 112,
+     "cellH": 120,
+     "well": "",
+     "label": "六只训练锥"
+    },
+    "label": "六只训练锥",
+    "desc": "场边六只不同色的训练锥，每轮踢正一只。"
+   },
+   "notes": "「～하면 떠오르다」是韩语固有联想句式（非「说到」直译）；오방색（传统五方色：红蓝黄白黑——恰为本课六色中的五个，旁白必讲）；은행나무（秋日首尔）、먹（文房）、백의민족（白衣民族）；도윤 反语体 × 서연 敬语体——语体差本身就是两人的关系戏。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "야, 서연아! 가기 전에 색깔 게임 하나만!",
+     "romanization": "ya, seo-yeon-a! ga-gi jeo-ne saek-kkap ge-im ha-na-man!",
+     "gloss": "喂서연！走之前来一局颜色游戏呗！",
+     "gesture": {
+      "word": "게임",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "게임"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "좋아. 어떻게 해?",
+     "romanization": "jo-a. eo-tteo-ke hae?",
+     "gloss": "好。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "빨간색 하면 뭐가 떠올라?",
+     "romanization": "ppal-gan-saek ha-myeon mwo-ga tteo-ol-la?",
+     "gloss": "说「빨간색」（红色）的话会想起什么？",
+     "gesture": {
+      "word": "빨간색",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "빨간색",
+     "bubble": {
+      "kind": "think",
+      "text": "빨간색"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "태극기가 떠올라.",
+     "romanization": "tae-geuk-gi-ga tteo-ol-la.",
+     "gloss": "会想起太极旗。",
+     "gesture": {
+      "word": "태극기",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "빨간색",
+     "bubble": {
+      "kind": "hint",
+      "text": "태극기"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "파란색 하면?",
+     "romanization": "pa-ran-saek ha-myeon?",
+     "gloss": "那「파란색」（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "파란색",
+     "bubble": {
+      "kind": "think",
+      "text": "파란색"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "하늘! 가을 하늘!",
+     "romanization": "ha-neul! ga-eul ha-neul!",
+     "gloss": "天空！秋天的天空！",
+     "gesture": {
+      "word": "하늘",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "파란색",
+     "bubble": {
+      "kind": "hint",
+      "text": "하늘"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "초록색 하면?",
+     "romanization": "cho-rok-saek ha-myeon?",
+     "gloss": "那「초록색」（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "초록색",
+     "bubble": {
+      "kind": "think",
+      "text": "초록색"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "할머니 댁 산이 떠올라. 온통 초록!",
+     "romanization": "hal-meo-ni taek sa-ni tteo-ol-la. on-tong cho-rok!",
+     "gloss": "会想起奶奶家的山。满山都是绿！",
+     "gesture": {
+      "word": "산",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "초록색",
+     "bubble": {
+      "kind": "hint",
+      "text": "산"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "노란색 하면?",
+     "romanization": "no-ran-saek ha-myeon?",
+     "gloss": "那「노란색」（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "노란색",
+     "bubble": {
+      "kind": "think",
+      "text": "노란색"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "은행나무! 학교 앞에 있잖아!",
+     "romanization": "eun-haeng-na-mu! hak-gyo a-pe it-ja-na!",
+     "gloss": "银杏树！学校门口不是有嘛！",
+     "gesture": {
+      "word": "은행나무",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "노란색",
+     "bubble": {
+      "kind": "hint",
+      "text": "은행나무"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "검은색 하면?",
+     "romanization": "geo-meun-saek ha-myeon?",
+     "gloss": "那「검은색」（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "검은색",
+     "bubble": {
+      "kind": "think",
+      "text": "검은색"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "먹이 떠올라. 붓글씨 먹.",
+     "romanization": "meo-gi tteo-ol-la. but-geul-ssi meok.",
+     "gloss": "会想起墨。写毛笔字的墨。",
+     "gesture": {
+      "word": "먹",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "검은색",
+     "bubble": {
+      "kind": "hint",
+      "text": "먹"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "흰색 하면?",
+     "romanization": "huin-saek ha-myeon?",
+     "gloss": "那「흰색」（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "흰색",
+     "bubble": {
+      "kind": "think",
+      "text": "흰색"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "흰 옷! 옛날 조상들은 늘 흰 옷을 입었대!",
+     "romanization": "huin ot! yen-nal jo-son-deu-reun neul huin o-seul i-beot-dae!",
+     "gloss": "白衣！听说从前的祖先们总穿白衣！",
+     "gesture": {
+      "word": "흰 옷",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "흰색",
+     "bubble": {
+      "kind": "hint",
+      "text": "흰 옷"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "여섯 색깔 다 했다! 재밌다!",
+     "romanization": "yeo-seot saek-kkap da haet-da! jae-mit-da!",
+     "gloss": "六色全玩了！真有意思！",
+     "gesture": {
+      "word": "여섯",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "흰색",
+     "bubble": {
+      "kind": "hint",
+      "text": "여섯"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "그럼, 내일 봐, 도윤아.",
+     "romanization": "geu-reom, na-il bwa, do-yun-a.",
+     "gloss": "那，明天见，도윤。",
+     "gesture": {
+      "word": "내일",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "흰색",
+     "bubble": {
+      "kind": "hint",
+      "text": "내일"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "내일 봐!",
+     "romanization": "na-il bwa!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "흰색",
+     "bubble": null
+    }
+   ]
+  },
+  "it-IT": {
+   "locale": "it-IT",
+   "langLabel": "意大利语",
+   "aName": "Giulia",
+   "bName": "Luca",
+   "stage": "黄昏喷泉广场的 gelato 柜台",
+   "prop": {
+    "scenes": [
+     "fountain",
+     "awning",
+     "counter"
+    ],
+    "device": {
+     "scenes": [
+      "fountain",
+      "awning",
+      "counter"
+     ],
+     "style": "gelato",
+     "shape": "round",
+     "cellW": 124,
+     "cellH": 108,
+     "well": "",
+     "label": "gelato 柜六色"
+    },
+    "label": "gelato 柜六色",
+    "desc": "六色 gelato（柠檬黄/开心果绿/espresso 黑/奶油白/草莓红/蓝莓蓝），每轮舀起一勺——「说到颜色」直接被颜色本身端出来。"
+   },
+   "notes": "全意大利意象（Ferrari / pesto / limone di Sorrento / caffè in tazzina / Vespa）；tu 体；blu 与 azzurro 之分（国家队称 Gli Azzurri）入旁白注记。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Luca! Prima del tramonto – il gioco dei colori!",
+     "romanization": "",
+     "gloss": "Luca！日落前来玩颜色游戏！",
+     "gesture": {
+      "word": "colori",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "colori"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Va bene. Come si fa?",
+     "romanization": "",
+     "gloss": "行。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Quando dico \"rosso\"... a cosa pensi?",
+     "romanization": "",
+     "gloss": "我说\"rosso\"（红色）……你会想起什么？",
+     "gesture": {
+      "word": "rosso",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rosso",
+     "bubble": {
+      "kind": "think",
+      "text": "rosso"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "A una Ferrari, ovviamente. Siamo in Italia!",
+     "romanization": "",
+     "gloss": "法拉利，还用说。我们可是在意大利！",
+     "gesture": {
+      "word": "Ferrari",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "rosso",
+     "bubble": {
+      "kind": "hint",
+      "text": "Ferrari"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "E \"blu\"?",
+     "romanization": "",
+     "gloss": "那\"blu\"（蓝色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "blu",
+     "bubble": {
+      "kind": "think",
+      "text": "blu"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Al mare! Al nostro mare!",
+     "romanization": "",
+     "gloss": "大海！我们的海！",
+     "gesture": {
+      "word": "mare",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "blu",
+     "bubble": {
+      "kind": "hint",
+      "text": "mare"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Verde\"?",
+     "romanization": "",
+     "gloss": "\"verde\"（绿色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "verde",
+     "bubble": {
+      "kind": "think",
+      "text": "verde"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Al basilico del pesto.",
+     "romanization": "",
+     "gloss": "青酱里的罗勒。",
+     "gesture": {
+      "word": "basilico",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "verde",
+     "bubble": {
+      "kind": "hint",
+      "text": "basilico"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "E \"giallo\"?",
+     "romanization": "",
+     "gloss": "那\"giallo\"（黄色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "giallo",
+     "bubble": {
+      "kind": "think",
+      "text": "giallo"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Al limone di Sorrento!",
+     "romanization": "",
+     "gloss": "索伦托的柠檬！",
+     "gesture": {
+      "word": "limone",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "giallo",
+     "bubble": {
+      "kind": "hint",
+      "text": "limone"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"Nero\"?",
+     "romanization": "",
+     "gloss": "\"nero\"（黑色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "nero",
+     "bubble": {
+      "kind": "think",
+      "text": "nero"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Al caffè. Quello vero, in tazzina.",
+     "romanization": "",
+     "gloss": "咖啡。小杯装的、真正的咖啡。",
+     "gesture": {
+      "word": "caffè",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "nero",
+     "bubble": {
+      "kind": "hint",
+      "text": "caffè"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "E \"bianco\"?",
+     "romanization": "",
+     "gloss": "那\"bianco\"（白色）呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "bianco",
+     "bubble": {
+      "kind": "think",
+      "text": "bianco"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "A una Vespa bianca! Come quella di zia!",
+     "romanization": "",
+     "gloss": "白色的 Vespa 小摩托！我姑妈那辆那种！",
+     "gesture": {
+      "word": "Vespa",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "bianco",
+     "bubble": {
+      "kind": "hint",
+      "text": "Vespa"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Sei colori, sei sogni! Com'era bello!",
+     "romanization": "",
+     "gloss": "六种颜色六个梦！真美！",
+     "gesture": {
+      "word": "Sei",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "bianco",
+     "bubble": {
+      "kind": "hint",
+      "text": "Sei"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Sì. A domani, Giulia.",
+     "romanization": "",
+     "gloss": "是啊。明天见，Giulia。",
+     "gesture": {
+      "word": "domani",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "bianco",
+     "bubble": {
+      "kind": "hint",
+      "text": "domani"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "A domani!",
+     "romanization": "",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "bianco",
+     "bubble": null
+    }
+   ]
+  },
+  "he-IL": {
+   "locale": "he-IL",
+   "langLabel": "希伯来语",
+   "aName": "נועה",
+   "bName": "יובל",
+   "stage": "城市天台（נועה 主场）",
+   "prop": {
+    "scenes": [
+     "skyline",
+     "clothesline",
+     "shrubs"
+    ],
+    "device": {
+     "scenes": [
+      "skyline",
+      "clothesline",
+      "shrubs"
+     ],
+     "style": "dyed_cloth",
+     "shape": "rect",
+     "cellW": 116,
+     "cellH": 150,
+     "well": "",
+     "label": "晾绳六块染布"
+    },
+    "label": "晾绳六块染布",
+    "desc": "晾衣绳上六块染布，每轮风掀开一块。RTL：文字区右起、名牌镜像、站位对调。"
+   },
+   "notes": "希语问句按**说话者×听者双方性别**各变位（אומרת/אומר、חושב/חושבת）——he 脚本必须双套动词（§6 验收）；כלניות（内盖夫红银莲花花季）、עלי זית（国旗橄榄枝）；תכלת（圣经蓝）可入旁白拓展。；**蓝色一轮为补写**（原剧本缺蓝色致全片只 5 轮）：问句沿用 he 版短式 «\"X\" – במה את חושבת?»（B=יובל 问 A=נועה，阴性变位），联想物取 «הדגים באקווריום»（水族箱的鱼，以色列家庭日常），刻意避开 en/ru/hi/zh 已用的「天空」与本版白轮已用的「浪花」。补写后六色零遗漏零重复、A 问三 / B 问三成立；出场次序为 红-绿-黄-黑-白-蓝。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "יובל! לפני השקיעה – משחק אחד בצבעים!",
+     "romanization": "yu-val! lif-ney ha-shki-a – mis-chach e-chad ba-tze-va-im!",
+     "gloss": "יובל！日落前来一局颜色游戏！",
+     "gesture": {
+      "word": "צבעים",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "צבעים"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "בסדר. איך משחקים?",
+     "romanization": "be-seder. eich mis-chach-im?",
+     "gloss": "行。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "כשאני אומרת \"אדום\" – במה אתה חושב?",
+     "romanization": "kshe-a-ni o-me-ret \"a-dom\" – be-ma a-ta cho-shev?",
+     "gloss": "我说\"אדום\"（红色）——你会想起什么？（נועה 说话用阴性 אומרת）",
+     "gesture": {
+      "word": "אדום",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "אדום",
+     "bubble": {
+      "kind": "think",
+      "text": "אדום"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "אני חושב על הכלניות בנגב.",
+     "romanization": "a-ni cho-shev al ha-kal-a-niyot ba-negev.",
+     "gloss": "我会想起内盖夫的银莲花。",
+     "gesture": {
+      "word": "כלניות",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "אדום",
+     "bubble": {
+      "kind": "hint",
+      "text": "כלניות"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "וכשאני אומר \"ירוק\" – במה את חושבת?",
+     "romanization": "u-kshe-a-ni o-mer \"ya-rok\" – be-ma at cho-shevet?",
+     "gloss": "那我说\"ירוק\"（绿色）——你会想起什么？（对 נועה 提问用阴性 חושבת）",
+     "gesture": {
+      "word": "ירוק",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "ירוק",
+     "bubble": {
+      "kind": "think",
+      "text": "ירוק"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "אני חושבת על עלי זית! על הדגל שלנו!",
+     "romanization": "a-ni cho-shevet al a-ley zayit! al ha-de-gel she-la-nu!",
+     "gloss": "我会想起橄榄叶！想起我们的国旗！",
+     "gesture": {
+      "word": "זית",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "ירוק",
+     "bubble": {
+      "kind": "hint",
+      "text": "זית"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"צהוב\" – במה אתה חושב?",
+     "romanization": "\"tza-hov\" – be-ma a-ta cho-shev?",
+     "gloss": "那\"צהוב\"（黄色）呢——你会想起什么？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "צהוב",
+     "bubble": {
+      "kind": "think",
+      "text": "צהוב"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "אני חושב על החול במדבר. שקט וחם.",
+     "romanization": "a-ni cho-shev al ha-chol ba-mid-bar. sha-ket ve-cham.",
+     "gloss": "我会想起沙漠的沙。安静，又热。",
+     "gesture": {
+      "word": "חול",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "צהוב",
+     "bubble": {
+      "kind": "hint",
+      "text": "חול"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "\"שחור\" – במה את חושבת?",
+     "romanization": "\"sha-chor\" – be-ma at cho-shevet?",
+     "gloss": "那\"שחור\"（黑色）呢——你会想起什么？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "שחור",
+     "bubble": {
+      "kind": "think",
+      "text": "שחור"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "אני חושבת על הקפה של אמא בבוקר!",
+     "romanization": "a-ni cho-shevet al ha-ka-fe shel i-ma ba-boker!",
+     "gloss": "我会想起妈妈早晨的咖啡！",
+     "gesture": {
+      "word": "קפה",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "שחור",
+     "bubble": {
+      "kind": "hint",
+      "text": "קפה"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "\"לבן\" – במה אתה חושב?",
+     "romanization": "\"la-van\" – be-ma a-ta cho-shev?",
+     "gloss": "那\"לבן\"（白色）呢——你会想起什么？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "לבן",
+     "bubble": {
+      "kind": "think",
+      "text": "לבן"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "אני חושב על קצף הגלים. מים!",
+     "romanization": "a-ni cho-shev al ke-tsef ha-ga-lim. ma-yim!",
+     "gloss": "我会想起浪尖的白沫。水！",
+     "gesture": {
+      "word": "קצף",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "לבן",
+     "bubble": {
+      "kind": "hint",
+      "text": "קצף"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "\"כחול\" – במה את חושבת?",
+     "romanization": "\"ka-chol\" – be-ma at cho-shevet?",
+     "gloss": "那\"כחול\"（蓝色）呢——你会想起什么？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "כחול",
+     "bubble": {
+      "kind": "think",
+      "text": "כחול"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "אני חושבת על הדגים באקווריום!",
+     "romanization": "a-ni cho-shevet al ha-dagim be-aquarium!",
+     "gloss": "我想起水族箱里的鱼！",
+     "gesture": {
+      "word": "הדגים",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "כחול",
+     "bubble": {
+      "kind": "hint",
+      "text": "הדגים"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "שישה צבעים! איזה כיף!",
+     "romanization": "shi-sha tze-va-im! ei-ze kef!",
+     "gloss": "六种颜色！真开心！",
+     "gesture": {
+      "word": "שישה",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "כחול",
+     "bubble": {
+      "kind": "hint",
+      "text": "שישה"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "כן. נתראה מחר, נועה.",
+     "romanization": "ken. nit-ra-e machar, no-a.",
+     "gloss": "嗯。明天见，נועה。",
+     "gesture": {
+      "word": "מחר",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "כחול",
+     "bubble": {
+      "kind": "hint",
+      "text": "מחר"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "נתראה מחר!",
+     "romanization": "nit-ra-e machar!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "כחול",
+     "bubble": null
+    }
+   ]
+  },
+  "zh-HK": {
+   "locale": "zh-HK",
+   "langLabel": "粤语",
+   "aName": "阿豪",
+   "bName": "阿晴",
+   "stage": "街市小吃摊与茶餐厅之间的窄巷",
+   "prop": {
+    "scenes": [
+     "stall",
+     "neon_sign",
+     "window_grid"
+    ],
+    "device": {
+     "scenes": [
+      "stall",
+      "neon_sign",
+      "window_grid"
+     ],
+     "style": "neon",
+     "shape": "round",
+     "cellW": 128,
+     "cellH": 92,
+     "well": "#605862",
+     "label": "六块 neon 小招牌"
+    },
+    "label": "六块 neon 小招牌",
+    "desc": "茶餐厅门口六块 neon 小招牌各一色，每轮「啪」一声亮起一块。"
+   },
+   "notes": "利是（红包）、廿四味（凉茶）、白切雞、蛋撻——全部街市/茶餐廳语境；与 zh-CN 版零共用台词，句式与口语词（嗰啲/點玩/講晒/聽日見）全按粤语口语体独立创作。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "阿晴！收工之前——玩個顏色遊戲，好唔好？",
+     "romanization": "aa3cing4! sau1gung1 zi1cin4 — waan2 go3 ngaan4sik1 jau4hei3, hou2 m4 hou2?",
+     "gloss": "阿晴！收工前——玩个颜色游戏，好不好？",
+     "gesture": {
+      "word": "遊戲",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "遊戲"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "好呀。點玩？",
+     "romanization": "hou2aa3. dim2waan2?",
+     "gloss": "好呀。怎么玩？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "講到紅色，你會諗到啲乜？",
+     "romanization": "gong2dou3 hung4sik1, nei5wui5 nam2dou3 di1mat1?",
+     "gloss": "说到红色，你会想到什么？",
+     "gesture": {
+      "word": "紅色",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "紅",
+     "bubble": {
+      "kind": "think",
+      "text": "紅"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "利是！過年嗰陣最開心。",
+     "romanization": "lai6si6! gwo3nin4 go2zan6 zeoi3hoi1sam1.",
+     "gloss": "红包（利是）！过年那阵最开心。",
+     "gesture": {
+      "word": "利是",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "red",
+     "tokenChip": "#D8453B",
+     "tokenWord": "紅",
+     "bubble": {
+      "kind": "hint",
+      "text": "利是"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "講到藍色呢？",
+     "romanization": "gong2dou3 laam4sik1 ne1?",
+     "gloss": "那蓝色呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "藍",
+     "bubble": {
+      "kind": "think",
+      "text": "藍"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "牛仔褲！人人都有嗰條！",
+     "romanization": "ngau4zai2fu3! jan4jan4 dou1jau5 go2tiu4!",
+     "gloss": "牛仔裤！人人都有一条！",
+     "gesture": {
+      "word": "牛仔褲",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "blue",
+     "tokenChip": "#4657D8",
+     "tokenWord": "藍",
+     "bubble": {
+      "kind": "hint",
+      "text": "牛仔褲"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "講到綠色呢？",
+     "romanization": "gong2dou3 luk6sik1 ne1?",
+     "gloss": "那绿色呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "綠",
+     "bubble": {
+      "kind": "think",
+      "text": "綠"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "街市啲菜心。新鮮嗰啲。",
+     "romanization": "gaai1si5 di1coi3sam1. san1sin1 go2di1.",
+     "gloss": "街市的菜心。新鲜那些。",
+     "gesture": {
+      "word": "菜心",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "green",
+     "tokenChip": "#1E9E6E",
+     "tokenWord": "綠",
+     "bubble": {
+      "kind": "hint",
+      "text": "菜心"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "講到黃色呢？",
+     "romanization": "gong2dou3 wong4sik1 ne1?",
+     "gloss": "那黄色呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "黃",
+     "bubble": {
+      "kind": "think",
+      "text": "黃"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "蛋撻！金黃金黃嗰隻！",
+     "romanization": "daan6taat1! gam1wong4gam1wong4 go2zek3!",
+     "gloss": "蛋挞！金黄金黄那只！",
+     "gesture": {
+      "word": "蛋撻",
+      "poses": [
+       "both_hands"
+      ]
+     },
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "yellow",
+     "tokenChip": "#D9A62E",
+     "tokenWord": "黃",
+     "bubble": {
+      "kind": "hint",
+      "text": "蛋撻"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "講到黑色呢？",
+     "romanization": "gong2dou3 hak1sik1 ne1?",
+     "gloss": "那黑色呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "黑",
+     "bubble": {
+      "kind": "think",
+      "text": "黑"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "廿四味。",
+     "romanization": "jaa6sei3mei2.",
+     "gloss": "廿四味凉茶。",
+     "gesture": {
+      "word": "廿四味",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "black",
+     "tokenChip": "#26262E",
+     "tokenWord": "黑",
+     "bubble": {
+      "kind": "hint",
+      "text": "廿四味"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "講到白色呢？",
+     "romanization": "gong2dou3 baak6sik1 ne1?",
+     "gloss": "那白色呢？",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "point"
+      ]
+     },
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "think",
+      "text": "白"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "白切雞！今晚食唔食？",
+     "romanization": "baak6cit3gai1! gam1maan5 sik6m4sik6?",
+     "gloss": "白切鸡！今晚吃不吃？",
+     "gesture": {
+      "word": "白切雞",
+      "poses": [
+       "mini_jump"
+      ]
+     },
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "hint",
+      "text": "白切雞"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "六隻色講晒！好好玩！",
+     "romanization": "luk6zek3 sik1 gong2saai3! hou2hou2waan2!",
+     "gloss": "六只颜色说「晒」（全）了！真好玩！",
+     "gesture": {
+      "word": "講晒",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": {
+      "kind": "hint",
+      "text": "講晒"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "聽日見。",
+     "romanization": "ting1jat6gin3.",
+     "gloss": "明天见。",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "聽日見！",
+     "romanization": "ting1jat6gin3!",
+     "gloss": "明天见！",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "white",
+     "tokenChip": "#F5F3EE",
+     "tokenWord": "白",
+     "bubble": null
+    }
+   ]
+  }
+ }
+}
