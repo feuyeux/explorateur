@@ -656,6 +656,7 @@ function paint(lc){
 
 function show(lc, push){
   if (ORDER.indexOf(lc) < 0) { lc = ORDER[0]; }
+  show.cur = lc;
   tabs.forEach(function(t){ var on = t.dataset.lc === lc; t.classList.toggle('is-on', on);
                              t.setAttribute('aria-selected', on ? 'true' : 'false'); });
   secs.forEach(function(s){ s.hidden = (s.dataset.lc !== lc); });
@@ -684,7 +685,7 @@ document.addEventListener('keydown', function(ev){
   else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { show(ORDER[(i-1+ORDER.length) % ORDER.length]); ev.preventDefault(); }
   else if (/^[1-9]$/.test(ev.key)) { var j = parseInt(ev.key,10)-1; if (j < ORDER.length) { show(ORDER[j]); ev.preventDefault(); } }
 });
-['#' + (location.hash || '')].forEach(function(h){
+[location.hash || ''].forEach(function(h){
   if (h.length > 1 && ORDER.indexOf(h.slice(1)) >= 0) { show.cur = h.slice(1); }
 });
 show(show.cur || ORDER[0], false);
