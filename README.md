@@ -30,6 +30,7 @@
 | `lessons/<id>/`（如 [lessons/colors/](lessons/colors/scene.md)） | **课程统一目录**：`scene.md`（场景剧本唯一事实源：§0 机读规格 + §2 各语种台词 + §5 token 词表，不设母本、不互译）+ `scene.json`（解析产物）+ `analysis/`（逐句解析） |
 | [adr-character-tech.md](docs/adr-character-tech.md) | 技术决策：Pillow 管线续役；H3+Remotion 迁移案为备选蓝图（含四路线裁定） |
 | [benchmark-duolingo.md](docs/benchmark-duolingo.md) | 对标台账——多邻国三文档逐条裁定（✅已达成/🔧补齐/📌备选/❌不采纳）；quirk 治理规则 |
+| [publish-playbook.md](docs/publish-playbook.md) | 发布手册——抖音 / 小红书创作服务平台双平台流程、平台差异对照、18 条踩坑实录、发布后核验清单 |
 | `personas/personas.json` | 28 人档案——声线/色板/脸型/发型/服装/配饰/RTL + 档案四字段（名字语义/声线画像/搭档关系/趣味设定）（人设唯一事实源） |
 | `personas/intro-cards.json` | 28 张卡——台词/情绪/手势/入场姿态/场景/收尾码列/A·B 选角；RTL 卡带 `variants[]`（女性观众版） |
 | `pyproject.toml` / `uv.lock` / `.venv` | uv 工程清单与锁定的单一虚拟环境（uv 托管 CPython 3.12；依赖精确锁版，Pillow 12.3.0 是像素基线）；控制台入口 `usine-cards` / `usine-parse` / `usine-scene` / `usine-lesson` / `usine-dump-lesson` |
