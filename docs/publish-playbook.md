@@ -366,6 +366,12 @@ upload_files
 
 ## 8. 已发布台账
 
+> **本节已转为机器可读**：`publish/ledger.json`（`usine publish build` 派生）
+> + `publish/results.json`（平台结果与凭据）。门禁 `\.\run.ps1 publish`，
+> 指标回流 `\.\run.ps1 publish-stats`，详见 [render-handbook.md](render-handbook.md) §6.12。
+> 下面的散文是**判据与事故记录的补充**，不是台账本身——
+> 「已发布」这件事的真值在 `results.json`，这里的 ✅ 只是它的散文版本。
+
 ### 抖音 `LapinAvecCulture`
 
 - 合集「十四种语言聊颜色全集」：https://creator.douyin.com/creator-micro/work-management/collection-detail/7692462700349098030?enter_from=collect-manage

@@ -1,0 +1,66 @@
+{
+  "_README": [
+    "发布侧的人工层：平台结果与效果指标。**机器可读的台账在 publish/ledger.json，由",
+    "`usine publish build` 从 lessons/<id>/publish/*-copy.md 派生——不要手改那个文件。**",
+    "",
+    "这里只放机器推不出来的东西：",
+    "  results[ 键 ]  键格式固定为 `<lesson>/<locale>/<platform>`，与台账一一对应；",
+    "                键在台账里不存在时 build 会直接报错（悬空引用必须先修）。",
+    "                published/url/postId/publishedAt/verifiedBy/verifiedAt = 平台结果；",
+    "                metrics = 平台后台数字（见下）。",
+    "  metrics        **回填平台数据就写在这里。** 计数型（views/likes/comments/",
+    "                collects/shares/follows）非负整数；比率型（completionRate/",
+    "                interactionRate）折成 0–1。写 12.3% 请填 0.123。",
+    "                —— 平台不会给出负的播放量，也不会给出 120% 的互动率；写进去会被",
+    "                `usine publish check` 判死，这是刻意的。",
+    "",
+    "**没有数据就留 null / 不写这个键，不要填 0。** 0 是「播放了 0 次」，",
+    "null 是「不知道」——把不知道写成 0，分析器会把「没数据」当成「效果极差」参与排名。",
+    "",
+    "已发布凭据分两级：url/postId（可点开，强）/ verifiedBy+verifiedAt（次）。",
+    "两个都没有，`check` 会判「已发布声明无凭据」。抖音与小红书后台不给永久作品链接，",
+    "所以本文件里这两平台走的是 verifiedBy——凭据原文在 docs/publish-playbook.md §8。"
+  ],
+
+  "results": {
+    "colors/zh-CN/douyin": {
+      "published": true, "publishedAt": "2026-10-04",
+      "verifiedBy": "内容管理页作品总数 21（原 7 + 新 14），01–14 全部审核通过、全部进合集；合集详情页「总集数」= 14",
+      "verifiedAt": "2026-10-04",
+      "_collection": "https://creator.douyin.com/creator-micro/work-management/collection-detail/7692462700349098030?enter_from=collect-manage",
+      "_knownDefect": "正文被联想面板污染：重复整段 + 错话题 #小语种就业前景，242 字（应为 124 字）——待修"
+    },
+    "colors/zh-HK/douyin": {
+      "published": true, "publishedAt": "2026-10-04",
+      "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集",
+      "verifiedAt": "2026-10-04"
+    },
+    "colors/en-US/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/de-DE/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/fr-FR/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/es-ES/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/it-IT/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/ru-RU/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/el-GR/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/hi-IN/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/ar-SA/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04", "_knownDefect": "正文「从红色一路查到白色」应为「问到」——待修" },
+    "colors/he-IL/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04", "_knownDefect": "正文「从红色一路查到白色」应为「问到」——待修" },
+    "colors/ja-JP/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+    "colors/ko-KR/douyin": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "内容管理页作品总数 21，01–14 全部审核通过、全部进合集", "verifiedAt": "2026-10-04" },
+
+    "colors/en-US/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应（05 it-IT 00:50 / 06 ru-RU 00:50 / 07 el-GR 00:46 / 08 hi-IN 00:54 / 09 ar-SA 00:54 / 10 he-IL 00:47 / 11 ja-JP 00:54 / 12 ko-KR 00:50 / 14 zh-CN 00:45）", "verifiedAt": "2026-10-04" },
+    "colors/de-DE/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/fr-FR/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/es-ES/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/it-IT/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应；草稿箱残留 1 条重复草稿（05 首次上传被页面重载打断），可删", "verifiedAt": "2026-10-04" },
+    "colors/ru-RU/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/el-GR/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/hi-IN/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/ar-SA/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/he-IL/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/ja-JP/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/ko-KR/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "笔记管理页核验到标题与时长一一对应", "verifiedAt": "2026-10-04" },
+    "colors/zh-HK/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "合集篇数单调递增可反证无缺号（编 05 时预览「共 5 篇」→ 06 「共 6 篇」→ 07 「共 7 篇」）；发布当场核验", "verifiedAt": "2026-10-04" },
+    "colors/zh-CN/xiaohongshu": { "published": true, "publishedAt": "2026-10-04", "verifiedBy": "合集篇数单调递增可反证无缺号；发布当场核验（表单重置 + published=true + 草稿箱 0）", "verifiedAt": "2026-10-04", "_pendingReview": "发布时仍为「审核中」，属正常" }
+  }
+}

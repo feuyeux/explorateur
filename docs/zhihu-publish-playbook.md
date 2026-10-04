@@ -354,6 +354,10 @@ DELETE https://zhuanlan.zhihu.com/api/articles/2089911058764977000/draft  → 40
 
 ## 7. 已发布台账（2026-10-04）
 
+> **本节的机器可读版是 `lessons/colors/publish/zhihu/_draft-log.json`**（文章/视频 id、平台限制、遗留缺陷），
+> 仍在使用——知乎走的是「一课一篇长文」，不进 `publish/ledger.json` 的 14 支模板。
+> 门禁的引用完整性只覆盖 `ledger.json` 里的记录；知乎这一份由本节的人工核验负责。
+
 专栏：https://zhuanlan.zhihu.com/p/2089904878147598212
 （账号 `feuyeux`；标题「六个颜色词，十四种语言：一场放学后的美术教室对话」）
 
