@@ -213,8 +213,16 @@ def main():
                   "齐全，次序偏差 " + ">".join(seen))
         else:
             check(f"{lc} token 零遗漏零重复", True, ">".join(seen))
-        check(f"{lc} 问答对称 A{ask['A']}/B{ask['B']}",
-              ask["A"] == ask["B"], f'A{ask["A"]}/B{ask["B"]}')
+        # 问答对称是**该课自己声明**的（§0 `askBalance`，缺省 `any` = 不要求）。
+        # 旧写法无条件判 `ask["A"] == ask["B"]` —— 那是 colors 课 §1.1 的设计承诺
+        # （A 问三色、B 问三色），被当成通用规则后，「A 主导的计数游戏」这类
+        # 同样合理的课会被判失败。缺省 `any` 是有意的：不能默认替所有课定一种戏剧结构。
+        _ab = (scene.get("askBalance") or "any")
+        if _ab == "symmetric":
+            check(f"{lc} 问答对称（§0 askBalance: symmetric 声明）",
+                  ask["A"] == ask["B"], f'A{ask["A"]}/B{ask["B"]}')
+        else:
+            check(f"{lc} 问答分布 A{ask['A']}/B{ask['B']}（§0 askBalance: any，不判对称）", True)
 
         # 3d 排他动作（需求①）：moves 槽位表逐人专属——单射 + 合法码 + 同台 A/B 零交集
         def vocab(p, slots):
@@ -241,6 +249,8 @@ def main():
 
     print("\n== 4. 画面探针")
     ink = hexrgb(UI_INK)
+    # 注记行下限由该课自己声明（§0 `noteFloor`；缺省 0 = 不要求）。
+    note_floor = int(scene.get("noteFloor") or 0)
     # 探针⓪（静态）：三层带的文字色 ↔ 带底、卡拉OK高亮色 ↔ 带底，均不得靠色（需求②③）
     for nm, col in (("翻译层", BAND_GLOSS), ("注记层", BAND_NOTE), ("带底原文", "#D6DCEE")):
         d = dist(hexrgb(col), tuple(BAND_BG))
@@ -284,16 +294,23 @@ def main():
             ab = bim.getchannel("A").point(lambda v: 255 if v > 8 else 0)
             bx0, by0, bx1, by1 = ab.getbbox()
             bw_ = bx1 - bx0
-            ytop = BUBBLE_CY - (by1 - by0) // 2 + 3
+            ytop = BUBBLE_CY - (by1 - by0) // 2
             n_span = len(range(-int(bw_ * 0.35), int(bw_ * 0.35) + 1, 4))
 
-            def ink_hits(cx0):
+            # 采样取**行带内最佳行**（说话侧命中最多、镜像侧最少的那一行），不用单个魔数行。
+            # 旧写法钉死 `ytop+3`：colors 气泡宽 158，+3 落在 5px 描边里得 71%；
+            # numbers 气泡宽 120，同一个 +3 恰好落在描边**上方 1px**，掉到 45% → 误判失败。
+            # 气泡越窄、圆角在采样跨度里占比越高，单行越脆。行带搜索后 colors 82% / numbers 64%，
+            # 阈值 60% 一个字没动，判据仍是「说话侧有长横边、镜像侧没有」。
+            def ink_hits(cx0, y):
                 return sum(1 for x in range(cx0 - int(bw_ * 0.35), cx0 + int(bw_ * 0.35) + 1, 4)
-                           if near(img_b.load()[x, ytop], ink))
-            na2, nb2 = ink_hits(side_x(lc, "A")), ink_hits(side_x(lc, "B"))
+                           if near(img_b.load()[x, y], ink))
+            xa, xb = side_x(lc, "A"), side_x(lc, "B")
+            band = [(y, ink_hits(xa, y), ink_hits(xb, y)) for y in range(ytop - 4, ytop + 9)]
+            by, na2, nb2 = max(band, key=lambda r: r[1] - r[2])
             check(f"{lc} 气泡跟随说话人（RTL 镜像）",
                   na2 >= n_span * 0.6 and nb2 < n_span * 0.2,
-                  f"说话侧 {na2}/{n_span} 对侧 {nb2}/{n_span}（y={ytop}）")
+                  f"说话侧 {na2}/{n_span} 对侧 {nb2}/{n_span}（y={by}）")
         else:
             check(f"{lc} 气泡跟随说话人（RTL 镜像）", False, "无 A 方气泡资产")
 
@@ -318,7 +335,14 @@ def main():
         # 「绿茶。」三个字）也有 ≥6 个连续的 ≥8 命中行；zh-CN（无翻译层）实测零命中行。
         want_gloss = any(ln.get("gloss") for ln in loc["dialogue"])
         noted = [ln for ln in loc["dialogue"] if ln.get("note")]
-        check(f"{lc} 注记行 ≥3（⚑ 体例）", len(noted) >= 3, f"{len(noted)} 行")
+        # 注记行下限由该课自己声明（§0 `noteFloor`，默认 0 = 不要求）。
+        # 旧写法在这里硬编码 ≥3 —— 那是 colors 课的质量线，却被写进了通用探针：
+        # 于是「注记按设计是可选的」（剧本体例：仅特别需要说明的才有）这条规则，
+        # 在验收层被反转成「每课必须 ≥3」，新课程只要不写注记就被判失败。
+        # 注记层的其他探针（翻译层/金色层/层序）照跑——有注记就必须渲对。
+        if note_floor:
+            check(f"{lc} 注记行 ≥{note_floor}（⚑ 体例，§0 noteFloor 声明）",
+                  len(noted) >= note_floor, f"{len(noted)} 行")
         gl_lines, nt_n, ys_gl, ys_nt = 0, 0, [], []
         for ln in noted:
             bp = TEXT_DIR / f"band_{PREFIX}_{lc}_{ln['i']}_base.png"
@@ -363,16 +387,33 @@ def main():
             check(f"{lc} 翻译层出现在成片帧", g_in_frame > 25, f"{g_in_frame} px")
 
         # 探针③：末句处 token 装置应全亮（零遗漏的画面侧证据）
+        #
+        # 判据取**真实目的**——「这个井有没有被点亮」——而不是代理量「有没有出现某个颜色」。
+        # 2026-10-04 新课 numbers（字牌 chip）暴露了旧写法的洞：`chip_color()` 对字牌返回
+        # None，`tok and near(...)` 恒假 → 字牌这类 token **根本无法验收**，渲坏了也没人知道。
+        # 现在两条判据并存：
+        #   色片：井内出现该 chip 色（更强，能抓「亮了但颜色错了」）
+        #   字牌：**点亮前后两帧该井区域像素差**（与 chip 类型无关；井内从空井底变成
+        #         「空井底 + 数字文字层」一定产生显著差异）
         last = tl["lines"][-1]
         img2 = Image.open(grab(lc, last["start"] + last["dur"] * 0.4, tmp / f"{lc}_z.png")).convert("RGB")
-        px = img2.load()
+        first_ask = tl["ask"][0]["t"] if tl.get("ask") else 0.0
+        img0 = Image.open(grab(lc, max(0.0, first_ask - 0.6),
+                                tmp / f"{lc}_a.png")).convert("RGB")
+        px, px0 = img2.load(), img0.load()
         lit = 0
         for key, cell in zip(scene["tokenOrder"], device_cells(device_of(loc))):
+            x0, y0, x1, y1 = int(cell[0]) + 6, int(cell[1]) + 6, int(cell[2]) - 6, int(cell[3]) - 6
             tok = chip_color(scene["tokens"][key])
-            hit = sum(1 for y in range(int(cell[1]) + 6, int(cell[3]) - 6, 4)
-                      for x in range(int(cell[0]) + 6, int(cell[2]) - 6, 4)
+            hit = sum(1 for y in range(y0, y1, 4) for x in range(x0, x1, 4)
                       if tok and near(px[x, y], tok, 30))
-            lit += 1 if hit > 20 else 0
+            if hit > 20:
+                lit += 1
+                continue
+            delta = sum(1 for y in range(y0, y1, 4) for x in range(x0, x1, 4)
+                        if not near(px[x, y], px0[x, y], 12))
+            if delta > 20:
+                lit += 1
         check(f"{lc} 装置已点亮 {lit}/{len(scene['tokenOrder'])}", lit == len(scene["tokenOrder"]))
 
     print("\n== 5. 音频契约")

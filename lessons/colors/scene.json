@@ -4,6 +4,8 @@
  "title": "说到颜色，你会想到什么",
  "form": "dialogue",
  "source": "scene.md",
+ "noteFloor": 3,
+ "askBalance": "symmetric",
  "rtlLocales": [
   "ar-SA",
   "he-IL"

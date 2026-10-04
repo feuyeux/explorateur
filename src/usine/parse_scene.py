@@ -131,6 +131,24 @@ def parse_spec(md):
             raise ValueError(f"§0 durationBudget 格式应为 40-55，实得：{budget!r}")
         meta["durationBudget"] = [float(m.group(1)), float(m.group(2))]
 
+    # askBalance: 该课对「问句在 A/B 之间的分布」的要求。
+    #   symmetric = 必须 A 问次数 == B 问次数（colors 课的设计承诺）
+    #   any       = 不要求（缺省）。**不能默认替所有课定一种戏剧结构**——A 主导的
+    #               计数游戏、单人讲解都同样合理，判失败等于把一种写法当规范。
+    ab = meta_val("askBalance")
+    if ab and ab not in ("symmetric", "any"):
+        raise ValueError(f"§0 askBalance 只能是 symmetric / any，实得：{ab!r}")
+    meta["askBalance"] = ab or "any"
+
+    # noteFloor: 该课对 ⚑ 注记行的**自己声明**下限（缺省 0 = 不要求）。
+    # 注记按设计是可选的（体例：仅特别需要说明的才有），所以下限必须由课自己说，
+    # 不能在通用探针里替所有课定一个数。
+    nf = meta_val("noteFloor")
+    if nf:
+        if not nf.isdigit():
+            raise ValueError(f"§0 noteFloor 应为非负整数，实得：{nf!r}")
+        meta["noteFloor"] = int(nf)
+
     token_order, tokens = [], {}
     for header, body in _tables(sec0):
         if header[:2] == ["key", "chip"]:
@@ -452,6 +470,8 @@ def parse_scene(scene_id):
         "title": meta["title"],
         "form": meta["form"],
         "source": md_path.name,
+        "noteFloor": meta.get("noteFloor", 0),
+        "askBalance": meta.get("askBalance", "any"),
         "rtlLocales": meta["rtlLocales"],
         "durationBudget": meta.get("durationBudget", []),
         "roles": roles,

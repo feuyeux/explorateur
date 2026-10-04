@@ -149,6 +149,15 @@ def validate_scene(scene, personas=None, cards=None):
             if not (ln.get("text") or "").strip():
                 bad(f"{lc} #{i}: 台词为空")
 
+        # 5d. 该课自己声明的注记下限——在 parse 阶段就查，不等渲染。
+        # （门禁要放在「还能便宜地修」的地方：处方是加 ⚑ 段，改文本远比改代码便宜。）
+        floor = int(scene.get("noteFloor") or 0)
+        if floor:
+            n_note = sum(1 for ln in (loc.get("dialogue") or []) if ln.get("note"))
+            if n_note < floor:
+                bad(f"{lc}: ⚑ 注记行 {n_note} < §0 noteFloor 声明的 {floor}"
+                    f"（注记按设计可选，但本课声明了就要够）")
+
     # ---- 6. 语体差承诺（§0.3）：列了就必须有非空 marker ----
     for lc, spec in (scene.get("speechLevels") or {}).items():
         if lc not in locales:

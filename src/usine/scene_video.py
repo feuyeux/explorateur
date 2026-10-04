@@ -822,16 +822,40 @@ def render_scene(locale, scene_id=None):
         box = a.getbbox()
         return im.crop(box) if box else im
 
+    def tight_on_bg(im, bg_rgb, tol=12):
+        """按「与底色的差异」裁紧——给**opaque 无 alpha** 的文字层用。
+
+        `tight()` 走 alpha bbox，对 RGB 图（alpha 全 255）等于不裁。字牌 chip 的
+        文字层正是 opaque：Edge 截图底色 = 该装置的空井色。所以判据改成
+        「哪些像素不是底色」。2026-10-04 新课 numbers 才暴露这个洞——字牌这条路
+        从未被真正跑过，1080×554 整窗被缩进井里，几乎全是井底色，井看上去从没点过。
+        """
+        import numpy as np
+        a = np.asarray(im.convert("RGB"), dtype=np.int16)
+        bg = np.array(bg_rgb[:3], dtype=np.int16)
+        mask = np.abs(a - bg).max(axis=2) > tol
+        if not mask.any():
+            return im
+        ys, xs = np.nonzero(mask)
+        pad = 4
+        return im.crop((max(0, int(xs.min()) - pad), max(0, int(ys.min()) - pad),
+                        min(im.width, int(xs.max()) + 1 + pad),
+                        min(im.height, int(ys.max()) + 1 + pad)))
+
     badges = {r: tight(b) for r, b in badges.items()}
     pill = tight(Image.open(TEXT_DIR / f"pill_{PREFIX}_{locale}.png").convert("RGBA"))
     bubbles = {lo["i"]: tight(Image.open(TEXT_DIR / f"bub_{PREFIX}_{locale}_{lo['i']}.png").convert("RGBA"))
                for lo in lines if lo["bubble"]}
-    # 字牌 chip（`"文本"` 型）：token 词由 Edge 渲成文字层，按井位贴入
+    # 字牌 chip（`"文本"` 型）：token 词由 Edge 渲成文字层，按井位贴入。
+    # 文字层是 opaque（底色=该装置空井色），必须按底色差异裁紧——见 tight_on_bg。
     plaques = {}
+    _dev = device_of(loc) or {}
+    _plaque_bg = _dev.get("well") or ""
+    _plaque_bg = _plaque_bg if str(_plaque_bg).startswith("#") else "#EDE9E0"
     for key in order:
         p = TEXT_DIR / f"tok_{PREFIX}_{locale}_{key}.png"
         if chip_color(tokens.get(key)) is None and p.exists():
-            plaques[key] = Image.open(p).convert("RGBA")
+            plaques[key] = tight_on_bg(Image.open(p).convert("RGBA"), hexc(_plaque_bg))
 
     out_path = ROOT / f"{PREFIX}_{locale}.mp4"
     # 禁用 -shortest（坑⑯，同 intro_cards）：音频已 apad/atrim 到恰好 dur，-t dur 封顶即可；
@@ -907,11 +931,16 @@ def render_scene(locale, scene_id=None):
                 bx0, by0, bx1, by1 = cell_box(cell, sc)
                 pl = plaques[key]
                 k = min((bx1 - bx0) / pl.width, (by1 - by0) / pl.height, 1.0)
-                pw, ph = max(1, int(pl.width * k)), max(1, int(pl.height * k))
+                # **必须乘 SS**：`layer` 是 W*SS × H*SS 的超采样画布，cell_box 给的是
+                # 1x 语义坐标。DrawScaled 内部乘了 SS 所以 lds 一直没事；这里手写
+                # alpha_composite 就漏了——数字被贴到画布左上角空白处，井永远不亮。
+                # （2026-10-04 新课 numbers 才暴露：字牌这条路从未被跑过，两处都错。）
+                w1, h1 = pl.width * k, pl.height * k
+                pw, ph = max(1, int(w1 * SS)), max(1, int(h1 * SS))
                 if (pw, ph) != pl.size:
                     pl = pl.resize((pw, ph), Image.Resampling.LANCZOS)
-                layer.alpha_composite(pl, (int((bx0 + bx1) / 2 - pw / 2),
-                                           int((by0 + by1) / 2 - ph / 2)))
+                layer.alpha_composite(pl, (int(((bx0 + bx1) / 2 - w1 / 2) * SS),
+                                           int(((by0 + by1) / 2 - h1 / 2) * SS)))
             ring_cell(lds, cell, ink, 4)
             if key == cur["tokenKey"] and cur["tokenKey"]:
                 ccx, ccy = (cell[0] + cell[2]) / 2, (cell[1] + cell[3]) / 2
@@ -1023,10 +1052,33 @@ def render_scene(locale, scene_id=None):
 
 
 def cmd_render(only, workers):
+    from . import ledger
     ids = locales_of(only)
     ROOT.mkdir(parents=True, exist_ok=True)
-    with Pool(min(workers, len(ids))) as pool:
-        pool.starmap(render_scene, [(lc, SCENE_ID) for lc in ids])
+    # P2-2 缓存账本：指纹未变且产物齐全的语种直接跳过（USINE_SKIP_FRESH=0 强制全渲）。
+    skip = os.environ.get("USINE_SKIP_FRESH", "1") == "1"
+    todo = []
+    for lc in ids:
+        art = [f"build/scene/{PREFIX}_{lc}.mp4"]
+        # 键里必须带课 id：`scene:zh-CN` 会被下一门课（zh-CN 同语种）整条覆盖，
+        # 症状是上一门课的产物「凭空没有记录」而不得不重渲——安全方向，但账本就废了。
+        # **不传 extra**：课 id 已经在 unit 里，再传一遍就会与 `report()` 那条路径
+        # （照条目里登记的 extra 复算）对不上，症状是「每次都判过期、每次都重渲」。
+        unit = f"{SCENE_ID}/{lc}"
+        fresh, why = ledger.status_of("scene", unit, art)
+        if skip and fresh:
+            print(f"[render] {lc} 跳过（{why}）")
+            continue
+        if not fresh:
+            print(f"[render] {lc} 待渲（{why}）")
+        todo.append(lc)
+    if not todo:
+        print(f"[render] 全部 {len(ids)} 支都是新鲜的，无需重渲（USINE_SKIP_FRESH=0 可强制）")
+        return
+    with Pool(min(workers, len(todo))) as pool:
+        pool.starmap(render_scene, [(lc, SCENE_ID) for lc in todo])
+    for lc in todo:
+        ledger.record("scene", f"{SCENE_ID}/{lc}", [f"build/scene/{PREFIX}_{lc}.mp4"])
 
 
 def cmd_list():

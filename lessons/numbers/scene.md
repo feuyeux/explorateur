@@ -23,6 +23,8 @@ sceneId: numbers-count-to-six
 title: 一起数到六
 form: dialogue
 durationBudget: 20-55
+noteFloor: 3
+askBalance: any
 
 ### 0.1 教学 token（书写序 = 出场序）
 
@@ -85,17 +87,17 @@ durationBudget: 20-55
 - **A**（happy）：「江远江远！我们在数灯笼——从一到六！」｜`bounce-in` 入场，「数」处 `both-hands`
 - **B**（neutral）：「好，怎么数？」｜`nod`
 - **A**（happy）：「一是什么？」｜「一」处 `point`
-- **B**（neutral）：「一盏。」｜「一盏」处 `palm-open`；一号灯笼亮
+- **B**（neutral）：「一盏。」｜「一盏」处 `palm-open`；一号灯笼亮｜⚑中文数物要带量词，量词还随数词变：一盏/两盏/三盏——不是「一个/两个」
 - **A**（happy）：「那二呢？」｜「二」处 `point`
-- **B**（neutral）：「两盏。」｜「两盏」处 `palm-open`；二号灯笼亮
+- **B**（neutral）：「两盏。」｜「两盏」处 `palm-open`；二号灯笼亮｜⚑数词作单数用「二」、作多数用「两」——这一点最容易读错
 - **A**（happy）：「三？」｜「三」处 `point`
 - **B**（neutral）：「三盏。」｜「三盏」处 `palm-open`；三号灯笼亮
 - **A**（happy）：「四呢？」｜「四」处 `point`
 - **B**（neutral）：「四盏。」｜「四盏」处 `palm-open`；四号灯笼亮
-- **A**（happy）：「五！」｜「五」处 `point`
+- **A**（happy）：「五呢？」｜「五」处 `point`
 - **B**（neutral）：「五盏——该我了。」｜「五盏」处 `palm-open`；五号灯笼亮
-- **A**（happy）：「最后一个，六！」｜「六」处 `point`
-- **B**（neutral）：「六盏。数完啦。」｜「六盏」处 `palm-open`；六号灯笼亮——六只全亮
+- **A**（happy）：「最后一个——六？」｜「六」处 `point`
+- **B**（neutral）：「六盏。数完啦。」｜「六盏」处 `palm-open`；六号灯笼亮——六只全亮｜⚑灯笼是节庆意象，数到六正好收在一轮上——这是本课的收束设计
 - **A**（happy）：「一到六！全数完啦！」｜「全数完」处 `jump-celebrate`
 - **B**（encouraging）：「明天接着数。」｜`wave`
 - **A**（happy）：「明天见！」｜`wave`＋蹦跳出画
@@ -109,17 +111,17 @@ durationBudget: 20-55
 - **A**（happy）："Ruby! We're counting the lanterns — one to six!" ｜`bounce-in`，"counting" 处 `both-hands`
 - **B**（neutral）："Go ahead. How do we count?" ｜`nod`
 - **A**（happy）："What's one?" ｜"one" 处 `point`
-- **B**（neutral）："One lantern." ｜"One lantern" 处 `palm-open`；一号灯笼亮
+- **B**（neutral）："One lantern." ｜"One lantern" 处 `palm-open`；一号灯笼亮｜⚑英语数物直接用基数词，不套量词：one lantern，没有「一盏」这种结构
 - **A**（happy）："And two?" ｜"two" 处 `point`
-- **B**（neutral）："Two." ｜"Two" 处 `palm-open`；二号灯笼亮
+- **B**（neutral）："Two." ｜"Two" 处 `palm-open`；二号灯笼亮｜⚑one / two 这类小数字在口语里常作代词用：Two. 就是「两盏」，不必重复名词
 - **A**（happy）："Three?" ｜"Three" 处 `point`
 - **B**（neutral）："Three." ｜"Three" 处 `palm-open`；三号灯笼亮
 - **A**（happy）："Four?" ｜"Four" 处 `point`
 - **B**（neutral）："Four." ｜"Four" 处 `palm-open`；四号灯笼亮
-- **A**（happy）："Five!" ｜"Five" 处 `point`
+- **A**（happy）："Five?" ｜"Five" 处 `point`
 - **B**（neutral）："Five — my turn." ｜"Five" 处 `palm-open`；五号灯笼亮
-- **A**（happy）："Last one: six!" ｜"six" 处 `point`
-- **B**（neutral）："Six. That's all of them." ｜"Six" 处 `palm-open`；六号灯笼亮——六只全亮
+- **A**（happy）："Last one: six?" ｜"six" 处 `point`
+- **B**（neutral）："Six. That's all of them." ｜"Six" 处 `palm-open`；六号灯笼亮——六只全亮｜⚑all of them 强调「就这些、没别的了」，比单说 Six 多一层穷尽感
 - **A**（happy）："One to six — all counted!" ｜"all counted" 处 `jump-celebrate`
 - **B**（encouraging）："We'll count more tomorrow." ｜`wave`
 - **A**（happy）："See you!" ｜`wave`＋蹦跳出画

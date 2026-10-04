@@ -30,6 +30,8 @@ title: 说到颜色，你会想到什么
 form: dialogue
 rtlLocales: ar-SA, he-IL
 durationBudget: 40-55
+noteFloor: 3
+askBalance: symmetric
 
 ### 0.1 教学 token（书写序 = 出场序）
 

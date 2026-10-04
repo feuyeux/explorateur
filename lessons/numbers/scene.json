@@ -4,6 +4,8 @@
  "title": "一起数到六",
  "form": "dialogue",
  "source": "scene.md",
+ "noteFloor": 3,
+ "askBalance": "any",
  "rtlLocales": [],
  "durationBudget": [
   20.0,
@@ -282,7 +284,7 @@
      "text": "一盏。",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "中文数物要带量词，量词还随数词变：一盏/两盏/三盏——不是「一个/两个」",
      "gesture": {
       "word": "一盏",
       "poses": [
@@ -334,7 +336,7 @@
      "text": "两盏。",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "数词作单数用「二」、作多数用「两」——这一点最容易读错",
      "gesture": {
       "word": "两盏",
       "poses": [
@@ -461,7 +463,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "五！",
+     "text": "五呢？",
      "romanization": "",
      "gloss": "",
      "note": "",
@@ -513,7 +515,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "最后一个，六！",
+     "text": "最后一个——六？",
      "romanization": "",
      "gloss": "",
      "note": "",
@@ -542,7 +544,7 @@
      "text": "六盏。数完啦。",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "灯笼是节庆意象，数到六正好收在一轮上——这是本课的收束设计",
      "gesture": {
       "word": "六盏",
       "poses": [
@@ -748,7 +750,7 @@
      "text": "One lantern.",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "英语数物直接用基数词，不套量词：one lantern，没有「一盏」这种结构",
      "gesture": {
       "word": "One lantern",
       "poses": [
@@ -800,7 +802,7 @@
      "text": "Two.",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "one / two 这类小数字在口语里常作代词用：Two. 就是「两盏」，不必重复名词",
      "gesture": {
       "word": "Two",
       "poses": [
@@ -927,7 +929,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "Five!",
+     "text": "Five?",
      "romanization": "",
      "gloss": "",
      "note": "",
@@ -979,7 +981,7 @@
     {
      "speaker": "A",
      "mood": "happy",
-     "text": "Last one: six!",
+     "text": "Last one: six?",
      "romanization": "",
      "gloss": "",
      "note": "",
@@ -1008,7 +1010,7 @@
      "text": "Six. That's all of them.",
      "romanization": "",
      "gloss": "",
-     "note": "",
+     "note": "all of them 强调「就这些、没别的了」，比单说 Six 多一层穷尽感",
      "gesture": {
       "word": "Six",
       "poses": [
