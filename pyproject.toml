@@ -17,6 +17,7 @@ dependencies = [
 douyin = ["playwright>=1.40"]
 
 [project.scripts]
+usine = "usine.cli:main"                      # 统一入口：usine <组> <命令>（下面这些是它的等价别名，全部保留）
 usine-cards = "usine.intro_cards:main"          # 亮相卡管线：tts / assets / render
 usine-chars = "usine.char_sheet:main"           # 人物形象体检台：28 人立绘大图 / 总览 / 索引页
 usine-parse = "usine.parse_scene:main"          # lessons/<id>/scene.md -> lessons/<id>/scene.json
@@ -24,6 +25,9 @@ usine-scene = "usine.scene_video:main"          # 教学场景管线：tts / ass
 usine-lesson = "usine.build_lesson:main"        # lessons/<id>/scene.json + analysis -> 教学文档 HTML
 usine-dump-lesson = "usine.dump_lesson_source:main"  # lessons/<id>/scene.json -> 逐语种解析源文本
 usine-validate = "usine.scene_schema:main"           # 场景数据前置校验（parse 与 render 之间）
+usine-draft = "usine.scene_draft:main"                # lessons/<id>/brief.json -> scene.md 结构草稿
+usine-ledger = "usine.ledger:main"                   # 产物缓存账本 build/manifest.json（status 看谁过期了）
+usine-publish = "usine.publish:main"                 # 发布台账 publish/ledger.json + 指标回流分析（P2-5）
 
 [build-system]
 requires = ["hatchling"]
