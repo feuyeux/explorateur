@@ -34,8 +34,11 @@
 | [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册——Markdown 导入文档（唯一可自动化路径）、内嵌视频、改已发布文章里的链接、20 条踩坑实录（含「服务端过滤阿拉伯文区段」）、15 篇台账 |
 | `personas/personas.json` | 28 人档案——声线/色板/脸型/发型/服装/配饰/RTL + 档案四字段（名字语义/声线画像/搭档关系/趣味设定）（人设唯一事实源） |
 | `personas/intro-cards.json` | 28 张卡——台词/情绪/手势/入场姿态/场景/收尾码列/A·B 选角；RTL 卡带 `variants[]`（女性观众版） |
-| `pyproject.toml` / `uv.lock` / `.venv` | uv 工程清单与锁定的单一虚拟环境（uv 托管 CPython 3.12；依赖精确锁版，Pillow 12.3.0 是像素基线）；控制台入口 `usine-cards` / `usine-parse` / `usine-scene` / `usine-lesson` / `usine-dump-lesson` |
-| `src/usine/intro_cards.py` | 管线一本体（`tts` / `assets` / `render` 三个子命令） |
+| `pyproject.toml` / `uv.lock` / `.venv` | uv 工程清单与锁定的单一虚拟环境（uv 托管 CPython 3.12；依赖精确锁版，Pillow 12.3.0 是像素基线）；控制台入口 `usine-cards` / `usine-parse` / `usine-scene` / `usine-lesson` / `usine-dump-lesson` / `usine-validate` |
+| `src/usine/data.py` | **数据入口唯一事实源**：`personas()` / `cards_doc()` / `scene_doc()` / `unit_persona()`，进程内只读缓存（2026-10-04 收敛此前 6 处各自 `json.load` 的手抄路径） |
+| `src/usine/media.py` | **媒体内核**：ffmpeg 音轨合成 `compose_track`（含坑③ apad 前置 loudnorm）/ 卡拉OK进度轴 `karaoke_points`+`frac_at` / Edge 视口探针 `edge_window_h`（坑⑩）——两条管线共用一份（2026-10-04 收敛此前 4 组双份实现） |
+| `src/usine/scene_schema.py` | **场景数据前置校验**（`validate_scene`）：卡在 parse 与 render 之间，解析完立刻对账；判定依据全部取自既有注册表（情绪表/姿态码/装置样式/选角），零硬编码；反向验证见 `scripts/verify_scene_schema.py` |
+| `src/usine/intro_cards.py` | 管线一本体（`tts` / `assets` / `render` 三个子命令）+ 人物 rig（`face_geo` / `draw_character` / `pose_for`）与场景原语注册表 |
 | `src/usine/parse_scene.py` | 通用教学场景解析器：`lessons/<id>/scene.md` → `lessons/<id>/scene.json`（只抽取不改写，保证 md 与 JSON 两处同步；规格全来自剧本 §0，场景无关） |
 | `src/usine/scene_video.py` | 管线二（A/B 对话教学场景，场景无关）：选角/双人站位/token 装置（色片/字牌，可选）/气泡/RTL 镜像 |
 | `src/usine/qa_*.py` | 验收五件套——网格探针 / 调色板探针 / 32 单元全量 / 动态验收 / 场景线 |
@@ -56,15 +59,21 @@
 .\run.ps1 render -Only xiaoman,layla -Workers 7   # 帧渲染 + ffmpeg
 .\run.ps1 qa                                      # 32 单元全量验收（28 卡 + 4 变体）
 .\run.ps1 qa-motion                               # 卡拉OK / 口型 / 眨眼 / 气泡镜像 / 进度条 / 语言牌 / 挂件物理 / 幂等
+.\run.ps1 verify                                  # 探针反向验证统一入口：形状 + 文本契约 + 场景 schema（12 种定向破坏）
 
 .\run.ps1 scene -Scene colors                     # 场景线：parse → tts → assets → render（14 语种，~20 分钟）
-.\run.ps1 scene -Scene colors -Only zh-CN,ja-JP   # 只渲指定语种
+.\run.ps1 scene -Scene colors -Only "zh-CN,ja-JP"   # 只渲指定语种（-Only 逗号列表必须加引号）
 .\run.ps1 scene-list -Scene <id>                  # 列场景（台词行数 / 时长 / 选角 / 装置）
 .\run.ps1 qa-scene -Scene <id>                    # 场景线验收（规格 / 文本契约 / 选角 / 画面探针 / 音频契约 / 幂等）
+.\run.ps1 qa-annotate                             # 人物层缺陷框标注图（改 draw_character 前先看）
+.\run.ps1 qa-shape-verify                         # 只跑形状探针反向验证
 
 .\run.ps1 dump-lesson -Scene colors               # 导出逐语种解析源文本（analysis/_source/）
 .\run.ps1 lesson -Scene colors                    # 合并成 build/lesson/colors/index.html
 ```
+
+> `verify` 是「探针会不会恒真」的唯一防线，三套件都有反向验证：拿已知坏数据证明检查会
+> FAIL，再拿好数据证明放行。改任何探针后必须跑它——只跑「现状全绿」等于没测。
 
 ### 课程资料组织（每课一目录）
 
@@ -208,7 +217,8 @@ lessons/<id>/scene.json + analysis/ └→ build_lesson.py ──→ build/lesso
 | 场景背景 | `intro_cards.py` 的 `@scene(...)` 原语注册表 + 卡级 `scene[]` |
 | 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html`（流式布局） |
 | 人物生成技术路线 | 见 [adr-character-tech.md](docs/adr-character-tech.md)（现役 Pillow；动 `draw_character` 前先读） |
-| **新增课程**（数字/食物/问候…） | 新建 `lessons/<id>/scene.md` 照抄体例（§0 机读规格 + §2 台词 + §5 词表），然后 `.\run.ps1 scene -Scene <id>`——**管线零改动**（token 用 `#hex` 色片或 `"文本"` 字牌；纯对话场景装置表留空即可） |
+| **新增课程**（数字/食物/问候…） | 新建 `lessons/<id>/scene.md` 照抄体例（§0 机读规格：token 表 / 装置规格表 / 语体表 / **角色声明 / 骨架节拍表** + §2 台词 + §5 词表），然后 `.\run.ps1 scene -Scene <id>`——**管线零改动**（token 用 `#hex` 色片或 `"文本"` 字牌；纯对话场景装置表留空即可） |
+| **换一种教学形态**（独白/小测…） | 换 §0 的 `form:` 与 §0.5 骨架节拍表——**不改 Python**。注意：`form` 必须在 `scene_schema.FORMS` 注册表里（当前只实现了 `dialogue`），未实现的形态会被前置校验拦下而不是渲出一支坏片 |
 | 场景台词 / 情绪 / 手势 / 舞台 | 只改该课的 `lessons/<id>/scene.md`，然后 `.\run.ps1 scene -Scene <id> -Only <locale>`（解析器只抽取不改写，md 仍是唯一事实源） |
 | 场景教学 token / RTL / 装置规格 | `lessons/<id>/scene.md` **§0**（token 表 + 装置规格表；井位/井形/空井色全在数据里） |
 | 逐句语法/词法/文化解析 | `lessons/<id>/analysis/<locale>.json`（先 `.\run.ps1 dump-lesson -Scene <id>` 导出源文本），然后 `.\run.ps1 lesson -Scene <id>` 合成文档 |

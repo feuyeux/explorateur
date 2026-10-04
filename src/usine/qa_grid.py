@@ -8,15 +8,15 @@ S=肤色 H=头发 T=上衣 B=裤裙 I=标识色 #(=文字带底 W=白 G=地面 ~
 用法：uv run python -m usine.qa_grid [--persona xiaoman] frame.png [frame2.png ...]
 """
 import argparse
-import json
 from pathlib import Path
 
 from PIL import Image
 
+from .data import personas as _read_personas
 from usine import ROOT
 
 HERE = ROOT
-personas = {p["id"]: p for p in json.load(open(HERE / "personas" / "personas.json", encoding="utf-8"))["personas"]}
+personas = _read_personas()
 
 
 def hexc(s):

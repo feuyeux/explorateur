@@ -22,18 +22,24 @@
 .\run.ps1 render -Only xiaoman,layla
 .\run.ps1 qa               # 32 单元全量验收（28 卡 + 4 变体，qa_all.py）
 .\run.ps1 qa-motion        # 动态验收（卡拉OK/口型/眨眼/气泡镜像/进度条/语言牌/挂件物理/幂等）
-.\run.ps1 qa-shape         # 人物层形状/连接/图层几何探针（28 人 × 6，qa_shape.py）
+.\run.ps1 qa-shape         # 人物层形状/连接/图层几何探针（28 人 × 11）
 .\run.ps1 qa-annotate      # 把探针判定的缺陷框画到 build/chars/qa/<id>.png（改代码前先看）
-.\run.ps1 qa-shape-verify  # 坑⑱ 修复的反向验证（探针不能是恒真的）
+.\run.ps1 verify           # 探针反向验证统一入口：形状 + 文本契约 + 场景 schema
+.\run.ps1 qa-shape-verify  # 只跑形状那套（= python scripts/verify_shape_fixes.py）
 .\run.ps1 chars            # 人物形象体检台 -> build/chars/（立绘 + alpha 剪影 + 总览 + 索引页）
 .\run.ps1 chars -Openness 0.9 -Pose wave   # 张嘴/指定姿态，检查「袖子不得压脸」
 .\run.ps1 all              # tts → assets → render → qa → qa-motion → qa-shape（~6 分钟）
 
 .\run.ps1 scene            # 教学场景 A/B 对话线：parse → tts → assets → render（-Scene <id> 选场景，缺省 colors）
-.\run.ps1 scene -Only zh-CN,ja-JP
+.\run.ps1 scene -Only "zh-CN,ja-JP"           # 逗号列表要加引号：PowerShell 会把裸 zh-CN,ja-JP 解析成数组
 .\run.ps1 scene-list       # 场景概览（token 序 / RTL / 装置 / 时长）
 .\run.ps1 qa-scene         # 场景线验收（qa_scene.py --scene <id>：规格/文本契约/选角/画面探针/音频契约/幂等）
 ```
+
+> **`verify` 为什么是统一入口**：三套反向验证（形状探针 / 文本契约 / 场景 schema）是
+> 「探针会不会恒真」的唯一防线。原先它们散在 `scripts/` 下且没接进主流程
+> （`qa-shape-verify` 那个 switch case 因 ValidateSet 漏列而是死代码，见 run.ps1 注释）——
+> 防线存在但没人跑得到。改任何探针后必须跑 `.\run.ps1 verify`。
 
 直连命令（run.ps1 的等价形式）：
 
@@ -45,12 +51,25 @@ uv run python -m usine.qa_all                        # 32 单元静态验收
 uv run python -m usine.qa_motion                     # 动态验收（含幂等重渲抽检）
 uv run python -m usine.qa_shape                      # 人物层几何探针（28 人 × 11）
 uv run python -m usine.qa_shape --annotate           # 缺陷框标注图（改 draw_character 前先看）
-uv run python scripts/verify_shape_fixes.py          # 探针反向验证（现状 PASS + 注回旧值必 FAIL）
+uv run python scripts/verify_probes.py               # 探针反向验证统一入口（形状+文本契约+schema）
 uv run usine-chars solo|sheet|html|all [--only id] [--openness 0.9] [--pose wave]  # 人物形象体检台
 uv run usine-parse --scene colors                    # lessons/<id>/scene.md → lessons/<id>/scene.json（只抽取不改写）
+uv run usine-validate --scene colors                 # 场景数据前置校验（parse 与 render 之间）
 uv run usine-scene render --scene colors [--only zh-CN]
 uv run python -m usine.qa_scene --scene colors [--only zh-CN]
 ```
+
+**共用内核（2026-10-04 收重构）**——下列实现在两条管线里曾各写一份、已经漂移，现已收敛：
+
+| 能力 | 现址 | 旧双份位置与漂移证据 |
+|---|---|---|
+| ffmpeg 音轨合成（含坑③） | `media.compose_track` | `intro_cards.compose_audio` / `scene_video.compose_scene_audio`；坑③修法写了两遍，n==1 分支形状不一 |
+| 卡拉OK进度轴 | `media.karaoke_points` / `frac_at` | 两份逐行同构（scene 版 docstring 自称"与亮相卡同一实现"）；`frac_at` 末尾返回值不同 |
+| Edge 视口探针（坑⑩） | `media.edge_window_h` | 两份 `edge_viewport_h`；scene 侧用 `BAND_H` 而非标称 300 作减数，多补 (BAND_H−300) px 窗口高度 |
+| 人设/卡片/场景数据入口 | `data.personas()` / `cards_doc()` / `scene_doc()` | 6 处各自 `json.load` + 手抄路径 |
+| 场景数据前置校验 | `scene_schema.validate_scene` | 原先无校验层，字段缺失要到渲染时才炸 |
+| 装置外框样式 | `scene_video` 的 `@device_style` 注册表（15 种） | 原先是 `draw_device` 里一条 15 分支 if/elif + 一个裸元组闭集；加样式要改函数体 |
+| 班底彩蛋色值 | `parse_scene` 抽 `easterEgg` → `scene_schema` 校验指向的演员色板 | 原先只活在 md 散文里，解析时被整段丢弃，无人校验 |
 
 代码都在 `src/usine/`（uv 项目 src 布局，editable 安装）；`uv run` 自动按 `pyproject.toml` + `uv.lock` 同步 `.venv`（uv 托管 CPython 3.12）。
 依赖精确锁版（`edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`）——**Pillow 12.3.0 是像素基线**，升级前必须重验 framehash 基线。
@@ -145,6 +164,8 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 | `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架（含 **moves 排他**：单射合法 + 同台零交集）/ 画面探针（三层带翻译/金色注记呈现与层序、立绘↔背景不靠色 ≥36、带内各文字色↔带底 ≥100）/ 音频契约 / 幂等 | `N PASS / 0 FAIL` |
 | `qa_shape.py`（**人物层**） | **十一**探针在**人物层**上跑（同 `draw_character`、同成片坐标）：A1 颈肩接缝（颏线下 `chin+0.005H…+0.10H` 无夹心洞）/ A2 胯部连接（`cx±0.80·torso_hw` 处必须是下装色——**不取 hip_hw**，否则注回旧值时取样点跟着缩进腿里、腿与下装同色 → 恒真；另腿根无夹心洞）/ B1 手臂可读性（剪影外探 ≥0.22·arm_w **且**袖色与衣色差 ≥10/通道）/ B2 头身重叠 / C1·C2 五官可见性（抬臂姿态族 mouth/eye 可见比例）/ **D1 下颌开口**（颏线上方可见肤色半宽 ≥0.30·rx，抓「尖下巴」与「发帘夹脸」）/ **D2 下颌单调**（`face_profile` 半宽非增，抓「脸被拉宽」）/ **D3 下颌内凹**（`face_profile` 斜率非增，抓「下巴外凸折返成横向针尖」）/ **E1 胡须不压颈**（颏下 `chin+0.10·ry` 以下胡须色 0px，抓「胡须糊到脖子上」）/ **E2 八字胡在上唇**（`mouth_y−0.15·ry` 处胡须色 ≥25px，抓「嘴上没胡子」） | `SHAPE QA PASS`（28 人 × 11） |
 | `scripts/verify_shape_fixes.py` | 坑⑱⑲⑳㉑㉒ 修复的**反向验证**：①现状全 PASS ②判定窗内合成凿洞必须 FAIL ③注回旧取值必须 FAIL ④顶戴墨镜三步（现状／镜框染成发色 → `glasses_frame` 阶跃归零必 FAIL／镜片退化 → `glasses_lens` 必 FAIL）⑤下颌三步（注回旧方颌 → D2 FAIL／注回旧心形 → D3 FAIL／撤掉发帘内缘下限 → D1 FAIL）⑥胡须（`BEARD_LEGACY` 接回旧 PIE → E1+E2 同时 FAIL）⑦旧魔数取样点留证 | `SHAPE FIX VERIFY PASS` |
+| `scripts/verify_scene_schema.py` | **场景 schema 校验层**的反向验证：真实 scene.json 判 PASS 作基线 → 12 种定向破坏（删顶层字段/tokenOrder 少 key/chip 非法/rtlLocales 指向不存在语种/speaker 越界/mood 未注册/手势码未注册/装置 style 未注册/§0.3 marker 清空/A 角姓名不符/durationBudget 反了/dialogue 为空）逐一要求报出**预期问题** → 确认破坏后原数据仍 PASS（用例无副作用） | `SCENE SCHEMA VERIFY PASS`（12/12） |
+| `scripts/verify_probes.py` | 上面三套反向验证的**统一入口**（`.\run.ps1 verify`）：进程级聚合，统一非零退出码。只聚合不改内部——它们各自 monkeypatch 模块属性注入旧取值，聚合层碰这些会引入耦合 | `PROBE VERIFY PASS` |
 
 **「文本契约」这组是踩过坑才加的**——三类问题都不影响渲染，ffmpeg 全部 `rc=0`，
 画面探针也照样 PASS，全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，
@@ -154,9 +175,12 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 |---|---|---|---|
 | 句末标点 | 代码（Unicode 事实，非场景数据） | 句末不得是半角分号 `;`；疑问句须用本文字系统的问号（希腊文 `U+037E`） | el-GR 7 个疑问句用 ASCII 分号收尾，TTS 读成陈述句 |
 | 语体差 | `§0.3` 表 `locale \| 语体 A \| 语体 B \| 区分标记` | A 线不得含标记、B 线必须含标记——「语体差即关系戏」只能在文本层验 | ko-KR 注记承诺「서연 敬语体」，成片里 B 全线해체 |
-| 时长预算 | `§0` 的 `durationBudget: 40-55` | 超时即 FAIL，处方是回改文本（不变量②，绝不动基线） | he-IL 60.04s / hi-IN 56.97s / ar-SA 56.45s |
+| 时长预算 | `scene_video.cmd_tts` **tts 阶段即判**（超预算 → 列出全部超时语种并 `exit 1`）＋ `qa_scene` §2 复核 | 超时即 FAIL，处方是回改文本（不变量②，绝不动基线） | he-IL 60.04s / hi-IN 56.97s / ar-SA 56.45s |
 
-> 缺行 = **不检查**，不是「通过」——`§0.3` 没列的语种不会被静默认成合规。
+> **门禁要放在「还能便宜地修」的地方**（2026-10-04 把时长预算门禁从 qa_scene 前移到 tts）：
+> 剧本写超了，原先要等 14 支全渲完（约 20 分钟）才知道，而处方恰恰是**改文本**——
+> 改文本的成本远低于重渲。门禁的位置决定它有没有用：出片后查是事后诸葛，
+> 出片前查才是守门。判据一次报全（列出所有超时语种），不要碰到第一个就中断。
 
 > 回归测试：`uv run python scripts/verify_text_contract.py` 把**修复前**的原始数据喂进
 > 同一套检查逻辑，要求三项全部判 FAIL、再喂修复后的数据要求全部 PASS。
@@ -333,6 +357,87 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 
 另：渲染里所有随机性（眨眼相位、场景微扰）必须 `rnd(f"{seed}:...")` 播种，否则幂等破坏。
 
+### 坑㉓：统一入口全线不可用——`$ErrorActionPreference="Stop"` 把原生命令的 stderr 判成致命错（2026-10-04）
+
+| 症状 | 根因 | 修法 |
+|---|---|---|
+| `.\run.ps1 <任何子命令>` 都在第一步就抛 `NativeCommandError` 并附 `uv : Building usine @ file:///…`，哪怕退出码是 0、哪怕是 `scene-list` 这种纯读命令 | PowerShell 5.1 里，**原生命令只要往 stderr 写一行**就抛 terminating error；`$ErrorActionPreference="Stop"`（run.ps1 原第 30 行）把它升级成中断。uv 每次运行都会往 stderr 写构建进度，ffmpeg 的告警同理 | 判据统一交给 `$LASTEXITCODE`（`Invoke-Step` 本来就在做），把 `$ErrorActionPreference` 降为 `Continue`；`Invoke-Step` 开头补 `$global:LASTEXITCODE = 0`，避免上条命令的残留退出码造成假失败 |
+
+**为什么记这条**：它让手册 §0 教的**每一条**命令都跑不起来，而 `.\run.ps1 verify`
+这种"跑一下确认没坏"的习惯动作恰好是最先被放弃的——工具坏了会静默，退化成"直接看视频"。
+
+> 同批还修掉 `run.ps1` 的 `ValidateSet` 漏列：`qa-annotate` / `qa-shape-verify` 两个 case
+> 在 switch 里存在、枚举里没有，是**永不可达的死代码**，而手册 §0 正把它们当标准命令教。
+> **教训：`ValidateSet` 与 `switch` 的 case 标签必须逐项对齐**；加 case 时记得同步枚举。
+>
+> **同一个坑当天又踩了第二次，症状更坏**：给 `verify` 加枚举时只加了内层 `Invoke-Cards` 的 case、
+> 忘了顶层 `switch` 的 case——结果是 switch 无匹配分支，命令**静默无输出、退出码为空**。
+> 「跑完了但什么也没干」比报错危险得多：会让人以为验过了。
+> → 现在 `run.ps1` 末尾有**机检**：每次运行都比对 Phase 枚举与顶层 case 标签，不一致直接 `exit 2`
+> （见文件末尾自检块）。新增子命令后不必再靠人眼对齐。
+
+### 坑㉗：骨架声明写错一拍，自检当场拦住（2026-10-04）
+
+把「按行号硬推的骨架」搬进 §0.5 节拍表时，我一度把 round 写成 `ask: even, askBy: A`——
+以为「偶数行问句」等于「A 问」。真跑 parse 立刻炸：
+
+```
+ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
+```
+
+因为本场景的发问人是**逐轮交替**的（§1.1 幕次表：A 问红/绿/黑，B 问蓝/黄/白），
+第 4/8/12 行是 B 说的问句，加了 `askBy: A` 就把它们判成答句 → 思考气泡消失。
+
+**两条准则**：
+1. **声明要忠实于既有行为，不要顺手"改进"它**。发问人交替是**剧本承诺**（写在 §1.1 幕次表，
+   qa_scene 第 3 组按它验问答对称性），不属于骨架节拍的职责——**声明要各自只承担一件事**。
+   正确写法是 `ask: even, askBy: -`。
+2. **数据化改造的第一道验收是「diff 只有新增」**：`git diff lessons/<id>/scene.json` 应为
+   `+N / -0`。一旦出现删除行，说明行为被改动了——要么是 bug，要么是有意的语义变更，
+   两者都需要明说，不能混在重构里悄悄发生。
+
+> 这条坑是**自检救下来的**：`parse_scene` 末尾的「轮次行气泡齐备」检查在渲染之前就拦住了。
+> 如果没有 parse 阶段自检，这会渲出 14 支「B 的问句没有思考气泡」的片，
+> 而且要等到人眼看片才发现——`git diff` 当时也会显示 204 行删除，是我在看 diff 时才发现的。
+
+### 坑㉕：写在手册里的「不变量」没有任何东西在守（2026-10-04）
+
+| 症状 | 根因 | 修法 |
+|---|---|---|
+| tts 阶段打印 `[tts] WARN theo speech_end=8.69s exceeds budget`，但 `run.ps1 all` 照样「全部通过」 | 不变量②（speech_end ≤ 8.5s）只由 `cmd_tts` 里一行 `print` 负责。qa_all 查的是成片时长 10.0±0.05s 与 aac 音轨，**没有任何验收看 speech_end**。「违反即引入回归」的不变量事实上无人把关 | qa_all 新增时长门禁（见下） |
+
+**判据怎么定的**：手册原文是「speech_end ≤ 8.5s（收尾动作 ≥ 1.1s + 呼吸位）」——括号里写明了这条例外的**真实目的**。于是把硬判据取成目的本身：`10.0 − speech_end ≥ 1.1s`；8.5s 降级为「达标提示，只报不判」。
+
+现状（32 单元）：硬门禁违例 0；超 8.5s 目标值的有 8 个（最紧的 `layla_f` 8.72s，收尾余量 1.28s）。
+阈值有区分度（收到 1.30/1.35/1.40 分别抓出 2/3/5 个），不是恒真判定。
+
+> **通则**：手册里每条写「不变量」「违反即回归」的纪律，都要能指出**哪个脚本会因为违反它而返回非零**。
+> 指不出来的，它就只是注释。
+
+### 坑㉖：跨文件引用悬空——剧本里手抄的色值没人校验（2026-10-04）
+
+| 症状 | 根因 | 修法 |
+|---|---|---|
+| 剧本写着「班底彩蛋：江远夹克 `#35486E`」，人设改了色板后这行**静默过期**；手抄错一位也没人发现 | 彩蛋批注只活在 md 散文里，`parse_line` 只取 gesture 与 ⚑ note，**中间那段整段丢弃**——所以它从不进 scene.json，没有任何东西能对照 | `parse_line` 抽出 `easterEgg:{label,hex}`；`scene_schema` 校验该 hex **确实属于被指认那位演员的色板**（名字取 `name.native` 在 label 里做子串匹配，匹配到多位即判指代不唯一） |
+
+现状：colors 课抽出 4 处（zh 江远夹克 / en Miles 相机带 / en Ruby 围裙 / ja リク 发色），全部指向正确。
+反向验证新增两条用例（色值脱钩、指代不唯一），**14/14 抓到**。
+
+
+### 坑㉔：Edge 视口补偿两条管线口径不一致（2026-10-04）
+
+| 症状 | 根因 | 修法 |
+|---|---|---|
+| 场景线文字层 PNG 高 713px、亮相卡 394px；`build/scene/text/` 里 1100 张 394px 与 1226 张 713px **混存** | 两处 `edge_viewport_h` 各自实现。亮相卡按标称 `300 − 视口` 算亏空；场景线误用 `BAND_H − 视口`（BAND_H=460），多补了 `BAND_H−300 = 160px` 窗口高度。那些 394px 是上一门课遗留的孤儿产物（无 `scene-<id>_` 前缀） | 收敛为 `media.edge_window_h(text_dir, band_h, html_head, edge)`，**减数一律用标称值**，`band_h` 只用于算目标窗口高度 |
+
+**为什么统一后像素没变（已实测验证）**：`HTML_HEAD` 的 `html,body{height:{h}px}` + `#wrap{height:{h}px}`
+是**固定高度盒**，布局与视口高度无关；截图多出来的尾部空白会被 `band_png()` 裁到 `BAND_H`。
+所以窗口从 713 改到 554，`ffmpeg -f hash` 逐帧一致（`scene-colors_zh-CN.mp4` MD5 未变）。
+
+> 顺带记一条产物卫生：`build/scene/text/` 曾同时躺着两门课的资产（孤儿 PNG）。
+> 手册对 `audio/` 说过"孤儿缓存可整目录清理后全量重建"，**`text/` 同样适用**——
+> 它不是缓存正确性的一部分，但会让人误判"这批资产是哪一版参数渲的"。
+
 > 坑坑⑩⑪⑫⑬ 记录于 2026-10-03 人物形象打磨（肩楔/肩点内收/Edge 视口补偿 + 幂等口径修正 + 国旗 emoji 平台回退）。
 > 坑坑⑭⑮ 记录于 2026-10-03 用户观感反馈（尖下巴像鬼、袖子遮嘴）——两条都是「图层/轮廓准则」级修复。
 > 坑⑯ 记录于 2026-10-03 qa_motion 幂等排障（`-shortest` 时机性丢帧）——封装/时序类坑。
@@ -340,6 +445,9 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 > 坑坑⑱⑲⑳ 记录于 2026-10-03 人物层几何重设计（肩部体块/胯块/袖子色阶/发辫发帘 + 五官可见性探针 + 探针反向验证）。
 > 坑㉑ 记录于 2026-10-03 顶戴墨镜探针排障（配饰魔数不共享 + 深发角色下镜框/发色只差 8.1 的恒真陷阱）。
 > 坑㉒ 记录于 2026-10-03 下颌轮廓返工（心形下巴横向针尖 / 方颌外扩 / 长发帘夹出尖楔——三个成因 + 几何不变量该用几何查）。
+> 坑㉓㉔ 记录于 2026-10-04 管线收重构（统一入口被 `$ErrorActionPreference` 打死 + `ValidateSet` 死代码与静默无输出 / Edge 视口补偿双口径 / 4 组双份实现收敛到 media.py+data.py / 场景数据前置校验层）。
+> 坑㉕㉖ 记录于 2026-10-04 验收审计（手册里的不变量②时长门禁无人守 → qa_all 补硬判据 + 达标提示；剧本里手抄的班底彩蛋色值悬空 → 抽成 easterEgg 数据并校验指向的演员色板）。
+> 坑㉗ 记录于 2026-10-04 §0.5 骨架节拍表数据化（搬进数据时把「偶数行=问句」误写成「A 问」→ parse 自检当场拦下；附「diff 只有新增」这条验收纪律）。
 > 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）见 [adr-character-tech.md](adr-character-tech.md)。
 
 ---
@@ -391,16 +499,23 @@ lessons/<id>/scene.md ──parse_scene.py──▶ lessons/<id>/scene.json ─�
 python  parse_scene.py --scene colors            # 剧本 → 场景 JSON（只抽取不改写）
 python  parse_scene.py --list                    # 列出仓库内已有场景 id
 .\run.ps1 scene                                   # parse → tts → assets → render
-.\run.ps1 scene -Only zh-CN,ja-JP -Workers 6      # 只渲指定语种
+.\run.ps1 scene -Only "zh-CN,ja-JP" -Workers 6   # 只渲指定语种（逗号列表必须加引号）
 .\run.ps1 scene-list                              # 场景清单（token 序 / RTL / 装置 / 时长）
 .\run.ps1 qa-scene                                # qa_scene.py 六组验收
 ```
 
 - **新场景零代码接入**：新建 `lessons/<id>/scene.md` 照抄 §0 机读规格体例即可，解析器与渲染线不动。
-  §0 = `sceneId` / `title` / `rtlLocales` / `durationBudget`（可选，`40-55`）
+  §0 = `sceneId` / `title` / **`form`** / `rtlLocales` / `durationBudget`（可选，`40-55`）
   + §0.1 教学 token 表 + §0.2 装置规格表
   （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）
-  + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）。
+  + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）
+  + §0.4 角色声明（`role | energy | 说明`；`A=lively` / `B=steady`，验收与实际选角对账）
+  + §0.5 骨架节拍表（`beat | from | to | ask | askBy`；`n-K` 记法，须完整覆盖 `[0,n-1]`）。
+- **换教学形态 = 换声明，不改 Python**：`form:` + §0.5 节拍表就是形态本身。
+  `form` 须在 `scene_schema.FORMS` 注册表内（当前只有 `dialogue`）——**刻意只放真的能渲染的形态**，
+  把未实现的形态写进注册表会造出「声明合法但渲不出来」的坑，比直接报错更难查。
+  > 旧实现在 `parse_locales` 里写死 `open/reply/round/summary/bye` 四个偏移与「偶数行=问句」——
+  > 那是 dialogue 一种形态的骨架，却长在**通用**解析器里。声明化后那行代码消失了。
 - **改了 `draw_character` 要重渲哪几条线**（人物几何是**两条视频线共用**的，容易只刷一条）：
   | 产物 | 命令 | 何时要动 |
   |---|---|---|
@@ -482,9 +597,12 @@ une_usine_avec_des_machines_rugissantes/
 │        ├─ _source/<locale>.md      # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/⚑注记/舞台/创作注记）
 │        └─ <locale>.json × 14       # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
 ├─ run.ps1                           # ★ 统一入口（-Scene <id> 选教学场景）
-├─ pyproject.toml / uv.lock / .venv # 包与依赖（usine-cards / usine-parse / usine-scene / usine-lesson / usine-dump-lesson）
+├─ pyproject.toml / uv.lock / .venv # 包与依赖（usine-cards / usine-parse / usine-scene / usine-lesson / usine-dump-lesson / usine-validate）
 ├─ src/usine/                        # ★ 全部代码（数据在仓库根，产物在 build/；`from usine import ROOT` 定位根，不依赖 cwd）
 │  ├─ intro_cards.py                 # ★ 管线一（tts/assets/render；face_geo/MOOD_FACE/SCENES/pose_for/POSE_CODES）
+│  ├─ data.py                        # ★ 数据入口唯一事实源（personas/cards_doc/scene_doc/unit_persona；只读缓存）
+│  ├─ media.py                       # ★ 媒体内核（compose_track/karaoke_points/frac_at/edge_window_h；两条管线共用）
+│  ├─ scene_schema.py                # ★ 场景数据前置校验（validate_scene；parse 写完即自检）
 │  ├─ qa_grid.py / qa_char.py / qa_all.py / qa_motion.py   # 验收四件套（§4）
 │  ├─ parse_scene.py                 # 场景线：lessons/<id>/scene.md → scene.json（通用解析器，只抽取不改写）
 │  ├─ scene_video.py                 # 场景线（M2，场景无关：tts/assets/render；选角/双人站位/token 装置/RTL 镜像）
@@ -494,7 +612,7 @@ une_usine_avec_des_machines_rugissantes/
 ├─ personas/
 │  ├─ personas.json                  # ★ 28 人档案（人设唯一事实源）
 │  └─ intro-cards.json               # ★ 28 卡种子（cast/lines/moods/gestures/entry_pose/scene/close；RTL 卡带 variants[] 女性观众版）
-├─ scripts/                          # 发布侧（抖音）＋ 验收侧回归测试（verify_text_contract.py）
+├─ scripts/                          # 验收侧反向验证（verify_probes.py 统一入口 → shape/text/schema 三套）＋ 发布侧（抖音/知乎）
 └─ build/                            # 产物（.gitignore）
    ├─ intro/                         # 管线一产物
    │  ├─ <id>.mp4                     # 32 × 10s（28 卡 + 4 个 <id>_f 女性观众版）

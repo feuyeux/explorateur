@@ -17,14 +17,12 @@ import hashlib
 import json
 import math
 import os
-import re
 import subprocess
-import sys
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 from usine import ROOT
+from .data import cards_doc as _read_cards, personas as _read_personas
+from .media import (compose_track, edge_window_h, frac_at, karaoke_points, probe_duration)
 
 HERE = ROOT                              # 仓库根（personas/ 与 build/ 的锚点，不依赖 cwd）
 BUILD = HERE / "build" / "intro"
@@ -101,13 +99,11 @@ SCENE = {
 }
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
-
 # ---------- 数据 ----------
 
 def load_data():
-    personas = {p["id"]: p for p in json.loads((HERE / "personas" / "personas.json").read_text("utf-8"))["personas"]}
-    cards_doc = json.loads((HERE / "personas" / "intro-cards.json").read_text("utf-8"))
-    return personas, cards_doc
+    """人设/卡片经 data.py 统一入口取（只读、进程内缓存）。"""
+    return _read_personas(), _read_cards()
 
 
 def card_units(doc):
@@ -194,7 +190,6 @@ def jump_height(p):
     """mini_jump 起跳高度：movement.bounce 越小越弹（plan §4 个性参数；qa_char 同源引用）。"""
     return 60 + 28 * clamp(14.0 / p["movement"]["bounce"], 0.75, 1.6)
 
-
 # ---------- TTS 阶段（系统 Python + edge-tts） ----------
 
 async def synth_line(text, voice, rate, pitch):
@@ -214,37 +209,6 @@ async def synth_line(text, voice, rate, pitch):
     if not words:  # 兜底：整行一个伪词
         words = [{"t": 0.05, "d": 0.5, "w": text[:12]}]
     return bytes(mp3), words
-
-
-def probe_duration(path):
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
-        capture_output=True, text=True, check=True).stdout.strip()
-    return float(out)
-
-
-def compose_audio(card_id, line_files, starts, out_m4a):
-    n = len(line_files)
-    inputs = []
-    for f in line_files:
-        inputs += ["-i", str(f)]
-    fc = []
-    for i, s in enumerate(starts):
-        ms = int(round(s * 1000))
-        fc.append(f"[{i}:a]adelay={ms}|{ms}[a{i}]")
-    mix = "".join(f"[a{i}]" for i in range(n))
-    if n > 1:
-        fc.append(f"{mix}amix=inputs={n}:normalize=0[m]")
-        mixed = "[m]"
-    else:
-        mixed = mix
-    # apad 必须放在 loudnorm **之前**：loudnorm 后接 apad 是非确定的 EOF 冲刷竞态
-    # （2026-10-03 实测 10 连跑 3 次丢补尾 → theo 9.469s；前置 apad 10/10 全 10.0s；
-    #  loudnorm 为门控响度，补的静音不影响增益——手册坑③修正口径）
-    fc.append(f"{mixed}apad=whole_dur={DUR},loudnorm=I=-16:TP=-1.5:LRA=11,atrim=0:{DUR}[out]")
-    cmd = ["ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc), "-map", "[out]",
-           "-c:a", "aac", "-b:a", "192k", "-ar", "44100", str(out_m4a)]
-    subprocess.run(cmd, check=True, capture_output=True)
 
 
 def cmd_tts(only):
@@ -307,11 +271,10 @@ def cmd_tts(only):
                 w["s"] = lo["start"] + w["t"]
                 w["e"] = w["s"] + w["d"]
         m4a = AUDIO_DIR / f"{pid}.m4a"
-        compose_audio(pid, files, [lo["start"] for lo in lines_out], m4a)
+        compose_track(files, [lo["start"] for lo in lines_out], DUR, m4a)
         tl = {"id": pid, "entry": entry, "speechEnd": speech_end, "lines": lines_out}
         (AUDIO_DIR / f"{pid}.timeline.json").write_text(json.dumps(tl, ensure_ascii=False, indent=1), "utf-8")
         print(f"[tts] {pid} entry={entry} speech_end={speech_end:.2f}s lines={len(lines_out)}")
-
 
 # ---------- 文字层（Edge headless） ----------
 
@@ -448,27 +411,8 @@ def cmd_assets(only):
     jobs.append(matte_pair("bubble_b_r", "bubble", bubble_html, "问路找我 🗺", True))
     jobs.append(matte_pair("bubble_b_l", "bubble", bubble_html, "问路找我 🗺", False))
 
-    # Edge headless 视口补偿：部分 Edge 版本 --window-size 含浏览器 UI 高度，
-    # 截图视口 = window-size − chrome_px（本机实测 300→206）。先探一次差值，
-    # 之后所有截图用补偿后的窗口高度，保证 300px 画布完整入镜（坑⑩）。
-    probe_html = TEXT_DIR / "_vp_probe.html"
-    probe_html.write_text(HTML_HEAD.format(w=100, h=BAND_H, bg="#FFFFFF",
-                                           font="sans-serif", dir="ltr",
-                                           body="<div style='height:100vh'></div>"
-                                                "<script>document.title=window.innerHeight;</script>"),
-                          "utf-8")
-
-    def edge_viewport_h():
-        dom = subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--window-size=1080,300",
-                              "--virtual-time-budget=800", "--dump-dom", probe_html.as_uri()],
-                             check=True, capture_output=True, timeout=60).stdout.decode("utf-8", "ignore")
-        # 用 innerHeight 差值反推：无法直接读 title，改用固定探测页面高度差
-        import re
-        m = re.search(r"<title>(\d+)</title>", dom)
-        return int(m.group(1)) if m else BAND_H
-
-    chrome_px = 300 - edge_viewport_h()
-    edge_win_h = BAND_H + max(0, chrome_px)
+    # Edge headless 视口补偿（坑⑩）——实现见 media.edge_window_h，与场景线共用一份。
+    chrome_px, edge_win_h = edge_window_h(TEXT_DIR, BAND_H, HTML_HEAD, EDGE)
     print(f"[assets] Edge viewport deficit: {chrome_px}px -> window-size=1080,{edge_win_h}")
 
     def run(job):
@@ -494,7 +438,6 @@ def cmd_assets(only):
     with ThreadPoolExecutor(max_workers=8) as ex:
         list(ex.map(run, jobs))
     print(f"[assets] done: {len(jobs)} assets -> {TEXT_DIR}")
-
 
 # ---------- 渲染阶段（捆绑 Python + Pillow + ffmpeg） ----------
 
@@ -522,7 +465,6 @@ def pop_scale(t, t0, dur, overshoot=True, damp=None):
         k = clamp(14.0 / damp, 0.75, 1.6) if damp else 1.0
         return 1 - math.exp(-6.0 * k * u) * math.cos(9.0 * k * u)
     return 1 - math.exp(-5.0 * u) * (1 + 5.0 * u)
-
 
 # ---- 场景原语 ----
 
@@ -1037,7 +979,6 @@ def s_steamers(d, pal):
         d.ellipse([x, 1280, x + 90, 1350], fill=pal["soft2"], outline=pal["ink"], width=5)
         for k in range(3):
             d.arc([x + 10 + k * 26, 1240, x + 36 + k * 26, 1290], 180, 360, fill=SCENE["white"], width=6)
-
 
 # ---- 人物 ----
 
@@ -1921,7 +1862,6 @@ def draw_character(img, d, p, t, ctx):
         RR(hx - u(0.20), hy - u(0.11), hx + u(0.20), hy + u(0.11), u(0.05), fill=THEME["camera_body"])
         E(hx - u(0.062), hy - u(0.056), hx + u(0.062), hy + u(0.056), fill=THEME["lens_blue"])
 
-
 # ---- 姿态库 ----
 
 # pose_for 已实现的姿态码全集（场景线据此校验剧本标注，勿与 pose_for 实现脱节）
@@ -2081,39 +2021,13 @@ def pose_for(code, u, t, p):
             P["yoff"] = -6 * abs(math.sin(t * 16))
     return P
 
-
 # ---- 卡片渲染 ----
 
 def load_timeline(pid):
     return json.loads((AUDIO_DIR / f"{pid}.timeline.json").read_text("utf-8"))
 
 
-def karaoke_points(line):
-    """[(t, frac)] 词首/词尾的字符进度点"""
-    words = line["words"]
-    total = sum(len(w["w"]) for w in words) + max(0, len(words) - 1)
-    pts = [(line["start"], 0.0)]
-    c = 0.0
-    for i, w in enumerate(words):
-        c += len(w["w"])
-        pts.append((max(w["s"], line["start"]), c / total))
-        c += 1 if i < len(words) - 1 else 0
-        pts.append((w["e"], c / total))
-    pts.append((line["start"] + line["dur"] + 0.15, 1.0))
-    return pts
-
-
-def frac_at(pts, t):
-    if t <= pts[0][0]:
-        return 0.0
-    for i in range(1, len(pts)):
-        if t <= pts[i][0]:
-            t0, f0 = pts[i - 1]
-            t1, f1 = pts[i]
-            if t1 <= t0:
-                return f1
-            return f0 + (f1 - f0) * (t - t0) / (t1 - t0)
-    return 1.0
+# karaoke_points / frac_at 见 media.py（2026-10-04 从本文件与 scene_video 双份收敛为一处）
 
 
 def openness_at(lines, t, seed=""):
@@ -2375,7 +2289,6 @@ def cmd_render(only, workers):
     ids = [u["id"] for u in card_units(doc) if not only or u["persona"] in only]
     with Pool(min(workers, len(ids))) as pool:
         pool.starmap(render_card, [(pid, personas, doc) for pid in ids])
-
 
 # ---------- CLI ----------
 

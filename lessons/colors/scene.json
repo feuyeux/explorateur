@@ -2,6 +2,7 @@
  "id": "colors",
  "sceneId": "colors-association",
  "title": "说到颜色，你会想到什么",
+ "form": "dialogue",
  "source": "scene.md",
  "rtlLocales": [
   "ar-SA",
@@ -10,6 +11,47 @@
  "durationBudget": [
   40.0,
   55.0
+ ],
+ "roles": {
+  "A": "lively",
+  "B": "steady"
+ },
+ "beats": [
+  {
+   "beat": "open",
+   "from": "0",
+   "to": "0",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "reply",
+   "from": "1",
+   "to": "1",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "round",
+   "from": "2",
+   "to": "n-4",
+   "ask": "even",
+   "askBy": "-"
+  },
+  {
+   "beat": "summary",
+   "from": "n-3",
+   "to": "n-3",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "bye",
+   "from": "n-2",
+   "to": "n-1",
+   "ask": "-",
+   "askBy": "-"
+  }
  ],
  "speechLevels": {
   "ko-KR": {
@@ -788,6 +830,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -813,6 +856,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -835,6 +879,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -860,6 +905,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -885,6 +931,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -909,6 +956,10 @@
       "poses": [
        "point"
       ]
+     },
+     "easterEgg": {
+      "label": "江远夹克",
+      "hex": "#35486E"
      },
      "exits": false,
      "i": 5,
@@ -935,6 +986,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -960,6 +1012,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -985,6 +1038,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -1010,6 +1064,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -1035,6 +1090,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -1060,6 +1116,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -1085,6 +1142,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -1110,6 +1168,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -1135,6 +1194,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -1160,6 +1220,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -1182,6 +1243,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -1237,6 +1299,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -1262,6 +1325,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -1284,6 +1348,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -1309,6 +1374,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -1334,6 +1400,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -1358,6 +1425,10 @@
       "poses": [
        "point"
       ]
+     },
+     "easterEgg": {
+      "label": "Miles 相机带钴蓝",
+      "hex": "#4657D8"
      },
      "exits": false,
      "i": 5,
@@ -1384,6 +1455,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -1408,6 +1480,10 @@
       "poses": [
        "palm_open"
       ]
+     },
+     "easterEgg": {
+      "label": "Ruby 围裙墨绿",
+      "hex": "#2E6B57"
      },
      "exits": false,
      "i": 7,
@@ -1434,6 +1510,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -1459,6 +1536,7 @@
        "scratch_head"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -1484,6 +1562,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -1509,6 +1588,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -1534,6 +1614,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -1559,6 +1640,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -1584,6 +1666,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -1609,6 +1692,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -1634,6 +1718,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -1688,6 +1773,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -1713,6 +1799,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -1735,6 +1822,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -1760,6 +1848,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -1785,6 +1874,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -1810,6 +1900,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -1835,6 +1926,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -1860,6 +1952,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -1885,6 +1978,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -1910,6 +2004,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -1935,6 +2030,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -1960,6 +2056,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -1985,6 +2082,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -2010,6 +2108,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -2035,6 +2134,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -2060,6 +2160,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -2085,6 +2186,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -2139,6 +2241,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -2164,6 +2267,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -2186,6 +2290,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -2211,6 +2316,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -2236,6 +2342,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -2261,6 +2368,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -2286,6 +2394,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -2311,6 +2420,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -2336,6 +2446,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -2361,6 +2472,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -2386,6 +2498,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -2411,6 +2524,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -2436,6 +2550,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -2461,6 +2576,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -2486,6 +2602,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -2511,6 +2628,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -2536,6 +2654,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -2590,6 +2709,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -2615,6 +2735,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -2637,6 +2758,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -2662,6 +2784,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -2687,6 +2810,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -2712,6 +2836,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -2737,6 +2862,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -2762,6 +2888,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -2787,6 +2914,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -2812,6 +2940,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -2837,6 +2966,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -2862,6 +2992,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -2887,6 +3018,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -2912,6 +3044,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -2937,6 +3070,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -2962,6 +3096,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -2987,6 +3122,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -3041,6 +3177,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -3066,6 +3203,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -3088,6 +3226,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -3113,6 +3252,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -3138,6 +3278,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -3163,6 +3304,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -3188,6 +3330,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -3213,6 +3356,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -3238,6 +3382,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -3263,6 +3408,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -3288,6 +3434,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -3313,6 +3460,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -3338,6 +3486,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -3363,6 +3512,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -3388,6 +3538,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -3413,6 +3564,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -3438,6 +3590,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -3492,6 +3645,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -3517,6 +3671,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -3539,6 +3694,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -3564,6 +3720,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -3589,6 +3746,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -3614,6 +3772,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -3639,6 +3798,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -3664,6 +3824,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -3689,6 +3850,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -3714,6 +3876,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -3739,6 +3902,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -3764,6 +3928,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -3789,6 +3954,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -3814,6 +3980,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -3839,6 +4006,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -3864,6 +4032,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -3889,6 +4058,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -3943,6 +4113,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -3968,6 +4139,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -3990,6 +4162,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -4015,6 +4188,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -4040,6 +4214,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -4065,6 +4240,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -4090,6 +4266,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -4115,6 +4292,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -4140,6 +4318,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -4165,6 +4344,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -4190,6 +4370,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -4215,6 +4396,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -4240,6 +4422,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -4265,6 +4448,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -4290,6 +4474,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -4315,6 +4500,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -4340,6 +4526,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -4394,6 +4581,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -4419,6 +4607,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -4441,6 +4630,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -4466,6 +4656,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -4491,6 +4682,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -4516,6 +4708,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -4541,6 +4734,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -4566,6 +4760,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -4591,6 +4786,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -4616,6 +4812,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -4641,6 +4838,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -4666,6 +4864,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -4691,6 +4890,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -4716,6 +4916,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -4741,6 +4942,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -4766,6 +4968,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -4791,6 +4994,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -4845,6 +5049,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -4870,6 +5075,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -4892,6 +5098,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -4917,6 +5124,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -4942,6 +5150,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -4967,6 +5176,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -4992,6 +5202,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -5017,6 +5228,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -5042,6 +5254,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -5067,6 +5280,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -5092,6 +5306,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -5116,6 +5331,10 @@
       "poses": [
        "deadpan_nod"
       ]
+     },
+     "easterEgg": {
+      "label": "リク 发色",
+      "hex": "#2A2A33"
      },
      "exits": false,
      "i": 11,
@@ -5142,6 +5361,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -5167,6 +5387,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -5192,6 +5413,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -5217,6 +5439,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -5242,6 +5465,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -5296,6 +5520,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -5321,6 +5546,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -5343,6 +5569,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -5368,6 +5595,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -5393,6 +5621,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -5418,6 +5647,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -5443,6 +5673,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -5468,6 +5699,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -5493,6 +5725,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -5518,6 +5751,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -5543,6 +5777,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -5568,6 +5803,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -5593,6 +5829,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -5618,6 +5855,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -5643,6 +5881,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -5668,6 +5907,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -5693,6 +5933,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -5747,6 +5988,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -5772,6 +6014,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -5794,6 +6037,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -5819,6 +6063,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -5844,6 +6089,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -5869,6 +6115,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -5894,6 +6141,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -5919,6 +6167,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -5944,6 +6193,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -5969,6 +6219,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -5994,6 +6245,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -6019,6 +6271,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -6044,6 +6297,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -6069,6 +6323,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -6094,6 +6349,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -6119,6 +6375,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -6144,6 +6401,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -6198,6 +6456,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -6223,6 +6482,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -6245,6 +6505,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -6270,6 +6531,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -6295,6 +6557,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -6320,6 +6583,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -6345,6 +6609,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -6370,6 +6635,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -6395,6 +6661,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -6420,6 +6687,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -6445,6 +6713,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -6470,6 +6739,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -6495,6 +6765,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -6520,6 +6791,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -6545,6 +6817,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -6570,6 +6843,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -6595,6 +6869,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",
@@ -6649,6 +6924,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 0,
      "role": "open",
@@ -6674,6 +6950,7 @@
        "nod"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 1,
      "role": "reply",
@@ -6696,6 +6973,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 2,
      "role": "round",
@@ -6721,6 +6999,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 3,
      "role": "round",
@@ -6746,6 +7025,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 4,
      "role": "round",
@@ -6771,6 +7051,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 5,
      "role": "round",
@@ -6796,6 +7077,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 6,
      "role": "round",
@@ -6821,6 +7103,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 7,
      "role": "round",
@@ -6846,6 +7129,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 8,
      "role": "round",
@@ -6871,6 +7155,7 @@
        "both_hands"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 9,
      "role": "round",
@@ -6896,6 +7181,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 10,
      "role": "round",
@@ -6921,6 +7207,7 @@
        "palm_open"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 11,
      "role": "round",
@@ -6946,6 +7233,7 @@
        "point"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 12,
      "role": "round",
@@ -6971,6 +7259,7 @@
        "mini_jump"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 13,
      "role": "round",
@@ -6996,6 +7285,7 @@
        "jump_celebrate"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 14,
      "role": "summary",
@@ -7021,6 +7311,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": false,
      "i": 15,
      "role": "bye",
@@ -7043,6 +7334,7 @@
        "wave"
       ]
      },
+     "easterEgg": null,
      "exits": true,
      "i": 16,
      "role": "bye",

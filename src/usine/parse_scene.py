@@ -96,11 +96,15 @@ def _tables(text):
 
 
 def parse_spec(md):
-    """§0 机读规格 → (meta{sceneId,title,rtlLocales,durationBudget?}, tokenOrder, tokens, devices, levels)。
+    """§0 机读规格 → (meta{sceneId,title,form,rtlLocales,durationBudget?}, tokenOrder, tokens,
+    devices, levels, roles, beats)。
 
     tokens: {key: chip}；chip 以 # 开头 = 色片，否则 = 字牌文本。
     devices: {locale: {scenes,style,shape,cellW,cellH,well,label}}；缺行语种不在表内。
     levels:  {locale: {levelA,levelB,marker,note}}（§0.3 语种文本规范；缺行 = 该语种不做语体检查）。
+    roles:   {role: energy}（§0.4 角色声明；A=lively / B=steady 是 plan §6.1 的选角纪律）。
+    beats:   [{beat, from, to, ask, askBy}]（§0.5 骨架节拍；from/to 支持 `n-K` 记法，n = 该语种
+             台词行数。**取代旧版按行号硬推的 open/reply/round/summary/bye**）。
     """
     sec0 = _split_md(md).get("0", "")
     if not sec0.strip():
@@ -113,6 +117,7 @@ def parse_spec(md):
     meta = {
         "sceneId": meta_val("sceneId"),
         "title": meta_val("title"),
+        "form": meta_val("form") or "dialogue",
         "rtlLocales": [x.strip() for x in meta_val("rtlLocales").split(",") if x.strip()],
     }
     if not meta["sceneId"] or not meta["title"]:
@@ -166,7 +171,31 @@ def parse_spec(md):
                     "marker": row[3], "note": row[4] if len(row) > 4 else "",
                 }
 
-    return meta, token_order, tokens, devices, levels
+    roles = {}
+    for header, body in _tables(sec0):
+        if len(header) >= 2 and header[0] == "role" and "energy" in header[1]:
+            for row in body:
+                if row[0]:
+                    roles[row[0]] = row[1]
+
+    beats = []
+    for header, body in _tables(sec0):
+        if len(header) >= 3 and header[0] == "beat" and "from" in header[1] and "to" in header[2]:
+            for row in body:
+                if not row[0]:
+                    continue
+                beats.append({
+                    "beat": row[0],
+                    "from": row[1].strip(),
+                    "to": row[2].strip(),
+                    "ask": (row[3].strip() if len(row) > 3 else "-") or "-",
+                    "askBy": (row[4].strip() if len(row) > 4 else "-") or "-",
+                })
+    if not beats:
+        raise ValueError("§0 缺骨架节拍表（| beat | from | to | ask | askBy |）——"
+                         "台词行的角色/问句归属由它决定，不按行号硬推")
+
+    return meta, token_order, tokens, devices, levels, roles, beats
 
 
 QUOTE_PAIRS = [("「", "」"), ("«", "»"), ("“", "”"), ('"', '"')]
@@ -189,6 +218,26 @@ def _match_quote(rest):
 
 def _norm_pose(code):
     return code.strip().strip("`").replace("-", "_").lower()
+
+
+EGG_HEX = re.compile(r"#([0-9A-Fa-f]{6})")
+
+
+def _parse_easter_egg(seg):
+    """行内「班底彩蛋」批注 → {label, hex}（无则 None）。
+
+    这类批注此前只活在 md 散文里（`——班底彩蛋：江远夹克 `#35486E``），解析时被整段丢弃，
+    于是**没有任何东西能校验它**：人设换了色板、md 里手抄错一位，都不会有人发现——
+    而剧本自己的验收清单写着「换角即失效」。抽成数据后由 scene_schema 校验。
+    """
+    m = EGG_HEX.search(seg)
+    if not m:
+        return None
+    pre = seg[:m.start()]
+    # 标注文字 = 紧邻 hex 之前、最后一个全/半角冒号之后的那段（「班底彩蛋：」/「面瘫自指：」）
+    tail = re.split(r"[：:]", pre)[-1] if re.search(r"[：:]", pre) else pre
+    label = tail.strip().strip("—-").strip().strip("`").strip()
+    return {"label": label, "hex": "#" + m.group(1).upper()}
 
 
 def parse_line(line):
@@ -228,11 +277,65 @@ def parse_line(line):
         "gloss": gloss,
         "note": note,
         "gesture": {"word": word, "poses": poses},
+        "easterEgg": _parse_easter_egg(seg),
         "exits": "出画" in seg,
     }
 
 
-def parse_locales(md, devices):
+def _resolve_index(expr, n):
+    """节拍边界求值：支持 `0` / `5` / `n` / `n-4`（n = 该语种台词行数）。"""
+    e = expr.strip()
+    m = re.fullmatch(r"n\s*-\s*(\d+)", e)
+    if m:
+        return n - int(m.group(1))
+    if e == "n":
+        return n
+    return int(e)
+
+
+def apply_beats(dialogue, beats, locale):
+    """按 §0.5 声明的骨架节拍标注每行的 role / isQuestion（**不按行号硬推**）。
+
+    旧实现在 `parse_locales` 里写死 open/reply/round/summary/bye 四个偏移与「偶数行=问句」，
+    那是 dialogue 这一种形态的骨架，却长在通用解析器里——换个教学形态就得改 Python。
+    现在骨架是数据：新增形态只加节拍表，解析器与渲染线零改动。
+
+    节拍必须**完整覆盖** [0, n-1] 且不重叠：留白会让某行既无角色也无问句归属，
+    而那正是「为什么这一行没有思考气泡」这类问题的根因。
+    """
+    n = len(dialogue)
+    cover = {}
+    for b in beats:
+        i0, i1 = _resolve_index(b["from"], n), _resolve_index(b["to"], n)
+        if i0 > i1:
+            raise ValueError(f"{locale} 节拍 {b['beat']!r} 区间反了：{b['from']} > {b['to']}")
+        for i in range(i0, i1 + 1):
+            if not (0 <= i < n):
+                raise ValueError(f"{locale} 节拍 {b['beat']!r} 覆盖到台词范围外：i={i}（共 {n} 行）")
+            if i in cover:
+                raise ValueError(f"{locale} 第 {i} 行被两个节拍覆盖：{cover[i]!r} 与 {b['beat']!r}")
+            cover[i] = b["beat"]
+    gap = [i for i in range(n) if i not in cover]
+    if gap:
+        raise ValueError(f"{locale} 有 {len(gap)} 行未被任何节拍覆盖：{gap[:8]}（骨架声明必须完整）")
+
+    for i, ln in enumerate(dialogue):
+        ln["i"] = i
+        b = next(x for x in beats if cover[i] == x["beat"])
+        ln["role"] = b["beat"]
+        want_parity = b["ask"]
+        is_q = False
+        if want_parity in ("even", "odd"):
+            if (i % 2 == 0) == (want_parity == "even"):
+                is_q = (b["askBy"] == "-") or (ln["speaker"] == b["askBy"])
+        elif want_parity not in ("-", "none", ""):
+            raise ValueError(f"{locale} 节拍 {b['beat']!r} 的 ask 只能是 even/odd/-，"
+                             f"实得 {want_parity!r}")
+        ln["isQuestion"] = is_q
+    return dialogue
+
+
+def parse_locales(md, devices, beats):
     """各语种剧本节 → {locale: {...}}；同时按位置骨架标注每行 role/isQuestion。"""
     locales = {}
     heads = list(HEAD_RE.finditer(md))
@@ -254,15 +357,8 @@ def parse_locales(md, devices):
         if len(dialogue) < 2:
             raise ValueError(f"{locale} 台词仅 {len(dialogue)} 行，疑似解析漏行")
 
-        # 位置骨架（lessons/colors/scene.md §1.1 体例）：0 开场提议 / 1 应答 / 2..n-4 一来一往
-        # （偶数行=问句）/ n-3 收束总结 / n-2 与 n-1 再会。台词行数由剧本自定，骨架只按位置。
-        n = len(dialogue)
-        for i, ln in enumerate(dialogue):
-            ln["i"] = i
-            ln["role"] = ("open" if i == 0 else "reply" if i == 1 else
-                          "round" if 2 <= i <= n - 4 else
-                          "summary" if i == n - 3 else "bye")
-            ln["isQuestion"] = ln["role"] == "round" and (i % 2 == 0)
+        # 位置骨架由 §0.5 声明驱动（apply_beats）：台词行数由剧本自定，骨架是数据不是代码。
+        apply_beats(dialogue, beats, locale)
 
         dev = devices.get(locale)
         prop = {"scenes": (dev["scenes"] if dev else []),
@@ -341,9 +437,9 @@ def parse_scene(scene_id):
     if not md_path.exists():
         raise SystemExit(f"剧本不存在：{md_path}（已有场景：{', '.join(find_scene_ids()) or '无'}）")
     md = md_path.read_text("utf-8")
-    meta, token_order, tokens, devices, levels = parse_spec(md)
+    meta, token_order, tokens, devices, levels, roles, beats = parse_spec(md)
     token_words = parse_token_words(md, token_order)
-    locales = parse_locales(md, devices)
+    locales = parse_locales(md, devices, beats)
     if token_order:
         missing = [lc for lc in locales if not token_words.get(lc)]
         if missing:
@@ -354,15 +450,25 @@ def parse_scene(scene_id):
         "id": scene_id,
         "sceneId": meta["sceneId"],
         "title": meta["title"],
+        "form": meta["form"],
         "source": md_path.name,
         "rtlLocales": meta["rtlLocales"],
         "durationBudget": meta.get("durationBudget", []),
+        "roles": roles,
+        "beats": beats,
         "speechLevels": levels,
         "tokenOrder": token_order,
         "tokens": tokens,
         "tokenWords": token_words,
         "locales": locales,
     }
+
+    # 前置校验（2026-10-04）：解析完立刻对账，不合规就地失败，不产出半成品 scene.json。
+    # 校验层本身经 scripts/verify_scene_schema.py 反向验证（12 种定向破坏必须被抓）。
+    from .scene_schema import validate_scene
+    errs = validate_scene(doc)
+    if errs:
+        raise ValueError("场景数据不合规（parse 自检）：\n  - " + "\n  - ".join(errs))
     return doc, out_path
 
 

@@ -1,0 +1,1106 @@
+{
+ "id": "numbers",
+ "sceneId": "numbers-count-to-six",
+ "title": "一起数到六",
+ "form": "dialogue",
+ "source": "scene.md",
+ "rtlLocales": [],
+ "durationBudget": [
+  20.0,
+  55.0
+ ],
+ "roles": {
+  "A": "lively",
+  "B": "steady"
+ },
+ "beats": [
+  {
+   "beat": "open",
+   "from": "0",
+   "to": "0",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "reply",
+   "from": "1",
+   "to": "1",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "round",
+   "from": "2",
+   "to": "n-4",
+   "ask": "even",
+   "askBy": "-"
+  },
+  {
+   "beat": "summary",
+   "from": "n-3",
+   "to": "n-3",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "bye",
+   "from": "n-2",
+   "to": "n-1",
+   "ask": "-",
+   "askBy": "-"
+  }
+ ],
+ "speechLevels": {},
+ "tokenOrder": [
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six"
+ ],
+ "tokens": {
+  "one": "1",
+  "two": "2",
+  "three": "3",
+  "four": "4",
+  "five": "5",
+  "six": "6"
+ },
+ "tokenWords": {
+  "zh-CN": [
+   {
+    "key": "one",
+    "word": "一",
+    "forms": [
+     "一"
+    ],
+    "romanization": "yī"
+   },
+   {
+    "key": "two",
+    "word": "二",
+    "forms": [
+     "二"
+    ],
+    "romanization": "èr"
+   },
+   {
+    "key": "three",
+    "word": "三",
+    "forms": [
+     "三"
+    ],
+    "romanization": "sān"
+   },
+   {
+    "key": "four",
+    "word": "四",
+    "forms": [
+     "四"
+    ],
+    "romanization": "sì"
+   },
+   {
+    "key": "five",
+    "word": "五",
+    "forms": [
+     "五"
+    ],
+    "romanization": "wǔ"
+   },
+   {
+    "key": "six",
+    "word": "六",
+    "forms": [
+     "六"
+    ],
+    "romanization": "liù"
+   }
+  ],
+  "en-US": [
+   {
+    "key": "one",
+    "word": "one",
+    "forms": [
+     "one"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "two",
+    "word": "two",
+    "forms": [
+     "two"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "three",
+    "word": "three",
+    "forms": [
+     "three"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "four",
+    "word": "four",
+    "forms": [
+     "four"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "five",
+    "word": "five",
+    "forms": [
+     "five"
+    ],
+    "romanization": ""
+   },
+   {
+    "key": "six",
+    "word": "six",
+    "forms": [
+     "six"
+    ],
+    "romanization": ""
+   }
+  ]
+ },
+ "locales": {
+  "zh-CN": {
+   "locale": "zh-CN",
+   "langLabel": "汉语",
+   "aName": "林小满",
+   "bName": "江远",
+   "stage": "放学后的小院廊下",
+   "prop": {
+    "scenes": [
+     "awning",
+     "table",
+     "plant"
+    ],
+    "device": {
+     "scenes": [
+      "awning",
+      "table",
+      "plant"
+     ],
+     "style": "lanterns",
+     "shape": "round",
+     "cellW": 108,
+     "cellH": 116,
+     "well": "#F5F3EE",
+     "label": "六只数字小灯笼"
+    },
+    "label": "六只数字小灯笼",
+    "desc": "廊下挂六只小灯笼，每轮点亮一只，灯笼上写着数字。"
+   },
+   "notes": "中文数词「一盏/两盏」——量词随数词变；灯笼在节庆里是「圆满」的意象，与数数不冲突但要分开讲。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "江远江远！我们在数灯笼——从一到六！",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "数",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": {
+      "kind": "hint",
+      "text": "数"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "好，怎么数？",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "一是什么？",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "一",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": {
+      "kind": "think",
+      "text": "一"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "一盏。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "一盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": {
+      "kind": "hint",
+      "text": "一盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "那二呢？",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "二",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "two",
+     "tokenChip": "2",
+     "tokenWord": "二",
+     "bubble": {
+      "kind": "think",
+      "text": "二"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "两盏。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "两盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "two",
+     "tokenChip": "2",
+     "tokenWord": "二",
+     "bubble": {
+      "kind": "hint",
+      "text": "两盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "三？",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "三",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "three",
+     "tokenChip": "3",
+     "tokenWord": "三",
+     "bubble": {
+      "kind": "think",
+      "text": "三"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "三盏。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "三盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "three",
+     "tokenChip": "3",
+     "tokenWord": "三",
+     "bubble": {
+      "kind": "hint",
+      "text": "三盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "四呢？",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "四",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "four",
+     "tokenChip": "4",
+     "tokenWord": "四",
+     "bubble": {
+      "kind": "think",
+      "text": "四"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "四盏。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "四盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "four",
+     "tokenChip": "4",
+     "tokenWord": "四",
+     "bubble": {
+      "kind": "hint",
+      "text": "四盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "五！",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "五",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "five",
+     "tokenChip": "5",
+     "tokenWord": "五",
+     "bubble": {
+      "kind": "think",
+      "text": "五"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "五盏——该我了。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "五盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "five",
+     "tokenChip": "5",
+     "tokenWord": "五",
+     "bubble": {
+      "kind": "hint",
+      "text": "五盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "最后一个，六！",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "六",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": {
+      "kind": "think",
+      "text": "一"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "六盏。数完啦。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "六盏",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "six",
+     "tokenChip": "6",
+     "tokenWord": "六",
+     "bubble": {
+      "kind": "hint",
+      "text": "六盏"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "一到六！全数完啦！",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "全数完",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": {
+      "kind": "hint",
+      "text": "全数完"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "明天接着数。",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "明天见！",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "一",
+     "bubble": null
+    }
+   ]
+  },
+  "en-US": {
+   "locale": "en-US",
+   "langLabel": "英语",
+   "aName": "Miles",
+   "bName": "Ruby",
+   "stage": "",
+   "prop": {
+    "scenes": [
+     "shopfront",
+     "awning",
+     "counter"
+    ],
+    "device": {
+     "scenes": [
+      "shopfront",
+      "awning",
+      "counter"
+     ],
+     "style": "lanterns",
+     "shape": "round",
+     "cellW": 108,
+     "cellH": 116,
+     "well": "#F5F3EE",
+     "label": "six paper lanterns"
+    },
+    "label": "six paper lanterns",
+    "desc": ""
+   },
+   "notes": "英语用基数词直接计物（one/two lanterns），不套量词——这与中文「一盏/两盏」的结构差异本身就是教学内容。",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Ruby! We're counting the lanterns — one to six!",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "counting",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": {
+      "kind": "hint",
+      "text": "counting"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Go ahead. How do we count?",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "nod"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "What's one?",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "one",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": {
+      "kind": "think",
+      "text": "one"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "One lantern.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "One lantern",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": {
+      "kind": "hint",
+      "text": "One lantern"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "And two?",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "two",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "two",
+     "tokenChip": "2",
+     "tokenWord": "two",
+     "bubble": {
+      "kind": "think",
+      "text": "two"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Two.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Two",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "two",
+     "tokenChip": "2",
+     "tokenWord": "two",
+     "bubble": {
+      "kind": "hint",
+      "text": "Two"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Three?",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Three",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "three",
+     "tokenChip": "3",
+     "tokenWord": "three",
+     "bubble": {
+      "kind": "think",
+      "text": "three"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Three.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Three",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "three",
+     "tokenChip": "3",
+     "tokenWord": "three",
+     "bubble": {
+      "kind": "hint",
+      "text": "Three"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Four?",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Four",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "four",
+     "tokenChip": "4",
+     "tokenWord": "four",
+     "bubble": {
+      "kind": "think",
+      "text": "four"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Four.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Four",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "four",
+     "tokenChip": "4",
+     "tokenWord": "four",
+     "bubble": {
+      "kind": "hint",
+      "text": "Four"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Five!",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Five",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "five",
+     "tokenChip": "5",
+     "tokenWord": "five",
+     "bubble": {
+      "kind": "think",
+      "text": "five"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Five — my turn.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Five",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "five",
+     "tokenChip": "5",
+     "tokenWord": "five",
+     "bubble": {
+      "kind": "hint",
+      "text": "Five"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Last one: six!",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "six",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": {
+      "kind": "think",
+      "text": "one"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Six. That's all of them.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "Six",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "six",
+     "tokenChip": "6",
+     "tokenWord": "six",
+     "bubble": {
+      "kind": "hint",
+      "text": "Six"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "One to six — all counted!",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "all counted",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": {
+      "kind": "hint",
+      "text": "all counted"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "We'll count more tomorrow.",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": null
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "See you!",
+     "romanization": "",
+     "gloss": "",
+     "note": "",
+     "gesture": {
+      "word": "",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "one",
+     "tokenChip": "1",
+     "tokenWord": "one",
+     "bubble": null
+    }
+   ]
+  }
+ }
+}

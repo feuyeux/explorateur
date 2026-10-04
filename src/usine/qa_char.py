@@ -14,10 +14,11 @@ from PIL import Image
 
 from .intro_cards import (EYE_MOOD, JAW, MOOD_FACE, NECK_SHADE_F, THEME, face_geo, gaze,
                           hexc, jaw_point, jump_height, mix, sunglasses_head_geo)
-from usine import ROOT
 
-P = json.load(open(ROOT / "personas" / "personas.json", encoding="utf-8"))
-personas = {p["id"]: p for p in P["personas"]}
+from .data import personas as _read_personas
+
+personas = _read_personas()   # {id: persona}，经 data.py 统一入口
+P = personas                  # 旧别名：本文件历史用法只把它当索引用
 
 
 def check(pid, frame, hop=0.0, dx=0.0, verbose=True, probe_crown=True, t=None, mood="neutral",

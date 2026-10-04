@@ -26,18 +26,18 @@ import json
 import math
 import os
 import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
-from pathlib import Path
 
 from .intro_cards import (
     W, H, FPS, SS, THEME, SCENES, UI_INK, BAND_BG, BAND_Y, BAND_H, EDGE, FONT_CSS, FLAG,
     HTML_HEAD, DrawScaled, clamp, content_hash, effective_voice, ease_out_cubic,
-    hexc, html_escape, matte_combine, mix, openness_at, pop_scale, pose_for, probe_duration,
+    hexc, html_escape, matte_combine, mix, openness_at, pop_scale, pose_for,
     draw_character, synth_line, rnd, POSE_CODES,
 )
-from .parse_scene import scene_paths    # lessons/<id>/scene.md / scene.json 命名约定的唯一事实源
+from .data import (cards_doc as _read_cards, personas as _read_personas,
+                   scene_doc)
+from .media import compose_track, edge_window_h, frac_at, karaoke_points, probe_duration
 from usine import ROOT as HERE          # 仓库根（lessons/ / personas / build 的锚点）
 
 SCENE_ID = "colors"                      # CLI --scene 覆盖
@@ -68,32 +68,24 @@ DEV_X0 = 134                            # 装置井行左缘
 AX, BX = 322, 758                       # A / B 站位中心 x（RTL 时左右对调）
 
 # 装置几何（井宽/井高/井形/空井色）全部由剧本 §0.2 装置规格表给定（parse_scene.py 落 data），
-# 代码里只留**样式库**：style → 外框画法。shape: round 圆角矩形 / circle 椭圆 / rect 矩形 / poly 三角
-DEVICE_STYLES = ("palette", "chalkboard", "bookspine", "signpost", "fruit_basket", "chalk_stone",
-                 "doorframe", "lanterns", "rangoli", "traffic_lamp", "cone", "gelato",
-                 "dyed_cloth", "neon", "tray")
+# 代码里只留**样式库**：style → 外框画法（注册表定义见下方 draw_device 之前）。
+# shape: round 圆角矩形 / circle 椭圆 / rect 矩形 / poly 三角
 # 姿态码走 intro_cards.POSE_CODES 注册表（bounce_in 属入场动画，单独处理）
 ENTRY_GAP = 0.55        # 句间呼吸（§1.4 句尾 0.6–0.8s 的对话化取值）
 ENTRY_IN = 1.0         # 双人入场
 TAIL = 2.0             # 收束：挥手/出画 + 落幅
 POSE_DUR = 1.15        # 手势时长（pose_for 的 u∈[0,1]）
 
-
 # ---------- 数据 ----------
 
 def load_data():
-    personas = {p["id"]: p for p in
-                json.loads((HERE / "personas" / "personas.json").read_text("utf-8"))["personas"]}
-    cards = json.loads((HERE / "personas" / "intro-cards.json").read_text("utf-8"))
-    _, scene_json = scene_paths(SCENE_ID)
-    if not scene_json.exists():
-        raise SystemExit(f"场景数据不存在：{scene_json.name}（先跑 parse_scene.py --scene {SCENE_ID}）")
-    scene = json.loads(scene_json.read_text("utf-8"))
+    """人设/卡片/场景一律经 data.py 统一入口取（只读、进程内缓存）。"""
+    scene = scene_doc(SCENE_ID)
     RTL_LOCALES.clear()
     RTL_LOCALES.update(scene.get("rtlLocales") or [])
     global SCENE_TOKENS
     SCENE_TOKENS = list(scene.get("tokenOrder") or [])
-    return personas, cards, scene
+    return _read_personas(), _read_cards(), scene
 
 
 def casting(locale, personas, cards, scene):
@@ -149,23 +141,7 @@ def side_x(locale, role):
         return BX if rtl else AX
     return AX if rtl else BX
 
-
 # ---------- TTS（系统 Python + edge-tts）----------
-
-def compose_scene_audio(files, starts, dur, out_m4a):
-    n = len(files)
-    inputs = []
-    for f in files:
-        inputs += ["-i", str(f)]
-    fc = [f"[{i}:a]adelay={int(round(s*1000))}|{int(round(s*1000))}[a{i}]" for i, s in enumerate(starts)]
-    mixin = "".join(f"[a{i}]" for i in range(n))
-    fc.append(f"{mixin}amix=inputs={n}:normalize=0[m]" if n > 1 else f"{mixin}anull[m]")
-    # apad 必须前置 loudnorm（手册坑③）：否则补尾的 EOF 冲刷非确定
-    fc.append(f"[m]apad=whole_dur={dur},loudnorm=I=-16:TP=-1.5:LRA=11,atrim=0:{dur}[out]")
-    subprocess.run(["ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc), "-map", "[out]",
-                    "-c:a", "aac", "-b:a", "192k", "-ar", "44100", str(out_m4a)],
-                   check=True, capture_output=True)
-
 
 def pick_pose(ln):
     """该行手势码：取剧本标注的最后一个可用姿态码（bounce_in 归入场动画）。"""
@@ -178,6 +154,11 @@ def pick_pose(ln):
 def cmd_tts(only):
     personas, cards, scene = load_data()
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    # 时长预算门禁前移到 tts 阶段（2026-10-04）：§0 `durationBudget` 原先只在 qa_scene
+    # 第 2 组查——那是**出片之后**。剧本写超了要等 14 支全渲完（约 20 分钟）才知道，
+    # 而「超时回改文本」（不变量②）的处方恰恰是改文本，改文本的成本远低于重渲。
+    budget = scene.get("durationBudget") or []
+    over = []
     for locale in locales_of(only):
         loc = scene["locales"][locale]
         cast = casting(locale, personas, cards, scene)
@@ -228,14 +209,23 @@ def cmd_tts(only):
                 seen.add(lo["tokenKey"])
                 ask.append({"t": lo["start"], "key": lo["tokenKey"]})
 
-        compose_scene_audio(files, [lo["start"] for lo in lines_out], dur,
-                            AUDIO_DIR / f"{PREFIX}_{locale}.m4a")
+        compose_track(files, [lo["start"] for lo in lines_out], dur,
+                      AUDIO_DIR / f"{PREFIX}_{locale}.m4a")
         tl = {"locale": locale, "duration": dur, "entry": ENTRY_IN, "speechEnd": speech_end,
               "cast": cast, "rtl": is_rtl(locale), "ask": ask, "lines": lines_out}
         (AUDIO_DIR / f"{PREFIX}_{locale}.timeline.json").write_text(
             json.dumps(tl, ensure_ascii=False, indent=1), "utf-8")
         print(f"[tts] {locale} lines={len(lines_out)} speech_end={speech_end:.2f}s duration={dur:.2f}s")
+        if budget and not (budget[0] <= dur <= budget[1]):
+            over.append((locale, dur))
 
+    if over:
+        lo, hi = budget[0], budget[1]
+        print(f"\n[tts] 时长预算不合规（§0 durationBudget {lo:g}–{hi:g}s），"
+              f"{len(over)} 个语种超时——**回改文本**，绝不调声线（不变量②）:", flush=True)
+        for lc, d in sorted(over, key=lambda x: -x[1]):
+            print(f"       {lc} {d:.2f}s  超上限 {d - hi:+.2f}s")
+        raise SystemExit(1)
 
 # ---------- 文字层（Edge headless）----------
 
@@ -341,17 +331,7 @@ def spill_html(locale, lang_label, bg="#FFFFFF"):
                             dir="ltr", body=body)
 
 
-def edge_viewport_h(TEXT_DIR):
-    probe = TEXT_DIR / "_vp_probe.html"
-    import re
-    probe.write_text(HTML_HEAD.format(w=100, h=BAND_H, bg="#FFFFFF", font="sans-serif", dir="ltr",
-                                      body="<div style='height:100vh'></div>"
-                                           "<script>document.title=window.innerHeight;</script>"), "utf-8")
-    dom = subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--window-size=1080,300",
-                          "--virtual-time-budget=800", "--dump-dom", probe.as_uri()],
-                         check=True, capture_output=True, timeout=60).stdout.decode("utf-8", "ignore")
-    m = re.search(r"<title>(\d+)</title>", dom)
-    return int(m.group(1)) if m else BAND_H
+# Edge 视口补偿（坑⑩）见 media.edge_window_h，与亮相卡共用一份。
 
 
 def cmd_assets(only):
@@ -397,8 +377,11 @@ def cmd_assets(only):
         matte(f"pill_{PREFIX}_{locale}",
               lambda bg, lc=locale, lb=loc["langLabel"]: spill_html(lc, lb, bg))
 
-    chrome_px = BAND_H - edge_viewport_h(TEXT_DIR)          # 坑⑩：Edge 视口 ≠ window-size
-    win_h = BAND_H + max(0, chrome_px)
+    # 坑⑩：Edge 视口 ≠ window-size。补偿实现见 media.edge_window_h（与亮相卡共用一份）。
+    # 旧实现在此用 BAND_H 而非标称 300 作减数，多补了 (BAND_H-300) px 窗口高度；
+    # 因 HTML_HEAD 的 body/#wrap 是固定 BAND_H 高度的盒子，截图多出的尾部空白会被
+    # band_png() 裁掉，故统一为标称口径对像素无影响（2026-10-04 核对 HTML_HEAD 后确认）。
+    chrome_px, win_h = edge_window_h(TEXT_DIR, BAND_H, HTML_HEAD, EDGE)
     print(f"[assets] Edge viewport deficit: {chrome_px}px -> window-size=1080,{win_h}")
 
     def run(job):
@@ -424,7 +407,6 @@ def cmd_assets(only):
     with ThreadPoolExecutor(max_workers=8) as ex:
         list(ex.map(run, jobs))
     print(f"[assets] done: {len(jobs)} assets -> {TEXT_DIR}")
-
 
 # ---------- 色卡装置（每语种独立装置，§1.2 原则4；色卡填充逐帧，六色边问边亮）----------
 
@@ -459,62 +441,146 @@ def scene_pal(ident_a, ident_b):
     }
 
 
+# 装置外框样式注册表（2026-10-04 原语化，与 intro_cards.SCENES 的 `@scene` 同构）。
+# 此前是 `draw_device` 里一条 15 分支 if/elif 链 + 一个裸元组闭集：加一种装置样式必须
+# 改函数体，改名/漏改闭集则等到渲染时才报错。注册后「有哪些样式」由装饰器自己声明，
+# 装置是数据不是代码这条原则在场景线也成立。
+DEVICE_STYLES = {}
+
+
+def device_style(name):
+    def deco(fn):
+        DEVICE_STYLES[name] = fn
+        return fn
+    return deco
+
+
+# 装置几何（井宽/井高/井形/空井色）全部由剧本 §0.2 装置规格表给定（parse_scene.py 落 data），
+# 注册函数只负责**外框画法**：井位/井形/空井色都不在这里（井内 token 由逐帧填充层画）。
+# box = (x0, y0, x1, y1) 由 draw_device 按 cells 算好后传入。
+
+
+@device_style("palette")                                     # 美术教室·调色盘
+def dv_palette(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rounded_rectangle([x0, y0, x1, y1], 40, fill=pal["soft2"], outline=pal["ink"], width=5)
+
+
+@device_style("chalkboard")                                  # 咖啡馆·小黑板
+def dv_chalkboard(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    ink = pal["ink"]
+    d.rounded_rectangle([x0, y0 - 6, x1, y1 + 10], 18, fill=(58, 66, 62), outline=ink, width=6)
+    d.rectangle([x0 - 10, y1 + 10, x1 + 10, y1 + 30], fill=(146, 116, 82), outline=ink, width=4)
+
+
+@device_style("bookspine")                                   # 书店·橱窗书脊
+def dv_bookspine(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    ink = pal["ink"]
+    d.rectangle([x0, y0 - 10, x1, y0 + 14], fill=(132, 100, 72), outline=ink, width=4)
+    d.rectangle([x0 - 8, y1, x1 + 8, y1 + 22], fill=(132, 100, 72), outline=ink, width=4)
+
+
+@device_style("signpost")                                    # 徒步·指路牌柱
+def dv_signpost(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rectangle([(x0 + x1) / 2 - 16, y0, (x0 + x1) / 2 + 16, y1 + 54], fill=(140, 115, 90),
+                outline=pal["ink"], width=4)
+
+
+@device_style("fruit_basket")                                # 果摊·果筐
+def dv_fruit_basket(d, cells, box, pal):
+    ink = pal["ink"]
+    for c in cells:
+        d.polygon([(c[0] - 4, c[1] + 6), (c[2] + 4, c[1] + 6), (c[2] - 6, c[3] + 16),
+                   (c[0] + 6, c[3] + 16)], fill=(178, 138, 92), outline=ink, width=4)
+
+
+@device_style("chalk_stone")                                 # 庭院·石板粉笔
+def dv_chalk_stone(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rectangle([x0 - 40, y1 + 4, x1 + 40, y1 + 30], fill=pal["soft2"], outline=pal["ink"], width=4)
+
+
+@device_style("doorframe")                                   # 港口·漆色门框
+def dv_doorframe(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rectangle([x0 - 16, y0 - 14, x1 + 16, y1 + 12], fill=pal["soft2"], outline=pal["ink"], width=5)
+
+
+@device_style("lanterns")                                    # 咖啡座·灯笼
+def dv_lanterns(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    ink = pal["ink"]
+    d.line([(x0, y0 - 30), (x1, y0 - 30)], width=6, fill=ink)
+    for c in cells:
+        d.line([((c[0] + c[2]) / 2, y0 - 30), ((c[0] + c[2]) / 2, c[1] - 2)], width=3, fill=ink)
+
+
+@device_style("rangoli")                                     # 走廊·rangoli
+def dv_rangoli(d, cells, box, pal):
+    for c in cells:
+        for k in range(8):
+            a = k * math.pi / 4
+            d.line([((c[0] + c[2]) / 2 + 16 * math.cos(a), (c[1] + c[3]) / 2 + 16 * math.sin(a)),
+                    ((c[0] + c[2]) / 2 + 30 * math.cos(a), (c[1] + c[3]) / 2 + 30 * math.sin(a))],
+                   width=4, fill=pal["soft2"])
+
+
+@device_style("traffic_lamp")                                # 商店街·街灯
+def dv_traffic_lamp(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    ink = pal["ink"]
+    d.rectangle([x0 - 20, y1 + 6, x1 + 20, y1 + 22], fill=pal["soft2"], outline=ink, width=4)
+    for c in cells:
+        d.line([((c[0] + c[2]) / 2, c[3]), ((c[0] + c[2]) / 2, y1 + 8)], width=6, fill=ink)
+
+
+@device_style("cone")                                        # 街球场·训练锥
+def dv_cone(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rectangle([x0 - 30, y1 + 2, x1 + 30, y1 + 20], fill=pal["soft"], outline=pal["ink"], width=4)
+
+
+@device_style("gelato")                                      # 广场·gelato 柜
+def dv_gelato(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    ink = pal["ink"]
+    d.rounded_rectangle([x0 - 30, y0 - 6, x1 + 30, y1 + 26], 22, fill=pal["paper"],
+                        outline=ink, width=5)
+    d.line([(x0 - 20, y0 + 6), (x1 + 20, y0 + 6)], width=5, fill=pal["soft2"])
+
+
+@device_style("dyed_cloth")                                  # 天台·晾绳染布
+def dv_dyed_cloth(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.line([(x0 - 60, y0 - 24), (x1 + 60, y0 - 24)], width=6, fill=pal["ink"])
+
+
+@device_style("neon")                                        # 街市·neon 招牌
+def dv_neon(d, cells, box, pal):
+    x0, y0, x1, y1 = box
+    d.rectangle([x0 - 24, y1 + 2, x1 + 24, y1 + 24], fill=(64, 58, 66), outline=pal["ink"], width=4)
+
+
+@device_style("tray")                                        # 裸托盘·只画井（默认值）
+def dv_tray(d, cells, box, pal):
+    """故意不画外框：纯对话场景的默认样式，井由下方 well 铺底。"""
+    return None
+
+
 def draw_device(d, device, cells, pal):
     """装置外框（井内 token 由逐帧填充层画）：style 决定外框画法，井位/井形/空井色来自
     剧本 §0.2。§1.2 原则4「舞台原生」：每语种独立装置，不共用布景。"""
     kind = (device or {}).get("style") or "tray"
-    if kind not in DEVICE_STYLES:
-        raise ValueError(f"未知装置 style：{kind}（可用 {DEVICE_STYLES}）")
-    ink, soft, soft2, tint = pal["ink"], pal["soft"], pal["soft2"], pal["tint"]
-    x0 = min(c[0] for c in cells) - 26
-    x1 = max(c[2] for c in cells) + 26
-    y0 = min(c[1] for c in cells) - 26
-    y1 = max(c[3] for c in cells) + 26
-
-    if kind == "palette":                                   # 美术教室·调色盘
-        d.rounded_rectangle([x0, y0, x1, y1], 40, fill=soft2, outline=ink, width=5)
-    elif kind == "chalkboard":                              # 咖啡馆·小黑板
-        d.rounded_rectangle([x0, y0 - 6, x1, y1 + 10], 18, fill=(58, 66, 62), outline=ink, width=6)
-        d.rectangle([x0 - 10, y1 + 10, x1 + 10, y1 + 30], fill=(146, 116, 82), outline=ink, width=4)
-    elif kind == "bookspine":                               # 书店·橱窗书脊
-        d.rectangle([x0, y0 - 10, x1, y0 + 14], fill=(132, 100, 72), outline=ink, width=4)
-        d.rectangle([x0 - 8, y1, x1 + 8, y1 + 22], fill=(132, 100, 72), outline=ink, width=4)
-    elif kind == "signpost":                                # 徒步·指路牌柱
-        d.rectangle([(x0 + x1) / 2 - 16, y0, (x0 + x1) / 2 + 16, y1 + 54], fill=(140, 115, 90),
-                    outline=ink, width=4)
-    elif kind == "fruit_basket":                            # 果摊·果筐
-        for c in cells:
-            d.polygon([(c[0] - 4, c[1] + 6), (c[2] + 4, c[1] + 6), (c[2] - 6, c[3] + 16),
-                       (c[0] + 6, c[3] + 16)], fill=(178, 138, 92), outline=ink, width=4)
-    elif kind == "chalk_stone":                             # 庭院·石板粉笔
-        d.rectangle([x0 - 40, y1 + 4, x1 + 40, y1 + 30], fill=soft2, outline=ink, width=4)
-    elif kind == "doorframe":                               # 港口·漆色门框
-        d.rectangle([x0 - 16, y0 - 14, x1 + 16, y1 + 12], fill=soft2, outline=ink, width=5)
-    elif kind == "lanterns":                                # 咖啡座·灯笼
-        d.line([(x0, y0 - 30), (x1, y0 - 30)], width=6, fill=ink)
-        for c in cells:
-            d.line([((c[0] + c[2]) / 2, y0 - 30), ((c[0] + c[2]) / 2, c[1] - 2)], width=3, fill=ink)
-    elif kind == "rangoli":                                 # 走廊·rangoli
-        for c in cells:
-            for k in range(8):
-                a = k * math.pi / 4
-                d.line([((c[0] + c[2]) / 2 + 16 * math.cos(a), (c[1] + c[3]) / 2 + 16 * math.sin(a)),
-                        ((c[0] + c[2]) / 2 + 30 * math.cos(a), (c[1] + c[3]) / 2 + 30 * math.sin(a))],
-                       width=4, fill=soft2)
-    elif kind == "traffic_lamp":                            # 商店街·街灯
-        d.rectangle([x0 - 20, y1 + 6, x1 + 20, y1 + 22], fill=soft2, outline=ink, width=4)
-        for c in cells:
-            d.line([((c[0] + c[2]) / 2, c[3]), ((c[0] + c[2]) / 2, y1 + 8)], width=6, fill=ink)
-    elif kind == "cone":                                    # 街球场·训练锥
-        d.rectangle([x0 - 30, y1 + 2, x1 + 30, y1 + 20], fill=soft, outline=ink, width=4)
-    elif kind == "gelato":                                  # 广场·gelato 柜
-        d.rounded_rectangle([x0 - 30, y0 - 6, x1 + 30, y1 + 26], 22, fill=pal["paper"],
-                            outline=ink, width=5)
-        d.line([(x0 - 20, y0 + 6), (x1 + 20, y0 + 6)], width=5, fill=soft2)
-    elif kind == "dyed_cloth":                              # 天台·晾绳染布
-        d.line([(x0 - 60, y0 - 24), (x1 + 60, y0 - 24)], width=6, fill=ink)
-    elif kind == "neon":                                    # 街市·neon 招牌
-        d.rectangle([x0 - 24, y1 + 2, x1 + 24, y1 + 24], fill=(64, 58, 66), outline=ink, width=4)
+    fn = DEVICE_STYLES.get(kind)
+    if fn is None:
+        raise ValueError(f"未知装置 style：{kind}（可用 {sorted(DEVICE_STYLES)}）")
+    box = (min(c[0] for c in cells) - 26, min(c[1] for c in cells) - 26,
+           max(c[2] for c in cells) + 26, max(c[3] for c in cells) + 26)
+    x0, y0, x1, y1 = box
+    fn(d, cells, box, pal)
 
     # 空井：先铺底色，逐帧 token 填充压在其上——白/浅色 chip 才有对比
     well = well_color(device, pal)
@@ -527,7 +593,7 @@ def draw_device(d, device, cells, pal):
             d.rectangle(list(c[:4]), fill=well)
         else:
             d.rounded_rectangle(list(c[:4]), 18, fill=well)
-    return (x0, y0, x1, y1)
+    return box
 
 
 def fill_cell(d, cell, color, scale=1.0):
@@ -563,7 +629,6 @@ def ring_cell(d, cell, ink, w=6):
         d.polygon([((x0 + x1) / 2, y0 - 6), (x0 - 6, y1 + 6), (x1 + 6, y1 + 6)], outline=ink, width=w)
     else:
         d.rounded_rectangle([x0 - 6, y0 - 6, x1 + 6, y1 + 6], 20, outline=ink, width=w)
-
 
 # ---------- 渲染阶段 ----------
 
@@ -664,7 +729,6 @@ def persona_pose(p, slot):
         raise ValueError(f"{p['id']} moves.{slot}={code!r} 不在 POSE_CODES")
     return code
 
-
 # ---- 排他动作·逐人次轮换（2026-10-03 用户反馈：同一人片内动作不得反复同一个） ----
 # 槽位语义池按能量分列（活泼/沉稳两池码集不相交 → 同台 A/B 词汇天然互斥）；
 # 同一人的手势按出场次序在「本人签名码 + 槽位池 + 全能量池」里轮转，全片已用的跳过，
@@ -720,29 +784,7 @@ def resolve_pose_seq(pairs):
     return out
 
 
-def karaoke_points(line):
-    """[(t, frac)] 词首/词尾字符进度点（与亮相卡同一实现，词级时间戳一轴三用之卡拉OK轴）。"""
-    words = line["words"]
-    total = sum(len(w["w"]) for w in words) + max(0, len(words) - 1)
-    pts, c = [(line["start"], 0.0)], 0.0
-    for i, w in enumerate(words):
-        c += len(w["w"])
-        pts.append((max(w["s"], line["start"]), c / total))
-        c += 1 if i < len(words) - 1 else 0
-        pts.append((w["e"], c / total))
-    pts.append((line["start"] + line["dur"] + 0.15, 1.0))
-    return pts
-
-
-def frac_at(pts, t):
-    if t <= pts[0][0]:
-        return 0.0
-    for i in range(1, len(pts)):
-        if t <= pts[i][0]:
-            t0, f0 = pts[i - 1]
-            t1, f1 = pts[i]
-            return f1 if t1 <= t0 else f0 + (f1 - f0) * (t - t0) / (t1 - t0)
-    return 1.0
+# karaoke_points / frac_at 见 media.py（2026-10-04 从本文件与 intro_cards 双份收敛为一处）
 
 
 def render_scene(locale, scene_id=None):

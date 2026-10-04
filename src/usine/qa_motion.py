@@ -4,21 +4,20 @@
 进度条推进、名牌/语言牌弹出、视线漂移、挂件物理（项链吊坠摆动/镜片反光位移）、
 呆毛彩蛋颤动、幂等性抽检（重渲一卡，视频流 framehash 须一致——不变量⑦/坑⑫）。
 所有采样框从 intro_cards.face_geo 与布局常量推导（不变量①/⑩，永不手抄坐标）。"""
-import hashlib
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 from PIL import Image
 
 from .intro_cards import (BADGE_BOX_H, BADGE_Y, BUBBLE_CX, BUBBLE_CY, PILL_BOX_H, PILL_Y,
                           PROG_X0, PROG_X1, PROG_Y0, PROG_Y1, THEME, W, face_geo, hexc)
+from .data import personas as _read_personas
 from usine import ROOT
 
 HERE = ROOT
 OUT = HERE / "build" / "intro"
-personas = {p["id"]: p for p in json.load(open(HERE / "personas" / "personas.json", encoding="utf-8"))["personas"]}
+personas = _read_personas()
 G = face_geo(personas["xiaoman"]["movement"]["face"])  # 探针几何单一事实源（不变量①）
 
 

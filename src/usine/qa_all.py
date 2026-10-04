@@ -13,14 +13,18 @@ from pathlib import Path
 from PIL import Image
 
 from . import qa_char
+from .data import cards_doc as _read_cards, personas as _read_personas
 from usine import ROOT
 
 HERE = ROOT
 OUT = HERE / "build" / "intro"
-doc = json.load(open(HERE / "personas" / "intro-cards.json", encoding="utf-8"))
-personas = {p["id"]: p for p in json.load(open(HERE / "personas" / "personas.json", encoding="utf-8"))["personas"]}
+doc = _read_cards()
+personas = _read_personas()
 RUN_FAMILY = ("run_out", "thumbs_run", "shoot_run")
 CLOSE_DUR = {"mini_jump": 1.1, "turn_freeze": 0.9, "snap": 0.9, "camera_snap": 1.0}
+DUR = 10.0            # 成片时长（handbook 不变量②：恰好 10.0s）
+CLOSE_MIN = 1.1       # 收尾动作 + 呼吸位必须留够的秒数（不变量②括号写明的真实目的）
+SPEECH_TARGET = 8.5   # 手册给的保守目标值：超了要回改文本，但只报不判
 
 
 def ffprobe(path):
@@ -46,6 +50,7 @@ def units():
 
 
 fails = []
+over_target = []       # 超过 8.5s 目标值但仍守住硬不变量（收尾 ≥1.1s）的单元
 n_units = 0
 for pid, persona_id, card in units():
     n_units += 1
@@ -62,6 +67,16 @@ for pid, persona_id, card in units():
         fails.append(f"{pid}: no aac audio, streams={codecs}")
     # 说话中段探针：mood 从本单元时间线推导（与渲染同源）
     tl = json.loads((OUT / "audio" / f"{pid}.timeline.json").read_text("utf-8"))
+    # 时长预算门禁（2026-10-04 补）：此前这条只由 tts 阶段 print 一行 WARN，没有任何
+    # 验收看它，等于「违反即回归」的不变量②事实上无人把关。
+    # 硬判据取不变量里括号写明的真实目的——收尾动作 + 呼吸位必须留够 CLOSE_MIN；
+    # 8.5s 是手册给的**目标值**（更保守，留 1.5s），超了要回改文本，但只报不判。
+    speech_end = float(tl["speechEnd"])
+    if (DUR - speech_end) < CLOSE_MIN - 1e-6:
+        fails.append(f"{pid}: 收尾只剩 {DUR - speech_end:.2f}s < {CLOSE_MIN}s "
+                     f"（speech_end={speech_end:.2f}s）——回改文本，绝不调声线")
+    if speech_end > SPEECH_TARGET:
+        over_target.append(f"{pid}:{speech_end:.2f}")
     li = 0
     for i, line in enumerate(tl["lines"]):
         if 3.0 >= line["start"] - 0.18:
@@ -102,6 +117,10 @@ for pid, persona_id, card in units():
             fails.append(f"{pid}: close-frame torso not found (close={check_code})")
 
 print()
+if over_target:
+    print(f"时长达标提示（speech_end > {SPEECH_TARGET}s，但收尾仍守住 ≥{CLOSE_MIN}s，不判失败）：")
+    print("  " + "  ".join(over_target))
+    print()
 print("=" * 50)
 if fails:
     print(f"FAILURES ({len(fails)}):")
