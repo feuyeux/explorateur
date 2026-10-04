@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from usine import ROOT
 from .data import cards_doc as _read_cards, personas as _read_personas
+from .data import flags as _flags, fonts_css as _fonts_css, lang_label
 from .media import (compose_track, edge_window_h, frac_at, karaoke_points, probe_duration)
 
 HERE = ROOT                              # 仓库根（personas/ 与 build/ 的锚点，不依赖 cwd）
@@ -278,24 +279,14 @@ def cmd_tts(only):
 
 # ---------- 文字层（Edge headless） ----------
 
-FONT_CSS = {
-    "zh-CN": "'Microsoft YaHei', sans-serif", "zh-HK": "'Microsoft YaHei', sans-serif",
-    "en-US": "'Segoe UI', Arial, sans-serif", "fr-FR": "'Segoe UI', Arial, sans-serif",
-    "de-DE": "'Segoe UI', Arial, sans-serif", "es-ES": "'Segoe UI', Arial, sans-serif",
-    "it-IT": "'Segoe UI', Arial, sans-serif", "ru-RU": "'Segoe UI', Arial, sans-serif",
-    "el-GR": "'Segoe UI', Arial, sans-serif",
-    "ja-JP": "'Yu Gothic UI', 'Meiryo', sans-serif", "ko-KR": "'Malgun Gothic', sans-serif",
-    "hi-IN": "'Nirmala UI', sans-serif", "ar-SA": "'Segoe UI', 'Tahoma', sans-serif",
-    "he-IL": "'Segoe UI', Arial, sans-serif",
-}
-
-FLAG = {  # plan §7.2-3：标识色永远与国旗 emoji＋语种文字双通道冗余（语言牌承载）。
-    # Windows Segoe UI Emoji 无国旗字形 → 回退渲染为双字母对（CN/DE…，Windows 全平台一致行为）；
-    # 国旗字形平台（macOS/移动端）渲染真旗。禁为"补旗"私画简化国旗（沙/港/印徽记不可简化，错旗比字母对更糟）。
-    "zh-CN": "🇨🇳", "en-US": "🇺🇸", "fr-FR": "🇫🇷", "de-DE": "🇩🇪", "es-ES": "🇪🇸",
-    "ru-RU": "🇷🇺", "el-GR": "🇬🇷", "ar-SA": "🇸🇦", "hi-IN": "🇮🇳", "ja-JP": "🇯🇵",
-    "ko-KR": "🇰🇷", "it-IT": "🇮🇹", "he-IL": "🇮🇱", "zh-HK": "🇭🇰",
-}
+# 字体栈与国旗来自 languages/<locale>/manifest.json（data.fonts_css / data.flags），
+# 不在本模块再抄一份：加语种过去要同时改 FONT_CSS、FLAG、personas.langLabel 三处，
+# 漏一处不报错，只是静静渲出一个没有旗的语言牌。现在新增语种=新建一个目录。
+# 手册坑⑬仍然有效：Windows Segoe UI Emoji 无国旗字形 → 回退渲染为 ISO 双字母对；
+# 禁为"补旗"私画简化国旗（沙/港/印徽记不可简化，错旗比字母对更糟）。
+# 语种目录自洽性由 scripts/verify_languages.py 把关（国旗必须等于 locale 的 ISO 区码）。
+FONT_CSS = _fonts_css()
+FLAG = _flags()
 
 HTML_HEAD = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 html,body{{margin:0;padding:0;width:{w}px;height:{h}px;overflow:hidden;background:{bg};
@@ -325,7 +316,7 @@ def badge_html(p, bg="#FFFFFF"):
     """静态流式布局（本 Edge headless 构建的 position:absolute 子元素会破坏父盒高度）。
     药丸形名牌：身份色描边 + 悬浮投影（matte 双色抠像可精确还原半透明投影）。"""
     native = html_escape(p["name"]["native"])
-    sub = html_escape(f"{p['name']['latin']} · {p['langLabel']}")
+    sub = html_escape(f"{p['name']['latin']} · {lang_label(p['locale'])}")
     rtl = "rtl" if p.get("rtl") else "ltr"
     body = f"""<div id="wrap"><div style="width:840px;height:200px;background:#FFFFFF;
       border:6px solid {p['identity']};border-radius:100px;text-align:center;padding:24px 0 0 0;
@@ -341,7 +332,7 @@ def badge_html(p, bg="#FFFFFF"):
 def pill_html(p, bg="#FFFFFF"):
     """语言牌（plan §8.3）：国旗 emoji ＋ 语种文字双通道（plan §7.2-3），字体随语种走 FONT_CSS。
     本机 Windows 无国旗字形：emoji 回退为 ISO 双字母对（CN 汉语）——见 FLAG 表注与手册坑⑬。"""
-    label = f"{FLAG[p['locale']]} {p['langLabel']}"
+    label = f"{FLAG[p['locale']]} {lang_label(p['locale'])}"
     body = f"""<div id="wrap"><div style="width:340px;height:88px;background:#FFFFFF;
       border:5px solid {UI_INK};border-radius:44px;text-align:center;line-height:80px;
       font-size:40px;font-weight:700;color:#23283D;box-shadow:0 8px 20px rgba(35,40,63,0.22);">{html_escape(label)}</div></div>"""
@@ -2285,10 +2276,30 @@ def render_card(pid, personas, doc):
 
 def cmd_render(only, workers):
     from multiprocessing import Pool
+    from . import ledger
     personas, doc = load_data()
     ids = [u["id"] for u in card_units(doc) if not only or u["persona"] in only]
-    with Pool(min(workers, len(ids))) as pool:
-        pool.starmap(render_card, [(pid, personas, doc) for pid in ids])
+    # P2-2 缓存账本：指纹未变且产物齐全的单元直接跳过。
+    # `skip_ledger=False` 可强制全渲——**默认不跳过**才安全，所以显式开关放在这里，
+    # 而不是反过来（见 ledger 模块头：漏渲会静默产出旧画面，代价不对称）。
+    skip = os.environ.get("USINE_SKIP_FRESH", "1") == "1"
+    todo = []
+    for pid in ids:
+        art = [f"build/intro/{pid}.mp4"]
+        fresh, why = ledger.status_of("intro-card", pid, art)
+        if skip and fresh:
+            print(f"[render] {pid} 跳过（{why}）")
+            continue
+        if not fresh:
+            print(f"[render] {pid} 待渲（{why}）")
+        todo.append(pid)
+    if not todo:
+        print(f"[render] 全部 {len(ids)} 支都是新鲜的，无需重渲（USINE_SKIP_FRESH=0 可强制）")
+        return
+    with Pool(min(workers, len(todo))) as pool:
+        pool.starmap(render_card, [(pid, personas, doc) for pid in todo])
+    for pid in todo:
+        ledger.record("intro-card", pid, [f"build/intro/{pid}.mp4"])
 
 # ---------- CLI ----------
 

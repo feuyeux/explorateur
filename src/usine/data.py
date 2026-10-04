@@ -26,6 +26,7 @@ from . import ROOT
 PERSONAS_DIR = ROOT / "personas"
 PERSONAS_PATH = PERSONAS_DIR / "personas.json"
 CARDS_PATH = PERSONAS_DIR / "intro-cards.json"
+LANGUAGES_DIR = ROOT / "languages"
 
 
 def _read_json(path):
@@ -36,6 +37,48 @@ def _read_json(path):
 def personas_doc():
     """personas.json 全文（含顶层字段）。只读。"""
     return _read_json(PERSONAS_PATH)
+
+
+@lru_cache(maxsize=None)
+def language_manifests():
+    """{locale: languages/<locale>/manifest.json}。语种目录——**语种知识的事实源**。
+
+    2026-10-04 收债新增（P1-4）。此前语种的东西散在三个地方：`intro_cards.FONT_CSS`（字体栈）、
+    `intro_cards.FLAG`（国旗 emoji）、`personas[].langLabel`（语种文字）。加一个语种要同时改
+    三处，漏一处不报错，只是静静渲出一个「没有旗的语言牌」——这类洞只能靠目录化 + 门禁堵。
+
+    语种目录收的是**语种自身的属性**（文字、旗、书写方向、字体栈），不是某一课的剧本属性：
+    `rtl` 同时也出现在剧本 §0 `rtlLocales`（那是 §0 声明体例的一部分，保留），两者必须一致。
+    """
+    out = {}
+    if not LANGUAGES_DIR.is_dir():
+        return out
+    for d in sorted(LANGUAGES_DIR.iterdir()):
+        f = d / "manifest.json"
+        if d.is_dir() and f.exists():
+            out[d.name] = _read_json(f)
+    return out
+
+
+@lru_cache(maxsize=None)
+def fonts_css():
+    """{locale: CSS font-family 栈}——供文字层渲染用。"""
+    return {loc: m["fontCss"] for loc, m in language_manifests().items()}
+
+
+@lru_cache(maxsize=None)
+def flags():
+    """{locale: 国旗 emoji}。Windows Segoe UI Emoji 无国旗字形 → 渲染为 ISO 双字母对
+    （见手册坑⑬：禁为「补旗」私画简化国旗，错旗比字母对更糟）。"""
+    return {loc: m["flag"] for loc, m in language_manifests().items()}
+
+
+def lang_label(locale):
+    """语种文字（语言牌上的「汉语」「希腊语」）。未知语种即报错，不静默回落成裸 locale。"""
+    m = language_manifests().get(locale)
+    if not m:
+        raise KeyError(f"无此语种目录：languages/{locale}/manifest.json（新增语种=新建目录）")
+    return m["label"]
 
 
 @lru_cache(maxsize=None)
@@ -94,3 +137,6 @@ def reload_all():
     personas_doc.cache_clear()
     personas.cache_clear()
     cards_doc.cache_clear()
+    language_manifests.cache_clear()
+    fonts_css.cache_clear()
+    flags.cache_clear()

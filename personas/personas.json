@@ -5,7 +5,6 @@
   {
    "id": "xiaoman",
    "locale": "zh-CN",
-   "langLabel": "汉语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -70,7 +69,6 @@
   {
    "id": "jiangyuan",
    "locale": "zh-CN",
-   "langLabel": "汉语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -134,7 +132,6 @@
   {
    "id": "ruby",
    "locale": "en-US",
-   "langLabel": "英语",
    "gender": "female",
    "energy": "steady",
    "name": {
@@ -199,7 +196,6 @@
   {
    "id": "miles",
    "locale": "en-US",
-   "langLabel": "英语",
    "gender": "male",
    "energy": "lively",
    "name": {
@@ -262,7 +258,6 @@
   {
    "id": "chloe",
    "locale": "fr-FR",
-   "langLabel": "法语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -326,7 +321,6 @@
   {
    "id": "theo",
    "locale": "fr-FR",
-   "langLabel": "法语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -387,7 +381,6 @@
   {
    "id": "lena",
    "locale": "de-DE",
-   "langLabel": "德语",
    "gender": "female",
    "energy": "steady",
    "name": {
@@ -451,7 +444,6 @@
   {
    "id": "felix",
    "locale": "de-DE",
-   "langLabel": "德语",
    "gender": "male",
    "energy": "lively",
    "name": {
@@ -513,7 +505,6 @@
   {
    "id": "lucia",
    "locale": "es-ES",
-   "langLabel": "西班牙语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -576,7 +567,6 @@
   {
    "id": "mateo",
    "locale": "es-ES",
-   "langLabel": "西班牙语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -640,7 +630,6 @@
   {
    "id": "anya",
    "locale": "ru-RU",
-   "langLabel": "俄语",
    "gender": "female",
    "energy": "steady",
    "name": {
@@ -705,7 +694,6 @@
   {
    "id": "misha",
    "locale": "ru-RU",
-   "langLabel": "俄语",
    "gender": "male",
    "energy": "lively",
    "name": {
@@ -765,7 +753,6 @@
   {
    "id": "eleni",
    "locale": "el-GR",
-   "langLabel": "希腊语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -826,7 +813,6 @@
   {
    "id": "nikos",
    "locale": "el-GR",
-   "langLabel": "希腊语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -883,7 +869,6 @@
   {
    "id": "layla",
    "locale": "ar-SA",
-   "langLabel": "阿拉伯语",
    "gender": "female",
    "energy": "steady",
    "rtl": true,
@@ -947,7 +932,6 @@
   {
    "id": "omar",
    "locale": "ar-SA",
-   "langLabel": "阿拉伯语",
    "gender": "male",
    "energy": "lively",
    "rtl": true,
@@ -1011,7 +995,6 @@
   {
    "id": "priya",
    "locale": "hi-IN",
-   "langLabel": "印地语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -1075,7 +1058,6 @@
   {
    "id": "arjun",
    "locale": "hi-IN",
-   "langLabel": "印地语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -1135,7 +1117,6 @@
   {
    "id": "haruka",
    "locale": "ja-JP",
-   "langLabel": "日语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -1202,7 +1183,6 @@
   {
    "id": "riku",
    "locale": "ja-JP",
-   "langLabel": "日语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -1263,7 +1243,6 @@
   {
    "id": "seoyeon",
    "locale": "ko-KR",
-   "langLabel": "韩语",
    "gender": "female",
    "energy": "steady",
    "name": {
@@ -1324,7 +1303,6 @@
   {
    "id": "doyun",
    "locale": "ko-KR",
-   "langLabel": "韩语",
    "gender": "male",
    "energy": "lively",
    "name": {
@@ -1404,7 +1382,6 @@
   {
    "id": "giulia",
    "locale": "it-IT",
-   "langLabel": "意大利语",
    "gender": "female",
    "energy": "lively",
    "name": {
@@ -1464,7 +1441,6 @@
   {
    "id": "luca",
    "locale": "it-IT",
-   "langLabel": "意大利语",
    "gender": "male",
    "energy": "steady",
    "name": {
@@ -1521,7 +1497,6 @@
   {
    "id": "noa",
    "locale": "he-IL",
-   "langLabel": "希伯来语",
    "gender": "female",
    "energy": "lively",
    "rtl": true,
@@ -1584,7 +1559,6 @@
   {
    "id": "yuval",
    "locale": "he-IL",
-   "langLabel": "希伯来语",
    "gender": "male",
    "energy": "steady",
    "rtl": true,
@@ -1645,7 +1619,6 @@
   {
    "id": "aaching",
    "locale": "zh-HK",
-   "langLabel": "粤语",
    "gender": "female",
    "energy": "steady",
    "name": {
@@ -1709,7 +1682,6 @@
   {
    "id": "ahao",
    "locale": "zh-HK",
-   "langLabel": "粤语",
    "gender": "male",
    "energy": "lively",
    "name": {
