@@ -1,194 +1,404 @@
 # une usine avec des machines rugissantes
 
-> 「一座轰鸣着机器的工厂」——人物是数据（personas），课程是数据（lessons），不是代码。
+> 「一座轰鸣着机器的工厂」——**人物是数据（personas），课程是数据（lessons），不是代码。**
 
-28 × 10 秒人物「亮相卡」渲染管线：14 语种教学视频班底，每人设一张竖版短片
-（`build/intro/<id>.mp4`，1080×1920 @ 30fps，h264+aac）；RTL 4 语卡另渲
-**女性观众版** `<id>_f.mp4`（self-intro §1.4，双版本独立缓存键，共 32 个渲染单元）。
-每张卡 = edge-tts 语音 + Edge headless 文字层 + Pillow 逐帧绘制，ffmpeg 合成。
+用 edge-tts 配音 + Edge headless 渲文字层 + Pillow 逐帧绘制 + ffmpeg 合成，
+批量产出 **14 语种 × 男女 = 28 位**教学视频人物「班底」与她们的课程短片。
 
-> **当前状态**（2026-10-03）：
-> ① 人物形象按人设差异化——`FACE_SPECS` 六型脸（圆/长/椭圆/宽/心形/方颌）逐人指派，
-> 新增分缝短发/齐刘海发型、`outfit` 服装槽（丹宁 A 字裙/背带裙/长衫/马甲/扣排）与
-> 人设化配饰（拉链头/笔记夹板/肩毛巾），背包只保留 quirk 驱动的两位；32 单元验收全绿。
-> ② 课程资料按课归拢——每课一个 `lessons/<id>/` 目录（剧本 + 解析产物 + 逐句解析），
-> 文档线全面参数化（`--scene`），新课照抄目录体例即接入，管线零改动。
-> ③ 人物生成技术选型经四路线评审，**Pillow 管线续役**；MiniMax-H3 + Remotion
-> 迁移案裁定为备选蓝图（决策记录见 [adr-character-tech.md](docs/adr-character-tech.md)）。
+| 产出 | 数量 | 规格 | 位置 |
+|---|---|---|---|
+| 人物亮相卡 | **32 支** | 1080×1920 @ 30fps，h264+aac，10s | `build/intro/{id}.mp4` |
+| A/B 对话教学场景 | **16 支** | 每支 40–55s，14 语种 + 2 语种示范课 | `build/scene/scene-{id}_{locale}.mp4` |
+| 教学文档 | 1 份/课 | 单文件 HTML，14 语种逐句解析 + 内嵌视频 | `build/lesson/{id}/index.html` |
+
+> 32 = 28 张主卡 + 4 个 RTL 语种的「女性观众版」（`{id}_f.mp4`，独立缓存键）。
+> 16 = colors 课 14 语种 + numbers 课 2 语种。
+> 合计 **48 支成片**，全部受 `.\run.ps1 pixelgate` 逐帧像素基线保护。
 
 ---
 
-## 文件地图
+## 目录
+
+| 章节 | 给谁看 |
+|---|---|
+| [1. 5 分钟跑通](#1-5-分钟跑通) | 第一次来，先跑出一条成片 |
+| [2. 流水线全景图](#2-流水线全景图生成--发布) | 想搞清数据怎么流到成片和平台 |
+| [3. 我要做 X](#3-我要做-x) | 日常干活：改什么、跑什么、怎么验收 |
+| [4. 验收契约](#4-验收契约改什么必须跑什么) | 提交前自检 |
+| [5. 命令参考](#5-命令参考) | 查 `run.ps1` 的全部 phase |
+| [6. 仓库地图](#6-仓库地图) | 找文件 |
+| [7. 深入](#7-深入) | 设计原则 / 班底 / 全部改法索引 |
+
+---
+
+## 1. 5 分钟跑通
+
+**前置**：Windows PowerShell 5.1、已装 `uv`、已装 ffmpeg 与 Edge（`msedge.exe`）。
+`.venv` 缺失不用管，`run.ps1` 会自动 `uv sync`。
+
+```powershell
+cd D:\coding\personal\explorateur
+
+# ① 看看现在有什么（不渲、不改任何东西）
+.\run.ps1 status              # 缓存账本：48 支产物哪些过期了、因为什么
+.\run.ps1 scene-list -Scene colors   # 列出场景：台词行数 / 时长 / 选角 / 装置
+
+# ② 渲染管线一：28 位人物的亮相卡（约 5 分钟，产出 32 支）
+.\run.ps1 all
+
+# ③ 渲染管线二：一门课的 14 语种教学短片（约 20 分钟，产出 14 支）
+.\run.ps1 scene -Scene colors
+
+# ④ 验收
+.\run.ps1 qa                  # 管线一 32/32
+.\run.ps1 qa-scene -Scene colors   # 管线二 429 项
+.\run.ps1 pixelgate            # 48 支逐帧像素比对（约 2 分钟）
+```
+
+**只想看成品**：直接打开 `build/intro/xiaoman.mp4` 和
+`build/lesson/colors/index.html`——它们已经在仓库的构建产物里，不必先跑任何命令。
+
+**只想改一门课**：见 [§3.1 新增课程](#31-新增课程-零代码接入)，整条路是 4 步。
+
+---
+
+## 2. 流水线全景图（生成 + 发布）
+
+每个节点都标了**文件 · 方法**。括号里是 PowerShell 里的调用方式。
+
+```mermaid
+flowchart TB
+    %% ========== ① 事实源 ==========
+    subgraph SRC["① 事实源　人写 / 人工产出"]
+        direction LR
+        S_PERSONA["personas/personas.json<br/>28 人档案：声线·色板·脸型·服装<br/><i>usine.data.personas</i>"]
+        S_CARDS["personas/intro-cards.json<br/>28 卡：台词·情绪·手势·选角<br/><i>usine.data.cards_doc</i>"]
+        S_LANG["languages/{loc}/manifest.json<br/>语种文字·国旗·书写方向·字体栈<br/><i>usine.data.language_manifests</i>"]
+        S_BRIEF["lessons/{id}/brief.json<br/>教学创意：token·装置·角色·节拍"]
+        S_SCENE["lessons/{id}/scene.md<br/>场景剧本 §0 规格 + §2 台词 + §5 词表"]
+        S_COPY["lessons/{id}/publish/{plat}-copy.md<br/>标题 · 正文 · 话题"]
+        S_ANA["lessons/{id}/analysis/{loc}.json<br/>逐句 grammar / morph / culture"]
+    end
+
+    %% ========== ② 生成视频 ==========
+    subgraph GEN["② 生成视频　场景线（管线二）"]
+        direction TB
+        G_DRAFT["<b>scene_draft.py</b> · render / beat_table_md / gaps<br/>brief.json → scene.md 结构草稿<br/><i>run.ps1 scene-draft -Scene {id}</i>"]
+        G_PARSE["<b>parse_scene.py</b> · parse_locales / parse_line / scene_paths<br/>scene.md → scene.json（只抽取不改写）<br/><i>usine scene parse</i>"]
+        G_SCHEMA["<b>scene_schema.py</b> · validate_scene<br/>前置校验：情绪/姿态/装置/选角对账，错则不往下走<br/><i>usine scene validate</i>"]
+        G_TTS["<b>scene_video.py</b> · cmd_tts<br/>edge-tts 逐行合成 + boundary 词级时间戳<br/><i>usine scene tts</i>"]
+        G_TRACK["<b>media.py</b> · compose_track / karaoke_points / frac_at<br/>ffmpeg 音轨合成 + 卡拉OK进度轴"]
+        G_ASSETS["<b>scene_video.py</b> · cmd_assets<br/>Edge headless 双色截图 → matte_combine 抠像<br/><i>usine scene assets</i>"]
+        G_LEDGER["<b>ledger.py</b> · status_of / record / fingerprint<br/>build/manifest.json 登记输入指纹<br/><i>run.ps1 status　未变则跳过重渲</i>"]
+        G_RENDER["<b>scene_video.py</b> · cmd_render<br/>Pillow 逐帧：draw_character 立绘 + 装置点亮 + 气泡镜像 + RTL 对调<br/><i>usine scene render</i>"]
+        G_HASH["<b>scripts/framehash.py</b> · per_frame / first_drift<br/>48 支逐帧像素 MD5 基线<br/><i>run.ps1 pixelgate</i>"]
+    end
+
+    %% ========== ③ 产物 ==========
+    subgraph OUT["③ 产物"]
+        direction LR
+        O_MP4["build/scene/scene-{id}_{locale}.mp4<br/>16 支 · 每支 40–55s"]
+        O_HTML["build/lesson/{id}/index.html<br/><b>build_lesson.py</b> · render_locale / make_poster<br/><b>dump_lesson_source.py</b> · main　先导出 _source/{loc}.md"]
+        O_CARD["build/intro/{id}.mp4　32 支<br/><b>intro_cards.py</b> · cmd_tts / cmd_assets / cmd_render<br/>（face_geo / draw_character / pose_for / matte_combine）<br/><i>run.ps1 render</i>"]
+    end
+
+    %% ========== ④ 发布视频 ==========
+    subgraph PUB["④ 发布视频"]
+        direction TB
+        U_PARSE["<b>publish.py</b> · parse_copy<br/>{plat}-copy.md → 逐支记录<br/><i>usine publish build</i>"]
+        U_LEDGER["publish/ledger.json　28 条机器可读台账（属性全派生）"]
+        U_RESULTS["publish/results.json　人工层<br/>url / postId / verifiedBy / 效果指标<br/><i>平台后台数字回填这里</i>"]
+        U_CHECK["<b>publish.py</b> · check<br/>引用完整性 · 指标取值域 · 标题上限 · 已发布凭据<br/><i>run.ps1 publish</i>"]
+        U_ANALYZE["<b>publish.py</b> · analyze<br/>按钩子/装置/色片字牌/书写方向/字数/时长分组比表现<br/>样本 n&lt;5 不下结论<br/><i>run.ps1 publish-stats</i>"]
+        U_PLAT["抖音 / 小红书 / 知乎<br/>Browser 逐步操作（唯一可自动化路径）<br/>流程与踩坑见 docs/publish-playbook.md"]
+    end
+
+    %% ========== ⑤ 验收 ==========
+    subgraph QA["⑤ 验收　十套反向验证"]
+        direction LR
+        V_PROBES["<b>scripts/verify_probes.py</b> 聚合<br/>shape · text · schema · lang · langmap<br/>draft · ledger · cli · framehash · publish<br/><i>run.ps1 verify</i>"]
+        V_PIPE1["<b>qa_all / qa_motion / qa_shape / qa_char</b><br/>管线一：32 单元 × 动态探针<br/><i>run.ps1 qa / qa-motion / qa-shape</i>"]
+        V_PIPE2["<b>qa_scene.py</b> · check / grab / count_color<br/>管线二：规格 + 文本契约 + 选角 + 画面探针 + 音频契约 + 幂等<br/>colors 429 项 / numbers 60 项<br/><i>run.ps1 qa-scene -Scene {id}</i>"]
+    end
+
+    %% ---- 事实源 → 生成 ----
+    S_BRIEF --> G_DRAFT
+    G_DRAFT --> S_SCENE
+    S_SCENE --> G_PARSE --> G_SCHEMA --> G_TTS --> G_TRACK --> G_ASSETS --> G_RENDER --> O_MP4
+    S_LANG --> G_ASSETS
+    S_LANG --> G_RENDER
+    S_PERSONA --> G_RENDER
+    G_LEDGER -.-> G_RENDER
+    G_HASH -.-> G_RENDER
+
+    %% ---- 教学文档 ----
+    G_SCHEMA --> O_HTML
+    S_ANA --> O_HTML
+
+    %% ---- 亮相卡线 ----
+    S_PERSONA --> O_CARD
+    S_CARDS --> O_CARD
+
+    %% ---- 发布线 ----
+    S_COPY --> U_PARSE --> U_LEDGER
+    U_LEDGER --> U_CHECK
+    U_RESULTS --> U_CHECK
+    U_LEDGER --> U_ANALYZE
+    U_RESULTS --> U_ANALYZE
+    U_CHECK --> U_PLAT
+
+    %% ---- 验收 ----
+    V_PROBES --> V_PIPE1
+    V_PROBES --> V_PIPE2
+    O_MP4 --> V_PIPE2
+    O_CARD --> V_PIPE1
+    G_HASH --> V_PROBES
+
+    %% ---- 配色（节点 + 子图）----
+    classDef src   fill:#F6F3EC,stroke:#9A6F18,color:#26221B
+    classDef gen   fill:#EAF0F7,stroke:#3E6FA8,color:#1B2A3A
+    classDef out   fill:#E9F3EC,stroke:#3E7F5F,color:#1A2E22
+    classDef pub   fill:#F7EDE6,stroke:#A8603C,color:#33241A
+    classDef qa    fill:#F1EDF6,stroke:#6B4E9E,color:#241C33
+    class S_PERSONA,S_CARDS,S_LANG,S_BRIEF,S_SCENE,S_COPY,S_ANA src
+    class G_DRAFT,G_PARSE,G_SCHEMA,G_TTS,G_TRACK,G_ASSETS,G_LEDGER,G_RENDER,G_HASH gen
+    class O_MP4,O_HTML,O_CARD out
+    class U_PARSE,U_LEDGER,U_RESULTS,U_CHECK,U_ANALYZE,U_PLAT pub
+    class V_PROBES,V_PIPE1,V_PIPE2 qa
+
+    style SRC fill:#FCF8EE,stroke:#D9B84A,stroke-width:2px
+    style GEN fill:#EEF4FA,stroke:#6FA0D0,stroke-width:2px
+    style OUT fill:#EDF6F0,stroke:#6FA98A,stroke-width:2px
+    style PUB fill:#FBF1EA,stroke:#CE8B62,stroke-width:2px
+    style QA  fill:#F5F1FA,stroke:#9A82C4,stroke-width:2px
+```
+
+**图的读法**：实线是数据流，虚线是「跳过重渲」的控制流。**生成线只有一个入口是代码**——
+`parse_scene` 与 `scene_video` 都是场景无关的；换主题、换 chip 类型、换装置、换语种子集
+都只改 `brief.json` / `scene.md`，`git diff src/` 保持为空（`lessons/numbers` 是活证据）。
+
+**发布线不可自动化的是最后一步**。抖音/小红书/知乎的后台必须用 Browser 逐步操作，
+踩坑与逐支序列见 [publish-playbook.md](docs/publish-playbook.md)（23 条坑）与
+[zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md)（20 条坑）。
+**但发布之前的所有准备——文案、台账、凭据、指标——都是机器管的**，且有门禁。
+
+---
+
+## 3. 我要做 X
+
+### 3.1 新增课程（零代码接入）
+
+四步，**不改一行 Python**：
+
+```powershell
+# ① 写教学创意：token（色片 #hex 或字牌 "文本"）/ 装置 / 角色 / 骨架行数 / 每节说话人与情绪
+#    → lessons/{id}/brief.json
+# ② 生成结构草稿（只填结构，台词留 TODO）
+.\run.ps1 scene-draft -Scene {id}
+# ③ 填掉所有 TODO（--gaps 看还欠多少）
+uv run python -m usine.scene_draft --brief lessons/{id}/brief.json --gaps
+# ④ 走全链路
+.\run.ps1 scene -Scene {id} && .\run.ps1 qa-scene -Scene {id}
+```
+
+> `scene-draft` **默认拒覆盖**已有的 `scene.md`（除非它带 `draft: true` 标记）。
+> 一个叫「生成草稿」的 phase 如果默认带 `--force`，就能把已验收的课整个抹掉——
+> 2026-10-04 就这么出过事。真要重写请显式 `--force`。
+
+### 3.2 加一门课的教学文档
+
+```powershell
+.\run.ps1 dump-lesson -Scene {id}          # scene.json → analysis/_source/{loc}.md（可读源文本）
+#   → 人工产出 analysis/{loc}.json（逐句 grammar/morph/culture）
+.\run.ps1 lesson -Scene {id}               # 合并成 build/lesson/{id}/index.html
+```
+
+### 3.3 加一个语种
+
+```powershell
+# ① 新建目录 languages/{loc}/manifest.json：locale / label / flag / dir / fontCss / quote
+# ② 写在该课的 scene.md §0 的 rtlLocales（若为 RTL）
+.\run.ps1 langs          # 门禁：字段齐备 / 国旗必须是该 locale 的 ISO 区码 / 字体栈带兜底
+```
+
+> **国旗必须等于 locale 的 ISO 区码**（`zh-CN` → 🇨🇳）。Windows Segoe UI Emoji 无国旗字形时
+> 渲染为 ISO 双字母对——**错旗比字母对更糟**，所以错旗判死，不降级为提示。
+
+### 3.4 改一个人的形象
+
+改 `personas/personas.json` → `.\run.ps1 qa-char` 对照色板 → `.\run.ps1 all`。
+头身比例/五官位置只改 `face_geo()` 比率表，**发型/配饰/探针全部按比例自动跟随**。
+
+### 3.5 发一支新视频
+
+```powershell
+# ① 文案写进 lessons/{id}/publish/{plat}-copy.md
+# ② 重建台账 + 过门禁
+uv run usine-publish build && .\run.ps1 publish
+# ③ 按 docs/publish-playbook.md 逐步发布
+# ④ 把平台后台数字回填到 publish/results.json（没数据留 null，别填 0）
+#    然后看结论
+.\run.ps1 publish-stats
+```
+
+### 3.6 改任何东西之后
+
+见 [§4 验收契约](#4-验收契约改什么必须跑什么)。
+
+---
+
+## 4. 验收契约（改什么必须跑什么）
+
+| 你改了什么 | 至少要跑 | 不跑会怎样 |
+|---|---|---|
+| 任何渲染代码（`intro_cards` / `scene_video` / `media`） | `run.ps1 pixelgate` | 画面静默变了，没有任何东西会报错 |
+| 任何验收探针（`qa_*`） | `run.ps1 verify` | 探针恒真，「全绿」是假绿灯 |
+| `scene.md`（某门课） | `run.ps1 scene -Scene {id}` + `qa-scene -Scene {id}` | 成片与剧本脱节 |
+| `brief.json` / 新课 | `run.ps1 scene-draft` + `scene` + `qa-scene` | 同上 |
+| `personas.json` / `intro-cards.json` | `run.ps1 all`（含 qa/qa-motion） | 色板/画幅/口型不变量被破坏 |
+| `languages/*/manifest.json` | `run.ps1 langs` | 渲出没旗的旗牌，且**不报错** |
+| 发布文案 / `results.json` | `run.ps1 publish` | 引用完整性失效（视频已不在磁盘上） |
+| `pyproject.toml` / `cli.py` | `run.ps1 verify`（含 cli 套） | 旧入口的子命令静默消失 |
+| 依赖版本（尤其 Pillow） | `run.ps1 pixelgate` | **像素基线失效**，全部对比失去意义 |
+
+**三条不可协商的纪律**：
+
+1. **零像素漂移**是硬判据。`pixelgate` 用 `ffmpeg -v error -i X -map 0:v -f hash -hash md5 -`
+   算解码后逐帧像素的 MD5。`-map 0:v` 是承重的——少了它 ffmpeg 走默认流选择，
+   数字会不同且**不报任何错**。容器的字节哈希不作数（mux 参数一变就全红，与画面无关）。
+2. **账本说 fresh ≠ 画面对**。`run.ps1 status` 只回答「没理由重渲」，正确性判据永远是 `pixelgate`。
+3. **加了新门禁就要做反向验证**：拿已知坏数据证明它 FAIL，再拿好数据证明它放行。
+   第一条断言**必须是「好数据放行」**——坏数据只能证明「能抓到坏」，证明不了「没把好的也一起抓了」。
+
+```powershell
+uv run python scripts/framehash.py --locate        # 漂移定位到帧（第 N 帧 / t=秒）+ 抽证据图
+uv run python scripts/framehash.py --save-frames build/baseline/frames   # 采集逐帧基线
+uv run python scripts/verify_probes.py --only publish                   # 只跑某一套
+```
+
+---
+
+## 5. 命令参考
+
+统一入口 [`run.ps1`](run.ps1)。`usine <组> <命令>` 是等价的 Python 侧入口
+（路由表 `cli.COMMANDS` 是数据不是 if/elif；8 个旧 `usine-*` 入口**一个都没删**）。
+
+| 管线 | phase | 做什么 |
+|---|---|---|
+| **人物亮相卡** | `all` | tts → assets → render → qa → qa-motion → verify |
+| | `tts` / `assets` / `render` | 逐阶段（`-Only xiaoman,layla` 限范围，`-Workers 7` 并发） |
+| | `qa` / `qa-motion` / `qa-shape` / `qa-annotate` / `qa-shape-verify` | 验收四件套 + 缺陷框标注图 |
+| | `chars` | 人物形象体检台（28 人立绘大图） |
+| **教学场景** | `scene -Scene <id>` | parse → tts → assets → render |
+| | `scene-tts` / `scene-assets` / `scene-render` | 逐阶段 |
+| | `scene-draft -Scene <id>` | brief.json → scene.md 结构草稿 |
+| | `scene-list` / `qa-scene` | 列场景 / 场景线验收 |
+| **教学文档** | `dump-lesson -Scene <id>` | scene.json → analysis/_source/ |
+| | `lesson -Scene <id>` | scene.json + analysis → build/lesson/<id>/index.html |
+| **门禁** | `verify` | 十套反向验证 |
+| | `langs` | 语种目录门禁 |
+| | `publish` | 发布台账门禁 |
+| | `publish-stats` | 平台指标回流分析 |
+| | `status` | 缓存账本：谁过期了、为什么 |
+| | `pixelgate` | 48 支逐帧像素比对 |
+
+> `-Only a,b` 这类逗号列表在 PowerShell 里**必须加引号**，否则被解析成数组传给 `[string]` 参数直接报错。
+
+---
+
+## 6. 仓库地图
+
+### 事实源（改这些 = 改产品）
 
 | 文件 | 职责 |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | 项目规则、不变量与「想改 X → 去哪改」地图 |
-| [requirement.md](docs/requirement.md) | 原始规格：界面三区布局（文字/气泡/人物）+ 人物四轴（声音/动作/色彩/挂件） |
-| [plan.md](docs/plan.md) | 总规划：28 人班底、persona schema、选角规则、幂等保障、三管线路线 |
-| [render-handbook.md](docs/render-handbook.md) | 工程手册——改任何东西前先读。§3 是参数地图；§5 是踩坑实录 |
-| [self-introductions.md](docs/self-introductions.md) | 内容种子——每卡台词、注音、对照、场景与手势触发 |
-| `lessons/<id>/`（如 [lessons/colors/](lessons/colors/scene.md)） | **课程统一目录**：`scene.md`（场景剧本唯一事实源：§0 机读规格 + §2 各语种台词 + §5 token 词表，不设母本、不互译）+ `scene.json`（解析产物）+ `analysis/`（逐句解析） |
-| [adr-character-tech.md](docs/adr-character-tech.md) | 技术决策：Pillow 管线续役；H3+Remotion 迁移案为备选蓝图（含四路线裁定） |
-| [benchmark-duolingo.md](docs/benchmark-duolingo.md) | 对标台账——多邻国三文档逐条裁定（✅已达成/🔧补齐/📌备选/❌不采纳）；quirk 治理规则 |
-| [publish-playbook.md](docs/publish-playbook.md) | 发布手册——抖音 / 小红书创作服务平台双平台流程、平台差异对照、23 条踩坑实录、发布后核验清单 |
-| [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册——Markdown 导入文档（唯一可自动化路径）、内嵌视频、改已发布文章里的链接、20 条踩坑实录（含「服务端过滤阿拉伯文区段」）、15 篇台账 |
-| `personas/personas.json` | 28 人档案——声线/色板/脸型/发型/服装/配饰/RTL + 档案四字段（名字语义/声线画像/搭档关系/趣味设定）（人设唯一事实源） |
-| `personas/intro-cards.json` | 28 张卡——台词/情绪/手势/入场姿态/场景/收尾码列/A·B 选角；RTL 卡带 `variants[]`（女性观众版） |
-| `pyproject.toml` / `uv.lock` / `.venv` | uv 工程清单与锁定的单一虚拟环境（uv 托管 CPython 3.12；依赖精确锁版，Pillow 12.3.0 是像素基线）；控制台入口 `usine-cards` / `usine-parse` / `usine-scene` / `usine-lesson` / `usine-dump-lesson` / `usine-validate` |
-| `src/usine/data.py` | **数据入口唯一事实源**：`personas()` / `cards_doc()` / `scene_doc()` / `unit_persona()`，进程内只读缓存（2026-10-04 收敛此前 6 处各自 `json.load` 的手抄路径） |
-| `src/usine/media.py` | **媒体内核**：ffmpeg 音轨合成 `compose_track`（含坑③ apad 前置 loudnorm）/ 卡拉OK进度轴 `karaoke_points`+`frac_at` / Edge 视口探针 `edge_window_h`（坑⑩）——两条管线共用一份（2026-10-04 收敛此前 4 组双份实现） |
-| `src/usine/scene_schema.py` | **场景数据前置校验**（`validate_scene`）：卡在 parse 与 render 之间，解析完立刻对账；判定依据全部取自既有注册表（情绪表/姿态码/装置样式/选角），零硬编码；反向验证见 `scripts/verify_scene_schema.py` |
-| `src/usine/intro_cards.py` | 管线一本体（`tts` / `assets` / `render` 三个子命令）+ 人物 rig（`face_geo` / `draw_character` / `pose_for`）与场景原语注册表 |
-| `src/usine/parse_scene.py` | 通用教学场景解析器：`lessons/<id>/scene.md` → `lessons/<id>/scene.json`（只抽取不改写，保证 md 与 JSON 两处同步；规格全来自剧本 §0，场景无关） |
-| `src/usine/scene_video.py` | 管线二（A/B 对话教学场景，场景无关）：选角/双人站位/token 装置（色片/字牌，可选）/气泡/RTL 镜像 |
-| `src/usine/qa_*.py` | 验收五件套——网格探针 / 调色板探针 / 32 单元全量 / 动态验收 / 场景线 |
-| `src/usine/dump_lesson_source.py` | 把 `lessons/<id>/scene.json` 排版成 `lessons/<id>/analysis/_source/<locale>.md`（给逐句解析用的可读源文本，只排版不改写） |
-| `src/usine/build_lesson.py` | 合并 `lessons/<id>/scene.json` + `lessons/<id>/analysis/<locale>.json` → `build/lesson/<id>/index.html`：按语系排序、逐句语法/词法/文化解析、每语种末尾嵌视频 |
-| `scripts/` | 发布侧独立工具（抖音合集/发布，Playwright；`uv sync --group douyin` 按需装依赖）＋ 知乎图文（`build_zhihu.py` 出稿 + `verify_zhihu_lossless.py` 无损验收）＋ 验收侧回归测试（verify_text_contract.py） |
+| `personas/personas.json` | 28 人档案——声线/色板/脸型/发型/服装/配饰 + 档案四字段（人设唯一事实源） |
+| `personas/intro-cards.json` | 28 张卡——台词/情绪/手势/入场姿态/场景/收尾码/A·B 选角；RTL 卡带 `variants[]` |
+| [`languages/{loc}/manifest.json`](languages/README.md) | **语种目录**——语种文字/国旗/书写方向/字体栈的唯一事实源，一个语种一个目录 |
+| `lessons/{id}/brief.json` | 教学创意（token/装置/角色/骨架节拍），`scene_draft` 的输入 |
+| `lessons/{id}/scene.md` | **场景剧本唯一事实源**——§0 机读规格 + §2 各语种台词 + §5 token 词表。不设母本、不互译 |
+| `lessons/{id}/analysis/{loc}.json` | 逐句 `{grammar, morph, culture}` + 家族/书写/舞台三段（人工产出） |
+| `lessons/{id}/publish/{plat}-copy.md` | **发布文案唯一事实源**——双平台各一份 |
+| `publish/results.json` | 人工层：平台 url / 凭据 / 效果指标（**没数据留 null，别填 0**） |
+| `publish/ledger.json` | 机器可读发布台账（`usine publish build` 派生，属性全派生不手抄） |
+
+### 代码（`src/usine/`）
+
+| 文件 | 职责 |
+|---|---|
+| [`data.py`](src/usine/data.py) | **数据入口唯一事实源**——`personas()` / `cards_doc()` / `scene_doc()` / `unit_persona()` / `fonts_css()` / `flags()` / `lang_label()`，进程内只读缓存 |
+| [`media.py`](src/usine/media.py) | **媒体内核**——`compose_track`（ffmpeg 音轨）/ `karaoke_points`+`frac_at`（卡拉OK轴）/ `edge_window_h`（视口探针），两条管线共用一份 |
+| [`scene_schema.py`](src/usine/scene_schema.py) | **场景数据前置校验** `validate_scene`——卡在 parse 与 render 之间，判定依据全取自既有注册表，零硬编码 |
+| [`intro_cards.py`](src/usine/intro_cards.py) | 管线一本体（`cmd_tts`/`cmd_assets`/`cmd_render`）+ 人物 rig（`face_geo`/`draw_character`/`pose_for`）与场景原语注册表 |
+| [`parse_scene.py`](src/usine/parse_scene.py) | 通用场景解析器 `parse_locales`/`parse_line`：`scene.md` → `scene.json`（只抽取不改写，场景无关） |
+| [`scene_video.py`](src/usine/scene_video.py) | 管线二 `cmd_tts`/`cmd_assets`/`cmd_render`/`cmd_list`：选角/双人站位/token 装置/气泡/RTL 镜像（场景无关） |
+| [`scene_draft.py`](src/usine/scene_draft.py) | 内容前置 `render`/`beat_table_md`/`gaps`：brief.json → scene.md 结构草稿（填结构不填内容） |
+| [`ledger.py`](src/usine/ledger.py) | 缓存账本 `status_of`/`record`/`fingerprint`——`build/manifest.json` |
+| [`cli.py`](src/usine/cli.py) | 统一 CLI 路由表 `COMMANDS` + 旧入口等价表 `LEGACY_EQUIV` |
+| [`publish.py`](src/usine/publish.py) | 发布台账 `build`/`check`/`analyze` + `parse_copy` |
+| `qa_all/qa_motion/qa_shape/qa_char/qa_grid` | 管线一验收五件套 |
+| [`qa_scene.py`](src/usine/qa_scene.py) | 管线二验收（`check`/`grab`/`count_color` 等探针） |
+| [`build_lesson.py`](src/usine/build_lesson.py) | scene.json + analysis → 教学文档 HTML（`render_locale`/`make_poster`） |
+| [`dump_lesson_source.py`](src/usine/dump_lesson_source.py) | scene.json → analysis/_source/{loc}.md（只排版不改写） |
+| `char_sheet.py` | 人物形象体检台：立绘大图 / 总览 / 索引页 |
+
+### 验收（`scripts/`）
+
+`verify_probes.py` 聚合**十套反向验证**（`.\run.ps1 verify`）：
+`verify_shape_fixes` / `verify_text_contract` / `verify_scene_schema` / `verify_languages` /
+`verify_lang_migration` / `verify_scene_draft` / `verify_ledger` / `verify_cli` /
+`framehash` / `verify_publish`。
+发布侧另有 `create_douyin_collection` / `promote_douyin_collection` / `publish_douyin`
+（Playwright，`uv sync --group douyin` 按需装依赖）与 `build_zhihu` / `verify_zhihu_lossless`。
+
+### 文档
+
+| 文件 | 内容 |
+|---|---|
+| [`docs/render-handbook.md`](docs/render-handbook.md) | **工程手册——改任何东西前先读**。§3 参数地图 · §5 踩坑实录（坑①–㉴）· §6 调优手册（§6.8–6.12 含新课流程/缓存账本/统一 CLI/视觉基线/发布回流） |
+| [`docs/requirement.md`](docs/requirement.md) | 原始规格：界面三区布局 + 人物四轴 |
+| [`docs/plan.md`](docs/plan.md) | 总规划：28 人班底、persona schema、选角规则、幂等保障 |
+| [`docs/self-introductions.md`](docs/self-introductions.md) | 内容种子——每卡台词/注音/对照/分镜/验收清单 |
+| [`docs/adr-character-tech.md`](docs/adr-character-tech.md) | 技术选型裁定：Pillow 续役，H3+Remotion 迁移案为备选蓝图 |
+| [`docs/benchmark-duolingo.md`](docs/benchmark-duolingo.md) | 对标台账——多邻国三文档逐条裁定 |
+| [`docs/publish-playbook.md`](docs/publish-playbook.md) | 多平台发布手册——抖音/小红书流程、差异对照、23 条踩坑、核验清单 |
+| [`docs/zhihu-publish-playbook.md`](docs/zhihu-publish-playbook.md) | 知乎发布手册——Markdown 导入（唯一可自动化路径）、20 条踩坑、15 篇台账 |
+| [`languages/README.md`](languages/README.md) | 语种目录体例：五个字段的约束 + 为什么国旗必须等于 ISO 区码 |
+
+### 环境
+
+`pyproject.toml` / `uv.lock` / `.venv`——uv 工程（src 布局），`uv run` 按锁文件自动同步。
+依赖精确锁版：`edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`。
+**Pillow 12.3.0 是像素基线**，升级前必须重验 framehash。
+`.gitignore` 忽略 `build/`（全部产物不入库）。
 
 ---
 
-## 快速上手
+## 7. 深入
 
-统一入口 [`run.ps1`](run.ps1)：
+### 7.1 设计原则
 
-```powershell
-.\run.ps1 all                                     # 亮相卡全流程：tts → assets → render → qa → qa-motion（~5 分钟）
-.\run.ps1 tts                                     # 逐行合成 + 词级时间戳（edge-tts）
-.\run.ps1 assets                                  # 文字层 PNG（Edge headless，~144 张）
-.\run.ps1 render -Only xiaoman,layla -Workers 7   # 帧渲染 + ffmpeg
-.\run.ps1 qa                                      # 32 单元全量验收（28 卡 + 4 变体）
-.\run.ps1 qa-motion                               # 卡拉OK / 口型 / 眨眼 / 气泡镜像 / 进度条 / 语言牌 / 挂件物理 / 幂等
-.\run.ps1 verify                                  # 探针反向验证统一入口：形状 + 文本契约 + 场景 schema（12 种定向破坏）
-
-.\run.ps1 scene -Scene colors                     # 场景线：parse → tts → assets → render（14 语种，~20 分钟）
-.\run.ps1 scene -Scene colors -Only "zh-CN,ja-JP"   # 只渲指定语种（-Only 逗号列表必须加引号）
-.\run.ps1 scene-list -Scene <id>                  # 列场景（台词行数 / 时长 / 选角 / 装置）
-.\run.ps1 qa-scene -Scene <id>                    # 场景线验收（规格 / 文本契约 / 选角 / 画面探针 / 音频契约 / 幂等）
-.\run.ps1 qa-annotate                             # 人物层缺陷框标注图（改 draw_character 前先看）
-.\run.ps1 qa-shape-verify                         # 只跑形状探针反向验证
-
-.\run.ps1 dump-lesson -Scene colors               # 导出逐语种解析源文本（analysis/_source/）
-.\run.ps1 lesson -Scene colors                    # 合并成 build/lesson/colors/index.html
-```
-
-> `verify` 是「探针会不会恒真」的唯一防线，三套件都有反向验证：拿已知坏数据证明检查会
-> FAIL，再拿好数据证明放行。改任何探针后必须跑它——只跑「现状全绿」等于没测。
-
-### 课程资料组织（每课一目录）
-
-一切课程资料都在 `lessons/<id>/` 里，不同主题互不混杂：
-
-```
-lessons/colors/
-├─ scene.md                    # 场景剧本（唯一事实源：§0 机读规格 + §2 各语种台词 + §5 token 词表）
-├─ scene.json                  # 解析产物（parse_scene.py 只抽取不改写；渲染与教学文档共用）
-└─ analysis/
-   ├─ _source/<locale>.md      # 逐语种可读源文本（dump_lesson_source.py 导出，供逐句解析委派）
-   └─ <locale>.json            # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工产出）
-```
-
-产物在 `build/` 下按课分家：成片 `build/scene/scene-<id>_<locale>.mp4`（跨课共享渲染缓存，
-文件名带 `scene-<id>` 前缀），教学文档 `build/lesson/<id>/index.html` + 海报。
-
-### 场景线产物（示范场景二：colors 课）
-
-`build/scene/scene-colors_<locale>.mp4`——14 语种各一支 40–55s 的 A/B 对话教学片，
-文件名带语种后缀。两人同框立绘、词级时间戳驱动口型与色名卡拉OK高亮、每语种独立舞台装置
-（六色边问边亮）、思考/提示气泡交替镜像、ar-SA 与 he-IL 站位与文字区 RTL 对调。
-
-### 教学文档（场景线配套）
-
-`build/lesson/<id>/index.html`——按语系排序的完整教学文档。每个语种一节：家族背景 / 书写特点 /
-舞台文化三段，六色词表，17 行逐句的**原文 + 注音 + 中文翻译 + 中文语法解析 + 中文词法解析 +
-文化背景**，本语种成片嵌在该节末尾，可以边看边对。顶部两个开关只切换显示、不删内容。
-
-```powershell
-uv run usine-dump-lesson --scene colors --only ja-JP   # 指定课程/语种导出解析源文本
-uv run usine-lesson --scene colors [--allow-missing]   # 合并成 build/lesson/<id>/index.html
-```
-
-分工：原文 / 注音 / 翻译 / 舞台规格来自 `lessons/<id>/scene.json`（与渲染同源），
-逐句解析来自 `lessons/<id>/analysis/<locale>.json`（人工产出，14 份），
-`build_lesson.py` 只排版、两侧文本都不改写，并在出片前做标签配平自检。
-
-### uv 单一环境（run.ps1 全部经 `uv run`）
-
-- 本工程是标准 uv 工程（src 布局）：代码在 `src/usine/`，`uv run` 按 `pyproject.toml` + `uv.lock`
-  自动同步 `.venv`（uv 托管 CPython 3.12）——不再区分系统 Python / 捆绑 Python；
-- 依赖精确锁版（`edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`）；
-  **Pillow 12.3.0 是像素基线**，升级前必须重验 framehash 基线；
-- `.venv` 缺失时 `uv sync` 一次即可（run.ps1 会自动做）。
-
-直连等价命令：
-
-```powershell
-uv run usine-cards tts     [--only id1,id2]
-uv run usine-cards assets  [--only id1,id2]
-uv run usine-cards render  [--only id1,id2] [--workers 7]
-uv run python -m usine.qa_all
-```
-
-### 验收基线
-
-改完任何东西：**qa_all 32/32 PASS + qa_motion PASS**；场景线另加 **qa_scene PASS**。
-
----
-
-## 工作原理
-
-```
-personas/personas.json        （28 人档案：声线/色板/脸型/发型/服装/配饰）
-personas/intro-cards.json     （28 卡：台词/情绪/手势/场景/选角）
-        └→ ① tts ──→ ② assets ──→ ③ render ──→ build/intro/<id>.mp4
-
-lessons/<id>/scene.md         （教学场景唯一事实源：§0 机读规格 + §2 台词 + §5 词表）
-        └→ parse_scene.py --scene <id> ──→ lessons/<id>/scene.json
-lessons/<id>/scene.json + personas └→ ① tts ──→ ② assets ──→ ③ render ──→ build/scene/scene-<id>_<locale>.mp4
-lessons/<id>/scene.json + analysis/ └→ build_lesson.py ──→ build/lesson/<id>/index.html
-```
-
-1. **tts**——每行按情绪合成语音，`boundary="WordBoundary"` 捕获词级时间戳，混音出恰好
-   10.0s 的 `.m4a` + `timeline.json`。行音频按 `sha256(voiceId|rate|pitch|text)[:16]` 缓存——
-   改一行台词只重合成那一行。
-2. **assets**——每个 HTML 文字层经 Edge headless 双色截图（白底 + 黑底），
-   `matte_combine` 依 `alpha = 255 − (C_w − C_b)` 精确抠像，半透明投影也能还原。
-3. **render**——每帧 = 2x 预渲染背景 → 2x RGBA 人物层（`draw_character`，BOX 降采样抗锯齿）
-   → 文字带卡拉OK裁贴 → 名牌/语言牌/气泡贴图 → rgb24 管道喂 ffmpeg。
-
-架构图与缓存模型见 [render-handbook.md](docs/render-handbook.md)（§1 架构、§2 不变量、§5 踩坑实录）。
-
----
-
-## 设计原则
-
-浓缩自 [CLAUDE.md](CLAUDE.md) 的不变量与 [plan.md](docs/plan.md) §4（人物参数模型）/ §7（高质量与幂等保障）：
+浓缩自 [plan.md](docs/plan.md) §4/§7 与手册的不变量：
 
 - **人设是数据不是代码**：`personas.json` 驱动整个绘制 rig（`face_geo()` 六型脸是几何唯一事实源，
   脸型/服装/配饰全走数据槽）；场景里永不写死 RGB、嘴形、眨眼节奏。
-- **课程是数据不是代码**：教学 token、RTL 语种、舞台装置全在 `lessons/<id>/scene.md` §0 机读规格里；
+- **课程是数据不是代码**：教学 token、RTL 语种、舞台装置全在 `scene.md` §0 机读规格里；
   新课 = 新建目录照抄体例，解析器与渲染线零改动。
 - **词级时间戳一轴三用**：口型开合、卡拉OK逐词高亮、手势触发共用同一时间轴，换台词自动重对齐。
-- **动作排他是人设数据**：剧本只写槽位语义（point/wave…），每人 `personas.json` `moves`
-  槽位表映射成专属姿态码——逐人单射、活泼池∩沉稳池=∅，同台 A/B 动作词汇零交集由构造保证。
-- **场景文字带三层堆叠**：原文（64px 自适应缩排）→ 中文对照（30px）→ ⚑ 文化/语言注记
-  （22px 金，比对照更小一号）；对照只认第一个 ｜ 之前的「——」，注记内可自由用破折号。
-- **画面不靠色**：舞台背板带把人物区渐变底压暗 26%（奶油色上装/肤色才不陷进米色底），
-  场景原语再按同台取样色半空间推开；文字带各层文字色与带底、卡拉OK高亮与带底、
-  立绘与背景的对比全部有 qa_scene 数值探针。
-- **幂等是硬约束**：一切随机性播种（`rnd(seed:...)`）；同输入 → 视频流逐帧同输出
-  （`ffmpeg -map 0:v -f hash -hash md5` 抽检；容器字节差来自 ffmpeg 元数据，属正常）。
+- **动作排他是人设数据**：剧本只写槽位语义（point/wave…），每人 `moves` 槽位表映射成专属姿态码。
+- **场景文字带三层堆叠**：原文（自适应缩排）→ 中文对照 → ⚑ 文化/语言注记（更小一号、金色）。
+- **画面不靠色**：舞台背板带把人物区渐变底压暗 26%；文字带各层、立绘与背景的对比
+  全部有 `qa_scene` 数值探针。
+- **幂等是硬约束**：一切随机性播种（`rnd(seed:...)`）；同输入 → 逐帧同输出。
 - **人物无描边**（多邻国式纯平涂）；场景道具描边只用 `pal["ink"]` 柔色。
-- **情绪与手势是数据不是发挥**：共享情绪增量表（neutral / happy / puzzled / encouraging /
-  emphatic / teach）+ 行级基线，合成出声线与表情参数。
+- **情绪与手势是数据不是发挥**：共享情绪增量表 + 行级基线，合成出声线与表情参数。
+- **不替所有课定规则**：`noteFloor`（注记下限）、`askBalance`（问答对称性）由**每门课自己的 §0 声明**，
+  通用探针只验「声明了就要做到」，不设一个全局默认数。
 
----
+### 7.2 班底一览
 
-## 班底一览
-
-14 语种 × 男女 = 28 位 persona。每语种一对「活泼 × 稳重」搭档——自然的对话张力，
-同语种内的声学多样性。脸型/发型/着装/配饰按人设逐人差异化：心形脸小满、方颌江远、
-宽盘脸米沙……丹宁裙、背带裙、长衫、马甲各有归属，背包只留给「书包不离身」写进 quirk 的两位。
+14 语种 × 男女 = 28 位 persona。每语种一对「活泼 × 稳重」搭档——
+自然的对话张力，同语种内的声学多样性。脸型/发型/着装/配饰按人设逐人差异化。
 
 | 语种 | 女声 | 男声 | 语种 | 女声 | 男声 |
 |---|---|---|---|---|---|
@@ -202,24 +412,40 @@ lessons/<id>/scene.json + analysis/ └→ build_lesson.py ──→ build/lesso
 
 完整档案（声线、色板、脸型、着装、招牌动作、配饰、人物关系）见 [plan.md](docs/plan.md) §5。
 
+### 7.3 想改什么 → 去哪改（全量索引）
+
+| 想改 | 改这里 | 跑什么 |
+|---|---|---|
+| 台词 / 注音 / 中文对照 | `self-introductions.md` + `intro-cards.json` `lines[].text`（**两处同步**） | `tts`，看 speech_end ≤ 8.5s |
+| 情绪 / 手势触发 | 行级 `lines[].mood`；卡级 `gestures[]`（手势词必须真实出现在台词里） | `all` |
+| 收尾招牌动作 | `intro-cards.json` `close`（码见 `pose_for`） | `all` |
+| 人设（声线/色板/脸型/发型/服装/配饰） | `personas.json`（脸型走 `FACE_SPECS` 六型；服装走 `outfit` 槽） | `qa-char` → `all` |
+| 人物档案四字段 | `personas.json` 的 `gloss`/`timbre`/`relation`/`quirk`（**不进渲染**） | — |
+| 头身比例 / 五官位置 | 只改 `face_geo()` 比率表（其余自动跟随） | `qa-shape` → `all` |
+| 场景背景 | `intro_cards.py` 的 `@scene(...)` 原语注册表 + 卡级 `scene[]` | `all` |
+| 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html` | `all` |
+| **语种**（字体/国旗/语种文字/书写方向） | `languages/{loc}/manifest.json`——**新增语种 = 新建目录** | `langs` |
+| **新增课程** | `lessons/{id}/brief.json` → `scene-draft` → 填 TODO → `scene` | `qa-scene` |
+| 换教学形态（独白/小测…） | §0 的 `form:` + §0.5 节拍表——**不改 Python**（`form` 必须在 `scene_schema.FORMS` 注册，未实现的会被前置校验拦下） | `qa-scene` |
+| 场景台词 / 情绪 / 手势 / 舞台 | `lessons/{id}/scene.md` §2（解析器只抽取不改写） | `scene` + `qa-scene` |
+| 场景 token / RTL / 装置规格 | `lessons/{id}/scene.md` **§0**（井位/井形/空井色全在数据里） | `scene` + `qa-scene` |
+| 注记行数下限 | §0 `noteFloor`（缺省 0 = 不要求）——**下限由该课自己声明** | `qa-scene` |
+| 问答对称与否 | §0 `askBalance`（`symmetric` / 缺省 `any`） | `qa-scene` |
+| 逐句语法/词法/文化解析 | `lessons/{id}/analysis/{loc}.json` | `lesson` |
+| **发布文案 / 平台效果** | `{plat}-copy.md` → `usine publish build`；指标回填 `publish/results.json` | `publish` / `publish-stats` |
+| 知乎专栏正文 / 目录链接 | `scripts/build_zhihu.py` 的 `PUBLISHED_URLS` 表（15 篇真实 URL 的单一事实源） | `verify_zhihu_lossless.py` |
+| 人物生成技术路线 | 见 [adr-character-tech.md](docs/adr-character-tech.md)（现役 Pillow；动 `draw_character` 前先读） | — |
+
 ---
 
-## 想改什么 → 去哪改
+## 已知缺陷
 
-| 想改 | 改这里 |
-|---|---|
-| 台词 / 注音 / 中文对照 | [self-introductions.md](docs/self-introductions.md) + `intro-cards.json` `lines[].text`（**两处同步**），跑 tts 看 speech_end ≤ 8.5s |
-| 情绪 / 手势触发 | 行级 `intro-cards.json` `lines[].mood`；卡级 `gestures[]`（手势词必须真实出现在台词里，否则回退到行首） |
-| 收尾招牌动作 | `intro-cards.json` `close`（pose 码见 `pose_for`，时长表在 `render_card`） |
-| 人设（名字/声线/色板/脸型/发型/服装/配饰） | `personas/personas.json`（脸型走 `FACE_SPECS` 六型；服装走 `outfit` 槽——skirt/tunic/pinafore/vest/buttons；qa_char 对照色板与探针，改后必跑 qa_all） |
-| 人物档案（名字语义/声线画像/搭档关系/趣味设定） | `personas/personas.json` 的 `gloss`/`timbre`/`relation`/`quirk`——不进渲染；quirk 入档即正史（治理规则见 [benchmark-duolingo.md](docs/benchmark-duolingo.md) §4.2） |
-| 头身比例 / 五官位置 | 只改 `face_geo()` 比率表；发型/配饰/探针全部按比例自动跟随 |
-| 场景背景 | `intro_cards.py` 的 `@scene(...)` 原语注册表 + 卡级 `scene[]` |
-| 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html`（流式布局） |
-| 人物生成技术路线 | 见 [adr-character-tech.md](docs/adr-character-tech.md)（现役 Pillow；动 `draw_character` 前先读） |
-| **新增课程**（数字/食物/问候…） | 新建 `lessons/<id>/scene.md` 照抄体例（§0 机读规格：token 表 / 装置规格表 / 语体表 / **角色声明 / 骨架节拍表** + §2 台词 + §5 词表），然后 `.\run.ps1 scene -Scene <id>`——**管线零改动**（token 用 `#hex` 色片或 `"文本"` 字牌；纯对话场景装置表留空即可） |
-| **换一种教学形态**（独白/小测…） | 换 §0 的 `form:` 与 §0.5 骨架节拍表——**不改 Python**。注意：`form` 必须在 `scene_schema.FORMS` 注册表里（当前只实现了 `dialogue`），未实现的形态会被前置校验拦下而不是渲出一支坏片 |
-| 场景台词 / 情绪 / 手势 / 舞台 | 只改该课的 `lessons/<id>/scene.md`，然后 `.\run.ps1 scene -Scene <id> -Only <locale>`（解析器只抽取不改写，md 仍是唯一事实源） |
-| 场景教学 token / RTL / 装置规格 | `lessons/<id>/scene.md` **§0**（token 表 + 装置规格表；井位/井形/空井色全在数据里） |
-| 逐句语法/词法/文化解析 | `lessons/<id>/analysis/<locale>.json`（先 `.\run.ps1 dump-lesson -Scene <id>` 导出源文本），然后 `.\run.ps1 lesson -Scene <id>` 合成文档 |
-| 知乎专栏正文 / 目录链接 | `scripts/build_zhihu.py` 的 `PUBLISHED_URLS` 表（15 篇真实 URL 的**单一事实源**，验收脚本共用）→ 重跑 `build_zhihu.py` + `verify_zhihu_lossless.py`；发布流程见 [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) |
+诚实记录，**不藏在文档深处**：
+
+| 编号 | 问题 | 状态 |
+|---|---|---|
+| 抖音 01 | 正文被联想面板污染：重复整段 + 错话题 `#小语种就业前景`，242 字（应为 124 字） | ⬜ 待修 |
+| 抖音 09 / 10 | 正文「从红色一路**查**到白色」应为「**问**到」 | ⬜ 待修 |
+| 小红书草稿箱 | 残留 1 条：05 意大利语首次上传被页面重载打断、存成草稿（内容与已发布的 05 重复） | ⬜ 待删 |
+| 知乎 | 服务端会过滤整个阿拉伯文区段 U+0600–U+06FF（导入完好、存盘消失，无法绕过） | ⚠️ 平台限制，已在文中挂说明 |
+| 平台指标 | 抖音/小红书/知乎的后台数字**尚未回填** `publish/results.json`，`run.ps1 publish-stats` 目前如实报「无数据」 | ⬜ 待回填 |
