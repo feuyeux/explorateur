@@ -1,0 +1,79 @@
+{
+  "sceneId": "numbers-count-to-six",
+  "title": "一起数到六",
+  "goal": "1–6 六个基本数字词 + 一组「数一数」问答。",
+  "structure": "开场提议 → 六轮一来一往（A 问 B 答，依次 1…6）→ 开心再会。",
+  "description": "新课验收用场景：1–6 六个数字的 A/B 对话计数游戏。",
+  "form": "dialogue",
+  "durationBudget": "20-55",
+  "noteFloor": 3,
+  "askBalance": "any",
+  "locales": ["zh-CN", "en-US"],
+  "lines": 17,
+
+  "tokens": [
+    {"key": "one",   "chip": "\"1\"", "head": "一"},
+    {"key": "two",   "chip": "\"2\"", "head": "二"},
+    {"key": "three", "chip": "\"3\"", "head": "三"},
+    {"key": "four",  "chip": "\"4\"", "head": "四"},
+    {"key": "five",  "chip": "\"5\"", "head": "五"},
+    {"key": "six",   "chip": "\"6\"", "head": "六"}
+  ],
+
+  "devices": {
+    "zh-CN": {
+      "scenes": "awning, table, plant",
+      "style": "lanterns", "shape": "round",
+      "cellW": 108, "cellH": 116, "well": "#F5F3EE",
+      "label": "六只数字小灯笼"
+    },
+    "en-US": {
+      "scenes": "shopfront, awning, counter",
+      "style": "lanterns", "shape": "round",
+      "cellW": 108, "cellH": 116, "well": "#F5F3EE",
+      "label": "six paper lanterns"
+    }
+  },
+
+  "roles": {
+    "A": {"energy": "lively", "note": "先问方 · 节奏引擎"},
+    "B": {"energy": "steady", "note": "沉稳接题方 · 短问稳答"}
+  },
+
+  "skeleton": [
+    {"beat": "open",    "lines": 1},
+    {"beat": "reply",   "lines": 1},
+    {"beat": "round",   "lines": "rest", "ask": "even", "askBy": "A"},
+    {"beat": "summary", "lines": 1},
+    {"beat": "bye",     "lines": 2}
+  ],
+
+  "spec": {
+    "open.mood":    "happy",
+    "open.pose":    "bounce-in both-hands",
+
+    "reply.speakers": "B",
+    "reply.mood":   "neutral",
+    "reply.pose":   "nod",
+
+    "round.moodAsk":  "happy",
+    "round.poseAsk":  "point",
+    "round.moodReply": "neutral",
+    "round.poseReply": "palm-open",
+
+    "summary.mood": "happy",
+    "summary.pose": "jump-celebrate",
+
+    "bye.speakers": ["B", "A"],
+    "bye.mood":     ["encouraging", "happy"],
+    "bye.pose":     ["wave", "wave"],
+    "noteOn": {
+      "bye": "exit"
+    }
+  },
+
+  "stage": {
+    "zh-CN": "放学后的小院廊下。廊下挂六只小灯笼，每轮点亮一只，灯笼上写着数字。",
+    "en-US": "打烊前的街角咖啡馆。门口挂六只纸灯笼，每轮点亮一只，灯笼上写着数字。"
+  }
+}
