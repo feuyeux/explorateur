@@ -1,0 +1,10 @@
+# uv
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# 产物（可再生，不入库）
+build/
+examples/

@@ -1,0 +1,8 @@
+{
+ "locale": "ar-SA",
+ "label": "阿拉伯语",
+ "flag": "🇸🇦",
+ "dir": "rtl",
+ "fontCss": "'Segoe UI', 'Tahoma', 'Geeza Pro', 'Noto Naskh Arabic', sans-serif",
+ "quote": "«»"
+}

@@ -1,0 +1,28 @@
+[project]
+name = "feuille"
+version = "0.1.0"
+description = "多语种视频生产与发布可复用层：从 videos/yiyezhiqiu/explorateur 蒸馏（TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对）"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# 版本对齐基线环境并锁定：Pillow 12.3.0 = 渲染像素基线（framehash 幂等的保证），
+# edge-tts 7.2.8 = 词级时间戳口径；升级前必须重验 framehash 基线（AGENTS.md 工程约定）。
+dependencies = [
+    "edge-tts==7.2.8",
+    "pillow==12.3.0",
+    "numpy==2.3.5",
+]
+
+[project.scripts]
+feuille = "feuille.cli:main"                       # 统一入口：uv run feuille <组> <命令>
+
+[dependency-groups]
+# 平台发布 / 合集 / 发布后核对（Playwright 驱动系统 Chrome，不用自带浏览器）：
+# uv sync --group publish 按需安装。
+publish = ["playwright>=1.40"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/feuille"]

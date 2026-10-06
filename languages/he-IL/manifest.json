@@ -1,0 +1,8 @@
+{
+ "locale": "he-IL",
+ "label": "希伯来语",
+ "flag": "🇮🇱",
+ "dir": "rtl",
+ "fontCss": "'Segoe UI', Arial, 'Arial Hebrew', 'Noto Sans Hebrew', sans-serif",
+ "quote": "«»"
+}
