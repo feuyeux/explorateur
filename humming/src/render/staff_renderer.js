@@ -13,8 +13,11 @@ export class StaffRenderer {
     this.container = container;
     this.onNoteSelected = options.onNoteSelected || null;
     this.onNoteAudition = options.onNoteAudition || null;
+    this.onRestSelected = options.onRestSelected || null;
     this.selectedNoteIndex = null;
     this.activePlayNoteIndex = null;
+    // 休止符选中标识：以 startBeat 作为 key（休止符互不重叠，键唯一）
+    this.selectedRestKey = null;
 
     // 五线谱几何参数
     this.lineSpacing = 10;
@@ -50,6 +53,12 @@ export class StaffRenderer {
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    // 显式声明自然尺寸：配合 CSS (.staff-svg width:auto) 让长谱保持原始大小，
+    // 由 staff-box 的 overflow-x 横向滚动查看。
+    // 此前只设 viewBox 而被 CSS width:100% 压进容器宽度，整份谱被等比缩成
+    // 一条几十像素高的细线，视觉上等于「五线谱没有展示出来」。
+    svg.setAttribute('width', svgWidth);
+    svg.setAttribute('height', svgHeight);
     svg.setAttribute('class', 'staff-svg');
 
     // 1. 绘制五条主谱线
@@ -299,7 +308,17 @@ export class StaffRenderer {
   }
 
   drawRest(x, staffTop, restItem) {
-    const g = this.createSvgElement('g', { class: 'staff-rest' });
+    const restKey = `${restItem.startBeat}`;
+    const g = this.createSvgElement('g', {
+      class: `staff-rest ${this.selectedRestKey === restKey ? 'selected' : ''}`,
+      'data-rest-key': restKey
+    });
+
+    // 休止符可点击选中（随后可删除），与音符交互保持一致
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.onRestSelected) this.onRestSelected(restItem);
+    });
 
     if (restItem.durationBeats >= 3.5) {
       const rect = this.createSvgElement('rect', {
@@ -399,11 +418,42 @@ export class StaffRenderer {
         const idx = parseInt(el.getAttribute('data-note-index'), 10);
         if (idx === noteIndex) {
           el.classList.add('playing');
+          // 谱面按自然尺寸渲染后远宽于可视区，必须横向滚动跟随，
+          // 否则播放游标跑出屏幕，看起来像「五线谱停在开头不动」
+          this.scrollNoteIntoView(el);
         } else {
           el.classList.remove('playing');
         }
       });
     }
+  }
+
+  /**
+   * 把正在播放的音符横向滚动到谱箱可视区中央。
+   * 用 getBoundingClientRect 相对换算而非 getBBox：
+   * 后者是未缩放的 viewBox 坐标，元素一旦被 CSS 拉伸（min-width）就会算错。
+   */
+  scrollNoteIntoView(el) {
+    const box = this.container;
+    if (!box || !el) return;
+    const boxRect = box.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const elLeftInContent = box.scrollLeft + (elRect.left - boxRect.left);
+    const target = elLeftInContent - (box.clientWidth / 2);
+    const clamped = Math.max(0, Math.min(target, box.scrollWidth - box.clientWidth));
+    // 位移很小就不动，避免每个音符都触发一次无意义的平滑滚动动画
+    if (Math.abs(clamped - box.scrollLeft) > 6) {
+      box.scrollTo({ left: clamped, behavior: 'smooth' });
+    }
+  }
+
+  /** 选中/取消选中休止符（rest 为 null 时清除选中高亮） */
+  setSelectedRest(rest) {
+    this.selectedRestKey = rest ? `${rest.startBeat}` : null;
+    if (!this.container) return;
+    this.container.querySelectorAll('.staff-rest').forEach(el => {
+      el.classList.toggle('selected', el.getAttribute('data-rest-key') === this.selectedRestKey);
+    });
   }
 
   clearPlayhead() {

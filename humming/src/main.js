@@ -33,6 +33,15 @@ export class App {
     // 状态管理
     this.currentAudioBuffer = null;
     this.loadedAudioBuffer = null;
+
+    // 「对照原声」播放状态。与 loadedAudioBuffer 那套播放器彼此独立：
+    // 这里是「从头播放整段原声并让乐谱游标跟随」，那边是「逐句精读时的
+    // 播放/暂停/拖拽」，两者语义不同，不能互相顶替。
+    this.originalAudioSource = null;
+    this.originalAudioStartTime = 0;
+    this.originalCursorTimer = null;
+    this._originalCursorIdx = -1;
+    this._originalTimeIndex = null;   // 按 startTime 排序的 {time, idx} 视图
     this.processedData = null;
     this.f0Result = null;
     this.serverNotes = null;
@@ -40,6 +49,12 @@ export class App {
     this.keyInfo = null;
     this.measures = [];
     this.selectedNoteIndex = null;
+    // 休止符选中状态（与音符选中互斥）：{ startBeat, durationBeats, typeLabel, measureNumber }
+    this.selectedRest = null;
+    // 乐谱显示终点（拍）。删除「末尾补位休止符」后设置：末尾小节只排到此为止，
+    // 否则小节划分器会按小节网格把删掉的尾部休止符立即补回来。
+    // 有音符延伸越过该点时自动失效（见 _resolveScoreEndBeat）。
+    this.trailingClipBeat = null;
     this.isRecording = false;
     this.mediaRecorder = null;
     this.recordStream = null;
@@ -107,8 +122,9 @@ export class App {
     };
 
     this.synth.onPlaybackEnd = (reason) => {
-      this.staffRenderer.clearPlayhead();
-      this.numberedRenderer.clearPlayhead();
+      // 三个视图一起复位：原先漏了 pianoRoll，导致试听停止后
+      // 钢琴卷帘上的播放线还停在最后一个音符上
+      this.clearScorePlayhead();
       this.setPlayButtonState(false);
       // 'restart' 是 playScore 内部的前置清理，不能当成用户操作反馈
       if (reason === 'ended') {
@@ -296,13 +312,15 @@ export class App {
     const staffContainer = document.getElementById('staff-container');
     this.staffRenderer = new StaffRenderer(staffContainer, {
       onNoteSelected: (idx, note) => this.onNoteSelected(idx, note),
-      onNoteAudition: (midi) => this.auditionMidi(midi, 0.4)
+      onNoteAudition: (midi) => this.auditionMidi(midi, 0.4),
+      onRestSelected: (rest) => this.onRestSelected(rest)
     });
 
     const jianpuContainer = document.getElementById('jianpu-container');
     this.numberedRenderer = new NumberedRenderer(jianpuContainer, {
       onNoteSelected: (idx, note) => this.onNoteSelected(idx, note),
-      onNoteAudition: (midi) => this.auditionMidi(midi, 0.4)
+      onNoteAudition: (midi) => this.auditionMidi(midi, 0.4),
+      onRestSelected: (rest) => this.onRestSelected(rest)
     });
 
     const rollCanvas = document.getElementById('pianoroll-canvas');
@@ -352,7 +370,7 @@ export class App {
     // 结构增删
     document.getElementById('btn-insert-note')?.addEventListener('click', () => this.insertNoteAfterSelected());
     document.getElementById('btn-insert-rest')?.addEventListener('click', () => this.insertRestAfterSelected());
-    document.getElementById('btn-delete-note')?.addEventListener('click', () => this.deleteSelectedNote());
+    document.getElementById('btn-delete-note')?.addEventListener('click', () => this.deleteCurrentSelection());
 
     // 导航与试听
     document.getElementById('btn-prev-note')?.addEventListener('click', () => this.navigateNote(-1));
@@ -382,7 +400,7 @@ export class App {
         this.navigateNote(1);
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        this.deleteSelectedNote();
+        this.deleteCurrentSelection();
       } else if (e.key === ' ') {
         e.preventDefault();
         this.auditionSelectedNote();
@@ -733,6 +751,10 @@ export class App {
     this.currentAudioBuffer = audioBuffer;
     const startTime = performance.now();
     this.resetPipelinePanel();
+    // 上一轮编辑可能残留休止符选中态，新一轮识谱开始时清空
+    this.clearRestSelection();
+    // 新音频重新转谱，旧乐谱的显示终点剪辑不再适用
+    this.trailingClipBeat = null;
 
     // 阶段一：音频预处理（单声道、峰值增益规整、带通滤波、自适应 VAD）
     this.updateStageStatus(1, 'running', '执行峰值增益规整、重采样(16kHz)、80-2000Hz带通滤波及自适应 VAD...');
@@ -821,6 +843,11 @@ export class App {
 
   reQuantizeAndRender() {
     if (!this.processedData) return;
+    // 重新量化会换掉整份 quantizedNotes：原声游标的时间→下标视图随即失效，
+    // 必须在下一次 tick 重建，否则 BPM 改动后游标会指向错位的音符
+    this._originalTimeIndex = null;
+    // 重新量化重建整份乐谱结构，旧的显示终点剪辑不再适用
+    this.trailingClipBeat = null;
     if (this.serverNotes && this.serverNotes.length > 0) {
       // 服务端神经转谱结果：直接按当前 BPM/网格重新量化，而非从空 f0 帧重新切分
       this.quantizedNotes = this.segmenter.quantizeNotes(this.serverNotes, this.segmenter.bpm, this.segmenter.quantizeGrid);
@@ -833,10 +860,12 @@ export class App {
   }
 
   recalculateScore() {
+    // 乐谱结构即将变化，休止符选中态随旧结构一并失效
+    this.clearRestSelection();
     this.keyInfo = this.theoryEngine.detectKey(this.quantizedNotes);
     const meterBeats = (this.meter && this.meter.beats) || 4;
     const meterUnit = (this.meter && this.meter.unit) || 4;
-    this.measures = this.theoryEngine.partitionMeasures(this.quantizedNotes, meterBeats, meterUnit);
+    this.measures = this.theoryEngine.partitionMeasures(this.quantizedNotes, meterBeats, meterUnit, this._resolveScoreEndBeat());
     this.renderAllScores();
 
     if (this.quantizedNotes.length === 0) {
@@ -849,6 +878,22 @@ export class App {
       }
       this.selectNote(this.selectedNoteIndex, false);
     }
+  }
+
+  /**
+   * 计算传给 partitionMeasures 的显示终点：
+   * 无剪辑点 → null（自然排到最后音符结束拍）；
+   * 有剪辑点但音符已延伸越过它（插入/编辑导致）→ 剪辑失效并清除；
+   * 否则返回剪辑点。
+   */
+  _resolveScoreEndBeat() {
+    if (this.trailingClipBeat == null) return null;
+    const lastEnd = this.quantizedNotes.reduce((m, n) => Math.max(m, n.startBeat + n.durationBeats), 0);
+    if (lastEnd > this.trailingClipBeat + 0.001) {
+      this.trailingClipBeat = null;
+      return null;
+    }
+    return this.trailingClipBeat;
   }
 
   renderAllScores() {
@@ -900,6 +945,8 @@ export class App {
    */
   selectNote(index, playSound = false) {
     if (index < 0 || index >= this.quantizedNotes.length) return;
+    // 音符与休止符选中互斥
+    this.clearRestSelection();
     this.selectedNoteIndex = index;
     const note = this.quantizedNotes[index];
 
@@ -921,6 +968,110 @@ export class App {
 
   onNoteSelected(noteIndex, note) {
     this.selectNote(noteIndex, false);
+  }
+
+  /**
+   * ==========================================
+   * 休止符交互编辑 (Rest Editing)
+   * 休止符是小节划分器按音符间隙推导的产物，不在 quantizedNotes 里，
+   * 因此采用独立的选中态：点击谱面/简谱上的休止符进入「休止符模式」，
+   * 仅保留删除操作（删除 = 后续音符整体前移，闭合该段静默）。
+   * ==========================================
+   */
+  onRestSelected(restItem) {
+    if (!restItem) return;
+    this.selectedRest = {
+      startBeat: restItem.startBeat,
+      durationBeats: restItem.durationBeats,
+      typeLabel: restItem.typeLabel || '休止符',
+      measureNumber: restItem.measureNumber || null
+    };
+    // 与音符选中互斥
+    this.selectedNoteIndex = null;
+
+    this.staffRenderer.setSelectedRest(this.selectedRest);
+    this.numberedRenderer.setSelectedRest(this.selectedRest);
+
+    // 编辑工具栏进入「休止符模式」：隐藏不适用于休止符的编辑控件
+    const editor = document.getElementById('note-editor-toolbar');
+    if (editor) {
+      editor.classList.remove('hidden');
+      editor.classList.add('rest-selected');
+    }
+
+    const textEl = document.getElementById('selected-note-text');
+    if (textEl) {
+      textEl.textContent = `已选择休止符: ${this.selectedRest.durationBeats}拍 (${this.selectedRest.typeLabel}) — 按 Delete 或点击「🗑 删除音符」移除`;
+    }
+
+    // 清除音符专属控件的高亮态，避免「看着选中实则不可用」的误导
+    const pitchSelect = document.getElementById('select-note-pitch');
+    if (pitchSelect) pitchSelect.value = '';
+    document.querySelectorAll('.btn-dur').forEach(btn => btn.classList.remove('active'));
+    const dottedBtn = document.getElementById('btn-dur-dotted');
+    if (dottedBtn) dottedBtn.classList.remove('active');
+
+    this.updateTimelineChips();
+  }
+
+  /** 清除休止符选中态（音符选中、重新识谱时调用） */
+  clearRestSelection() {
+    if (!this.selectedRest) return;
+    this.selectedRest = null;
+    this.staffRenderer.setSelectedRest(null);
+    this.numberedRenderer.setSelectedRest(null);
+    document.getElementById('note-editor-toolbar')?.classList.remove('rest-selected');
+  }
+
+  /**
+   * 删除当前选中的休止符。
+   * - 中段休止符（其后还有音符）：把其后所有音符整体前移 durationBeats 拍，闭合静默；
+   * - 末尾补位休止符（其后无音符可移）：裁剪乐谱显示终点到休止符起点，
+   *   让最后一个音符成为乐曲的实际结尾。
+   */
+  deleteSelectedRest() {
+    const rest = this.selectedRest;
+    if (!rest) return;
+    const restEnd = rest.startBeat + rest.durationBeats;
+
+    // 休止符是小节划分器按间隙推导的，音符只会「在其前」或「从其末尾起」，
+    // 不存在跨越休止符末尾的音符；容差 0.05 拍与划分器的间隙判定一致
+    const hasFollower = this.quantizedNotes.some(n => n.startBeat >= restEnd - 0.05);
+
+    if (hasFollower) {
+      for (const n of this.quantizedNotes) {
+        if (n.startBeat >= restEnd - 0.05) {
+          n.startBeat = Math.max(0, n.startBeat - rest.durationBeats);
+        }
+      }
+      // 已有的显示终点剪辑随音符前移一并收紧，
+      // 否则删除中段休止后尾部又会冒出一个新的补位休止符
+      if (this.trailingClipBeat != null) {
+        const lastEnd = this.quantizedNotes.reduce((m, n) => Math.max(m, n.startBeat + n.durationBeats), 0);
+        this.trailingClipBeat = Math.min(this.trailingClipBeat, lastEnd);
+      }
+    } else {
+      this.trailingClipBeat = rest.startBeat;
+    }
+
+    // 原声游标的时间→下标视图随乐谱结构变化立即失效
+    this._originalTimeIndex = null;
+    this.clearRestSelection();
+    this.realignTimelineFrom(0);
+    this.recalculateScore();
+    this.setStatus(`已删除休止符 (${rest.durationBeats}拍)${hasFollower ? '，后续音符已向前对齐' : '，乐曲已在此收尾'}`);
+  }
+
+  /**
+   * 删除入口路由：休止符模式下删休止符，音符模式下删音符。
+   * 按钮与 Delete/Backspace 快捷键统一走这里。
+   */
+  deleteCurrentSelection() {
+    if (this.selectedRest) {
+      this.deleteSelectedRest();
+      return;
+    }
+    this.deleteSelectedNote();
   }
 
   updateEditorUI(note, index) {
@@ -971,7 +1122,11 @@ export class App {
 
     container.classList.remove('hidden');
     if (countBadge) {
-      countBadge.textContent = `共 ${this.quantizedNotes.length} 个音符 (当前选择 #${(this.selectedNoteIndex !== null ? this.selectedNoteIndex : 0) + 1})`;
+      // 休止符模式下 selectedNoteIndex 为 null，徽标不能谎称选择了 #1
+      const currentLabel = this.selectedNoteIndex !== null
+        ? `当前选择 #${this.selectedNoteIndex + 1}`
+        : '未选中音符';
+      countBadge.textContent = `共 ${this.quantizedNotes.length} 个音符 (${currentLabel})`;
     }
 
     bar.innerHTML = '';
@@ -1210,26 +1365,146 @@ export class App {
       : '<span>▶ 试听乐谱 (MIDI Synth)</span>';
   }
 
+  /**
+   * 「对照原声」播放 / 停止（切换语义，与「试听乐谱」一致）
+   *
+   * 这一层的意义是**对标核对**：一边放原声、一边看转出来的谱对不对。
+   * 所以它必须同时做两件事——出声，并把乐谱游标按播放位置同步推进；
+   * 只出声而游标不动，用户得自己在谱面上找当前音符，对照就失去意义。
+   *
+   * 旧的实现是「再点一次从头重播」：既停不下来（用户报的原声无法停止），
+   * 也没有任何游标推进（原声不跟乐谱走）。这里改成真正的 toggle。
+   */
   playOriginalAudio() {
     if (!this.ensureAudioContext()) return;
     if (!this.currentAudioBuffer) return;
 
+    // 再点一次 = 停止，不再是从头重播
     if (this.originalAudioSource) {
-      try { this.originalAudioSource.stop(); } catch (e) {}
-      this.originalAudioSource = null;
+      this.stopOriginalAudio('stopped');
+      return;
+    }
+
+    // 对照时把乐谱合成器静音：两路声音叠着会互相盖住，反而更难对照
+    if (this.synth && this.synth.isPlaying) {
+      this.synth.stopScore('restart');
+      this.setPlayButtonState(false);
     }
 
     const src = this.audioCtx.createBufferSource();
     src.buffer = this.currentAudioBuffer;
     src.connect(this.audioCtx.destination);
+    this.originalAudioStartTime = this.audioCtx.currentTime;
     src.start();
     this.originalAudioSource = src;
+    this.setOriginalButtonState(true);
 
-    const btn = document.getElementById('btn-play-original');
-    if (btn) {
-      btn.classList.add('active');
-      src.onended = () => btn.classList.remove('active');
+    // 游标跟随：50ms 节拍与底部进度条一致
+    this._originalCursorIdx = -1;
+    this.originalCursorTimer = setInterval(() => {
+      const elapsed = this.audioCtx.currentTime - this.originalAudioStartTime;
+      this.followScoreWithOriginal(elapsed);
+    }, 50);
+
+    src.onended = () => this.stopOriginalAudio('ended');
+
+    const noteCount = this.quantizedNotes.length;
+    this.setStatus(
+      noteCount > 0
+        ? `▶ 原声播放中 · ${this.formatTime(this.currentAudioBuffer.duration)} · 乐谱游标跟随中`
+        : `▶ 原声播放中 · ${this.formatTime(this.currentAudioBuffer.duration)} · 尚无乐谱可跟随`
+    );
+  }
+
+  /**
+   * 停止原声播放并复位游标与按钮。
+   * @param {string} [reason='stopped'] - 'ended' 自然播完 / 'stopped' 主动停止
+   */
+  stopOriginalAudio(reason = 'stopped') {
+    if (this.originalAudioSource) {
+      try { this.originalAudioSource.stop(); } catch (e) {}
+      this.originalAudioSource = null;
     }
+    if (this.originalCursorTimer) {
+      clearInterval(this.originalCursorTimer);
+      this.originalCursorTimer = null;
+    }
+    this.setOriginalButtonState(false);
+    this.clearScorePlayhead();
+    this._originalCursorIdx = -1;
+    this._originalTimeIndex = null;
+    this.setStatus(reason === 'ended' ? '原声播放完毕' : '⏹ 已停止原声');
+  }
+
+  /**
+   * 统一「对照原声」按钮文案，保证 UI 与真实播放状态一致（与 setPlayButtonState 同思路）。
+   * @param {boolean} playing
+   */
+  setOriginalButtonState(playing) {
+    const btn = document.getElementById('btn-play-original');
+    if (!btn) return;
+    btn.innerHTML = playing
+      ? '<span>⏹ 停止原声 (Stop)</span>'
+      : '<span>🔊 对照原声</span>';
+    btn.classList.toggle('active', playing);
+  }
+
+  /**
+   * 按原声播放位置把乐谱游标推进到对应音符。
+   *
+   * 两个要点：
+   * 1. **传原始数组下标**：渲染层的 data-note-index 是 quantizedNotes 的
+   *    原始下标，而 quantizedNotes 并不保证按 startTime 有序
+   *    （segmentation.quantizeNotes 不做时间排序），所以这里先建立
+   *    「时间 → 原始下标」的排序视图，二分命中后再还原成原始下标。
+   * 2. **同一时刻取第一个**：量化后存在叠音（同一 startTime 多个声部），
+   *    若在高亮之间来回切，游标会闪。
+   *
+   * @param {number} elapsed - 原声已播放秒数
+   */
+  followScoreWithOriginal(elapsed) {
+    const notes = this.quantizedNotes;
+    if (!notes || notes.length === 0 || elapsed < 0) return;
+
+    if (!this._originalTimeIndex) {
+      this._originalTimeIndex = notes
+        .map((n, i) => ({ time: n.startTime || 0, idx: i }))
+        .sort((a, b) => a.time - b.time);
+    }
+
+    // 二分：找最后一个 time <= elapsed 的条目
+    const view = this._originalTimeIndex;
+    let lo = 0, hi = view.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (view[mid].time <= elapsed) { found = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    if (found < 0) return;
+
+    // 命中同一时刻的叠音时取第一个，避免高亮在同一拍内来回跳
+    let idx = view[found].idx;
+    while (found > 0 && view[found - 1].time === view[found].time) {
+      found -= 1;
+      if (view[found].idx < idx) idx = view[found].idx;
+    }
+
+    if (idx === this._originalCursorIdx) return;   // 无变化不重绘
+    this._originalCursorIdx = idx;
+
+    const note = notes[idx];
+    this.staffRenderer.setPlayhead(idx);
+    this.numberedRenderer.setPlayhead(idx);
+    this.pianoRollRenderer.setPlayhead(idx, note.startTime);
+  }
+
+  /**
+   * 清掉三个渲染视图上的游标高亮。
+   */
+  clearScorePlayhead() {
+    this.staffRenderer.clearPlayhead();
+    this.numberedRenderer.clearPlayhead();
+    this.pianoRollRenderer.clearPlayhead();
   }
 
   exportMidiFile() {

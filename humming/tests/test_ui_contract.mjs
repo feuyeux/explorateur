@@ -118,6 +118,47 @@ check('节拍行允许换行（窄容器不横向溢出）',
 check('旧只读 bpm-val 已彻底移除（HTML/CSS/JS 均无残留）',
   !/bpm-val/.test(html) && !/bpm-val/.test(css) && !/bpm-val/.test(appJs));
 
+// 8. 「对照原声」必须可停 + 原声驱动乐谱游标
+//    背景：旧实现是「再点一次从头重播」——既停不下来（用户报「原声无法停止」），
+//    也没有任何游标推进（用户报「原声不跟乐谱走」）。本组断言锁死这两条不变量。
+console.log('\n=== 「对照原声」播放契约 ===');
+check('存在「对照原声」按钮', hasId('btn-play-original'));
+check('按钮绑定了 playOriginalAudio', /getElementById\('btn-play-original'\)[\s\S]{0,120}?playOriginalAudio\(\)/.test(appJs));
+// 切换语义：播放中再点必须走停止分支，而不是无条件 stop 后立刻重新 start
+check('playOriginalAudio 内含「再点即停」的 toggle 分支',
+  /playOriginalAudio\(\)\s*\{[\s\S]{0,600}?if \(this\.originalAudioSource\)\s*\{\s*this\.stopOriginalAudio\('stopped'\);\s*return;/.test(appJs));
+check('按钮文案随播放状态切换（存在停止态文案）',
+  /setOriginalButtonState\(playing\)[\s\S]{0,400}?停止原声/.test(appJs));
+check('播放态与停止态文案分别写入 innerHTML',
+  /停止原声 \(Stop\)/.test(appJs) && /对照原声/.test(appJs));
+// 旧实现的信号：stop 之后紧跟无条件 src.start() 且没有 return
+check('旧缺陷（stop 后无条件重播、无 return）已消除',
+  !/playOriginalAudio\(\)\s*\{[\s\S]{0,600}?this\.originalAudioSource\.stop\(\);[\s\S]{0,200}?\}\s*\n\s*const src =/.test(appJs));
+check('停止时会清理游标定时器，避免泄漏',
+  /stopOriginalAudio\(reason = 'stopped'\)\s*\{[\s\S]{0,600}?clearInterval\(this\.originalCursorTimer\)/.test(appJs));
+
+// 原声跟随乐谱：游标必须由播放位置推进，且定位用二分而非线性扫
+check('存在游标跟随函数 followScoreWithOriginal', /followScoreWithOriginal\(elapsed\)/.test(appJs));
+check('播放中按固定节拍推进游标',
+  /setInterval\(\(\) => \{[\s\S]{0,220}?followScoreWithOriginal\(/ .test(appJs));
+check('游标定位使用二分查找（音符多时仍能实时跟随）',
+  /while \(lo <= hi\)[\s\S]{0,200}?view\[mid\]\.time <= elapsed/.test(appJs));
+// 关键：渲染层 data-note-index 是 quantizedNotes 的**原始**下标，
+// 而 quantizedNotes 不保证按 startTime 有序，因此必须还原成原始下标再高亮
+check('游标按 startTime 排序视图定位（quantizedNotes 本身无序）',
+  /_originalTimeIndex = notes[\s\S]{0,200}?\.sort\(\(a, b\) => a\.time - b\.time\)/.test(appJs));
+check('高亮时传回原始数组下标而非排序下标',
+  /this\._originalCursorIdx = idx;[\s\S]{0,220}?staffRenderer\.setPlayhead\(idx\)/.test(appJs));
+check('同一时刻的叠音固定取第一个（高亮不来回闪）',
+  /view\[found - 1\]\.time === view\[found\]\.time/.test(appJs));
+check('重新量化后作废时间索引（BPM 改动不指向错位音符）',
+  /reQuantizeAndRender\(\)\s*\{[\s\S]{0,300}?this\._originalTimeIndex = null/.test(appJs));
+// 三个视图必须一起复位，否则停止后 pianoRoll 的播放线会残留在最后一个音符上
+check('停止时三个渲染视图游标一并清除',
+  /clearScorePlayhead\(\)\s*\{[\s\S]{0,400}?staffRenderer\.clearPlayhead\(\)[\s\S]{0,200}?numberedRenderer\.clearPlayhead\(\)[\s\S]{0,200}?pianoRollRenderer\.clearPlayhead\(\)/.test(appJs));
+check('乐谱试听结束也走同一套游标复位（原先漏了 pianoRoll）',
+  /synth\.onPlaybackEnd = \(reason\) => \{[\s\S]{0,200}?clearScorePlayhead\(\)/.test(appJs));
+
 console.log(failures === 0
   ? '\n🎉 所有界面契约测试 PASS！'
   : `\n❌ ${failures} 项界面契约检查失败`);

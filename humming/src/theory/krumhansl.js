@@ -182,8 +182,12 @@ export class MusicTheoryEngine {
    * @param {Array<Object>} quantizedNotes - 已完成节拍量化的音符
    * @param {number} [beatsPerMeasure=4] - 每小节拍数 (如 4/4 拍为 4，3/4 拍为 3)
    * @param {number} [beatUnit=4] - 拍子单位 (如 4 表示以四分音符为一拍)
+   * @param {number|null} [endBeat=null] - 乐谱显示终点（拍）。默认 null 表示
+   *        排到最后一个音符的自然结束拍、末尾小节照常补全休止符；传入后最后的
+   *        小节只排到该拍为止。用于「删除末尾补位休止符」—— 否则划分器会按
+   *        小节网格把刚删掉的休止符立即补回来，删除形同虚设。
    */
-  partitionMeasures(quantizedNotes, beatsPerMeasure = 4, beatUnit = 4) {
+  partitionMeasures(quantizedNotes, beatsPerMeasure = 4, beatUnit = 4, endBeat = null) {
     if (!quantizedNotes || quantizedNotes.length === 0) {
       return [];
     }
@@ -201,7 +205,8 @@ export class MusicTheoryEngine {
 
     // 确定总拍数跨度
     const lastNote = workingNotes[workingNotes.length - 1];
-    const totalEndBeats = lastNote.startBeat + lastNote.durationBeats;
+    const naturalEndBeats = lastNote.startBeat + lastNote.durationBeats;
+    const totalEndBeats = endBeat != null ? endBeat : naturalEndBeats;
     const totalMeasures = Math.max(1, Math.ceil(totalEndBeats / beatsPerMeasure));
 
     const measures = [];
@@ -209,7 +214,10 @@ export class MusicTheoryEngine {
 
     for (let m = 0; m < totalMeasures; m++) {
       const measureStartBeat = m * beatsPerMeasure;
-      const measureEndBeat = measureStartBeat + beatsPerMeasure;
+      const gridEndBeat = measureStartBeat + beatsPerMeasure;
+      // 仅在显式传入显示终点时裁剪末尾小节（删除尾部补位休止符后的排谱终点）；
+      // 默认必须保持完整小节网格，否则末尾补位休止符永远不再生成
+      const measureEndBeat = endBeat != null ? Math.min(gridEndBeat, totalEndBeats) : gridEndBeat;
       const measureNotes = [];
 
       let currentBeat = measureStartBeat;

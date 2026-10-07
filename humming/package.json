@@ -7,7 +7,7 @@
   "scripts": {
     "build:vendor": "node scripts/build_vendor.mjs",
     "serve": "node scripts/serve.mjs",
-    "test": "node tests/test_pipeline.mjs && node tests/test_note_editor.mjs && node tests/test_synthesizer.mjs && node tests/test_ui_contract.mjs && node tests/test_e2e_pipeline.mjs"
+    "test": "node tests/test_pipeline.mjs && node tests/test_note_editor.mjs && node tests/test_synthesizer.mjs && node tests/test_ui_contract.mjs && node tests/test_original_playback.mjs && node tests/test_e2e_pipeline.mjs"
   },
   "keywords": [
     "audio",

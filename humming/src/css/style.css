@@ -921,10 +921,14 @@ select:focus {
 }
 
 .staff-svg {
-  width: 100%;
-  height: 220px;
-  min-width: 800px;
+  /* 自然尺寸渲染：宽度由 viewBox 决定，超出 staff-box 宽度时横向滚动，
+     绝不整体等比缩小（否则整谱会被压成一条细线，形同未渲染） */
   display: block;
+  width: auto;
+  height: auto;
+  min-width: 800px;
+  /* staff-box 是 flex 容器：必须禁止收缩，否则长谱仍会被压回容器宽度 */
+  flex: 0 0 auto;
 }
 
 .staff-line {
@@ -1059,6 +1063,22 @@ select:focus {
   text-anchor: middle;
 }
 
+/* 休止符可点击选中（随后可删除），交互样式与音符一致 */
+.staff-rest {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.staff-rest:hover .rest-symbol,
+.staff-rest:hover .rest-rect {
+  fill: #0284c7;
+}
+
+.staff-rest.selected .rest-symbol,
+.staff-rest.selected .rest-rect {
+  fill: #ec4899;
+}
+
 /* 简谱面板 (Jianpu Box - 浅色版) */
 .jianpu-box {
   background: #ffffff;
@@ -1148,6 +1168,20 @@ select:focus {
 .jianpu-note-cell.playing {
   background: #fef3c7;
   color: #d97706;
+}
+
+/* 编辑工具栏「休止符模式」：隐藏对休止符无意义的编辑控件，仅保留删除 */
+#note-editor-toolbar.rest-selected .editor-tool-group {
+  display: none;
+}
+
+#note-editor-toolbar.rest-selected .editor-tool-group.structure-group {
+  display: flex;
+}
+
+#note-editor-toolbar.rest-selected #btn-insert-note,
+#note-editor-toolbar.rest-selected #btn-insert-rest {
+  display: none;
 }
 
 .jianpu-octave-top, .jianpu-octave-bottom {
@@ -1293,7 +1327,8 @@ select:focus {
 
 .pipeline-stages {
   display: flex;
-  flex-direction: column;
+  /* 阶段卡片横向排布（左右布局），下方单屏工作台的紧凑横条依赖此默认方向 */
+  flex-direction: row;
   gap: 8px;
 }
 
@@ -1504,7 +1539,9 @@ body {
 .pipeline-stages {
   flex: 1 1 auto;
   display: flex;
-  align-items: center;
+  /* 显式声明横向布局：基础块的 flex-direction 不会再把阶段竖着堆叠成五行 */
+  flex-direction: row;
+  align-items: stretch;
   gap: 6px;
   min-width: 0;
   overflow-x: auto;

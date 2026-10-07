@@ -123,7 +123,8 @@ export class Synthesizer {
     if (!notes) return;
 
     while (this._scheduleCursor < notes.length) {
-      const note = notes[this._scheduleCursor];
+      const entry = notes[this._scheduleCursor];
+      const note = entry.note;
       const delay = note.startTime - this._scheduleBaseNoteTime - this._scheduleStartOffset;
       if (delay < 0) {
         this._scheduleCursor++;
@@ -142,7 +143,8 @@ export class Synthesizer {
         break;
       }
 
-      const index = this._scheduleCursor;
+      // 回传原始数组下标（而非排序后的调度下标），乐谱高亮才能命中正确的音符
+      const index = entry.origIdx;
       const freq = 440 * Math.pow(2, (note.midi - 69) / 12);
       this.renderPianoTone(freq, scheduleTime, Math.max(0.1, note.duration), this.scoreGain, true);
 
@@ -195,7 +197,11 @@ export class Synthesizer {
 
     // 按开始时间排序：滚动调度是游标顺序推进的，若入参乱序会导致音符先后错乱，
     // 且总时长会按「数组最后一个」算错、播放中途被截断。
-    const ordered = [...notes].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+    // 注意：必须携带原始数组下标 origIdx —— onNotePlay 回调以它驱动乐谱高亮，
+    // 若回传排序后的下标，五线谱/简谱会高亮到错误的音符（游标乱跳或停住不动）。
+    const ordered = notes
+      .map((note, origIdx) => ({ note, origIdx }))
+      .sort((a, b) => ((a.note.startTime || 0) - (b.note.startTime || 0)));
 
     // 确保乐谱输出总线开启
     if (!this.scoreGain) {
@@ -207,7 +213,7 @@ export class Synthesizer {
 
     this._scheduleNotes = ordered;
     this._scheduleCursor = 0;
-    this._scheduleBaseNoteTime = ordered[0].startTime;
+    this._scheduleBaseNoteTime = ordered[0].note.startTime;
     this._scheduleStartOffset = startOffset;
     this._scheduleBaseCtxTime = this.ctx.currentTime + 0.05;
 
@@ -219,7 +225,7 @@ export class Synthesizer {
 
     // 调度播放正常结束：总时长取最晚结束的音符，不依赖数组顺序
     let endTime = 0;
-    for (const n of ordered) {
+    for (const { note: n } of ordered) {
       endTime = Math.max(endTime, (n.startTime || 0) + (n.duration || 0));
     }
     const totalDuration = (endTime - this._scheduleBaseNoteTime) - startOffset;

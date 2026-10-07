@@ -13,8 +13,11 @@ export class NumberedRenderer {
     this.container = container;
     this.onNoteSelected = options.onNoteSelected || null;
     this.onNoteAudition = options.onNoteAudition || null;
+    this.onRestSelected = options.onRestSelected || null;
     this.selectedNoteIndex = null;
     this.activePlayNoteIndex = null;
+    // 休止符选中标识：以 startBeat 作为 key（休止符互不重叠，键唯一）
+    this.selectedRestKey = null;
   }
 
   /**
@@ -192,8 +195,17 @@ export class NumberedRenderer {
   }
 
   createJianpuRestElement(restItem) {
+    const restKey = `${restItem.startBeat}`;
     const wrap = document.createElement('div');
-    wrap.className = 'jianpu-note-cell rest';
+    wrap.className = `jianpu-note-cell rest ${this.selectedRestKey === restKey ? 'selected' : ''}`;
+    wrap.setAttribute('data-rest-key', restKey);
+    wrap.setAttribute('title', `${restItem.typeLabel || '休止符'} (${restItem.durationBeats}拍) — 点击选中，可删除`);
+
+    // 简谱的「0」可点击选中（随后可删除），与音符交互保持一致
+    wrap.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.onRestSelected) this.onRestSelected(restItem);
+    });
 
     const topDot = document.createElement('div');
     topDot.className = 'jianpu-octave-top';
@@ -285,11 +297,23 @@ export class NumberedRenderer {
         const idx = parseInt(el.getAttribute('data-note-index'), 10);
         if (idx === noteIndex) {
           el.classList.add('playing');
+          // 简谱随播放进度自动滚入视野（block:nearest 只在快出视野时微调，
+          // 不会每次都跳动），保证「跟谱」体验
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
           el.classList.remove('playing');
         }
       });
     }
+  }
+
+  /** 选中/取消选中休止符（rest 为 null 时清除选中高亮） */
+  setSelectedRest(rest) {
+    this.selectedRestKey = rest ? `${rest.startBeat}` : null;
+    if (!this.container) return;
+    this.container.querySelectorAll('.jianpu-note-cell.rest').forEach(el => {
+      el.classList.toggle('selected', el.getAttribute('data-rest-key') === this.selectedRestKey);
+    });
   }
 
   clearPlayhead() {
