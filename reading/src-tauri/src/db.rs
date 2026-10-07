@@ -1,5 +1,5 @@
 // Database layer.
-use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
+use crate::llm::{is_deep_analysis, PLACEHOLDER_TRANSLATION_PREFIX};
 use rusqlite::Connection;
 use std::path::PathBuf;
 use tauri::Manager;
@@ -61,6 +61,50 @@ pub fn purge_placeholder_translations(conn: &Connection) -> Result<usize, String
     .map_err(|e| e.to_string())
 }
 
+/// Demotes cached "deep analyses" that carry no analysis content.
+///
+/// An older build cached the paragraph phase's translation-only objects into
+/// `deep_analysis_json`. Served from cache, those made every sentence click
+/// show nothing but the translation (the inspector had no sections to
+/// render), and the full-book run's deepening phase skipped the sentences as
+/// "already analysed". Rows whose JSON carries no grammar/vocabulary/idiom
+/// content get the column cleared — the translation stays, so nothing is
+/// re-billed. Idempotent, so it runs on every launch alongside the purge.
+pub fn demote_shallow_deep_analysis(conn: &Connection) -> Result<usize, String> {
+    let mut shallow: Vec<String> = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, deep_analysis_json FROM sentences
+                  WHERE deep_analysis_json IS NOT NULL AND TRIM(deep_analysis_json) <> ''",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (id, raw) = row.map_err(|e| e.to_string())?;
+            let deep = serde_json::from_str::<serde_json::Value>(&raw)
+                .map(|v| is_deep_analysis(&v))
+                .unwrap_or(false);
+            if !deep {
+                shallow.push(id);
+            }
+        }
+    }
+    for id in &shallow {
+        conn.execute(
+            "UPDATE sentences
+                SET deep_analysis_json = NULL,
+                    updated_at = datetime('now', 'localtime')
+              WHERE id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(shallow.len())
+}
+
 /// Creates the six-table schema, the three indexes, and the default settings
 /// seed. Split out of `init_db` so it can be tested against an in-memory db.
 pub fn init_conn(conn: &Connection) -> Result<(), String> {
@@ -86,6 +130,7 @@ pub fn init_conn(conn: &Connection) -> Result<(), String> {
     }
 
     purge_placeholder_translations(conn)?;
+    demote_shallow_deep_analysis(conn)?;
     Ok(())
 }
 
@@ -217,7 +262,8 @@ mod tests {
         assert_eq!(provider, "deepseek");
     }
 
-    /// Seeds one paragraph with a placeholder-only sentence plus a real one.
+    /// Seeds one paragraph with a placeholder-only sentence, a fully analysed
+    /// one, and one whose cached "analysis" is a translation-only object.
     fn seed_purge_fixture(conn: &Connection) {
         conn.execute(
             "INSERT INTO documents (id,title,author,file_type,raw_content,created_at)
@@ -238,8 +284,16 @@ mod tests {
         .unwrap();
         conn.execute(
             "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
-             VALUES ('s_real','d1','p1',1,'Two.','真实译文','{}')",
-            [],
+             VALUES ('s_real','d1','p1',1,'Two.','真实译文',?1)",
+            [r#"{"sentence_id":"s_real","translation":"真实译文","grammar_analysis":{"structure":"陈述句","components":[{"element":"Two","role":"主语 (S)"}]}}"#],
+        )
+        .unwrap();
+        // What the paragraph phase cached before the deep/shallow split: a
+        // real translation with a "deep" column holding no analysis at all.
+        conn.execute(
+            "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
+             VALUES ('s_shallow','d1','p1',2,'Three.','第三句',?1)",
+            [r#"{"sentence_id":"s_shallow","translation":"第三句","vocabulary_and_phrases":[],"idioms_and_conventions":[]}"#],
         )
         .unwrap();
     }
@@ -276,14 +330,27 @@ mod tests {
 
         let real = translation_of(&conn, "s_real");
         assert_eq!(real.as_deref(), Some("真实译文"));
-        let deep: Option<String> = conn
+        let deep: String = conn
             .query_row(
                 "SELECT deep_analysis_json FROM sentences WHERE id='s_real'",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(deep.as_deref(), Some("{}"));
+        assert!(deep.contains("陈述句"), "a real analysis must survive");
+
+        // The shallow entry: analysis column cleared, translation kept — the
+        // sentence reads as "translated but not deep-analysed", so the next
+        // click deepens it instead of serving the empty object forever.
+        let (sh_trans, sh_deep): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT translation, deep_analysis_json FROM sentences WHERE id='s_shallow'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(sh_trans.as_deref(), Some("第三句"), "no re-billing");
+        assert!(sh_deep.is_none(), "the shallow analysis must be demoted");
     }
 
     #[test]
@@ -312,6 +379,21 @@ mod tests {
 
         assert_eq!(purge_placeholder_translations(&conn).unwrap(), 3);
         assert_eq!(purge_placeholder_translations(&conn).unwrap(), 0);
+    }
+
+    #[test]
+    fn demote_reports_how_many_rows_it_healed() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_conn(&conn).unwrap();
+        seed_purge_fixture(&conn);
+        // s_ph's heuristic stub and s_shallow's translation-only object are
+        // both shallow; s_real's real analysis is not.
+        assert_eq!(demote_shallow_deep_analysis(&conn).unwrap(), 2);
+        assert_eq!(
+            demote_shallow_deep_analysis(&conn).unwrap(),
+            0,
+            "idempotent"
+        );
     }
 
     #[test]

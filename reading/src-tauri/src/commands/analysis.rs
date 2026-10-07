@@ -4,8 +4,8 @@
 use crate::db;
 use crate::glossary::format_glossary_for_prompt;
 use crate::llm::{
-    analyze_paragraph_structured, analyze_single_sentence_deep, is_placeholder_translation,
-    ProviderCfg, PLACEHOLDER_TRANSLATION_PREFIX,
+    analyze_paragraph_structured, analyze_single_sentence_deep, is_deep_analysis,
+    is_placeholder_translation, ProviderCfg, PLACEHOLDER_TRANSLATION_PREFIX,
 };
 use chrono::Local;
 use rusqlite::Connection;
@@ -105,10 +105,25 @@ fn cache_sentence(
         .map_err(|e| e.to_string())?;
         return Ok(());
     }
+    // A deep analysis is cached only when the payload actually is one. A
+    // translation-only object — the paragraph phase's normal output before
+    // the deepening click, or a model that skipped the analysis fields —
+    // must not squat in `deep_analysis_json`: served from cache, it made the
+    // inspector show nothing but the translation forever, and the batch's
+    // deepening phase skipped the sentence as "already analysed". An
+    // existing deep analysis is never clobbered by a shallow payload.
+    let deep_to_store: Option<&str> = serde_json::from_str::<serde_json::Value>(deep_json)
+        .ok()
+        .filter(is_deep_analysis)
+        .map(|_| deep_json);
     conn.execute(
-        "UPDATE sentences SET translation = ?1, deep_analysis_json = ?2, updated_at = ?3
-         WHERE id = ?4",
-        rusqlite::params![translation, deep_json, now_str(), sentence_id],
+        "UPDATE sentences
+            SET translation = ?1,
+                deep_analysis_json = CASE WHEN ?2 IS NOT NULL THEN ?2
+                                          ELSE deep_analysis_json END,
+                updated_at = ?3
+          WHERE id = ?4",
+        rusqlite::params![translation, deep_to_store, now_str(), sentence_id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -155,7 +170,9 @@ pub async fn analyze_paragraph_conn(
                     "sentence_id": id,
                     "original": orig,
                     "translation": trans,
-                    "has_deep_analysis": deep_obj.is_object(),
+                    // Content, not mere presence: a shallow object here would
+                    // badge the sentence as analysed with nothing to show.
+                    "has_deep_analysis": is_deep_analysis(&deep_obj),
                     "deep_analysis": deep_obj,
                 })
             })
@@ -199,6 +216,9 @@ pub async fn analyze_paragraph_conn(
                 // done; otherwise keep whatever we had and let the next click
                 // try again rather than serving a permanent blank.
                 let usable = !generated.is_empty();
+                // The badge tells the truth about deep-ness: a translation
+                // without analysis content is not "has_deep_analysis".
+                let deep = is_deep_analysis(parsed);
                 let trans = if usable {
                     generated
                 } else {
@@ -212,8 +232,8 @@ pub async fn analyze_paragraph_conn(
                     "sentence_id": s_id,
                     "original": original,
                     "translation": if trans.is_empty() { "【解析中】".to_string() } else { trans },
-                    "has_deep_analysis": usable,
-                    "deep_analysis": if usable { parsed.clone() } else { serde_json::Value::Null },
+                    "has_deep_analysis": deep,
+                    "deep_analysis": if deep { parsed.clone() } else { serde_json::Value::Null },
                 }));
             }
             None => final_sentences.push(serde_json::json!({
@@ -260,7 +280,13 @@ pub async fn get_sentence_analysis_conn(
 
     if let Some(raw) = &deep_json {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw) {
-            return Ok(v);
+            // Only a real deep analysis short-circuits. A translation-only
+            // entry squatting in this column (written by an older build that
+            // cached the paragraph phase's shallow output) must fall through
+            // and be deepened, not be served forever.
+            if is_deep_analysis(&v) {
+                return Ok(v);
+            }
         }
     }
 
@@ -753,5 +779,75 @@ mod tests {
             )
             .unwrap();
         assert!(stored.is_none(), "the placeholder must not be written");
+    }
+
+    #[test]
+    fn test_cache_sentence_stores_translation_but_not_a_shallow_analysis() {
+        // A translation-only object is the paragraph phase's legitimate
+        // output; cached into `deep_analysis_json` it made the inspector show
+        // nothing but the translation forever, and the batch's deepening
+        // phase skip the sentence as "already analysed".
+        let conn = seeded();
+        let shallow = r#"{"sentence_id":"doc_x_p1_s1","original":"Call me Ishmael.","translation":"叫我以实玛利吧。","vocabulary_and_phrases":[],"idioms_and_conventions":[]}"#;
+        cache_sentence(&conn, "doc_x_p1_s1", "叫我以实玛利吧。", shallow).unwrap();
+        let (trans, deep): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT translation, deep_analysis_json FROM sentences WHERE id='doc_x_p1_s1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(trans.as_deref(), Some("叫我以实玛利吧。"));
+        assert!(deep.is_none(), "a shallow payload must not squat as deep");
+    }
+
+    #[test]
+    fn test_cache_sentence_never_clobbers_a_deep_analysis_with_a_shallow_one() {
+        let conn = seeded();
+        let deep_json = r#"{"sentence_id":"doc_x_p1_s1","translation":"甲","grammar_analysis":{"structure":"祈使句","components":[{"element":"Call","role":"谓语动词 (V)"}]}}"#;
+        cache_sentence(&conn, "doc_x_p1_s1", "叫我以实玛利吧。", deep_json).unwrap();
+        let shallow = r#"{"sentence_id":"doc_x_p1_s1","translation":"叫我以实玛利吧。","vocabulary_and_phrases":[]}"#;
+        cache_sentence(&conn, "doc_x_p1_s1", "叫我以实玛利吧。", shallow).unwrap();
+        let deep: String = conn
+            .query_row(
+                "SELECT deep_analysis_json FROM sentences WHERE id='doc_x_p1_s1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(deep.contains("祈使句"), "the deep analysis must survive");
+    }
+
+    #[test]
+    fn test_get_sentence_analysis_deepens_a_shallow_cached_entry() {
+        // The cache invariant is "deep_analysis_json set ⇒ real deep analysis";
+        // a shallow entry written by an older build must not be served from
+        // cache but deepened — here by the mock engine, whose output carries
+        // grammar slices.
+        let conn = seeded();
+        conn.execute(
+            "UPDATE sentences SET translation = ?1, deep_analysis_json = ?2
+              WHERE id = 'doc_x_p1_s1'",
+            rusqlite::params![
+                "叫我以实玛利吧。",
+                r#"{"sentence_id":"doc_x_p1_s1","translation":"叫我以实玛利吧。","vocabulary_and_phrases":[]}"#
+            ],
+        )
+        .unwrap();
+
+        let out = block_on(get_sentence_analysis_conn(&conn, "doc_x_p1_s1")).unwrap();
+        assert!(
+            out["grammar_analysis"].is_object(),
+            "must be deepened, not served shallow"
+        );
+        let deep: String = conn
+            .query_row(
+                "SELECT deep_analysis_json FROM sentences WHERE id='doc_x_p1_s1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&deep).unwrap();
+        assert!(is_deep_analysis(&v), "the deepened analysis is cached");
     }
 }

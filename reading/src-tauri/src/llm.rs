@@ -80,6 +80,35 @@ pub fn is_placeholder_translation(translation: &str) -> bool {
         .starts_with(PLACEHOLDER_TRANSLATION_PREFIX)
 }
 
+/// True when a parsed/cached analysis actually carries deep-analysis content,
+/// as opposed to a translation-only object.
+///
+/// A translation-only response is legitimate from the paragraph phase (or from
+/// a model that skipped the analysis fields), but it must never be treated as
+/// a finished deep analysis: cached as one, it makes every later sentence
+/// click serve it from cache, and the inspector shows nothing but the
+/// translation — exactly what happened once a real LLM replaced the offline
+/// engine, whose heuristic always included an S-V-O slice.
+pub fn is_deep_analysis(v: &serde_json::Value) -> bool {
+    let grammar = v.get("grammar_analysis").is_some_and(|g| {
+        g.get("structure")
+            .and_then(|s| s.as_str())
+            .is_some_and(|s| !s.trim().is_empty())
+            || g.get("components")
+                .and_then(|c| c.as_array())
+                .is_some_and(|c| !c.is_empty())
+    });
+    let vocab = v
+        .get("vocabulary_and_phrases")
+        .and_then(|a| a.as_array())
+        .is_some_and(|a| !a.is_empty());
+    let idioms = v
+        .get("idioms_and_conventions")
+        .and_then(|a| a.as_array())
+        .is_some_and(|a| !a.is_empty());
+    grammar || vocab || idioms
+}
+
 /// Which engine actually produced an analysis and — when it was not the live
 /// model — why. A silent fallback used to be indistinguishable from success,
 /// which is exactly how a paragraph could "finish" showing its own original.
@@ -403,7 +432,10 @@ async fn call_llm(
         let url = format!("{base}/messages");
         let payload = serde_json::json!({
             "model": model,
-            "max_tokens": 4096,
+            // 4096 truncated a full paragraph analysis mid-JSON, and the
+            // offline fallback then replaced every real translation in it
+            // with a demo echo.
+            "max_tokens": 8192,
             "temperature": cfg.temperature,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}]
@@ -713,6 +745,47 @@ mod tests {
         assert!(!is_placeholder_translation(
             "原文中出现了「【译文】」的说法，翻译如下"
         ));
+    }
+
+    #[test]
+    fn test_deep_analysis_detection() {
+        // A full analysis counts, on any of the three content fields.
+        let full = serde_json::json!({
+            "sentence_id": "s1", "translation": "甲",
+            "grammar_analysis": {"structure": "复合句", "components": [{"element": "I", "role": "S"}]},
+            "vocabulary_and_phrases": [], "idioms_and_conventions": []
+        });
+        assert!(is_deep_analysis(&full));
+
+        let vocab_only = serde_json::json!({
+            "sentence_id": "s1", "translation": "甲",
+            "vocabulary_and_phrases": [{"token": "x", "literal_meaning": "y"}]
+        });
+        assert!(is_deep_analysis(&vocab_only));
+
+        let idiom_only = serde_json::json!({
+            "sentence_id": "s1", "translation": "甲",
+            "idioms_and_conventions": [{"expression": "x", "usage": "y"}]
+        });
+        assert!(is_deep_analysis(&idiom_only));
+
+        // Translation-only — what a model actually returns when the prompt
+        // never named the schema fields — is NOT deep, or the inspector shows
+        // nothing but the translation forever.
+        let shallow = serde_json::json!({
+            "sentence_id": "s1", "translation": "甲",
+            "vocabulary_and_phrases": [], "idioms_and_conventions": []
+        });
+        assert!(!is_deep_analysis(&shallow));
+
+        // An empty grammar object is a model giving up, not an analysis.
+        let empty_grammar = serde_json::json!({
+            "sentence_id": "s1", "translation": "甲",
+            "grammar_analysis": {"structure": "", "components": []}
+        });
+        assert!(!is_deep_analysis(&empty_grammar));
+
+        assert!(!is_deep_analysis(&serde_json::json!({})));
     }
 
     #[test]
