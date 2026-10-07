@@ -10,9 +10,12 @@
 
 | 目录 | 是什么 | 栈 | 规模 | 入口文档 |
 |---|---|---|---|---|
-| [`humming/`](humming/) | **HummingScore** 哼唱识谱：哼一段 → 实时转五线谱 / 简谱 / MIDI / MusicXML | Tauri 2 + 原生 JS（无框架） | 28 文件 / 6227 行 | [README](humming/README.md) · [使用指南](humming/docs/使用指南.md) |
-| [`reading/`](reading/) | **Ready Reader** 外语原著精读：导入 Markdown → LLM 结构化拆解 → 双栏逐句精读 | Tauri 2 + 纯 Rust 后端 | 26 文件 / 6594 行 | [README](reading/README.md) · [使用指南](reading/docs/使用指南.md) |
+| [`humming/`](humming/) | **HummingScore** 哼唱识谱：哼一段 → 实时转五线谱 / 简谱 / MIDI / MusicXML | Tauri 2 + 原生 JS（无框架） | 32 文件 / 7853 行 | [README](humming/README.md) · [使用指南](humming/docs/使用指南.md) · [架构](humming/docs/设计/架构.md) |
+| [`reading/`](reading/) | **Ready Reader** 外语原著精读：导入 Markdown → LLM 结构化拆解 → 双栏逐句精读 | Tauri 2 + 纯 Rust 后端 | 30 文件 / 8119 行 | [README](reading/README.md) · [使用指南](reading/docs/使用指南.md) · [架构](reading/docs/设计/架构.md) |
 | [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | Python 3.12 + uv | 52 文件 / 12950 行 | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) |
+
+规模一栏的口径：`humming` / `reading` 统计 `.js`/`.mjs`/`.rs`/`.css`/`.html`/`.sql`
+源文件及其行数，已排除 `target/`、`node_modules/`、`src/vendor/` 等构建产物。
 
 `humming` 与 `reading` 是两个**应用**（可打包成安装包分发的桌面程序）；`usine` 是一个**库层**（被其它内容项目复用的机制 + 体例 + 纪律，不直接分发）。
 
@@ -35,7 +38,7 @@
 三个子项目各有独立测试套件，全部应保持全绿：
 
 ```bash
-# humming —— 5 个 Node 测试：流水线 / 音符编辑 / 合成器 / UI 契约 / 端到端
+# humming —— 6 个 Node 测试：流水线 / 音符编辑 / 合成器 / UI 契约 / 原声播放 / 端到端
 cd humming && npm install && npm test
 
 # reading —— 119 个 Rust 测试：单元 + command 调度 + 前后端契约 + 全链路冒烟
@@ -77,6 +80,30 @@ cargo test
 
 ## 文档分层
 
-- **工作区级**（本文件）：索引与跨项目约定。
-- **项目级**：各子项目的 `README.md`（这是什么、怎么构建）+ `docs/使用指南.md`（日常操作与排错）。
-- **设计与计划**：`humming|reading/docs/{设计,计划}/`，记录当时的决策与实施步骤。**这些是历史记录，其中的路径与命令反映当时的机器状态，不必与现状一致。**
+三个层次，职责不重叠：
+
+| 层 | 位置 | 写什么 | 生命周期 |
+|---|---|---|---|
+| **工作区级** | 本文件 | 子项目索引与跨项目约定 | 随工作区 |
+| **项目级** | 各子项目的 `README.md` | 这是什么、怎么构建、怎么跑测试、目录树 | 随项目 |
+| **使用者级** | 各子项目的 `docs/使用指南.md` | 日常操作步骤、界面总览、数据与重置、常见问题、命令速查表 | 随项目 |
+| **设计级** | `humming\|reading/docs/{设计,计划}/` | 架构说明（长期维护）与一次性决策记录（历史） | 见下方命名约定 |
+
+`usine` 自带 [AGENTS.md](usine/AGENTS.md)（纪律条文 + 工程约定），是该项目的权威文本。
+
+### 命名约定
+
+`humming` 与 `reading` 共用同一套文档命名规则：
+
+- **常青文档不带日期** —— 随代码持续维护，文件名就是它的身份：
+  `docs/使用指南.md`、`docs/设计/架构.md`
+- **历史文档带日期前缀** —— 一次性决策记录，格式 `YYYY-MM-DD-<主题>.md`：
+  - 同一主题的设计与实施计划成对出现，设计稿加 `-design` 后缀
+    （`docs/设计/2026-10-07-tauri-跨平台重构-design.md` ↔ `docs/计划/2026-10-07-tauri-跨平台重构.md`）
+- **主题保留原文字形**，不转成 ASCII slug；分隔符一律用连字符 `-`，不用下划线
+
+### 历史文档的读法
+
+`docs/{设计,计划}/` 里带日期的文件是**当时的记录**，其中的路径、命令与目录树反映
+当时的机器状态，**不必与现状一致**。判断现状请以各项目的 `README.md` 与
+`docs/设计/架构.md` 为准。
