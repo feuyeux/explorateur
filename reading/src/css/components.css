@@ -47,10 +47,26 @@
   gap: 6px;
 }
 
+/* The drawer is a fixed 440px column, but everything inside it is model
+   output: sentence slices, grammar role labels, vocabulary notes. Those are
+   arbitrary-length strings, so each text block is allowed to break anywhere
+   (see the shared rule below) and the column itself is never allowed to
+   become a sideways scroll area — that is what used to drag the whole panel
+   out of alignment. */
 .drawer-content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
+}
+
+/* No text block inside the drawer may be wider than the drawer. */
+.drawer-content :where(.hero-orig, .hero-trans, .hero-tone, .structure-name,
+  .comp-role, .comp-element, .vocab-token, .vocab-meaning, .vocab-notes,
+  .idiom-expression, .idiom-usage) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Sentence Context Card in Drawer */
@@ -71,6 +87,8 @@
   margin-bottom: 6px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
 }
 
@@ -143,17 +161,22 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
+/* A role label can be a whole clause ("定语（Attr），'de bois' 与 … 的定语"),
+   so the badge wraps instead of pushing the row out of the 440px drawer. */
 .component-badge {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
   background-color: var(--bg-secondary);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 13px;
   border-left: 3px solid var(--primary);
+  min-width: 0;
 }
 
 .comp-role {
@@ -163,8 +186,7 @@
   border-radius: 4px;
   background-color: var(--primary-light);
   color: var(--primary);
-  white-space: nowrap;
-  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .comp-element {
@@ -172,6 +194,7 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--text-main);
+  max-width: 100%;
 }
 
 /* 2. Vocabulary & Phrases Cards */
@@ -197,6 +220,8 @@
 .vocab-top {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   margin-bottom: 6px;
 }
