@@ -140,11 +140,27 @@ export class DualReader {
     });
   }
 
+  // Resolves a sentence id to its object in the loaded document.
+  findSentence(sentenceId) {
+    if (!this.currentDoc || !this.currentDoc.paragraphs) return null;
+    for (const p of this.currentDoc.paragraphs) {
+      const found = p.sentences.find(s => s.sentence_id === sentenceId);
+      if (found) return found;
+    }
+    return null;
+  }
+
   selectSentence(sentenceId) {
     if (this.activeSentenceId === sentenceId) {
-      // Re-trigger inspector if already selected
-      if (this.onSentenceSelected) {
-        this.onSentenceSelected(sentenceId);
+      // Re-trigger the inspector for an already-selected sentence (a second
+      // click, or the re-select after its paragraph was re-analysed). The
+      // inspector must be handed the sentence *object*: it reads
+      // `.sentence_id` off whatever it receives, and passing the raw id made
+      // that `undefined`, so the invoke dropped the key and every such click
+      // died with "missing required key sentenceId".
+      const active = this.findSentence(sentenceId);
+      if (this.onSentenceSelected && active) {
+        this.onSentenceSelected(active);
       }
       return;
     }
@@ -165,16 +181,7 @@ export class DualReader {
     });
 
     // Find the corresponding sentence object
-    let targetSentence = null;
-    if (this.currentDoc && this.currentDoc.paragraphs) {
-      for (const p of this.currentDoc.paragraphs) {
-        const found = p.sentences.find(s => s.sentence_id === sentenceId);
-        if (found) {
-          targetSentence = found;
-          break;
-        }
-      }
-    }
+    const targetSentence = this.findSentence(sentenceId);
 
     if (this.onSentenceSelected && targetSentence) {
       this.onSentenceSelected(targetSentence);

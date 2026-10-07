@@ -156,6 +156,27 @@ fn toasts_are_built_from_text_nodes_not_inner_html() {
 }
 
 #[test]
+fn the_inspector_is_never_handed_a_raw_sentence_id() {
+    // `selectSentence` used to re-trigger the inspector with the *id* when the
+    // clicked sentence was already active (a second click, or the re-select
+    // after its paragraph was re-analysed). The inspector read `.sentence_id`
+    // off the string, got `undefined`, and invoke dropped the key: every such
+    // click died with "command get_sentence_analysis missing required key
+    // sentenceId".
+    let reader = std::fs::read_to_string(frontend_js_dir().join("dual_reader.js"))
+        .expect("dual_reader.js exists");
+    assert!(
+        !reader.contains("this.onSentenceSelected(sentenceId)"),
+        "selectSentence must resolve the id to a sentence object before \
+         re-triggering the inspector:\n{reader}"
+    );
+    assert!(
+        reader.contains("this.findSentence(sentenceId)"),
+        "selectSentence should resolve ids through the loaded sentence objects"
+    );
+}
+
+#[test]
 fn window_label_in_config_is_covered_by_the_capability() {
     let conf: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(manifest_dir().join("tauri.conf.json")).expect("tauri.conf.json"),
