@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin: 0; padding: 0; width: 1024px; height: 1024px; overflow: hidden; }
+  .icon {
+    width: 1024px; height: 1024px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #fdfdfe 0%, #eef1f7 55%, #dfe6f2 100%);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    position: relative;
+  }
+  .glyph { font-size: 560px; line-height: 1; filter: drop-shadow(0 18px 32px rgba(30,45,80,0.18)); }
+  .staff {
+    position: absolute; left: 150px; right: 150px; bottom: 300px;
+    height: 150px;
+  }
+  .staff span {
+    position: absolute; left: 0; right: 0; height: 3px;
+    background: #98a3b8;
+  }
+</style>
+</head>
+<body>
+  <div class="icon">
+    <div class="staff">
+      <span style="top: 0"></span>
+      <span style="top: 36px"></span>
+      <span style="top: 72px"></span>
+      <span style="top: 108px"></span>
+      <span style="top: 144px"></span>
+    </div>
+    <div class="glyph">🎵</div>
+  </div>
+</body>
+</html>

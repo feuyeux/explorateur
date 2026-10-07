@@ -1,0 +1,24 @@
+[package]
+name = "hummingscore"
+version = "1.0.0"
+description = "哼唱识谱 (Humming to Score) — 跨平台桌面应用"
+authors = ["HummingScore"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "hummingscore_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

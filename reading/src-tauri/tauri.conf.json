@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ready Reader",
+  "version": "1.0.0",
+  "identifier": "com.ready.reader",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Ready Reader - 外语原著精读与拆解",
+        "width": 1360,
+        "height": 920,
+        "minWidth": 960,
+        "minHeight": 600,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "copyright": "Ready Reader",
+    "category": "Education",
+    "shortDescription": "外语原著精读与拆解 / Foreign Literature Reader",
+    "longDescription": "导入 Markdown 原著，用 LLM 做结构化拆解，在双栏对照界面里逐句精读的外语精读桌面应用"
+  }
+}

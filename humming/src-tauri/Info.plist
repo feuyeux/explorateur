@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 录音权限说明：WKWebView 的 getUserMedia 在 macOS 上要求宿主应用声明此键 -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>HummingScore 需要访问麦克风以录制您的哼唱，并将其转换为五线谱、简谱、MIDI 与 MusicXML。</string>
+</dict>
+</plist>

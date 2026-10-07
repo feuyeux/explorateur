@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Ready Reader needs one plugin permission: the native save dialog, so the user can choose where the Anki deck is written. The file itself is written by a Rust command, which needs no ACL grant and no filesystem scope.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:default"]
+}

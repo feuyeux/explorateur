@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ready Reader - 外语原著精读与拆解系统</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">R</div>
+      <div class="brand-title">
+        <span>Ready Reader</span>
+        <span class="brand-badge">原著精读透视</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="doc-select-wrapper">
+        <select id="doc_select" class="doc-select">
+          <option value="">加载中...</option>
+        </select>
+      </div>
+
+      <button id="btn_load_sample_moby" class="btn" title="加载《白鲸记》第一章经典名篇">
+        📖 白鲸记
+      </button>
+      <button id="btn_load_sample_gatsby" class="btn" title="加载《了不起的盖茨比》第一章">
+        🍸 盖茨比
+      </button>
+    </div>
+
+    <div class="header-actions">
+      <button id="btn_open_upload" class="btn btn-primary">
+        <span>📤 导入原著</span>
+      </button>
+      <button id="btn_batch_run" class="btn btn-primary" title="一次跑完整本书：先逐段翻译，再逐句深度解析">
+        <span>⚡ 全文翻译</span>
+      </button>
+      <button id="btn_export_markdown" class="btn" title="把当前原著的译文与解析导出为 Markdown">
+        <span>📄 导出 Markdown</span>
+      </button>
+      <button id="btn_open_vocab" class="btn">
+        <span>📚 生词本 & Anki</span>
+      </button>
+      <button id="btn_open_settings" class="btn" title="模型与 API 配置">
+        <span>⚙️ 设置</span>
+      </button>
+      <button id="btn_toggle_theme" class="btn btn-icon-only" title="切换深色/浅色模式">
+        🌙
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="main-workspace">
+
+    <!-- Center Dual Reader View -->
+    <div class="reader-container">
+      <div class="reader-toolbar">
+        <div class="toolbar-left">
+          <strong id="current_doc_title">白鲸记 (Moby-Dick)</strong>
+          <span id="current_doc_author" style="color:var(--text-light); font-size:12px;">Herman Melville</span>
+        </div>
+        <div class="toolbar-right">
+          <span class="sync-badge">双向联动就绪 (Sentence Link Active)</span>
+          <span style="font-size:12px; color:var(--text-light);">💡 鼠标悬停同步对照 / 点击任意句深度透视</span>
+        </div>
+      </div>
+
+      <div class="dual-pane-view">
+        <!-- Left Pane: Western Original Text -->
+        <section class="pane source-pane" id="source_pane">
+          <div class="pane-header-sticky">
+            <div class="pane-title">
+              <span>Original Text · 外语原著</span>
+              <span style="font-size:11px; font-weight:normal; color:var(--text-light);">SBD 缩写/引语精准断句</span>
+            </div>
+          </div>
+          <div id="source_pane_content">
+            <!-- Dynamic Paragraphs -->
+          </div>
+        </section>
+
+        <div class="pane-divider"></div>
+
+        <!-- Right Pane: Chinese Translation Alignment -->
+        <section class="pane trans-pane" id="trans_pane">
+          <div class="pane-header-sticky">
+            <div class="pane-title">
+              <span>Aligned Translation · 中文精译</span>
+              <span style="font-size:11px; font-weight:normal; color:var(--text-light);">段落结构化对齐</span>
+            </div>
+          </div>
+          <div id="trans_pane_content">
+            <!-- Dynamic Translations -->
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Right Drawer: Inspector Panel ("语法透视镜") -->
+    <aside class="inspector-drawer" id="inspector_drawer">
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <div class="drawer-title">
+            <span>🔬 语法透视镜</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-light);">Structured Output</span>
+        </div>
+        <button class="btn btn-icon-only btn-close-drawer" title="关闭透视镜">✕</button>
+      </div>
+
+      <div class="drawer-content">
+        <div style="text-align:center; padding: 60px 20px; color: var(--text-muted);">
+          点击左侧或右侧任意句子，即刻唤起句法切片、重点生词与文化典故深度剖析。
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Modal 1: Document Upload (Markdown / TXT) -->
+  <div class="modal-overlay" id="upload_modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">导入外语原著书籍</div>
+        <button class="btn btn-icon-only btn-close-upload">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="dropzone" id="dropzone">
+          <svg class="dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <div class="dropzone-title">拖拽文件至此处，或点击浏览选择</div>
+          <div class="dropzone-hint">支持 .md / .markdown / .txt 纯文本原著</div>
+          <input type="file" id="file_input" accept=".md,.markdown,.txt" style="display:none;" />
+        </div>
+        <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+          <strong>解析管线特性：</strong>
+          <ul style="padding-left: 20px; margin-top: 6px;">
+            <li>保留章节与段落元数据（<code>paragraph_id</code>, <code>sentence_id</code>）</li>
+            <li>处理 Mr., Dr., e.g., etc. 等缩写与复杂对话引号，严防碎片化断句</li>
+            <li>长篇小说自动建立章节与段落索引，支持滑动窗口按需加载</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-close-upload">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Vocabulary Notebook & Anki Export -->
+  <div class="modal-overlay" id="vocab_modal">
+    <div class="modal-dialog" style="max-width: 760px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📚 原著生词与句型本</span>
+          <span id="vocab_count" style="font-size: 13px; font-weight: normal; color: var(--text-light); margin-left: 8px;">0 个</span>
+        </div>
+        <button class="btn btn-icon-only btn-close-vocab">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="vocab_list_container" class="vocab-table-container">
+          <!-- Vocabulary Table -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn_export_anki" class="btn btn-primary">
+          <span>⚡ 一键导出至 Anki (TSV/CSV)</span>
+        </button>
+        <button class="btn btn-close-vocab">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Settings & LLM Configuration -->
+  <div class="modal-overlay" id="settings_modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ 模型与解析引擎设置</div>
+        <button class="btn btn-icon-only btn-close-settings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">LLM 提供商 / Provider</label>
+          <select id="settings_provider" class="form-select">
+            <option value="mock">内置智能演示引擎 (无需 API Key，零成本体验)</option>
+            <option value="deepseek">DeepSeek (性价比极高，严格 JSON)</option>
+            <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+            <option value="gemini">Google Gemini (Gemini 1.5 Flash / Pro)</option>
+            <option value="claude">Anthropic Claude (Claude 3.5 Sonnet)</option>
+            <option value="minimax">MiniMax (MiniMax-M3，Anthropic 兼容端点)</option>
+            <option value="custom">自定义兼容端点 (Ollama / 本地部署)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="password" id="settings_api_key" class="form-input" placeholder="sk-..." />
+          <div class="form-hint">本地存储于 SQLite，不上传任何第三方服务器。</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Base URL (可选或反代)</label>
+          <input type="text" id="settings_base_url" class="form-input" placeholder="默认使用官方端点" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">模型名称 (Model)</label>
+          <input type="text" id="settings_model_name" class="form-input" value="gpt-4o-mini" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">生成温度 (Temperature)</label>
+          <input type="number" id="settings_temperature" class="form-input" min="0" max="1" step="0.05" value="0.2" />
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="settings_mock_mode" />
+          <label for="settings_mock_mode" style="font-size:13px; font-weight:600; cursor:pointer;">
+            优先离线演示模式 (优先使用经典预置解析与启发式切片)
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-close-settings">取消</button>
+        <button id="btn_save_settings" class="btn btn-primary">保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Whole-document analysis progress -->
+  <div class="modal-overlay" id="batch_modal">
+    <div class="modal-dialog" style="max-width:460px;">
+      <div class="modal-header">
+        <div class="modal-title">⚡ 全文翻译与解析</div>
+      </div>
+      <div class="modal-body">
+        <div id="batch_summary" style="font-size:13px; line-height:1.7; margin-bottom:12px;"></div>
+        <div class="progress-track">
+          <div class="progress-fill" id="batch_bar" style="width:0%"></div>
+        </div>
+        <div id="batch_counts" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-light); margin-top:8px;">
+          <span id="batch_phase">准备中…</span>
+          <span id="batch_numbers">0 / 0</span>
+        </div>
+        <div id="batch_error" style="display:none; margin-top:12px; font-size:12px; color:#ef4444; word-break:break-word;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="btn_batch_cancel">停止</button>
+        <button class="btn btn-primary" id="btn_batch_done" style="display:none;">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast_container"></div>
+
+  <!-- Application Modules Entry Point -->
+  <script type="module" src="main.js"></script>
+</body>
+</html>

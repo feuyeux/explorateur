@@ -1,0 +1,32 @@
+{
+  "name": "humming-to-score",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Humming-to-Score (哼唱识谱 / Query by Humming) 跨平台桌面应用 (Tauri)",
+  "type": "module",
+  "scripts": {
+    "build:vendor": "node scripts/build_vendor.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test": "node tests/test_pipeline.mjs && node tests/test_note_editor.mjs && node tests/test_synthesizer.mjs && node tests/test_ui_contract.mjs && node tests/test_e2e_pipeline.mjs"
+  },
+  "keywords": [
+    "audio",
+    "humming",
+    "pitch-tracking",
+    "basic-pitch",
+    "score-rendering",
+    "midi",
+    "musicxml",
+    "tauri",
+    "cross-platform"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "@spotify/basic-pitch": "^1.0.1",
+    "@tensorflow/tfjs": "3.21.0"
+  }
+}

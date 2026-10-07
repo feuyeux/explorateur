@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哼唱识谱 (Humming to Score)</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <!-- 顶部标题与状态 (紧凑单行) -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo-area">
+        <div class="logo-icon">🎵</div>
+        <div class="logo-titles">
+          <h1>哼唱识谱</h1>
+          <span class="logo-sub">Humming to Score</span>
+        </div>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span id="global-status-msg">就绪：点击开始录音，或载入音频文件开始识谱</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 五阶段流水线：紧凑横条，展开查看详情 -->
+  <div id="pipeline-panel" class="pipeline-panel hidden">
+    <button type="button" id="pipeline-toggle" class="pipeline-toggle" title="展开/收起流水线详情">
+      <span class="pipeline-title">🔬 转谱流水线</span>
+      <span class="pipeline-caret">▾</span>
+    </button>
+    <div class="pipeline-stages" id="pipeline-stages">
+      <div class="pipeline-stage" id="stage-1">
+        <div class="stage-head">
+          <span class="stage-index">①</span>
+          <span class="stage-name">预处理</span>
+          <span class="stage-status-badge">等待中</span>
+        </div>
+        <div class="stage-desc">增益规整 · 重采样 16kHz · 80–2000Hz 带通滤波 · VAD 人声端点检测</div>
+        <div class="stage-details" id="stage-1-details"></div>
+      </div>
+      <div class="pipeline-stage" id="stage-2">
+        <div class="stage-head">
+          <span class="stage-index">②</span>
+          <span class="stage-name">转谱引擎</span>
+          <span class="stage-status-badge">等待中</span>
+        </div>
+        <div class="stage-desc">调度转录引擎提取 Pitch Contour 与 Onset 概率矩阵</div>
+        <div class="stage-details" id="stage-2-details"></div>
+      </div>
+      <div class="pipeline-stage" id="stage-3">
+        <div class="stage-head">
+          <span class="stage-index">③</span>
+          <span class="stage-name">切分量化</span>
+          <span class="stage-status-badge">等待中</span>
+        </div>
+        <div class="stage-desc">中值去颤音 · 120ms 滑音合并 · 节拍网格吸附量化</div>
+        <div class="stage-details" id="stage-3-details"></div>
+      </div>
+      <div class="pipeline-stage" id="stage-4">
+        <div class="stage-head">
+          <span class="stage-index">④</span>
+          <span class="stage-name">调性推断</span>
+          <span class="stage-status-badge">等待中</span>
+        </div>
+        <div class="stage-desc">Krumhansl-Schmuckler 24 大小调余弦相似度匹配 · 小节划分</div>
+        <div class="stage-details" id="stage-4-details"></div>
+      </div>
+      <div class="pipeline-stage" id="stage-5">
+        <div class="stage-head">
+          <span class="stage-index">⑤</span>
+          <span class="stage-name">乐谱渲染</span>
+          <span class="stage-status-badge">等待中</span>
+        </div>
+        <div class="stage-desc">矢量五线谱 · 首调简谱 · 钢琴卷帘 · MIDI / MusicXML 导出</div>
+        <div class="stage-details" id="stage-5-details"></div>
+      </div>
+    </div>
+    <div class="pipeline-meta">
+      <span id="pipeline-elapsed" class="pipeline-elapsed"></span>
+    </div>
+  </div>
+
+  <main class="workspace">
+    <!-- 左侧控制栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+        <!-- 功能控制栏 -->
+        <section class="control-bar">
+          <!-- 主操作行 -->
+          <div class="control-row">
+            <!-- 麦克风现场哼唱录音按钮 -->
+            <button id="btn-record" class="btn btn-record" title="点击开始哼唱录音">
+              <span class="rec-dot"></span>
+              <span>开始哼唱录音</span>
+            </button>
+
+            <!-- 载入录音文件 (支持 .m4a / .wav / .mp3) -->
+            <div class="file-upload-wrap">
+              <button type="button" id="btn-load-audio" class="btn btn-primary" title="载入手机录音或外部音频文件 (.m4a/.wav/.mp3)">
+                <span>📥 载入音频文件</span>
+              </button>
+              <input type="file" id="audio-file-input" accept=".m4a,.aac,.wav,.mp3,.ogg,audio/*" class="file-upload-input" title="点击选择音频文件">
+            </div>
+
+        <!-- 转谱算法引擎选择 (Spotify Basic Pitch / Magenta SPICE / pYIN) -->
+        <div class="control-group">
+          <span class="control-label">转谱引擎:</span>
+          <select id="select-engine">
+            <option value="basic_pitch" selected>🧠 Spotify Basic Pitch 神经网络 (内置)</option>
+            <option value="spice">🎵 Google Magenta SPICE 声学模型</option>
+            <option value="pyin">🎙️ 经典自研 pYIN + Viterbi (本地极速)</option>
+          </select>
+        </div>
+
+        <!-- 节拍器引导 -->
+        <div class="control-group bpm-row">
+          <button id="btn-metronome" class="btn btn-secondary btn-sm" title="开启节拍器引导哼唱">
+            <span class="metronome-indicator" id="metronome-light"></span>
+            <span>节拍器</span>
+          </button>
+          <span class="control-label">BPM:</span>
+          <input type="range" id="input-bpm" min="50" max="180" value="100" style="width: 70px;">
+          <input type="number" id="input-bpm-num" min="50" max="180" step="1" value="100"
+                 title="直接输入 BPM 数值 (50-180)" aria-label="BPM 数值输入">
+        </div>
+
+        <!-- 拍号选择 -->
+        <div class="control-group">
+          <span class="control-label">拍号:</span>
+          <select id="select-meter">
+            <option value="4/4" selected>4/4 拍</option>
+            <option value="3/4">3/4 拍</option>
+            <option value="2/4">2/4 拍</option>
+          </select>
+        </div>
+
+        <!-- 量化网格选择 -->
+        <div class="control-group">
+          <span class="control-label">网格:</span>
+          <select id="select-grid">
+            <option value="0.5" selected>八分 (1/2拍)</option>
+            <option value="0.25">十六分 (1/4拍)</option>
+            <option value="1.0">四分 (1拍)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 实时音频采集与声音检测监控屏 (录音过程中直观可见) -->
+      <div id="live-monitor-container" class="live-monitor-container">
+        <div class="monitor-header">
+          <div class="monitor-title">
+            <span class="pulse-ring"></span>
+            <span>🎙️ 声音检测与实时波形监控屏 (Live Audio Detector & Pitch Tuner)</span>
+          </div>
+          <div id="record-vad-badge" class="vad-badge">
+            <span class="vad-dot"></span>
+            <span>待录音 / 静音</span>
+          </div>
+        </div>
+
+        <div class="monitor-body">
+          <!-- 实时示波器 Canvas (60FPS 实时绘制波形与频域柱) -->
+          <div class="monitor-canvas-wrap">
+            <canvas id="record-monitor-canvas" width="600" height="80"></canvas>
+          </div>
+
+          <!-- 右侧：实时音高 Tuner + 实时 VU 音量电平表 -->
+          <div class="monitor-stats-col">
+            <div class="stat-box">
+              <span class="stat-label">实时音调 (Pitch Tuner):</span>
+              <div id="record-tuner-note" class="tuner-note-display">
+                <span style="color:#64748b;">-- (未开始录音)</span>
+              </div>
+            </div>
+
+            <div class="stat-box">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span class="stat-label">输入电平 (VU Meter):</span>
+                <span id="record-vu-db" class="stat-val">-∞ dB</span>
+              </div>
+              <div class="vu-meter-track">
+                <div id="record-vu-bar" class="vu-meter-bar"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 📁 已载入录音文件 (m4a/wav) 播放器与专属识谱控制卡片 -->
+      <div id="audio-file-workspace" class="audio-file-workspace hidden">
+        <div class="file-meta-header">
+          <div class="file-identity">
+            <span id="file-format-badge" class="format-badge m4a">.M4A</span>
+            <span id="file-name-text" class="file-name-text">未选择文件</span>
+          </div>
+          <div class="file-specs" id="file-specs-info">
+            <span>时长: <strong id="spec-duration">0.0s</strong></span>
+            <span>|</span>
+            <span>采样率: <strong id="spec-samplerate">16,000 Hz</strong></span>
+            <span>|</span>
+            <span>声道: <strong id="spec-channels">单声道</strong></span>
+            <span>|</span>
+            <span>大小: <strong id="spec-size">-- KB</strong></span>
+          </div>
+        </div>
+
+        <!-- 原声音频播放器条 (支持播放、暂停、拖拽进度) -->
+        <div class="audio-player-bar">
+          <button id="btn-file-play" class="btn-player-play" title="播放/暂停已载入的原声音频">
+            <span id="file-play-icon">▶</span>
+          </button>
+          <div class="player-progress-wrap">
+            <input type="range" id="file-progress-slider" class="player-slider" min="0" max="100" value="0" step="0.1">
+            <div class="player-time-row">
+              <span id="file-current-time">00:00</span>
+              <span id="file-total-time">00:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 专属「开始识谱」操作行 -->
+        <div class="transcribe-action-row">
+          <button id="btn-start-transcribe" class="btn-transcribe" title="点击执行五阶段转谱流水线">
+            <span>🎼 开始识谱 (Transcribe to Score)</span>
+          </button>
+          <div class="transcribe-hint">
+            <span>💡 提示：点击「开始识谱」将通过所选引擎将此音频转化为五线谱与简谱</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 预置哼唱示例快速测试行 -->
+      <div class="control-row">
+        <div class="presets-group">
+          <span class="preset-chip-title">✨ 快速测试示例:</span>
+          <button class="btn btn-secondary btn-sm preset-btn" data-preset="demo_m4a" style="border-color: #f43f5e; color: #fda4af;" title="载入专为本系统测试的 Apple m4a 音频文件">
+            <span>📱 载入内置 m4a 样本 (demo_twinkle.m4a)</span>
+          </button>
+          <button class="btn btn-secondary btn-sm preset-btn" data-preset="twinkle">
+            <span>⭐ 《小星星》</span>
+          </button>
+          <button class="btn btn-secondary btn-sm preset-btn" data-preset="two_tigers">
+            <span>🐯 《两只老虎》</span>
+          </button>
+          <button class="btn btn-secondary btn-sm preset-btn" data-preset="ode_to_joy">
+            <span>🎼 《欢乐颂》</span>
+          </button>
+          <button class="btn btn-secondary btn-sm preset-btn" data-preset="happy_birthday">
+            <span>🎂 《生日快乐》</span>
+          </button>
+        </div>
+      </div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- 乐谱工作区 (Score Workbench) -->
+    <section class="score-area">
+      <section class="score-workbench">
+      <div class="workbench-header">
+        <!-- 视图切换 Tabs -->
+        <div class="view-tabs">
+          <button class="view-tab-btn active" data-view="both">五线谱 + 简谱</button>
+          <button class="view-tab-btn" data-view="staff">纯五线谱 (Staff)</button>
+          <button class="view-tab-btn" data-view="jianpu">纯简谱 (Jianpu)</button>
+          <button class="view-tab-btn" data-view="pianoroll">钢琴卷帘对比 (Piano Roll)</button>
+        </div>
+
+        <!-- 试听与导出操作群 -->
+        <div class="playback-export-actions">
+          <button id="btn-play-synth" class="btn btn-primary btn-sm" disabled>
+            <span>▶ 试听乐谱 (MIDI Synth)</span>
+          </button>
+          <button id="btn-play-original" class="btn btn-secondary btn-sm" disabled>
+            <span>🔊 对照原声</span>
+          </button>
+          <button id="btn-export-midi" class="btn btn-secondary btn-sm" disabled>
+            <span>⬇ 导出 MIDI (.mid)</span>
+          </button>
+          <button id="btn-export-xml" class="btn btn-secondary btn-sm" disabled>
+            <span>⬇ 导出 MusicXML (.musicxml)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="score-viewport">
+      <!-- 音符交互编辑工作栏 (识别出乐谱后常驻且高亮当前音符) -->
+      <div id="note-editor-toolbar" class="note-editor-toolbar hidden">
+        <!-- 头部信息与导航行 -->
+        <div class="editor-header-row">
+          <div class="note-editor-info" id="selected-note-info">
+            <span class="editor-badge">编辑模式</span>
+            <span id="selected-note-text">已选择音符: C4 (MIDI 60) | 四分音符 (1拍)</span>
+          </div>
+          <div class="note-nav-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-prev-note" title="选择上一个音符 (快捷键: ←)">◀ 上一音符</button>
+            <button class="btn btn-secondary btn-sm" id="btn-audition-note" title="试听当前选中音符 (快捷键: 空格)">🔊 试听</button>
+            <button class="btn btn-secondary btn-sm" id="btn-next-note" title="选择下一个音符 (快捷键: →)">下一音符 ▶</button>
+          </div>
+        </div>
+
+        <!-- 详细编辑控制组 -->
+        <div class="editor-controls-row">
+          <!-- 音高调整组 -->
+          <div class="editor-tool-group">
+            <span class="editor-tool-label">音高选择:</span>
+            <select id="select-note-pitch" title="直接设定音名与八度"></select>
+            <button class="btn btn-secondary btn-sm" id="btn-pitch-down" title="降半音 (-1) 快捷键: ↓">半音 ↓</button>
+            <button class="btn btn-secondary btn-sm" id="btn-pitch-up" title="升半音 (+1) 快捷键: ↑">半音 ↑</button>
+            <button class="btn btn-secondary btn-sm" id="btn-octave-down" title="降八度 (-12) 快捷键: Shift+↓">八度 ↓</button>
+            <button class="btn btn-secondary btn-sm" id="btn-octave-up" title="升八度 (+12) 快捷键: Shift+↑">八度 ↑</button>
+          </div>
+
+          <!-- 时值调整组 -->
+          <div class="editor-tool-group">
+            <span class="editor-tool-label">时值选择:</span>
+            <button class="btn btn-secondary btn-sm btn-dur" data-dur="4.0" title="全音符 (4拍)">全音符</button>
+            <button class="btn btn-secondary btn-sm btn-dur" data-dur="2.0" title="二分音符 (2拍)">二分</button>
+            <button class="btn btn-secondary btn-sm btn-dur" data-dur="1.0" title="四分音符 (1拍)">四分</button>
+            <button class="btn btn-secondary btn-sm btn-dur" data-dur="0.5" title="八分音符 (1/2拍)">八分</button>
+            <button class="btn btn-secondary btn-sm btn-dur" data-dur="0.25" title="十六分音符 (1/4拍)">十六分</button>
+            <button class="btn btn-secondary btn-sm" id="btn-dur-dotted" title="添加/移除附点 (x1.5)">附点 ·</button>
+          </div>
+
+          <!-- 结构增删组 -->
+          <div class="editor-tool-group">
+            <button class="btn btn-secondary btn-sm" id="btn-insert-note" title="在当前音符后插入新音符">➕ 插入音符</button>
+            <button class="btn btn-secondary btn-sm" id="btn-insert-rest" title="在当前音符后插入 1 拍空拍休止符">⏸ 插入休止</button>
+            <button class="btn btn-secondary btn-sm btn-danger" id="btn-delete-note" title="删除当前音符 (快捷键: Delete / Backspace)">🗑 删除音符</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 音符序列芯片时间轴 (快速可视定位与选定) -->
+      <div id="note-timeline-container" class="note-timeline-container hidden">
+        <div class="timeline-header">
+          <span class="timeline-title">🎼 音符序列导览 (点击即选定修改，或使用键盘 ←/→/↑/↓/Delete 快捷编辑):</span>
+          <span id="timeline-count-badge" class="timeline-count-badge">共 0 个音符</span>
+        </div>
+        <div id="note-chips-bar" class="note-chips-bar"></div>
+      </div>
+
+      <!-- 五线谱面板 -->
+      <div id="staff-panel" class="score-panel">
+        <div class="panel-header">
+          <span>🎼 五线谱排版 (Treble Clef / Staff Notation)</span>
+          <span style="font-size: 11px; font-weight: normal; color: #94a3b8;">（点击任意音符可微调音高、时值或单独试听）</span>
+        </div>
+        <div class="staff-box" id="staff-container">
+          <div class="empty-score-tip">暂无乐谱数据，请先哼唱录音、载入 m4a 文件或加载上方测试示例</div>
+        </div>
+      </div>
+
+      <!-- 简谱面板 -->
+      <div id="jianpu-panel" class="score-panel">
+        <div class="panel-header">
+          <span>📝 简谱排版 (Numbered Musical Notation / 1=C 唱名法)</span>
+        </div>
+        <div class="jianpu-box" id="jianpu-container">
+          <div class="empty-score-tip">暂无简谱数据</div>
+        </div>
+      </div>
+
+      <!-- 钢琴卷帘对比面板 -->
+      <div id="pianoroll-panel" class="score-panel hidden">
+        <div class="panel-header">
+          <span>🎹 钢琴卷帘与音高对比 (青色曲线: 人声连续F0轨迹 / 绿色方块: 量化离散音符)</span>
+        </div>
+        <div class="pianoroll-box">
+          <canvas id="pianoroll-canvas" width="1180" height="280"></canvas>
+        </div>
+      </div>
+      </div><!-- /.score-viewport -->
+    </section>
+    </section><!-- /.score-area -->
+  </main>
+</div><!-- /.app-shell -->
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

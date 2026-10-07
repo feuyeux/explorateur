@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "默认能力集。HummingScore 前端为纯静态 Web 资源，不调用任何 Tauri IPC 命令，因此仅保留 core:default。麦克风采集走 WebAudio getUserMedia，由系统权限与 Info.plist 的 NSMicrophoneUsageDescription 处理，不需要额外 capability。",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -1,10 +1,61 @@
-# uv
+# 仓库 = humming(Tauri/JS) + reading(Tauri/JS) + usine(Python/uv) 三个子项目
+# 下面的规则对全仓库任意层级生效（未锚定的模式会匹配每一层目录）
+
+# ── 操作系统 ───────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ── 编辑器 / IDE ──────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── 密钥与本地覆盖配置（绝不入库）─────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── 依赖目录 ──────────────────────────────────────────────
+node_modules/
 .venv/
-
-# Python
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 
-# 产物（可再生，不入库）
+# ── 通用构建产物 ──────────────────────────────────────────
+target/
+dist/
 build/
+*.tsbuildinfo
+
+# ── Tauri 生成物 ──────────────────────────────────────────
+# gen/schemas 由 tauri-build 生成，仅用于 capabilities 的 IDE 自动补全
+# （** 前缀必需：该目录在 humming/src-tauri/ 与 reading/src-tauri/ 之下）
+**/gen/schemas/
+
+# ── humming 专属生成物 ────────────────────────────────────
+# vendor/ 由 humming/scripts/build_vendor.mjs 从 node_modules 打包产出
+# （basic-pitch.bundle.js + 模型权重 .bin），每次 tauri dev/build 自动重建，
+# 且已有 mtime 增量判定 —— 删掉重跑 npm run build:vendor 即可复原
+humming/src/vendor/
+
+# ── 测试与静态检查缓存 ────────────────────────────────────
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ── 产物（可再生，不入库）─────────────────────────────────
 examples/
