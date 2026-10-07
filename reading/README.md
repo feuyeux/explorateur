@@ -195,5 +195,4 @@ cargo fmt
 
 ## 📄 许可
 
-**未声明。** 同工作区的 `humming` 已在 `package.json` 中声明 MIT；本工程尚无许可证声明，
-对外分发前需先补齐。
+MIT。完整条款见 [LICENSE](LICENSE)；`src-tauri/Cargo.toml` 的 `license` 字段已声明。

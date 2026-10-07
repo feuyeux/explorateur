@@ -178,4 +178,5 @@ npm run build:vendor       # 需要时单独重建 vendor
 
 ## 📄 许可
 
-MIT（见 `package.json` 的 `license` 字段）
+MIT。完整条款见 [LICENSE](LICENSE)；`package.json` 的 `license` 与
+`src-tauri/Cargo.toml` 的 `license` 字段均已声明。

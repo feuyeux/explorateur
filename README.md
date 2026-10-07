@@ -56,6 +56,8 @@ cd usine && uv sync && uv run feuille verify
 
 - **`.gitignore` 在根目录统一管理**，覆盖三个子项目：依赖目录（`node_modules/`、`.venv/`）、构建产物（`target/`、`dist/`、`build/`）、Tauri 生成物（`**/gen/schemas/`）、`humming/src/vendor/`、密钥文件与系统文件。
 - **lockfile 一律入库**：`package-lock.json`、两个 `Cargo.lock`、`uv.lock`。三个都是应用项目，可复现构建优先于 diff 整洁。
+- **两个应用均以 MIT 发布**：各自项目根目录带 `LICENSE`（`humming/LICENSE`、`reading/LICENSE`），
+  版权署名分别为 HummingScore 与 Ready Reader；机器可读声明在 `package.json` / `Cargo.toml` 的 `license` 字段。
 - **`src-tauri/target/` 是本机私有的**，不随仓库分发，也因此**会带上编译时的绝对路径**。项目目录一旦改名或移动，必须 `cargo clean` 后重建，否则 tauri-build 会继续去读旧路径而构建失败（见下方「已知坑」）。
 - 纪律条文的权威文本在 [`usine/AGENTS.md`](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）。该文件自带完整约定，本工作区没有更上层的 `AGENTS.md`。
 
