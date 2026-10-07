@@ -3,7 +3,10 @@
 // Ported from backend/app/routers/analysis.py.
 use crate::db;
 use crate::glossary::format_glossary_for_prompt;
-use crate::llm::{analyze_paragraph_structured, analyze_single_sentence_deep, ProviderCfg};
+use crate::llm::{
+    analyze_paragraph_structured, analyze_single_sentence_deep, is_placeholder_translation,
+    ProviderCfg, PLACEHOLDER_TRANSLATION_PREFIX,
+};
 use chrono::Local;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -74,9 +77,32 @@ fn cache_sentence(
 ) -> Result<(), String> {
     // A model that returns no translation for one sentence must not replace a
     // good one with an empty string: the paragraph would then look translated
-    // forever while showing nothing. A blank result is simply not cached, so the
-    // next click retries it.
+    // forever while showing nothing. A blank result is simply not cached, so
+    // the next click retries it.
     if translation.trim().is_empty() {
+        return Ok(());
+    }
+    // The offline demo engine's `【译文】<原文>` echo is not a translation
+    // either. Persisting it made a demo click (no key configured yet) mark
+    // the paragraph as fully translated forever — from then on it was served
+    // from cache and never sent to the model again, even after a key was
+    // configured. Refuse to store it, and clear one left behind by an older
+    // run so the paragraph reads as untranslated again. A real translation
+    // is never touched.
+    if is_placeholder_translation(translation) {
+        conn.execute(
+            "UPDATE sentences
+                SET translation = NULL,
+                    deep_analysis_json = NULL,
+                    updated_at = ?2
+              WHERE id = ?1 AND translation LIKE ?3",
+            rusqlite::params![
+                sentence_id,
+                now_str(),
+                format!("{PLACEHOLDER_TRANSLATION_PREFIX}%")
+            ],
+        )
+        .map_err(|e| e.to_string())?;
         return Ok(());
     }
     conn.execute(
@@ -88,9 +114,14 @@ fn cache_sentence(
     Ok(())
 }
 
-/// A sentence counts as translated only with a non-blank translation in hand.
+/// A sentence counts as translated only with a real translation in hand: the
+/// offline demo engine's `【译文】` echo of the original is explicitly not one,
+/// or a paragraph analysed before a key was configured would be served from
+/// cache forever while showing its own original.
 fn is_translated(translation: &Option<String>) -> bool {
-    translation.as_deref().is_some_and(|t| !t.trim().is_empty())
+    translation
+        .as_deref()
+        .is_some_and(|t| !t.trim().is_empty() && !is_placeholder_translation(t))
 }
 
 fn parse_deep(raw: &Option<String>) -> serde_json::Value {
@@ -133,6 +164,7 @@ pub async fn analyze_paragraph_conn(
             "paragraph_id": paragraph_id,
             "sentences": sentences,
             "source": "cache",
+            "engine": "cache",
         }));
     }
 
@@ -143,7 +175,7 @@ pub async fn analyze_paragraph_conn(
         .map(|(id, o, _, _)| (id.clone(), o.clone()))
         .collect();
 
-    let analyzed =
+    let (analyzed, provenance) =
         analyze_paragraph_structured(&cfg, paragraph_id, &raw_text, &meta, &glossary_context).await;
     let analyzed_map: HashMap<String, serde_json::Value> = analyzed
         .into_iter()
@@ -198,6 +230,12 @@ pub async fn analyze_paragraph_conn(
         "paragraph_id": paragraph_id,
         "sentences": final_sentences,
         "source": "generated",
+        // Which engine produced the sentences, and the live-call error behind
+        // an offline fallback. Without this, a failed call looked exactly like
+        // a finished one: the toast said success while the right pane showed
+        // the original.
+        "engine": provenance.engine,
+        "fallback_reason": provenance.fallback_reason,
     }))
 }
 
@@ -240,11 +278,21 @@ pub async fn get_sentence_analysis_conn(
 
     let cfg = load_provider_cfg(conn);
     let glossary_context = format_glossary_for_prompt(conn, &doc_id)?;
-    let result =
+    let (result, provenance) =
         analyze_single_sentence_deep(&cfg, sentence_id, &original, &para_text, &glossary_context)
             .await;
 
-    let value = serde_json::to_value(&result).map_err(|e| e.to_string())?;
+    let mut value = serde_json::to_value(&result).map_err(|e| e.to_string())?;
+    // Surface which engine produced this so the caller (the inspector and the
+    // batch counters) can tell a real analysis from a demo echo or a silent
+    // fallback, which used to be indistinguishable from success.
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert("engine".into(), serde_json::json!(provenance.engine));
+        obj.insert(
+            "fallback_reason".into(),
+            serde_json::json!(provenance.fallback_reason),
+        );
+    }
     let trans = if result.translation.trim().is_empty() {
         translation.unwrap_or_default()
     } else {
@@ -271,7 +319,13 @@ pub async fn prefetch_next_paragraph(app: tauri::AppHandle, doc_id: String, next
         };
         let cached: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sentences WHERE paragraph_id = ?1 AND translation IS NOT NULL",
+                &format!(
+                    "SELECT COUNT(*) FROM sentences
+                      WHERE paragraph_id = ?1
+                        AND translation IS NOT NULL
+                        AND TRIM(translation) <> ''
+                        AND translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
+                ),
                 [&p_id],
                 |r| r.get(0),
             )
@@ -300,7 +354,7 @@ pub async fn prefetch_next_paragraph(app: tauri::AppHandle, doc_id: String, next
         return;
     };
 
-    let analyzed =
+    let (analyzed, _provenance) =
         analyze_paragraph_structured(&cfg, &p_id, &raw_text, &meta, &glossary_context).await;
     let _ = db::with_conn(&app, |conn| {
         for a in analyzed {
@@ -643,5 +697,61 @@ mod tests {
             )
             .unwrap();
         assert_eq!(stored, "叫我以实玛利吧。");
+    }
+
+    #[test]
+    fn test_a_placeholder_translation_is_not_treated_as_done() {
+        // The regression this file fixes: the offline demo engine's `【译文】`
+        // echo used to count as a real translation, so a paragraph analysed
+        // before a key was configured was served from cache forever and never
+        // sent to the model — the right pane kept showing the original.
+        let conn = seeded();
+        conn.execute(
+            "UPDATE sentences SET translation = ?1, deep_analysis_json = '{}'
+              WHERE id = 'doc_x_p2_s1'",
+            [format!(
+                "{PLACEHOLDER_TRANSLATION_PREFIX}Some years ago, I went to sea."
+            )],
+        )
+        .unwrap();
+
+        let out = block_on(analyze_paragraph_conn(&conn, "doc_x_p2")).unwrap();
+        assert_eq!(
+            out["source"], "generated",
+            "a placeholder row must be regenerated, not served as cached"
+        );
+        assert_eq!(out["engine"], "offline-demo");
+        // Still a demo in mock mode — but the placeholder must not be
+        // persisted again, so the paragraph stays retryable.
+        let stored: Option<String> = conn
+            .query_row(
+                "SELECT translation FROM sentences WHERE id='doc_x_p2_s1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(stored.is_none(), "a demo echo must never reach the cache");
+    }
+
+    #[test]
+    fn test_cache_sentence_refuses_to_persist_a_placeholder() {
+        // The write side of the same defect: persisting the demo echo is what
+        // made the paragraph read as translated in the first place.
+        let conn = seeded();
+        cache_sentence(
+            &conn,
+            "doc_x_p1_s1",
+            &format!("{PLACEHOLDER_TRANSLATION_PREFIX}Call me Ishmael."),
+            "{}",
+        )
+        .unwrap();
+        let stored: Option<String> = conn
+            .query_row(
+                "SELECT translation FROM sentences WHERE id='doc_x_p1_s1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(stored.is_none(), "the placeholder must not be written");
     }
 }

@@ -11,9 +11,11 @@
 //     job the user is waiting on. Progress is therefore *pulled*: the
 //     frontend polls `progress()`. That avoids introducing an event bus for
 //     one screen, and cannot lose a listener or leak one across windows.
-use crate::commands::analysis::{analyze_paragraph_conn, get_sentence_analysis_conn, load_provider_cfg};
+use crate::commands::analysis::{
+    analyze_paragraph_conn, get_sentence_analysis_conn, load_provider_cfg,
+};
 use crate::db;
-use crate::llm::is_mock;
+use crate::llm::{is_mock, PLACEHOLDER_TRANSLATION_PREFIX};
 use rusqlite::Connection;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -73,16 +75,17 @@ pub fn plan_batch(conn: &Connection, doc_id: &str) -> Result<Plan, String> {
     let mut paragraphs = Vec::new();
     {
         let mut stmt = conn
-            .prepare(
+            .prepare(&format!(
                 "SELECT p.id FROM paragraphs p
                  WHERE p.doc_id = ?1
                    AND NOT EXISTS (
                      SELECT 1 FROM sentences s
                      WHERE s.paragraph_id = p.id
                        AND s.translation IS NOT NULL AND TRIM(s.translation) <> ''
+                        AND s.translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'
                    )
                  ORDER BY p.order_index",
-            )
+            ))
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([doc_id], |r| r.get::<_, String>(0))
@@ -183,7 +186,12 @@ async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, con
         // `total` is fixed for the whole run, not per phase: growing it as each
         // phase starts would walk the progress bar backwards from 100%.
         let mut st = state();
-        st.phase = if sentence_mode { "sentences" } else { "paragraphs" }.into();
+        st.phase = if sentence_mode {
+            "sentences"
+        } else {
+            "paragraphs"
+        }
+        .into();
     }
     let next = std::sync::Arc::new(AtomicUsize::new(0));
 
@@ -203,7 +211,12 @@ async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, con
                 }
                 let id = items[i].clone();
                 let label = if sentence_mode {
-                    format!("{} · 句子 {}/{}", if items.is_empty() { "" } else { "深度解析" }, i + 1, total)
+                    format!(
+                        "{} · 句子 {}/{}",
+                        if items.is_empty() { "" } else { "深度解析" },
+                        i + 1,
+                        total
+                    )
                 } else {
                     format!("翻译段落 {}/{}", i + 1, total)
                 };
@@ -226,7 +239,26 @@ async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, con
                 .await;
 
                 match res {
-                    Ok(_) => bump_done(&label, true, None),
+                    Ok(v) => {
+                        // An item the offline engine stood in for (the live call
+                        // failed, or mock mode crept in mid-run) did not really
+                        // get translated: its response carries only the demo
+                        // echo and nothing was cached. Count it as failed so
+                        // the progress dialog tells the truth and a re-run
+                        // retries it, instead of reporting a book "finished"
+                        // whose right pane still shows the original.
+                        let engine = v.get("engine").and_then(|e| e.as_str());
+                        if matches!(engine, Some("offline-fallback") | Some("offline-demo")) {
+                            let reason = v
+                                .get("fallback_reason")
+                                .and_then(|r| r.as_str())
+                                .map(str::to_string)
+                                .unwrap_or_else(|| "模型调用失败，已回退离线演示引擎".to_string());
+                            bump_done(&label, false, Some(reason));
+                        } else {
+                            bump_done(&label, true, None);
+                        }
+                    }
                     Err(e) => bump_done(&label, false, Some(e)),
                 }
             }
@@ -240,7 +272,11 @@ async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, con
 
 /// Kicks off a whole-document run. Returns immediately; progress comes from
 /// [`progress`].
-pub fn start(app: AppHandle, doc_id: String, concurrency: Option<usize>) -> Result<serde_json::Value, String> {
+pub fn start(
+    app: AppHandle,
+    doc_id: String,
+    concurrency: Option<usize>,
+) -> Result<serde_json::Value, String> {
     {
         let st = state();
         if st.running {
@@ -347,8 +383,10 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
-        conn.execute("INSERT INTO paragraphs VALUES ('p2','d1','ch_1',1,'b')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p2','d1','ch_1',1,'b')", [])
+            .unwrap();
         conn.execute(
             "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
              VALUES ('s1','d1','p1',0,'One.','','')", [],
@@ -369,7 +407,10 @@ mod tests {
         seed(&conn);
         let plan = plan_batch(&conn, "d1").unwrap();
         assert_eq!(plan.paragraphs, vec!["p1".to_string(), "p2".to_string()]);
-        assert_eq!(plan.sentences, vec!["s1".to_string(), "s2".to_string(), "s3".to_string()]);
+        assert_eq!(
+            plan.sentences,
+            vec!["s1".to_string(), "s2".to_string(), "s3".to_string()]
+        );
         assert_eq!(plan.total(), 5);
     }
 
@@ -377,20 +418,36 @@ mod tests {
     fn a_translated_paragraph_is_left_out_so_a_rerun_resumes() {
         let conn = mem_db();
         seed(&conn);
-        conn.execute("UPDATE sentences SET translation='一句。' WHERE id='s1'", []).unwrap();
+        conn.execute(
+            "UPDATE sentences SET translation='一句。' WHERE id='s1'",
+            [],
+        )
+        .unwrap();
 
         let plan = plan_batch(&conn, "d1").unwrap();
         assert_eq!(plan.paragraphs, vec!["p2".to_string()], "p1 is done");
         assert_eq!(plan.paragraphs_skipped, 1);
-        assert_eq!(plan.sentences.len(), 3, "a translated sentence can still need deep analysis");
+        assert_eq!(
+            plan.sentences.len(),
+            3,
+            "a translated sentence can still need deep analysis"
+        );
     }
 
     #[test]
     fn an_analysed_sentence_is_left_out() {
         let conn = mem_db();
         seed(&conn);
-        conn.execute("UPDATE sentences SET translation='一句。' WHERE id='s1'", []).unwrap();
-        conn.execute("UPDATE sentences SET deep_analysis_json='{}' WHERE id='s2'", []).unwrap();
+        conn.execute(
+            "UPDATE sentences SET translation='一句。' WHERE id='s1'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE sentences SET deep_analysis_json='{}' WHERE id='s2'",
+            [],
+        )
+        .unwrap();
 
         let plan = plan_batch(&conn, "d1").unwrap();
         assert_eq!(plan.paragraphs, vec!["p2".to_string()]);
@@ -402,7 +459,11 @@ mod tests {
     fn a_finished_document_plans_nothing() {
         let conn = mem_db();
         seed(&conn);
-        conn.execute("UPDATE sentences SET translation='x', deep_analysis_json='{}'", []).unwrap();
+        conn.execute(
+            "UPDATE sentences SET translation='x', deep_analysis_json='{}'",
+            [],
+        )
+        .unwrap();
         let plan = plan_batch(&conn, "d1").unwrap();
         assert!(plan.is_empty());
         assert_eq!(plan.total(), 0);
@@ -412,9 +473,41 @@ mod tests {
     fn whitespace_is_not_a_translation() {
         let conn = mem_db();
         seed(&conn);
-        conn.execute("UPDATE sentences SET translation='   ' WHERE id='s1'", []).unwrap();
+        conn.execute("UPDATE sentences SET translation='   ' WHERE id='s1'", [])
+            .unwrap();
         let plan = plan_batch(&conn, "d1").unwrap();
         assert!(plan.paragraphs.contains(&"p1".to_string()));
+    }
+
+    #[test]
+    fn placeholder_translations_do_not_mark_a_paragraph_done() {
+        // The offline demo engine's echo used to count as a translation, so a
+        // paragraph analysed before a key was configured was skipped by every
+        // later full-book run — while the reader kept showing the original in
+        // the translation pane.
+        let conn = mem_db();
+        seed(&conn);
+        conn.execute(
+            "UPDATE sentences SET translation=?1 WHERE id='s1'",
+            [format!("{PLACEHOLDER_TRANSLATION_PREFIX}One.")],
+        )
+        .unwrap();
+
+        let plan = plan_batch(&conn, "d1").unwrap();
+        assert!(
+            plan.paragraphs.contains(&"p1".to_string()),
+            "a placeholder-only paragraph must be re-planned"
+        );
+
+        // The other half of the gate: a real translation still skips its
+        // paragraph, or every rerun would re-bill the whole book.
+        conn.execute(
+            "UPDATE sentences SET translation='一句。' WHERE id='s1'",
+            [],
+        )
+        .unwrap();
+        let plan = plan_batch(&conn, "d1").unwrap();
+        assert!(!plan.paragraphs.contains(&"p1".to_string()));
     }
 
     #[test]
@@ -423,9 +516,12 @@ mod tests {
         seed(&conn);
         conn.execute(
             "INSERT INTO documents (id,title,author,file_type,raw_content,created_at)
-             VALUES ('d2','Other','A','md','x','2026')", [],
-        ).unwrap();
-        conn.execute("INSERT INTO paragraphs VALUES ('q1','d2','ch_1',0,'a')", []).unwrap();
+             VALUES ('d2','Other','A','md','x','2026')",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('q1','d2','ch_1',0,'a')", [])
+            .unwrap();
         conn.execute(
             "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
              VALUES ('z1','d2','q1',0,'X.',NULL,NULL)", [],
@@ -446,11 +542,15 @@ mod tests {
         assert!(err.contains("离线演示模式"), "got: {err}");
 
         conn.execute(
-            "INSERT OR REPLACE INTO settings (key,value) VALUES ('mock_mode','false')", [],
-        ).unwrap();
+            "INSERT OR REPLACE INTO settings (key,value) VALUES ('mock_mode','false')",
+            [],
+        )
+        .unwrap();
         conn.execute(
-            "INSERT OR REPLACE INTO settings (key,value) VALUES ('api_key','sk-test')", [],
-        ).unwrap();
+            "INSERT OR REPLACE INTO settings (key,value) VALUES ('api_key','sk-test')",
+            [],
+        )
+        .unwrap();
         assert!(guard_against_offline(&conn).is_ok());
     }
 
@@ -459,8 +559,10 @@ mod tests {
         let conn = mem_db();
         seed(&conn);
         conn.execute(
-            "INSERT OR REPLACE INTO settings (key,value) VALUES ('api_key','sk-test')", [],
-        ).unwrap();
+            "INSERT OR REPLACE INTO settings (key,value) VALUES ('api_key','sk-test')",
+            [],
+        )
+        .unwrap();
         // mock_mode defaults to true, so a filled-in key alone is not enough —
         // exactly the trap the settings UI has to make the user clear.
         assert!(guard_against_offline(&conn).is_err());

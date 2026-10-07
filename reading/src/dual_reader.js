@@ -188,7 +188,18 @@ export class DualReader {
 
     try {
       const res = await api.analyzeParagraph(paragraphId);
-      this.showToast('段落结构化解析完成！', 'success');
+
+      // `engine` tells a demo echo apart from a live call. Without it the
+      // button always claimed success while the right pane kept showing the
+      // original: offline-demo echoes the source as 【译文】原文, and
+      // offline-fallback means the live call failed and the demo stood in.
+      if (res.engine === 'offline-demo') {
+        this.showToast('离线演示模式：当前显示的是占位译文（原文回显）。在「⚙️ 设置」里配置 API Key 并保存后，重新点击本段即可生成真实译文。', 'info');
+      } else if (res.engine === 'offline-fallback') {
+        this.showToast(`模型调用失败，已回退离线演示引擎：${res.fallback_reason || '未知原因'}`, 'error');
+      } else {
+        this.showToast('段落结构化解析完成！', 'success');
+      }
 
       // Update local state
       const targetP = this.currentDoc.paragraphs.find(p => p.paragraph_id === paragraphId);

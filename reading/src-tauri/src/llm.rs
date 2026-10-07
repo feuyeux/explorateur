@@ -65,6 +65,40 @@ pub struct ProviderCfg {
     pub mock_mode: bool,
 }
 
+/// The offline demo engine echoes the original as the "translation" with this
+/// prefix instead of translating it. The rest of the app treats it as a
+/// sentinel: a placeholder never counts as a translated sentence and is never
+/// persisted, so a demo click cannot poison the cache the way it used to — a
+/// paragraph whose every sentence held one read as fully translated forever
+/// and was never sent to the model again, even after a key was configured.
+pub const PLACEHOLDER_TRANSLATION_PREFIX: &str = "【译文】";
+
+/// True for the offline demo engine's `【译文】<原文>` echo of the original.
+pub fn is_placeholder_translation(translation: &str) -> bool {
+    translation
+        .trim_start()
+        .starts_with(PLACEHOLDER_TRANSLATION_PREFIX)
+}
+
+/// Which engine actually produced an analysis and — when it was not the live
+/// model — why. A silent fallback used to be indistinguishable from success,
+/// which is exactly how a paragraph could "finish" showing its own original.
+#[derive(Debug, Clone)]
+pub struct EngineProvenance {
+    /// "llm", "offline-demo" (no key / mock mode) or "offline-fallback"
+    /// (a live call was attempted and failed).
+    pub engine: &'static str,
+    /// The live-call error behind an `offline-fallback`.
+    pub fallback_reason: Option<String>,
+}
+
+fn offline_demo() -> EngineProvenance {
+    EngineProvenance {
+        engine: "offline-demo",
+        fallback_reason: None,
+    }
+}
+
 /// The offline engine runs when the user explicitly asked for mock mode, or
 /// when there is no key to spend. A `provider` of "mock" is handled separately
 /// at the call sites, mirroring the Python version.
@@ -250,7 +284,7 @@ pub fn heuristic_sentence_analysis(sentence_id: &str, original: &str) -> Sentenc
     SentenceAnalysis {
         sentence_id: sentence_id.to_string(),
         original: original.to_string(),
-        translation: format!("【译文】{original}"),
+        translation: format!("{PLACEHOLDER_TRANSLATION_PREFIX}{original}"),
         overall_tone: Some("严谨庄重，具有典型文学叙事色彩".to_string()),
         grammar_analysis: Some(GrammarAnalysis {
             structure,
@@ -438,12 +472,15 @@ pub async fn analyze_paragraph_structured(
     paragraph_text: &str,
     sentences_meta: &[(String, String)],
     glossary_context: &str,
-) -> Vec<SentenceAnalysis> {
+) -> (Vec<SentenceAnalysis>, EngineProvenance) {
     if is_mock(cfg) || cfg.provider == "mock" {
-        return sentences_meta
-            .iter()
-            .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
-            .collect();
+        return (
+            sentences_meta
+                .iter()
+                .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
+                .collect(),
+            offline_demo(),
+        );
     }
 
     let user_prompt = build_paragraph_analysis_prompt(
@@ -454,34 +491,44 @@ pub async fn analyze_paragraph_structured(
     );
     let expected: Vec<String> = sentences_meta.iter().map(|(id, _)| id.clone()).collect();
 
+    let fallback = |reason: String| -> (Vec<SentenceAnalysis>, EngineProvenance) {
+        (
+            sentences_meta
+                .iter()
+                .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
+                .collect(),
+            EngineProvenance {
+                engine: "offline-fallback",
+                fallback_reason: Some(reason),
+            },
+        )
+    };
+
     match call_llm(cfg, SYSTEM_PROMPT, &user_prompt, true).await {
         Ok(raw) => match serde_json::from_str::<serde_json::Value>(&strip_json_fence(&raw)) {
             Ok(parsed) => {
                 let sents = parse_llm_sentences(&parsed, &expected);
                 if sents.is_empty() {
                     eprintln!("LLM returned no matching sentence ids; using offline engine.");
-                    sentences_meta
-                        .iter()
-                        .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
-                        .collect()
+                    fallback("模型返回的句子 id 与请求不一致".to_string())
                 } else {
-                    sents
+                    (
+                        sents,
+                        EngineProvenance {
+                            engine: "llm",
+                            fallback_reason: None,
+                        },
+                    )
                 }
             }
             Err(e) => {
                 eprintln!("LLM JSON parse failed: {e}. Falling back to offline engine.");
-                sentences_meta
-                    .iter()
-                    .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
-                    .collect()
+                fallback(format!("模型输出不是合法 JSON: {e}"))
             }
         },
         Err(e) => {
             eprintln!("LLM call failed: {e}. Falling back to offline engine.");
-            sentences_meta
-                .iter()
-                .map(|(id, orig)| heuristic_sentence_analysis(id, orig))
-                .collect()
+            fallback(e)
         }
     }
 }
@@ -492,9 +539,12 @@ pub async fn analyze_single_sentence_deep(
     target_sentence: &str,
     paragraph_context: &str,
     glossary_context: &str,
-) -> SentenceAnalysis {
+) -> (SentenceAnalysis, EngineProvenance) {
     if is_mock(cfg) || cfg.provider == "mock" {
-        return heuristic_sentence_analysis(sentence_id, target_sentence);
+        return (
+            heuristic_sentence_analysis(sentence_id, target_sentence),
+            offline_demo(),
+        );
     }
 
     let user_prompt = build_single_sentence_deep_prompt(
@@ -504,26 +554,42 @@ pub async fn analyze_single_sentence_deep(
         glossary_context,
     );
 
+    let fallback = |reason: String| -> (SentenceAnalysis, EngineProvenance) {
+        (
+            heuristic_sentence_analysis(sentence_id, target_sentence),
+            EngineProvenance {
+                engine: "offline-fallback",
+                fallback_reason: Some(reason),
+            },
+        )
+    };
+
     match call_llm(cfg, SYSTEM_PROMPT, &user_prompt, true).await {
         Ok(raw) => match serde_json::from_str::<serde_json::Value>(&strip_json_fence(&raw)) {
             Ok(parsed) => {
                 let expected = vec![sentence_id.to_string()];
                 match parse_llm_sentences(&parsed, &expected).into_iter().next() {
-                    Some(a) => a,
+                    Some(a) => (
+                        a,
+                        EngineProvenance {
+                            engine: "llm",
+                            fallback_reason: None,
+                        },
+                    ),
                     None => {
                         eprintln!("LLM returned no matching sentence; using offline engine.");
-                        heuristic_sentence_analysis(sentence_id, target_sentence)
+                        fallback("模型返回的句子 id 与请求不一致".to_string())
                     }
                 }
             }
             Err(e) => {
                 eprintln!("Single sentence JSON parse failed: {e}");
-                heuristic_sentence_analysis(sentence_id, target_sentence)
+                fallback(format!("模型输出不是合法 JSON: {e}"))
             }
         },
         Err(e) => {
             eprintln!("Single sentence LLM error: {e}");
-            heuristic_sentence_analysis(sentence_id, target_sentence)
+            fallback(e)
         }
     }
 }
@@ -562,13 +628,14 @@ mod tests {
     #[test]
     fn test_curated_ishmael_exact_match() {
         let cfg = mock_cfg();
-        let out = block_on(analyze_paragraph_structured(
+        let (out, prov) = block_on(analyze_paragraph_structured(
             &cfg,
             "p1",
             "Call me Ishmael.",
             &[("p1_s1".into(), "Call me Ishmael.".into())],
             "",
         ));
+        assert_eq!(prov.engine, "offline-demo");
         assert_eq!(out.len(), 1);
         let a = &out[0];
         assert_eq!(a.sentence_id, "p1_s1");
@@ -585,13 +652,14 @@ mod tests {
     fn test_heuristic_fallback_svo() {
         let cfg = mock_cfg();
         let orig = "The old man carefully navigated the treacherous strait near the harbor.";
-        let out = block_on(analyze_paragraph_structured(
+        let (out, prov) = block_on(analyze_paragraph_structured(
             &cfg,
             "p2",
             orig,
             &[("p2_s1".into(), orig.into())],
             "",
         ));
+        assert_eq!(prov.engine, "offline-demo");
         let a = &out[0];
         assert_eq!(a.translation, format!("【译文】{orig}"));
         assert!(!a.grammar_analysis.as_ref().unwrap().components.is_empty());
@@ -612,7 +680,7 @@ mod tests {
             temperature: 0.2,
             mock_mode: false,
         };
-        let out = block_on(analyze_paragraph_structured(
+        let (out, prov) = block_on(analyze_paragraph_structured(
             &cfg,
             "p3",
             "A simple sentence.",
@@ -621,7 +689,30 @@ mod tests {
         ));
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].sentence_id, "p3_s1");
-        assert!(out[0].translation.starts_with("【译文】"));
+        assert!(out[0]
+            .translation
+            .starts_with(PLACEHOLDER_TRANSLATION_PREFIX));
+        // The fallback must not be silent: the caller surfaces the reason so
+        // "finished" and "the call failed" are distinguishable in the UI.
+        assert_eq!(prov.engine, "offline-fallback");
+        assert!(
+            prov.fallback_reason
+                .as_deref()
+                .is_some_and(|r| !r.is_empty()),
+            "a failed live call must carry its error out"
+        );
+    }
+
+    #[test]
+    fn test_placeholder_translation_recognition() {
+        assert!(is_placeholder_translation("【译文】Call me Ishmael."));
+        assert!(is_placeholder_translation("  【译文】X"));
+        assert!(!is_placeholder_translation("叫我以实玛利吧。"));
+        assert!(!is_placeholder_translation(""));
+        // A real translation quoting the marker must not be misread as one.
+        assert!(!is_placeholder_translation(
+            "原文中出现了「【译文】」的说法，翻译如下"
+        ));
     }
 
     #[test]
@@ -704,13 +795,22 @@ mod tests {
             mock_mode: false,
         };
         let (base, model, is_anthropic) = resolve_endpoint(&cfg);
-        assert!(is_anthropic, "minimax must not fall back to the OpenAI wire format");
+        assert!(
+            is_anthropic,
+            "minimax must not fall back to the OpenAI wire format"
+        );
         assert_eq!(base, "https://api.minimaxi.com/anthropic/v1");
-        assert_eq!(format!("{base}/messages"), "https://api.minimaxi.com/anthropic/v1/messages");
+        assert_eq!(
+            format!("{base}/messages"),
+            "https://api.minimaxi.com/anthropic/v1/messages"
+        );
         // The model box is filled from MiniMax's own /v1/models list; the
         // OpenRouter-style "minimax/" prefix 404s here.
         assert_eq!(model, "MiniMax-M3");
-        assert!(!is_mock(&cfg), "a key without mock mode must not be treated as offline");
+        assert!(
+            !is_mock(&cfg),
+            "a key without mock mode must not be treated as offline"
+        );
     }
 
     #[test]

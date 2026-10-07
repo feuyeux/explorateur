@@ -2,6 +2,7 @@
 // Ported from backend/app/routers/documents.py.
 use crate::db;
 use crate::glossary;
+use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 use crate::markdown::strip_markdown;
 use crate::splitter::split_paragraphs_and_sentences;
 use rusqlite::Connection;
@@ -367,12 +368,22 @@ pub fn export_markdown_to(
     })?;
     let (title, sentences): (String, i64) = db::with_conn(&app, |conn| {
         let title: String = conn
-            .query_row("SELECT title FROM documents WHERE id = ?1", [&doc_id], |r| r.get(0))
+            .query_row(
+                "SELECT title FROM documents WHERE id = ?1",
+                [&doc_id],
+                |r| r.get(0),
+            )
             .unwrap_or_default();
         let n: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sentences
-                 WHERE doc_id = ?1 AND translation IS NOT NULL AND TRIM(translation) <> ''",
+                // Same placeholder rule as the export itself: the offline demo
+                // engine's `【译文】` echo must not count as a translated
+                // sentence in the "N 句译文" report.
+                &format!(
+                    "SELECT COUNT(*) FROM sentences
+                     WHERE doc_id = ?1 AND translation IS NOT NULL AND TRIM(translation) <> ''
+                       AND translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
+                ),
                 [&doc_id],
                 |r| r.get(0),
             )

@@ -81,7 +81,7 @@ fn block_on_inside_a_spawned_task_panics_which_is_why_commands_use_run_blocking(
                 &meta,
                 "",
             ));
-            out.len()
+            out.0.len()
         })
     });
 
@@ -112,7 +112,7 @@ fn run_blocking_carries_a_real_analysis_through_that_same_dispatch_shape() {
                 &meta,
                 "",
             ));
-            Ok(out.len())
+            Ok(out.0.len())
         })
         .await
     });

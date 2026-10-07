@@ -63,13 +63,14 @@ fn full_pipeline_mock_mode() {
     assert!(!sents_meta.is_empty());
 
     let cfg = load_provider_cfg(&conn);
-    let analysed = tauri::async_runtime::block_on(analyze_paragraph_structured(
+    let (analysed, provenance) = tauri::async_runtime::block_on(analyze_paragraph_structured(
         &cfg,
         &p0_id,
         p0["raw_text"].as_str().unwrap(),
         &sents_meta,
         "",
     ));
+    assert_eq!(provenance.engine, "offline-demo");
     assert_eq!(analysed.len(), sents_meta.len());
     assert!(analysed
         .iter()
@@ -81,15 +82,29 @@ fn full_pipeline_mock_mode() {
         .find(|a| a.original.contains("Call me Ishmael."))
         .expect("the opening line must be present");
     assert_eq!(ishmael.translation, "叫我以实玛利吧。");
+    let sentence_id = ishmael.sentence_id.clone();
 
-    // 4. Cache write + cache read through the command path.
+    // 4. Cache write through the command path: the curated sentence keeps its
+    //    real translation in the database, while the demo engine's echo for
+    //    the non-curated ones is not persisted — the paragraph stays retryable
+    //    instead of reading as translated forever while showing the original.
     let first = tauri::async_runtime::block_on(analyze_paragraph_conn(&conn, &p0_id)).unwrap();
     assert_eq!(first["source"], "generated");
+    let stored: Option<String> = conn
+        .query_row(
+            "SELECT translation FROM sentences WHERE id = ?1",
+            [&sentence_id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored.as_deref(), Some("叫我以实玛利吧。"));
     let second = tauri::async_runtime::block_on(analyze_paragraph_conn(&conn, &p0_id)).unwrap();
-    assert_eq!(second["source"], "cache");
+    assert_eq!(
+        second["source"], "generated",
+        "a paragraph whose non-curated sentences only got demo echoes must stay retryable"
+    );
 
     // 5. Deep analysis for a single sentence.
-    let sentence_id = sents_meta[0].0.clone();
     let deep =
         tauri::async_runtime::block_on(get_sentence_analysis_conn(&conn, &sentence_id)).unwrap();
     assert_eq!(deep["sentence_id"], sentence_id.as_str());

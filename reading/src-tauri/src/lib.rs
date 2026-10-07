@@ -1,5 +1,5 @@
-pub mod commands;
 pub mod batch;
+pub mod commands;
 pub mod db;
 pub mod export;
 pub mod glossary;

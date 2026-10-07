@@ -1,4 +1,5 @@
 // Database layer.
+use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 use rusqlite::Connection;
 use std::path::PathBuf;
 use tauri::Manager;
@@ -37,6 +38,29 @@ fn legacy_db_path() -> Option<PathBuf> {
     legacy_db_path_from(&cwd)
 }
 
+/// Clears cached rows whose "translation" is the offline demo engine's
+/// `【译文】<原文>` echo, together with the heuristic analysis cached beside it.
+///
+/// Those rows are the residue of analysing a paragraph before any API key was
+/// configured. They used to be indistinguishable from real translations, so the
+/// paragraph was served from cache forever and never sent to the model — even
+/// after a key was configured, the translation pane kept showing the original.
+/// The write side now refuses to persist them; this purge heals databases
+/// written by older builds. Idempotent, so it is safe to run on every launch.
+pub fn purge_placeholder_translations(conn: &Connection) -> Result<usize, String> {
+    conn.execute(
+        &format!(
+            "UPDATE sentences
+                SET translation = NULL,
+                    deep_analysis_json = NULL,
+                    updated_at = datetime('now', 'localtime')
+              WHERE translation LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
+        ),
+        [],
+    )
+    .map_err(|e| e.to_string())
+}
+
 /// Creates the six-table schema, the three indexes, and the default settings
 /// seed. Split out of `init_db` so it can be tested against an in-memory db.
 pub fn init_conn(conn: &Connection) -> Result<(), String> {
@@ -60,6 +84,8 @@ pub fn init_conn(conn: &Connection) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
         }
     }
+
+    purge_placeholder_translations(conn)?;
     Ok(())
 }
 
@@ -189,6 +215,103 @@ mod tests {
             })
             .unwrap();
         assert_eq!(provider, "deepseek");
+    }
+
+    /// Seeds one paragraph with a placeholder-only sentence plus a real one.
+    fn seed_purge_fixture(conn: &Connection) {
+        conn.execute(
+            "INSERT INTO documents (id,title,author,file_type,raw_content,created_at)
+             VALUES ('d1','T','A','md','x','2026')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'raw')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
+             VALUES ('s_ph','d1','p1',0,'One.',?1,'{\"sentence_id\":\"s_ph\"}')",
+            [format!("{PLACEHOLDER_TRANSLATION_PREFIX}One.")],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation,deep_analysis_json)
+             VALUES ('s_real','d1','p1',1,'Two.','真实译文','{}')",
+            [],
+        )
+        .unwrap();
+    }
+
+    fn translation_of(conn: &Connection, id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT translation FROM sentences WHERE id = ?1",
+            [id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn init_conn_purges_offline_placeholder_rows_and_keeps_real_ones() {
+        // A database written by an older build holds `【译文】` echoes that look
+        // exactly like translations to every read path; the startup purge is
+        // what heals it, so those paragraphs go back to the model.
+        let conn = Connection::open_in_memory().unwrap();
+        init_conn(&conn).unwrap();
+        seed_purge_fixture(&conn);
+
+        init_conn(&conn).unwrap(); // second launch: idempotent
+
+        let (ph_trans, ph_deep): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT translation, deep_analysis_json FROM sentences WHERE id='s_ph'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert!(ph_trans.is_none(), "the placeholder must be cleared");
+        assert!(ph_deep.is_none(), "its heuristic analysis must go with it");
+
+        let real = translation_of(&conn, "s_real");
+        assert_eq!(real.as_deref(), Some("真实译文"));
+        let deep: Option<String> = conn
+            .query_row(
+                "SELECT deep_analysis_json FROM sentences WHERE id='s_real'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(deep.as_deref(), Some("{}"));
+    }
+
+    #[test]
+    fn purge_reports_how_many_rows_it_healed() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_conn(&conn).unwrap();
+        seed_purge_fixture(&conn);
+        // Two more placeholder rows to make the count observable.
+        conn.execute(
+            "INSERT INTO paragraphs VALUES ('p2','d1','ch_1',1,'raw')",
+            [],
+        )
+        .unwrap();
+        for i in 0..2 {
+            conn.execute(
+                "INSERT INTO sentences (id,doc_id,paragraph_id,order_index,original,translation)
+                 VALUES (?1,'d1','p2',?2,'X.',?3)",
+                rusqlite::params![
+                    format!("s_x{i}"),
+                    i,
+                    format!("{PLACEHOLDER_TRANSLATION_PREFIX}X.")
+                ],
+            )
+            .unwrap();
+        }
+
+        assert_eq!(purge_placeholder_translations(&conn).unwrap(), 3);
+        assert_eq!(purge_placeholder_translations(&conn).unwrap(), 0);
     }
 
     #[test]

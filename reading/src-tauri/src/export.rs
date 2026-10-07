@@ -3,7 +3,7 @@
 // This is the reading-oriented counterpart to the Anki deck in `vocab.rs`: the
 // deck is a flashcard format, this is a document a person re-reads. Both read
 // the same cached rows, so an export never triggers a model call.
-use crate::llm::SentenceAnalysis;
+use crate::llm::{SentenceAnalysis, PLACEHOLDER_TRANSLATION_PREFIX};
 use rusqlite::Connection;
 use std::fmt::Write as _;
 
@@ -34,7 +34,13 @@ fn blockquote(text: &str) -> String {
     out.trim_end().to_string()
 }
 
-fn write_sentence_analysis(out: &mut String, n: usize, original: &str, translation: &str, deep: Option<&str>) {
+fn write_sentence_analysis(
+    out: &mut String,
+    n: usize,
+    original: &str,
+    translation: &str,
+    deep: Option<&str>,
+) {
     let _ = writeln!(out, "**{n}.** {}", escape_sentence(original.trim()));
     let _ = writeln!(out);
     let _ = writeln!(out, "{}", blockquote(&escape_sentence(translation.trim())));
@@ -132,15 +138,20 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
         )
         .map_err(|e| e.to_string())?;
 
+    // The offline demo engine's `【译文】` echo is not a translation:
+    // exporting it would hand the reader a "bilingual" file whose right
+    // column is the original again. (Such rows are also purged at startup;
+    // this keeps the export honest against any database regardless.)
     let mut stmt = conn
-        .prepare(
+        .prepare(&format!(
             "SELECT p.order_index, s.order_index, s.original, s.translation, s.deep_analysis_json
              FROM paragraphs p
              JOIN sentences s ON s.paragraph_id = p.id
              WHERE p.doc_id = ?1
                AND s.translation IS NOT NULL AND TRIM(s.translation) <> ''
-             ORDER BY p.order_index, s.order_index",
-        )
+               AND s.translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'
+             ORDER BY p.order_index, s.order_index"
+        ))
         .map_err(|e| e.to_string())?;
 
     // One pass to count, one to render: rusqlite borrows the connection for the
@@ -184,14 +195,21 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
     let _ = writeln!(
         out,
         "> 作者：{} · 导出于 {now} · 已解析 {}/{} 段 · {sentences_exported} 句译文",
-        if author.trim().is_empty() { "未知" } else { author.trim() },
+        if author.trim().is_empty() {
+            "未知"
+        } else {
+            author.trim()
+        },
         paragraphs.len(),
         paragraphs_total
     );
     let _ = writeln!(out);
 
     if paragraphs.is_empty() {
-        let _ = writeln!(out, "> 尚无已解析的段落。请先在应用中点「一键解析本段」，再重新导出。");
+        let _ = writeln!(
+            out,
+            "> 尚无已解析的段落。请先在应用中点「一键解析本段」，再重新导出。"
+        );
         return Ok(out);
     }
 
@@ -209,7 +227,11 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
 }
 
 /// Writes the rendered Markdown to `path`, returning the byte count.
-pub fn write_document_markdown_to(conn: &Connection, doc_id: &str, path: &str) -> Result<usize, String> {
+pub fn write_document_markdown_to(
+    conn: &Connection,
+    doc_id: &str,
+    path: &str,
+) -> Result<usize, String> {
     let md = export_document_markdown(conn, doc_id)?;
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
@@ -280,10 +302,22 @@ mod tests {
             [],
         )
         .unwrap();
-        seed_sentence(&conn, "s1", "d1", "p1", 0, "Call me Ishmael.", Some("叫我以实玛利吧。"), None);
+        seed_sentence(
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "Call me Ishmael.",
+            Some("叫我以实玛利吧。"),
+            None,
+        );
 
         let md = export_document_markdown(&conn, "d1").unwrap();
-        assert!(md.starts_with("---\n"), "must open with YAML front matter: {md}");
+        assert!(
+            md.starts_with("---\n"),
+            "must open with YAML front matter: {md}"
+        );
         assert!(md.contains("title: \"白鲸记\""));
         assert!(md.contains("paragraphs_exported: 1"));
         assert!(md.contains("paragraphs_total: 1"));
@@ -297,9 +331,19 @@ mod tests {
     fn renders_the_full_analysis_when_it_is_cached() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "白鲸记", "麦尔维尔");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'raw')", []).unwrap();
+        conn.execute(
+            "INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'raw')",
+            [],
+        )
+        .unwrap();
         seed_sentence(
-            &conn, "s1", "d1", "p1", 0, "Call me Ishmael.", Some("叫我以实玛利吧。"),
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "Call me Ishmael.",
+            Some("叫我以实玛利吧。"),
             Some(analysis_json()),
         );
 
@@ -307,7 +351,10 @@ mod tests {
         assert!(md.contains("- **句法** 祈使句 (Imperative sentence)"));
         assert!(md.contains("  - `Call` — 谓语动词 (V)"));
         assert!(md.contains("- **词法**"));
-        assert!(md.contains("**Ishmael**（专有名词） 人名（以实玛利）"), "got:\n{md}");
+        assert!(
+            md.contains("**Ishmael**（专有名词） 人名（以实玛利）"),
+            "got:\n{md}"
+        );
         assert!(md.contains("《圣经·创世记》中亚伯拉罕之子。"));
         assert!(md.contains("- **典故**"));
         assert!(md.contains("**Call me [Name]** — 非正式的自我介绍。"));
@@ -321,14 +368,29 @@ mod tests {
         // when it is a fragment of it.
         let conn = mem_db();
         seed_doc(&conn, "d1", "白鲸记", "麦尔维尔");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
-        conn.execute("INSERT INTO paragraphs VALUES ('p2','d1','ch_1',1,'b')", []).unwrap();
-        conn.execute("INSERT INTO paragraphs VALUES ('p3','d1','ch_1',2,'c')", []).unwrap();
-        seed_sentence(&conn, "s1", "d1", "p2", 0, "Call me Ishmael.", Some("叫我以实玛利吧。"), None);
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p2','d1','ch_1',1,'b')", [])
+            .unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p3','d1','ch_1',2,'c')", [])
+            .unwrap();
+        seed_sentence(
+            &conn,
+            "s1",
+            "d1",
+            "p2",
+            0,
+            "Call me Ishmael.",
+            Some("叫我以实玛利吧。"),
+            None,
+        );
         seed_sentence(&conn, "s2", "d1", "p3", 0, "Untranslated.", None, None);
 
         let md = export_document_markdown(&conn, "d1").unwrap();
-        assert!(md.contains("## 第 2 段"), "exported paragraph keeps its real index");
+        assert!(
+            md.contains("## 第 2 段"),
+            "exported paragraph keeps its real index"
+        );
         assert!(!md.contains("## 第 1 段"));
         assert!(!md.contains("## 第 3 段"));
         assert!(md.contains("paragraphs_exported: 1"));
@@ -340,19 +402,46 @@ mod tests {
     fn a_blank_translation_counts_as_unparsed() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "T", "A");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
         seed_sentence(&conn, "s1", "d1", "p1", 0, "Hi.", Some("   "), None);
 
         let md = export_document_markdown(&conn, "d1").unwrap();
-        assert!(md.contains("尚无已解析的段落"), "whitespace is not a translation");
+        assert!(
+            md.contains("尚无已解析的段落"),
+            "whitespace is not a translation"
+        );
         assert!(!md.contains("**1.**"));
+    }
+
+    #[test]
+    fn a_placeholder_translation_is_not_exported() {
+        // The offline demo engine's echo is a display placeholder, not a
+        // translation: exporting it would put the original in both columns of
+        // a file that claims to be the bilingual reading copy.
+        let conn = mem_db();
+        seed_doc(&conn, "d1", "T", "A");
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
+        let placeholder = format!("{PLACEHOLDER_TRANSLATION_PREFIX}One.");
+        seed_sentence(&conn, "s1", "d1", "p1", 0, "One.", Some(&placeholder), None);
+        seed_sentence(&conn, "s2", "d1", "p1", 1, "Two.", Some("第二句。"), None);
+
+        let md = export_document_markdown(&conn, "d1").unwrap();
+        assert!(md.contains("sentences_exported: 1"));
+        assert!(md.contains("第二句。"));
+        assert!(
+            !md.contains(&placeholder),
+            "the placeholder must stay out of the export"
+        );
     }
 
     #[test]
     fn a_document_with_nothing_parsed_explains_itself_instead_of_being_empty() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "白鲸记", "麦尔维尔");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
         seed_sentence(&conn, "s1", "d1", "p1", 0, "Call me Ishmael.", None, None);
 
         let md = export_document_markdown(&conn, "d1").unwrap();
@@ -364,14 +453,24 @@ mod tests {
     fn keeps_the_translation_when_the_cached_analysis_is_corrupt() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "T", "A");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
         seed_sentence(
-            &conn, "s1", "d1", "p1", 0, "Call me Ishmael.", Some("叫我以实玛利吧。"),
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "Call me Ishmael.",
+            Some("叫我以实玛利吧。"),
             Some("{not json at all"),
         );
 
         let md = export_document_markdown(&conn, "d1").unwrap();
-        assert!(md.contains("> 叫我以实玛利吧。"), "translation must survive");
+        assert!(
+            md.contains("> 叫我以实玛利吧。"),
+            "translation must survive"
+        );
         assert!(!md.contains("- **句法**"));
     }
 
@@ -381,9 +480,17 @@ mod tests {
         // the second line escapes the quote and starts a stray paragraph.
         let conn = mem_db();
         seed_doc(&conn, "d1", "T", "A");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
         seed_sentence(
-            &conn, "s1", "d1", "p1", 0, "One two.", Some("第一行\n第二行"), None,
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "One two.",
+            Some("第一行\n第二行"),
+            None,
         );
 
         let md = export_document_markdown(&conn, "d1").unwrap();
@@ -394,8 +501,18 @@ mod tests {
     fn escapes_backticks_that_would_open_a_code_fence() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "T", "A");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
-        seed_sentence(&conn, "s1", "d1", "p1", 0, "He said ```hi```.", Some("他说```你好```。"), None);
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
+        seed_sentence(
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "He said ```hi```.",
+            Some("他说```你好```。"),
+            None,
+        );
 
         let md = export_document_markdown(&conn, "d1").unwrap();
         assert!(md.contains("He said \\`\\`\\`hi\\`\\`\\`."), "got: {md}");
@@ -406,9 +523,19 @@ mod tests {
     fn orders_sentences_within_a_paragraph_by_their_own_index() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "T", "A");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
         // inserted out of order on purpose
-        seed_sentence(&conn, "s2", "d1", "p1", 1, "Second.", Some("第二句。"), None);
+        seed_sentence(
+            &conn,
+            "s2",
+            "d1",
+            "p1",
+            1,
+            "Second.",
+            Some("第二句。"),
+            None,
+        );
         seed_sentence(&conn, "s1", "d1", "p1", 0, "First.", Some("第一句。"), None);
 
         let md = export_document_markdown(&conn, "d1").unwrap();
@@ -428,8 +555,18 @@ mod tests {
     fn writes_the_file_and_reports_its_size() {
         let conn = mem_db();
         seed_doc(&conn, "d1", "白鲸记", "麦尔维尔");
-        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", []).unwrap();
-        seed_sentence(&conn, "s1", "d1", "p1", 0, "Call me Ishmael.", Some("叫我以实玛利吧。"), None);
+        conn.execute("INSERT INTO paragraphs VALUES ('p1','d1','ch_1',0,'a')", [])
+            .unwrap();
+        seed_sentence(
+            &conn,
+            "s1",
+            "d1",
+            "p1",
+            0,
+            "Call me Ishmael.",
+            Some("叫我以实玛利吧。"),
+            None,
+        );
 
         let dir = std::env::temp_dir().join("ready-md-export-test");
         let path = dir.join("nested").join("out.md");
