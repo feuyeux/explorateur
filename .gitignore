@@ -65,3 +65,6 @@ one-cup-tea-poster/
 one-unit-money-poster/
 # firecrawl 抓取缓存
 .firecrawl/
+# textlayer.viewport_deficit() 写出的视口探针：workdir 缺省时落在 cwd，
+# 模块自身不清理。它是运行时产物、可随时重跑再生，绝不入库
+*_vp_probe.html

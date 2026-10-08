@@ -9,7 +9,8 @@ description: >
   words/phrases with personas doing the TTS, or a talking poster —
   typically paired with the one-page-poster skill (the scenes reuse its
   subset fonts and per-glyph coloring). Not for general video editing or
-  generation from scratch (use video-generation).
+  generation from scratch (use video-generation), and not for subtitles over
+  live-action footage (that is multilingual-video-poetry).
 ---
 
 # Karaoke Video
@@ -25,25 +26,68 @@ registry speaking the phrase while its tokens light up one by one. A complete
 worked three-file source (all 12 scene markups, voices, config) lives in
 `assets/example/` — scaffold from it, not from past project directories.
 
+## 前置输入契约
+
+开工前必须拿到这 5 条。**缺哪条先问哪条**。
+
+| # | 必须明确 | 缺了会怎样 |
+|---|---|---|
+| 1 | 每个条目的**展示标记**（通常直接复用海报 cell markup） | 无场景可渲染 |
+| 2 | **TTS 文本与展示 token 的切分**（token 必须是 text 的连续字符区间） | 词级时间轴对不上，高亮错位 |
+| 3 | 每条目一个旁白人设（音色 + 人设字段） | 无法生成 TTS |
+| 4 | 画幅（横版 / 竖版 / 都要） | 状态帧几何与 `?fmt=v` 分支无从校验 |
+| 5 | 片头/片尾卡片（用 `one-page-poster` 的全屏封面变体） | 首尾帧不是满屏，出现色带 |
+
+**上游是 `one-page-poster`**：本 skill 复用它的 `fonts.css`、封面变体与逐字着色 recipe。新增字符要回到 poster 的 `fonts.json` 加并重跑 `fetch_fonts.py`，不要在本项目里另抄字体栈。
+
+人设若有注册表（如 `usine/personas/personas.json`），**以它为准**。
+
+## 边界
+
+**本 skill 是「海报/卡片驱动的成片」的唯一事实源**：edge-tts 词级时间轴 → 逐词高亮状态帧 → 帧精确合片 → 像素级验收。画面是渲染出来的（海报/卡片帧），**不是实拍**。
+
+BGM 在这里是**线性增益 `amix … normalize=0`**（底床垫在旁白下 ~15–18 dB RMS）。需要旁白把底床**动态压住**的侧链方案在 `multilingual-video-poetry`，不要在这里实现第二份。
+
+**床从哪来不在这里**：底床的生成与床位定标（Lyria 调用、采样率解读、频段自检、
+`gain` 反推）统一走 `bgm-bed`，本 skill 只负责把它裁到画面网格、两端淡出、定增益混进来。
+
+**不做 / 转交**：
+
+- 做海报本身、字体子集、逐字着色 → `one-page-poster`
+- 实拍母版压字幕 → `multilingual-video-poetry`
+- **生成 BGM 床 / 定床位** → `bgm-bed`
+- 写发布词 → `publish-copy`
+- 真的点发布 → `multilingual-video-publishing`
+
+## 代码归属
+
+拥有模块：（无）
+
+海报驱动成片的合成内核（`tts` / `audio` / `timeline` / `compose` / `render`）全在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 不拥有任何模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+
 ## Requirements (fresh machine)
 
 - Python 3.12 + edge-tts + Pillow + numpy — e.g.
   `uv run --project usine python <script>` (usine pyproject pins all three;
   never hardcode a machine-specific interpreter path in docs or configs);
 - `ffmpeg` / `ffprobe` (encode, concat, astats measurements);
-- `google-chrome` (headless state-frame render);
+- **任意 Chromium 系浏览器**——Chrome 或 Edge 都行，经 library 的
+  `feuille.platform.browser_path()` 解析（`build_video.py` 现走这一个事实源，
+  不再写死可执行名；`$CHROME_BIN` 可显式覆盖）；
 - network access for edge-tts (Microsoft neural voices);
-- OPTIONAL, BGM only: a music-generation capability (Google Lyria) — this
-  lives OUTSIDE this repo. `bgm.file` accepts any instrumental wav, so on a
-  machine without that capability either drop the `bgm` block or point it at
-  an existing track. Bed level target ~15–18 dB RMS under the narration.
+- OPTIONAL, BGM only: a bed + its `gain`. Generate them with the `bgm-bed`
+  skill (`uv sync --group music` + a Gemini API key; its Live music endpoint
+  is region-gated — see that skill's reference). `bgm.file` itself accepts
+  any instrumental wav — with no such capability either drop the `bgm` block
+  or point it at an existing track. Bed level target ~15–18 dB RMS under the
+  narration.
 
 ## Conventions
 
-- **Canonical item order** (same as the one-page-poster skill — keep the
-  poster, the voices config and the scenes in ONE order):
-  中 zh, 英 en, 德 de, 法 fr, 西 es, 俄 ru, 希腊 el, 印地 hi,
-  阿拉伯 ar, 希伯来 he, 日 ja, 韩 ko.
+- **Canonical item order**: defined **only** in the `one-page-poster` skill
+  (§Conventions). Keep the poster, the voices config and the scenes in ONE
+  order — but do NOT restate the list here; read it from that skill, so the
+  two cannot drift apart.
 - **Intro/outro cover**: use the poster skill's fullscreen cover variants
   (cover_landscape.png 1920×1080, cover_portrait.png 1080×1920) as
   per-format `intro_image` with a no-op `poster_filter` (`scale=1920:1080`
@@ -55,22 +99,17 @@ worked three-file source (all 12 scene markups, voices, config) lives in
   `{"file": "bgm_raw.wav", "gain": 0.1, "fade_in": 1.5, "fade_out": 3.0}`
   — mixes an instrumental bed under the narration: trimmed to the video
   grid, faded at both ends, fixed linear gain, `amix … normalize=0` so the
-  voice level is untouched. Aim the music ~15–18 dB RMS below the
-  narration (measure both with ffmpeg `astats`). Generate the bed with
-  the music-generation skill (Google Lyria — instrumental-only output;
-  request no drums/percussion and an "underscore for narration" mood).
-  **Cost facts (verified 2026-10)**: use the `lyria-realtime-exp` model on
-  a free-tier Gemini API key — free tier calls it at $0, and paid-only
-  models (Lyria 3.5 / 3 Clip / 3 Pro, $0.04–0.08 per song, no free tier)
-  are simply REJECTED on a free-tier project (no billing account = no
-  accidental charges, they fail loudly instead). Google publishes no
-  numeric free quota for lyria-realtime-exp; check the per-model limit in
-  AI Studio, or probe with a `--duration 5` generation (429 = daily quota
-  spent, still $0). Caveats: free-tier output may be used by Google for
-  product improvement (fine for instrumental beds); a machine with a
-  configured gcloud project makes lyria.py prefer the Vertex backend,
-  which bills that GCP project — unset `GOOGLE_CLOUD_PROJECT` to stay on
-  the free AI Studio path.
+  voice level is untouched. The bed itself is produced by `bgm-bed`
+  (`scripts/gen_bgm.py` over there) — **its level is derived, never copied**:
+  that skill prints the `gain` to write here from the measured narration and
+  the measured bed. Aim the music ~15–18 dB RMS below the narration, then
+  verify the number rather than trusting the constant (the two archived
+  projects landed on 0.10 and 0.13 from two different beds).
+
+**不要在本 skill 里重建 Lyria 那套知识**（可用模型 / 免费层配额 / 出口地区判区 /
+采样率反查 / 频段自检的阈值）——全部在 `bgm-bed`
+（[references/lyria-field-notes.md](../bgm-bed/references/lyria-field-notes.md)）。
+同一事实存两处必然漂移，而漂移的那份没人会去核对。
 
 ## Workflow
 
@@ -104,6 +143,9 @@ worked three-file source (all 12 scene markups, voices, config) lives in
 5. **Build**: `scripts/build_video.py video.json` (add `--only landscape`
    to iterate on one format first). Renders all state frames, assembles
    audio, mixes the optional `bgm` bed, and writes the mp4 per format.
+   The bed is a **separate asset produced before this step** (skill
+   `bgm-bed`) — this script only cuts it to the video grid, fades both ends
+   and applies the fixed `gain`; it never invents music.
 6. **Verify** (the model cannot watch the video — the gate is programmatic;
    run after every revision):
    - `ffprobe` both streams: durations within ~1 ms;
@@ -142,6 +184,6 @@ pipeline.
   markup, `voices.json`, `video.json`): the per-script scene markup
   reference
 - `scripts/` — `gen_tts.py`, `build_video.py`, `verify_sync.py`,
-  `scan_blank.py`
+  `scan_blank.py`（底床生成在 `bgm-bed/scripts/gen_bgm.py`，不在这里）
 - `references/av-sync.md` — edge-tts WordBoundary semantics, concat drift
   and the exact-frame-count fix, fps snapping, verification methodology

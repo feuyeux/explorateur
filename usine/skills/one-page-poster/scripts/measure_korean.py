@@ -61,7 +61,8 @@ Usage:
     measure_korean.py 한 --css fonts.css            # family read from css @font-face
     measure_korean.py 원 --css fonts.css --vowel-comp 2,3   # override labels (1-based)
 
-Requires: google-chrome (or $CHROME_BIN), Pillow + numpy (uv run --project usine).
+Requires: a Chromium-family browser (resolved via `feuille.platform.browser_path()`,
+or set $CHROME_BIN), Pillow + numpy (uv run --project usine).
 """
 import argparse, json, pathlib, re, subprocess, sys, tempfile, unicodedata
 
@@ -122,9 +123,10 @@ document.getElementById("rects").textContent = "RECTS " + JSON.stringify(out);
 
 
 def render_chrome(url, w, h, out=None, dom=False):
-    cmd = [CHROME, "--headless", "--disable-gpu", "--no-sandbox",
+    # 参数与 library 的 `textlayer._shot_args` 对齐（实测过的组合）。
+    # ⚠️ 不要加 --user-data-dir：macOS + Edge 上带它图能出来但进程永不退出。
+    cmd = [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox",
            "--virtual-time-budget=10000",
-           "--user-data-dir=" + tempfile.mkdtemp(prefix="mk-chrome-"),
            "--window-size=%d,%d" % (w, h), "--force-device-scale-factor=1",
            "--hide-scrollbars"]
     cmd += (["--dump-dom", url] if dom else ["--screenshot=" + out, url])
@@ -406,10 +408,22 @@ def main():
 
     _ensure_deps()
     global CHROME
-    CHROME = subprocess.run(["bash", "-lc", "command -v ${CHROME_BIN:-google-chrome}"],
-                             capture_output=True, text=True).stdout.strip()
+    # 浏览器解析走 library 的 `feuille.platform`（唯一事实源），$CHROME_BIN 优先。
+    # 原版是 `command -v ${CHROME_BIN:-google-chrome}` —— 只认 Chrome，
+    # 在只有 Edge 的机器上直接失败。
+    # ⚠️ 不做 sys.path 兜底导入（曾加过一层）：uv run 下 feuille 本就可导入，
+    # 兜底只会把「你没用 uv run」这个真错误吞成「找不到浏览器」。
+    import os as _os
+    CHROME = _os.environ.get("CHROME_BIN") or ""
     if not CHROME:
-        sys.exit("google-chrome not found (set $CHROME_BIN)")
+        try:
+            from feuille import platform as _pf      # uv run --project usine 下可导入
+            CHROME = _pf.browser_path() or ""
+        except Exception:
+            CHROME = ""
+    if not CHROME:
+        sys.exit("找不到 Chromium 系浏览器：请用 `uv run --project usine python …` 运行"
+                 "（feuille.platform 解析浏览器），或装 Chrome / Edge，或设 $CHROME_BIN")
 
     import numpy as np
     from PIL import Image

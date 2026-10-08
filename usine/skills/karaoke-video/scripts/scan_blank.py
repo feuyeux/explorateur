@@ -39,11 +39,28 @@ def _ensure_pil():
 
 _ensure_pil()
 
+_BIN: dict[str, str] = {}
+
+
+def _bin(name: str) -> str:
+    """外部可执行文件经 `feuille.platform` 解析（AGENTS.md 跨平台硬约定 1）。"""
+    if name not in _BIN:
+        try:
+            from feuille import platform
+            got = getattr(platform, name)() or ""
+        except ImportError:
+            got = ""
+        if not got:
+            sys.exit(f"找不到 {name}：请用 `uv run --project usine python …` 运行"
+                     f"（feuille.platform 解析），或安装后重跑")
+        _BIN[name] = got
+    return _BIN[name]
+
 
 def scan(video, fps, max_white):
     from PIL import Image
     d = tempfile.mkdtemp()
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video),
+    subprocess.run([_bin("ffmpeg"), "-y", "-loglevel", "error", "-i", str(video),
                     "-vf", f"fps={fps}", f"{d}/f%03d.png"], check=True)
     frames = sorted(pathlib.Path(d).glob("f*.png"))
     bad = []

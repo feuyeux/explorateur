@@ -1,8 +1,9 @@
 {
- "locale": "ko-KR",
- "label": "韩语",
- "flag": "🇰🇷",
- "dir": "ltr",
- "fontCss": "'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', sans-serif",
- "quote": "«»"
+  "locale": "ko-KR",
+  "label": "韩语",
+  "flag": "🇰🇷",
+  "dir": "ltr",
+  "fontCss": "'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'Apple Myungjo', 'Nanum Myeongjo', 'Batang', 'Noto Serif CJK KR', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', sans-serif"
 }

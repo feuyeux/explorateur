@@ -1,8 +1,9 @@
 {
- "locale": "ja-JP",
- "label": "日语",
- "flag": "🇯🇵",
- "dir": "ltr",
- "fontCss": "'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
- "quote": "«»"
+  "locale": "ja-JP",
+  "label": "日语",
+  "flag": "🇯🇵",
+  "dir": "ltr",
+  "fontCss": "'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'Hiragino Mincho ProN', 'Yu Mincho', 'Songti SC', 'Noto Serif CJK JP', 'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif"
 }

@@ -1,8 +1,9 @@
 {
- "locale": "fr-FR",
- "label": "法语",
- "flag": "🇫🇷",
- "dir": "ltr",
- "fontCss": "'Segoe UI', Arial, 'Helvetica Neue', 'DejaVu Sans', sans-serif",
- "quote": "«»"
+  "locale": "fr-FR",
+  "label": "法语",
+  "flag": "🇫🇷",
+  "dir": "ltr",
+  "fontCss": "'Segoe UI', Arial, 'Helvetica Neue', 'DejaVu Sans', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'Baskerville', 'Palatino', 'Palatino Linotype', 'Charter', 'Georgia', 'Noto Serif', 'DejaVu Serif', 'Liberation Serif', 'Segoe UI', Arial, 'Helvetica Neue', 'DejaVu Sans', sans-serif"
 }

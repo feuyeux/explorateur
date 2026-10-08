@@ -1,8 +1,9 @@
 {
- "locale": "zh-HK",
- "label": "粤语",
- "flag": "🇭🇰",
- "dir": "ltr",
- "fontCss": "'Microsoft YaHei', 'PingFang HK', 'Noto Sans CJK HK', sans-serif",
- "quote": "「」"
+  "locale": "zh-HK",
+  "label": "粤语",
+  "flag": "🇭🇰",
+  "dir": "ltr",
+  "fontCss": "'Microsoft YaHei', 'PingFang HK', 'Noto Sans CJK HK', sans-serif",
+  "quote": "「」",
+  "displayFontCss": "'Songti TC', 'Songti SC', 'STSong', 'PMingLiU', 'MingLiU', 'Noto Serif CJK TC', 'Microsoft YaHei', 'PingFang HK', 'Noto Sans CJK HK', sans-serif"
 }

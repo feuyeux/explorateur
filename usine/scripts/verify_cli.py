@@ -6,7 +6,9 @@
 统一时漏搬一个子命令，它就静默消失——直到有人在旧入口找不到功能。
 
 判据：
-1. 每个路由条目的目标模块可 import、目标函数存在（叶子可达）
+1. 每个路由条目的目标模块可 import、目标函数存在且**无参可调用**（叶子真可达
+   ——路由器以 fn()/fn(argv) 调用叶子，只 import 得到、调不起来的叶子同样是
+   路由表说谎）
 2. 未知命令 → 退出码 2（不静默）
 3. --help → 退出码 0
 4. verify 桥：`feuille verify --list` → 退出码 0（子进程链路通）
@@ -14,7 +16,9 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -27,13 +31,21 @@ from feuille import cli                        # noqa: E402
 def check():
     rows: list[tuple[bool, str]] = []
 
-    # ---- 0. 好数据放行：每个叶子可达 ----
+    # ---- 0. 好数据放行：每个叶子可达且无参可调用 ----
     missing = []
     for (grp, cmd), (module_name, func) in sorted(cli.COMMANDS.items()):
         try:
             mod = importlib.import_module(module_name)
             if not hasattr(mod, func):
                 missing.append(f"{grp} {cmd} → {module_name}.{func} 函数不存在")
+                continue
+            # 路由器以 fn()/fn(argv) 调用叶子：无参不可调用 = 假叶子。
+            # （曾一次抓出 6 个：库函数被直接登记，真跑全是 TypeError。）
+            try:
+                inspect.signature(getattr(mod, func)).bind()
+            except TypeError as e:
+                missing.append(f"{grp} {cmd} → {module_name}.{func} 无参不可调用（{e}）"
+                               "——挂 main*/main 适配层再来")
         except ImportError as e:
             missing.append(f"{grp} {cmd} → {module_name} 不可导入（{type(e).__name__}）")
     rows.append((not missing,
@@ -75,6 +87,23 @@ def check():
     rows.append((not orphan,
                  f"scripts/ 下没有游离的 verify_*.py（全部被聚合器管住）"
                  + (f"　**游离 {orphan}**" if orphan else "")))
+
+    # ---- 3. 文档宣称 ⊆ 已登记（反向机检，防「文档说谎」）----
+    # 判据：docstring 里 `feuille <组> <命令>` 形式的每一行，该条目必须在
+    # COMMANDS 里。**反过来不要求**（COMMANDS 可以有文档没列的）。
+    # 这条曾缺失：原文档列了 cover/framehash/audit/metrics/ledger 共 8 个
+    # 子命令，COMMANDS 里一个都没有，`feuille cover make` 静默返回
+    # 「未知命令」——而当时的机检只查「已登记的叶子可达」，查不出这个方向。
+    doc = cli.__doc__ or ""
+    claimed = set()
+    for line in doc.splitlines():
+        m = re.search(r"feuille\s+(\w+)\s*(\w*)", line)
+        if m:
+            claimed.add((m.group(1), m.group(2)))
+    undeclared = sorted(claimed - set(cli.COMMANDS))
+    rows.append((not undeclared,
+                 f"docstring 宣称的 {len(claimed)} 个入口全部已登记"
+                 + (f"　**未登记 {undeclared}**" if undeclared else "")))
     return rows
 
 

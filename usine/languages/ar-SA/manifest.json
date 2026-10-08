@@ -1,8 +1,9 @@
 {
- "locale": "ar-SA",
- "label": "阿拉伯语",
- "flag": "🇸🇦",
- "dir": "rtl",
- "fontCss": "'Segoe UI', 'Tahoma', 'Geeza Pro', 'Noto Naskh Arabic', sans-serif",
- "quote": "«»"
+  "locale": "ar-SA",
+  "label": "阿拉伯语",
+  "flag": "🇸🇦",
+  "dir": "rtl",
+  "fontCss": "'Segoe UI', 'Tahoma', 'Geeza Pro', 'Noto Naskh Arabic', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'Al Bayan', 'Baghdad', 'Geeza Pro', 'Traditional Arabic', 'Arabic Typesetting', 'Noto Serif Naskh Arabic', 'Segoe UI', 'Tahoma', 'Geeza Pro', 'Noto Naskh Arabic', sans-serif"
 }

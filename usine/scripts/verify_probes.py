@@ -37,6 +37,7 @@ SUITES = {
     "metrics":   ("verify_metrics.py",  "指标回流（null≠0/两级凭据）"),
     "publish":   ("verify_publish.py",  "发布器骨架（mock 页/三缺陷修复）"),
     "cli":       ("verify_cli.py",      "CLI 路由表可达性 + 聚合器一致性"),
+    "skills":    ("verify_skills.py",   "skills 去歧义（前置契约/边界/转交/事实源唯一）"),
 }
 
 SCRIPTS_DIR = ROOT / "scripts"

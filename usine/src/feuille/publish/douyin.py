@@ -480,32 +480,39 @@ def fix_one(page, task: dict, *, search_kw: str, log_dir) -> bool:
 
     # 定位目标条目：按「编辑作品」按钮的纵向顺序，与同位置的标题文本对齐。
     # 每张卡片是一行：封面 | 标题+数据 | 操作区(编辑/设置权限/删除)
+    #
+    # ⚠️ 2026-10-08 修正：原定位器写死成 get_by_text(f"「{search_kw}」的")
+    # ——即「**「X」的Y版**」这种标题格式。本项目标题是「老树枯枝立野原，中文的
+    # 冬天很轻」，**不含该结构** → 匹配到 0 个标题，整条卡在「没找到」。
+    # 这与 collections 的硬编码是同一类病：**把某个项目的文案格式当成通用格式**。
+    # 现在直接用**清单里的真实标题**做前缀匹配，与文案格式无关。
     eds = page.get_by_text("编辑作品", exact=False)
-    titles = page.get_by_text(f"「{search_kw}」的", exact=False)
-    ne, nt = eds.count(), titles.count()
-    print(f"   页面有 {ne} 个「编辑作品」按钮、{nt} 个标题")
-
-    idx = None
     want = task["title"]        # 以文案里的完整标题为准
-    for i in range(min(ne, nt)):
+    ne = eds.count()
+    idx = None
+    # 候选标题 = 编辑按钮所在行（xpath 上两级容器）的文本。
+    # ⚠️ 不做「全页找标题 → 按出现顺序对齐第 j 个编辑按钮」的退化定位：
+    # 位置对齐只是假设，标题一旦在提示条 / 置顶卡等处也出现，就会点错作品的
+    # 编辑按钮——白耗修改配额（抖音每作品 5 次，纪律 19/20）。行容器对不上
+    # 就按「没找到」中止，人工看行文本再修容器层级，不盲配。
+    rows = []
+    for i in range(ne):
         try:
-            t = titles.nth(i).inner_text() or ""
+            box = eds.nth(i).locator("xpath=../..")
+            rows.append((i, (box.inner_text() or "").replace("\\n", " ")))
         except Exception:
-            continue
-        # 标题形如「一叶知秋」的英语版：…
-        # 中文/日语/韩语的标题在文案里本来就用简称（「七言律句版」「俳句版」），
-        # 所以不能按「的中文版」找，直接拿清单里的标题做前缀匹配。
-        if want[:12] in t:
+            rows.append((i, ""))
+    for i, t in rows:
+        if want[:10] in t:
             idx = i
             print(f"   匹配第 {i} 行：{t[:44]}")
             break
+
     if idx is None:
-        print(f"   ⚠️ 没找到「{want[:20]}…」那条")
-        for i in range(min(nt, 14)):
-            try:
-                print("      -", (titles.nth(i).inner_text() or "")[:44])
-            except Exception:
-                pass
+        print(f"   ⚠️ 没找到「{want[:20]}…」那条（页面 {ne} 个编辑按钮）")
+        for i, t in rows[:8]:
+            if t:
+                print("      -", t[:56])
         return False
 
     eds.nth(idx).click()
@@ -558,3 +565,27 @@ def fix_covers(tasks, *, search_kw, log_dir, profile_dir=None,
     out.write_text(json.dumps(results, ensure_ascii=False, indent=1), "utf-8")
     print(f"明细写入 {out}")
     return 0 if all(r["ok"] for r in results) else 1
+
+
+# ── CLI 适配层（cli.py 路由叶子；业务在 publish()，这里只接线） ────────
+
+
+def main(argv=None) -> int:
+    """cli.py 路由入口：`feuille publish douyin <manifest.json> --log-dir D`。
+
+    manifest.json = plans 契约经 `feuille.manifest.build_manifest` 落盘的清单，
+    本入口取其中的 "douyin" 段作为 tasks。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille publish douyin")
+    ap.add_argument("manifest", help="build_manifest 落盘的清单 JSON")
+    ap.add_argument("--log-dir", required=True,
+                    help="每条的过程截图 / result JSON 落盘目录")
+    ap.add_argument("--only", default=None, help="只发指定序号（如 1,7；续跑用）")
+    ap.add_argument("--frm", type=int, default=None, help="从指定序号起发")
+    ap.add_argument("--dry-run", type=int, default=0, help="只走前 N 条的干跑")
+    ap.add_argument("--headless", action="store_true")
+    a = ap.parse_args(argv)
+    tasks = json.loads(Path(a.manifest).read_text("utf-8"))["douyin"]
+    return publish(tasks, log_dir=a.log_dir, only=a.only, frm=a.frm,
+                   dry_run=a.dry_run, headless=a.headless)

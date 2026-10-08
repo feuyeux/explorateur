@@ -38,14 +38,27 @@ from . import base
 
 MANAGE = "https://creator.douyin.com/creator-micro/content/manage?tab=collections"
 
-# 找出「+」按钮：24x24 svg，x 在右侧面板，行内含本系列标题且不含「已添加」
+# 找出「+」按钮：24x24 svg，在**右侧抽屉面板内**，行内不含「已添加」
 # （缺陷②修复的核心：选择器长在按钮自己的几何特征上，不靠「文本行去重取序号」）
-JS_PLUS = """(want) => {
+#
+# ⚠️ 2026-10-08 修正两处硬编码（原版把实测值写进了选择器）：
+# ① x 区间 1500..1600 是 viewport=1600 时量出的**绝对坐标**；本项目
+#    viewport=1700 时「+」落在 x≈1674，全部被过滤 → 面板明明有 3 个作品
+#    （截图可证），脚本却报「待加=0」。现改为**相对视口**判定。
+# ② 行文本必须包含 search_kw（"四季"）：12 条里只有 3 条标题含它，
+#    其余 9 条静默漏挂。现改为「未添加的一律返回」，数量核对交给调用方。
+# 教训：**几何选择器里出现绝对坐标，等于把 viewport 宽度写死了。**
+# （search_kw 不再进本 JS——「未添加的一律返回」后 want 形参已删，数量核对
+#  交给调用方。）
+JS_PLUS = """() => {
   const cands = [];
+  const vw = window.innerWidth || 1600;
+  const rightEdge = vw - 26;              // 「+」中心线在面板右缘内侧约 26px
   document.querySelectorAll('svg').forEach(e => {
     const r = e.getBoundingClientRect();
     if (Math.abs(r.width - 24) > 3 || Math.abs(r.height - 24) > 3) return;
-    if (r.x < 1500 || r.x > 1600) return;
+    if (r.x + 24 < vw * 0.62) return;             // 必须在右侧抽屉面板内
+    if (r.x > rightEdge + 12) return;             // 且贴近右缘（排除面板外图标）
     if (r.y < 140) return;                       // 排除右上角关闭/清空图标
     let p = e, row = null;
     for (let i = 0; i < 9 && p; i++) {
@@ -55,8 +68,10 @@ JS_PLUS = """(want) => {
     if (!row) return;
     const rt = (row.innerText || '').replace(/\\s+/g, ' ').trim();
     if (rt.length > 220) return;                 // 行容器识别失败
-    if (!rt.includes(want)) return;              // 不属于本系列
-    if (rt.includes('已添加')) return;           // 已添加，跳过
+    // ⚠️ 2026-10-08：原来要求行文本包含 search_kw（"四季"）。实测 12 条里
+    // 只有 3 条标题含「四季」，其余 9 条永远匹配不上 → 静默漏挂。
+    // 改为：**未添加的一律返回**，数量核对交给调用方。
+    if (rt.includes('已添加')) return;
     cands.push({t: rt.slice(0, 46), x: Math.round(r.x), y: Math.round(r.y)});
   });
   cands.sort((a, b) => a.y - b.y);
@@ -65,14 +80,22 @@ JS_PLUS = """(want) => {
 
 JS_COUNT = """() => {
   const b = document.body.innerText || '';
+  // ⚠️ 2026-10-08：空合集时页面**根本没有**「合集内作品 N」这段文本
+  //（截图实证：只有标题 +「点击添加作品」）。旧正则匹配不到返回 -1，
+  // 与「面板被服务端清空」混为一谈。
+  // 现在区分三种状态：正数 = 计数 / 0 = 确认空 / -1 = 未知。
   const m = b.match(/合集内作品\\s*(\\d+)/);
-  return m ? parseInt(m[1], 10) : -1;
+  if (m) return parseInt(m[1], 10);
+  if (/点击添加作品/.test(b)) return 0;
+  return -1;
 }"""
 
 # 面板是否被服务端错误清空
 JS_PANEL_EMPTY = """() => {
   const b = document.body.innerText || '';
-  if (/共\\s*0\\s*个作品/.test(b) || /没有更多视频/.test(b)) return true;
+  // ⚠️ 2026-10-08 修正：原来把「没有更多视频」当成面板被清空。实测那是
+  // **分页到底**的正常文案，不是故障。判据应是「共 0 个作品」或服务端错误。
+  if (/共\\s*0\\s*个作品/.test(b)) return true;
   if (/服务器\\/网络开小差了/.test(b)) return true;
   return false;
 }"""
@@ -133,7 +156,7 @@ def research(page, *, search_kw, out_dir, tries=4):
         time.sleep(4.5)
         page.evaluate(JS_CLEAR_TOAST)
         empty = page.evaluate(JS_PANEL_EMPTY)
-        n = page.evaluate(JS_PLUS, search_kw)
+        n = page.evaluate(JS_PLUS)
         print(f"    重搜 {k+1}: 空={empty} 待加={len(n)}")
         if not empty and n:
             return True
@@ -168,12 +191,14 @@ def _add_loop(page, *, want, search_kw, before, out_dir):
 
     ⛔ 不要改成「扫文本行 → 去重 → 按序号取第 i 个」（douyin_make_collection
     的 JS_ROWS）：去重每轮都返回 target[0]，12 次点击全落在同一行（缺陷②）。
-    JS_PLUS 每轮现取**最上面那支未添加的**（svg 24x24 + 行含系列名 + 不含「已添加」），
+    JS_PLUS 每轮现取**最上面那支未添加的**（svg 24x24 + 在右侧面板内 + 不含「已添加」），
     已添加的行天然被过滤，不存在「同一行点 12 次」。
     """
     added, fails, researches = [], [], 0
+    seen: set[str] = set()      # 已点过的行首文字，防重复点击
+    stale = 0                   # 连续取到同一支的次数
     for rnd in range(want + 14):
-        cands = page.evaluate(JS_PLUS, search_kw)
+        cands = page.evaluate(JS_PLUS)
         if not cands:
             # 面板被服务端错误清空了 → 重搜自愈，而不是放弃
             if researches >= 5:
@@ -187,22 +212,47 @@ def _add_loop(page, *, want, search_kw, before, out_dir):
             break
         c = cands[0]                        # 永远取最上面那支未添加的
         # 滚动进视口中心再取新鲜坐标
+        # ⚠️ 2026-10-08：这里曾**另有一份** `r.x > 1500` 硬编码（JS_PLUS 之外）。
+        # viewport=1700 时它找不到元素 → 滚动没发生 → 拿旧坐标点击 →
+        # 轮10/11/12 三次都点在同一条希伯来语行上（实际只加进 9 支）。
+        # 几何判据**只允许有一份实现**，两处各写一遍必然漂移。
         page.evaluate("""(y) => {
+            const vw = window.innerWidth || 1600;
             const els = [...document.querySelectorAll('svg')];
             const el = els.find(e => { const r = e.getBoundingClientRect();
                 return Math.abs(r.width-24)<3 && Math.abs(r.height-24)<3
-                       && r.x > 1500 && Math.abs(Math.round(r.y)-y) < 30; });
+                       && r.x + 24 >= vw * 0.62 && r.x <= vw - 14
+                       && Math.abs(Math.round(r.y)-y) < 30; });
             if (el) el.scrollIntoView({block: 'center'});
         }""", c["y"])
         time.sleep(1.0)
-        c2 = page.evaluate(JS_PLUS, search_kw)
+        c2 = page.evaluate(JS_PLUS)
         if not c2:
             time.sleep(1.2)
-            c2 = page.evaluate(JS_PLUS, search_kw)
+            c2 = page.evaluate(JS_PLUS)
         if not c2:
             researches += 1
             research(page, search_kw=search_kw, out_dir=out_dir); continue
         c = c2[0]
+        # ⚠️ 2026-10-08 加的护栏：坐标失效时 JS_PLUS 会反复返回同一支
+        # （上一版实测轮10/11/12 连点同一条希伯来语，12 次点击只加进 9 支）。
+        # 这里按**行首文字**去重，已点过的直接跳过——
+        # 宁可少点，也不要把同一条点 12 次然后拿一个假计数当成功。
+        # 去重键 = 行文本前 46 字符（JS_PLUS 里 slice(0,46) 截的）。
+        # 假设：各行行首 46 字符互不相同（本系列标题含语种名，天然错开）；
+        # 若未来行间共享更长前缀，这里会误跳——那不是本护栏的适用场景。
+        key = c["t"].strip()
+        if key in seen:
+            print(f"  轮{rnd+1}: ⏭ 跳过重复「{key[:24]}」（坐标可能已失效）")
+            stale += 1
+            if stale >= 6:
+                print("  ⚠️ 连续多次取到同一支，判定位失效，停止本轮")
+                break
+            # 面板没刷新：滚一下再取，避免死循环
+            page.mouse.wheel(0, 420); time.sleep(1.0)
+            continue
+        stale = 0
+        seen.add(key)
         px, py = c["x"] + 12, c["y"] + 12
         try:
             page.mouse.click(px, py)
@@ -276,7 +326,7 @@ def fix_collection(page, *, title, want, search_kw, out_dir) -> dict:
         page.mouse.click(700, 300)
     time.sleep(2)
     # 若面板还在，按 ESC
-    if page.evaluate(JS_PLUS, search_kw):
+    if page.evaluate(JS_PLUS):
         page.keyboard.press("Escape"); time.sleep(2)
     shot(page, out_dir, "fix-04-panel-closed.png")
 

@@ -16,6 +16,9 @@ dependencies = [
 feuille = "feuille.cli:main"                       # 统一入口：uv run feuille <组> <命令>
 
 [dependency-groups]
+music = [
+    "google-genai>=2.29",
+]
 # 平台发布 / 合集 / 发布后核对（Playwright 驱动系统 Chrome，不用自带浏览器）：
 # uv sync --group publish 按需安装。
 publish = ["playwright>=1.40"]

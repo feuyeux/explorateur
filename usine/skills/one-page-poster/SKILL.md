@@ -9,7 +9,9 @@ description: >
   with per-cell content — including multilingual/multi-script typography with
   per-glyph coloring (vowels vs consonants, mark scripts like Arabic/Hebrew/
   Devanagari, Korean in-glyph patches, kana gradients). Not for multi-page
-  documents (use docx/pptx/pdf skills).
+  documents (use docx/pptx/pdf skills), not for assembling video (poster-driven
+  narration is karaoke-video), and not for text burned over live-action footage
+  (that is multilingual-video-poetry).
 ---
 
 # One Page Poster
@@ -26,14 +28,53 @@ per-glyph vowel/consonant coloring across 12 scripts. A complete worked
 `assets/example/` — do NOT go hunting past projects for worked markup; that
 is what the example is for.
 
+## 前置输入契约
+
+开工前必须拿到这 5 条。**缺哪条先问哪条，不要拿占位值往下跑**——占位值会让后面每一道机检都失去意义。
+
+| # | 必须明确 | 缺了会怎样 |
+|---|---|---|
+| 1 | 页面尺寸（默认 1240×1754） | 网格几何无从校验 |
+| 2 | 网格行列数 | `verify_colors.py --cols/--rows` 判据不成立 |
+| 3 | **完整内容清单**（哪些语种/条目，一个不许少） | 漏项要到最后渲染才发现 |
+| 4 | 配色与高亮规则 | 逐字着色无判据 |
+| 5 | 是不是**当视频封面**用 | 决定要不要出 `make_covers.py` 的全屏变体 |
+
+内容清单若已有事实源（如 `languages/*/manifest.json` 这样的注册表），**以它为准**，不要另抄一份。
+
+## 边界
+
+**本 skill 是「多语种排版」的唯一事实源**：字体子集、逐字着色（Arabic/Hebrew/Devanagari 叠层、Korean 垫片、kana 渐变、注音/振假名）、字形测量。视频类 skill 需要新字形时，往本 skill 的 `fonts.json` 加字符并重跑 `fetch_fonts.py`，**不要在视频脚本里另抄字体栈**。
+
+12 语种规范顺序也只在这里定义，其他 skill 引用。
+
+**不做 / 转交**：
+
+- 组装成片 → `karaoke-video`
+- 实拍画面上烧字幕 → `multilingual-video-poetry`
+- 写发布词 → `publish-copy`
+- 真的点发布 → `multilingual-video-publishing`
+- 多页文档 → docx / pptx / pdf 相关 skill
+
+## 代码归属
+
+拥有模块：（无）
+
+多语种排版的实现——`textlayer`（Edge headless 渲字）与 `covers`（封面机制）——在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 不拥有任何模块。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+
+其余模块不属于本 skill：基础设施在 `ownership.json` 的 `infrastructure`，其他业务模块归各自 skill。
+
 ## Requirements (fresh machine)
 
 - Python 3.12 + Pillow + numpy — e.g. `uv run --project usine python <script>`
   (the usine pyproject pins both; never hardcode a machine-specific
   interpreter path in docs or configs);
-- `google-chrome` (headless render; override with `$CHROME_BIN` where scripts
-  allow it);
-- network access for `fetch_fonts.py` (Google Fonts css2 subsetting).
+- **任意 Chromium 系浏览器**——`google-chrome` 或 Edge 都行。渲染器经
+  `scripts/render_poster.sh` 解析，走 library 的 `feuille.platform.browser_path()`
+  这一个事实源；`$CHROME_BIN` 可显式覆盖。用 `uv run --project usine python -c
+  "from feuille import platform; print(platform.describe())"` 自查缺什么
+  （原版在此硬编码 `google-chrome`，在只有 Edge 的机器上直接失败）；
+- network access for `fetch_fonts.py` (Google Fonts css2 subsetting)。
 
 ## Conventions
 

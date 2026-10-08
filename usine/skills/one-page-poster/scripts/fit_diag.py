@@ -2,7 +2,9 @@
 """Parse the per-cell fit diagnostics dumped by the template's ?verify=1 mode.
 
 Usage (two steps, or pipe):
-  google-chrome --headless --disable-gpu --no-sandbox \
+  uv run --project usine python -c "from feuille import platform; print(platform.browser_path())" \
+    → 用该路径替换下面的 $BROWSER，然后：
+  $BROWSER --headless=new --disable-gpu --no-sandbox \
     --virtual-time-budget=10000 --window-size=1240,1754 --dump-dom \
     "file://$PWD/index.html?verify=1" | fit_diag.py
 

@@ -61,6 +61,18 @@ def _ensure_pil():
 
 _ensure_pil()
 
+try:
+    from feuille import platform          # uv run --project usine 下可导入
+except ImportError:
+    sys.exit("feuille 不可导入：请用 `uv run --project usine python …` 运行"
+             "（AGENTS.md uv 统一）")
+
+# 外部可执行文件经 `feuille.platform` 解析（AGENTS.md 跨平台硬约定 1），不写死名。
+FFMPEG = platform.ffmpeg() or ""
+FFPROBE = platform.ffprobe() or ""
+if not FFMPEG or not FFPROBE:
+    sys.exit("找不到 ffmpeg / ffprobe（feuille.platform 解析；请安装后重跑）")
+
 
 def sh(*args, **kw):
     r = subprocess.run(args, capture_output=True, text=True, **kw)
@@ -70,16 +82,22 @@ def sh(*args, **kw):
 
 
 def render_chrome(out, url, w, h):
-    """headless screenshot in an ISOLATED profile.
+    """headless screenshot.
 
-    Without --user-data-dir, a running desktop Chrome can hijack the launch:
-    the URL opens as a tab in the existing browser and the screenshot comes
-    back as the Google new-tab page (white + #4285f4) instead of the file.
+    浏览器走 library 的 `feuille.platform`（唯一事实源），参数与
+    `textlayer._shot_args` 对齐——那一组是实测过的。
+
+    ⚠️ **不要加 --user-data-dir**。原注释说它防桌面 Chrome 抢占启动（旧
+    `--headless` 下的真问题），但实测在 macOS + Edge 上：带它图能出来，
+    **进程永不退出**，整个 build 挂死。而 `--headless=new` 不会附着到已开着的
+    浏览器，抢占问题本就不存在。--headless=new 下实测 1.8s 正常退出。
     """
-    sh("google-chrome", "--headless", "--disable-gpu", "--no-sandbox",
+    browser = platform.browser_path()
+    if not browser:
+        sys.exit("找不到 Chromium 系浏览器；装 Chrome 或 Edge，或设 CHROME_BIN")
+    sh(browser, "--headless=new", "--disable-gpu", "--no-sandbox",
        "--virtual-time-budget=10000", f"--window-size={w},{h}",
        "--force-device-scale-factor=1", "--hide-scrollbars",
-       f"--user-data-dir={out.parent}/_chrome_profile",
        f"--screenshot={out}", url)
     # blank-page sentinel: >90% near-pure-white means the page never loaded
     from PIL import Image
@@ -90,7 +108,7 @@ def render_chrome(out, url, w, h):
 
 
 def media_dur(path):
-    r = sh("ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+    r = sh(FFPROBE, "-v", "quiet", "-show_entries", "format=duration",
            "-of", "csv=p=0", str(path))
     return float(r.stdout.strip())
 
@@ -114,13 +132,13 @@ def build_format(fmt, cfg, HERE, tts_dir):
     vf = fmt["poster_filter"].replace("{desk}", desk)
     img = HERE / fmt.get("intro_image", cfg["intro_image"])
     for name in ("intro", "outro"):
-        sh("ffmpeg", "-y", "-loglevel", "error", "-i", str(img),
+        sh(FFMPEG, "-y", "-loglevel", "error", "-i", str(img),
            "-vf", vf, str(F / f"{name}.png"))
 
     video_parts = []   # (png, grid duration)
     audio_parts = []
     for name, dur in (("_sil_intro", cfg["intro"]), ("_sil_outro", cfg["outro"])):
-        sh("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+        sh(FFMPEG, "-y", "-loglevel", "error", "-f", "lavfi",
            "-i", "anullsrc=r=24000:cl=mono", "-t", str(dur), str(F / f"{name}.wav"))
     video_parts.append((F / "intro.png", d30(cfg["intro"])))
     audio_parts.append(F / "_sil_intro.wav")
@@ -149,7 +167,7 @@ def build_format(fmt, cfg, HERE, tts_dir):
 
         total = d30(PREROLL) + sum(scene_durs)   # MUST include the preroll frame
         seg = F / f"{loc}-seg.wav"
-        sh("ffmpeg", "-y", "-loglevel", "error", "-i", str(tts_dir / f"{loc}.mp3"),
+        sh(FFMPEG, "-y", "-loglevel", "error", "-i", str(tts_dir / f"{loc}.mp3"),
            "-af", f"adelay={int(PREROLL*1000)}:all=1,apad", "-t", f"{total:.3f}",
            "-ar", "24000", "-ac", "1", str(seg))
         audio_parts.append(seg)
@@ -163,7 +181,7 @@ def build_format(fmt, cfg, HERE, tts_dir):
     for i, (png, d) in enumerate(video_parts):
         n = max(1, round(d * FPS))
         out = F / f"_vseg{i:03d}.mp4"
-        sh("ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", str(FPS),
+        sh(FFMPEG, "-y", "-loglevel", "error", "-loop", "1", "-framerate", str(FPS),
            "-i", str(png), "-t", f"{n/FPS:.6f}", "-frames:v", str(n),
            "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "medium",
            "-crf", "18", str(out))
@@ -175,9 +193,9 @@ def build_format(fmt, cfg, HERE, tts_dir):
         for wav in audio_parts:
             fh.write(f"file '{wav}'\n")
 
-    sh("ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+    sh(FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
        "-i", str(HERE / "concat_v.txt"), "-c", "copy", str(HERE / "video_noaudio.mp4"))
-    sh("ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+    sh(FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
        "-i", str(HERE / "concat_a.txt"), "-c:a", "pcm_s16le", str(HERE / "audio_all.wav"))
     out = HERE / fmt["output"]
 
@@ -188,13 +206,13 @@ def build_format(fmt, cfg, HERE, tts_dir):
         vdur = media_dur(HERE / "video_noaudio.mp4")
         fi, fo = bgm.get("fade_in", 1.5), bgm.get("fade_out", 3.0)
         track = F / "_bgm_track.wav"
-        sh("ffmpeg", "-y", "-loglevel", "error",
+        sh(FFMPEG, "-y", "-loglevel", "error",
            "-i", str((HERE / bgm["file"]).resolve()),
            "-af", (f"afade=t=in:st=0:d={fi},"
                    f"afade=t=out:st={max(0, vdur - fo):.3f}:d={fo},"
                    f"volume={bgm.get('gain', 0.1)}"),
            "-t", f"{vdur:.3f}", "-ar", "48000", "-ac", "2", str(track))
-        sh("ffmpeg", "-y", "-loglevel", "error", "-i", str(HERE / "video_noaudio.mp4"),
+        sh(FFMPEG, "-y", "-loglevel", "error", "-i", str(HERE / "video_noaudio.mp4"),
            "-i", str(HERE / "audio_all.wav"), "-i", str(track),
            "-filter_complex",
            "[1:a]aformat=sample_rates=48000:channel_layouts=stereo[nar];"
@@ -202,7 +220,7 @@ def build_format(fmt, cfg, HERE, tts_dir):
            "-map", "0:v", "-map", "[aout]", "-c:v", "copy",
            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out))
     else:
-        sh("ffmpeg", "-y", "-loglevel", "error", "-i", str(HERE / "video_noaudio.mp4"),
+        sh(FFMPEG, "-y", "-loglevel", "error", "-i", str(HERE / "video_noaudio.mp4"),
            "-i", str(HERE / "audio_all.wav"), "-c:v", "copy", "-c:a", "aac",
            "-b:a", "128k", "-movflags", "+faststart", str(out))
     print(f"  wrote {out}")

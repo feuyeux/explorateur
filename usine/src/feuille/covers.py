@@ -137,3 +137,37 @@ def check(png, key: str) -> list[str]:
         problems.append(f"{Path(png).name}: 外圈众数色 {mode_c} ≠ 契约底色 {s['bg']}"
                         f"（通道差 >8）")
     return problems
+
+
+# ── CLI 适配层（cli.py 路由叶子；业务在上面，这里只接线） ───────────────
+
+
+def main_make(argv=None) -> int:
+    """cli.py 路由入口：`feuille cover make <key> <html> <out.png>`。
+
+    key 从 SPECS 注册表现取（不猜）；html 是**整页封面 HTML 文件路径**
+    （内容，不是 URL——渲染在 textlayer.edge_screenshot）。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille cover make")
+    ap.add_argument("key", help=f"规格键（注册表现取）：{' / '.join(SPECS)}")
+    ap.add_argument("html", help="整页封面 HTML 文件（内容，非 URL）")
+    ap.add_argument("out_png", help="输出 PNG 路径")
+    a = ap.parse_args(argv)
+    out = make(a.key, Path(a.html).read_text("utf-8"), a.out_png)
+    print(f"wrote {out}")
+    return 0
+
+
+def main_check(argv=None) -> int:
+    """cli.py 路由入口：`feuille cover check <png> <key>`（问题列表空 = 通过）。"""
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille cover check")
+    ap.add_argument("png", help="待检封面 PNG")
+    ap.add_argument("key", help=f"规格键（注册表现取）：{' / '.join(SPECS)}")
+    a = ap.parse_args(argv)
+    problems = check(a.png, a.key)
+    for p in problems:
+        print("  -", p)
+    print("OK" if not problems else f"FAIL：{len(problems)} 项问题")
+    return 1 if problems else 0

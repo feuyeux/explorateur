@@ -1,8 +1,9 @@
 {
- "locale": "he-IL",
- "label": "希伯来语",
- "flag": "🇮🇱",
- "dir": "rtl",
- "fontCss": "'Segoe UI', Arial, 'Arial Hebrew', 'Noto Sans Hebrew', sans-serif",
- "quote": "«»"
+  "locale": "he-IL",
+  "label": "希伯来语",
+  "flag": "🇮🇱",
+  "dir": "rtl",
+  "fontCss": "'Segoe UI', Arial, 'Arial Hebrew', 'Noto Sans Hebrew', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'New Peninim MT', 'David', 'Frank Ruehl', 'Taamey Frank CLM', 'Noto Serif Hebrew', 'Segoe UI', Arial, 'Arial Hebrew', 'Noto Sans Hebrew', sans-serif"
 }

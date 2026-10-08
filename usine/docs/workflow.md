@@ -85,6 +85,7 @@ flowchart LR
 | 步骤 | 合成（缓存键 `sha256(voiceId\|rate\|pitch\|text)[:16]`，miss 才请求）→ 词级时间戳（`boundary="WordBoundary"`）→ 时间轴补齐（`speech_dur` / `file_dur` 按 ffprobe 实测 / `tail_silence` / `start` 累进） |
 | 产物 | **音频**：`build/audio/{key}.mp3 + .json`、tts-manifest、人声轨 |
 | 检查 | 时长预算卡在这一步（改文本便宜）；超预算放宽预算、不压台词；`NoAudioReceived` 退避重试 |
+| BGM 床（**可选**，默认不做） | 床不是本管线的必需项；要挂就单独走 skill `bgm-bed` 生成并**反推 `gain`**（旁白实测电平 − 目标低多少 dB − 床实测电平），抄常数且无任何东西会报错。混音压法按画面来源分流：程序化逐帧 → 线性 `amix`（`bgm-bed` 之外找混音侧 skill）；H3 实拍母版 → 侧链压缩。床短于成片会在尾部裸奔 |
 
 ## ⑥ 视频（产物 2）
 

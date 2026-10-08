@@ -8,7 +8,8 @@ description: >
   poster / project, or "怎么发小红书/抖音/B站". The skill extracts true hooks
   from the deliverable itself (never invents specs), adapts tone per
   platform, and saves one markdown file per platform under the project's
-  publish/ directory. Not for writing the content itself.
+  publish/ directory. Not for writing the content itself, and not for actually
+  clicking publish on a platform (that is multilingual-video-publishing).
 ---
 
 # Publish Copy
@@ -16,6 +17,38 @@ description: >
 Turn a finished deliverable (video, poster, article) into per-platform publishing copy whose goal is 拉新 (acquisition) and 营销 (marketing): one `<platform>.md` per platform, ready to copy-paste, with the interaction hooks that convert viewers into commenters and followers.
 
 Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖音, landscape → B站).
+
+**它是两条产线共用的收尾环节**，无论成片来自 `karaoke-video`（海报驱动）还是 `multilingual-video-poetry`（实拍驱动），发布词都走这里——**不要在视频 skill 里另写一份文案**。
+
+## 前置输入契约
+
+开工前必须拿到这 3 条。**缺哪条先问哪条**。
+
+| # | 必须明确 | 缺了会怎样 |
+|---|---|---|
+| 1 | **成品已在盘**（成片 mp4 或海报 PNG）+ 项目 README | 无从提取真实钩子；**规格只能读，不能编** |
+| 2 | 核验数字：时长、尺寸、语种/条目数、音频设计 | 写成营销素材的就是这些事实 |
+| 3 | 投哪个平台 + 目标（拉新 / 带货 / 导流） | 文案形状随目标变 |
+
+**事实来自成品本身**——时长、语言数、音量、工艺细节必须从实际产物/README 读出来。编造规格是这个 skill 最严重的失败模式。
+
+## 边界
+
+**本 skill 只产出 `publish/*.md`，一个字都不发。**
+
+发布执行（登录态、Playwright、建合集、回列表核验）是 `multilingual-video-publishing` 的事。
+
+**不做 / 转交**：
+
+- 真的点发布、建合集、回列表核验 → `multilingual-video-publishing`
+- 生产成片 → `karaoke-video`（海报驱动）/ `multilingual-video-poetry`（实拍驱动）
+- 做海报 → `one-page-poster`
+
+## 代码归属
+
+拥有模块：（无）
+
+本 skill **不拥有** `src/feuille` 下的任何模块——它只产出 `publish/*.md` 文本，没有代码。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 
 ## Conventions
 

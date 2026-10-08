@@ -21,8 +21,25 @@ the same numbers the builder used):
 Exit 0 only if every diff is under the threshold. The model cannot see the
 video — this script is the visual gate.
 """
-import argparse, json, pathlib, subprocess
+import argparse, json, pathlib, subprocess, sys
 from PIL import Image, ImageChops
+
+_BIN: dict[str, str] = {}
+
+
+def _bin(name: str) -> str:
+    """外部可执行文件经 `feuille.platform` 解析（AGENTS.md 跨平台硬约定 1）。"""
+    if name not in _BIN:
+        try:
+            from feuille import platform
+            got = getattr(platform, name)() or ""
+        except ImportError:
+            got = ""
+        if not got:
+            sys.exit(f"找不到 {name}：请用 `uv run --project usine python …` 运行"
+                     f"（feuille.platform 解析），或安装后重跑")
+        _BIN[name] = got
+    return _BIN[name]
 
 
 def diff(a, b):
@@ -32,12 +49,12 @@ def diff(a, b):
 
 def dur(p):
     return float(subprocess.run(
-        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+        [_bin("ffprobe"), "-v", "quiet", "-show_entries", "format=duration",
          "-of", "csv=p=0", str(p)], capture_output=True, text=True).stdout.strip())
 
 
 def grab(video, t, out):
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t),
+    subprocess.run([_bin("ffmpeg"), "-y", "-loglevel", "error", "-ss", str(t),
                     "-i", str(video), "-frames:v", "1", out], check=True)
     return out
 

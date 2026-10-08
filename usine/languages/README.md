@@ -41,6 +41,7 @@
 | `flag` | ✓ | **必须是 locale 里 ISO 区码的区域指示符对**（`zh-CN` → `CN`） |
 | `dir` | ✓ | `ltr` 或 `rtl` |
 | `fontCss` | ✓ | CSS `font-family` 栈，**必须以 `sans-serif` 兜底** |
+| `displayFontCss` | | 可选的展示字体栈（诗配文/海报这类需要书体感时用）。**不是必填**：没写就用 `fontCss`。`data.py` 按键透传，加键不影响其他项目。约定：**衬线书体在前，按 macOS → Windows → Linux 顺序各给一个衬线命中，末尾整段接回原 `fontCss`**（缺字兜底，行为与从前完全一致；接回段造成的跨段重复字体无害）。展示栈不受「Windows 字体留首位」约束——那是 `fontCss` 的像素基线纪律——但三套系统都必须在落到无衬线基线**前**命中一个衬线。接回段之后**不再追加 `serif`**：通用族 `sans-serif` 必命中，排在它后面的都是死 token |
 
 ### 为什么国旗必须等于 ISO 区码
 
@@ -53,14 +54,11 @@
 
 ## 门禁
 
-```powershell
-.\run.ps1 langs                                        # 71 项检查
-uv run python scripts/verify_languages.py --selftest   # 反向验证（7 条必须生效）
-```
-
-反向验证会往目录里注入已知坏数据（错旗 / 半旗 / 缺目录 / `dir` 写怪值 / 字体无兜底 /
-`label` 清空 / 目录名与 `locale` 打架），要求每一项都必须被判 FAIL。它已并入
-`.\run.ps1 verify` 的聚合套件。
+⚠️ 如实记录：原 `run.ps1 langs` / `scripts/verify_languages.py` 门禁（71 项检查 + 坏数据自测）
+在「重构为 humming / reading / usine 三项目工作区」时**没有搬过来**，当前语言目录**没有专属机检**
+（`verify_probes.py` 的 17 套件里没有 languages）。新增语种后至少手动核对：
+`locale` = 目录名、`flag` 为对应区域指示符对、`fontCss` 以 `sans-serif` 兜底、
+`displayFontCss` 末尾整段接回原 `fontCss`。
 
 ## 与剧本 §0 `rtlLocales` 的关系
 
@@ -78,4 +76,4 @@ uv run python scripts/verify_languages.py --selftest   # 反向验证（7 条必
 2. `personas/personas.json` 加档案（voiceId 先 `edge_tts.list_voices()` 核验，在册清单见 [../personas/voice.md §3](../personas/voice.md)）
 3. `personas/intro-cards.json` 加卡（RTL 语种卡上要 `rtl:true`）
 4. 剧本 §0 `rtlLocales` 若是 RTL 语种要补上
-5. `.\run.ps1 langs` 过门禁 → `.\run.ps1 all`
+5. 按上面的「门禁」逐项手动核对 → `uv run feuille verify` 全量过

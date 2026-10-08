@@ -37,7 +37,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 
 | 工具 | 阶段 | 用途 | 关键口径与坑 | 跨平台注意 | 先例 |
 |---|---|---|---|---|---|
-| **uv** | 全阶段（工程基座） | Python 环境与依赖管理 | 一切 Python 调用走 `uv run`；`uv sync --group publish` 装发布组；锁文件自动同步 | Win / macOS / Linux 官方支持 | — |
+| **uv** | 全阶段（工程基座） | Python 环境与依赖管理 | 一切 Python 调用走 `uv run`；`uv sync --group publish` / `--group music` 按需装可选组；锁文件自动同步 | Win / macOS / Linux 官方支持 | — |
 | **Python 3** | ②–⑬ | 脚本运行时 | 经 `uv run` 调用，不直接用系统 / homebrew python；过渡态例外见 AGENTS.md | 同上 | — |
 | **Microsoft Edge**（headless） | ⑥渲字 ⑦封面 | 文字层 / 封面截图渲染 | `raqm=False` 的唯一正确出路（阿/希/天城文必须走它）；`--window-size` ≠ 视口高，先探后补（`edge_window_h`）；与像素基线同源故 resolver 排首位 | 候选链 Edge → Chrome → Chromium；环境变量可临时覆盖 | `feuille.textlayer.viewport_deficit` |
 | **Google Chrome** | ⑨发布 ⑩合集收录 ⑪发布后核对 | Playwright 驱动 + 持久 profile | 用**系统 Chrome**（`executable_path`），不用 Playwright 自带浏览器——四平台 profile 各一、绑定登录态 | 写死的 `/Applications/...` 路径是已核实缺陷③，搬 M13 时改走 resolver | `feuille.publish` |
@@ -61,6 +61,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 | **Pillow** | `==12.3.0` | ⑥⑦⑬ | 逐帧绘制、matte 合成、探针取样 | **像素基线锚点，升级前必须重验 framehash**；本机 `raqm=False` → 不许 Pillow 画字，文字一律 Edge 截图；透明叠加层走白/黑双 matte（`alpha=255−(C_w−C_b)`） |
 | **numpy** | `==2.3.5` | ⑬ 探针 | 像素 / 几何计算 | 探针容差注意逐通道 vs 欧氏距离（大窗数色会被布景污染，改几何定位） |
 | **playwright**（可选组 `publish`） | E 落地时锁定 | ⑨⑩⑪ | 平台自动化（发布器 / 合集 / 只读核对） | `uv sync --group publish` 后照常 `uv run`；过渡态在 `/opt/homebrew/bin/python3`；驱动系统 Chrome + 持久 profile；认证 / 风控一律人工 |
+| **google-genai**（可选组 `music`） | `>=2.29` | ⑤（仅 BGM） | Lyria 底床生成（Live API 客户端） | `uv sync --group music` 后照常 `uv run`；**免费层只有 `lyria-realtime-exp` 可用**，且 Live 音乐端点**按出口 IP 判区**（比普通 API 严）；采样率无协商字段，按模型卡 48 kHz/立体声解读并用拍速反查；判据与坑见 skill `bgm-bed` |
 
 > 标准库同样承重的：`hashlib`（内容寻址缓存键 `sha256(voiceId|rate|pitch|text)[:16]`、framehash）、`zipfile`（交付打包须置 UTF-8 flag bit 0x800）、`pathlib`（跨平台路径，不拼平台专属分隔符）。
 

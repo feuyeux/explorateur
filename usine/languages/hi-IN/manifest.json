@@ -1,8 +1,9 @@
 {
- "locale": "hi-IN",
- "label": "印地语",
- "flag": "🇮🇳",
- "dir": "ltr",
- "fontCss": "'Nirmala UI', 'Kohinoor Devanagari', 'Noto Sans Devanagari', sans-serif",
- "quote": "«»"
+  "locale": "hi-IN",
+  "label": "印地语",
+  "flag": "🇮🇳",
+  "dir": "ltr",
+  "fontCss": "'Nirmala UI', 'Kohinoor Devanagari', 'Noto Sans Devanagari', sans-serif",
+  "quote": "«»",
+  "displayFontCss": "'Devanagari Sangam MN', 'Devanagari MT', 'Aparajita', 'Kokila', 'Noto Serif Devanagari', 'Nirmala UI', 'Kohinoor Devanagari', 'Noto Sans Devanagari', sans-serif"
 }
