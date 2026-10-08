@@ -18,6 +18,7 @@
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
+| `skills/` | 自建 SKILL 资产（one-page-poster 一页纸海报 / karaoke-video 卡拉OK视频 / publish-copy 平台发布词），机器侧以软链挂到 `~/.agents/skills/` |
 | `examples/yiyezhiqiu/` | 示例项目内容包（诗稿 / 文案 / 数据 / 设计稿 / H3 母版——母版不可再生） |
 
 ## 使用
@@ -30,6 +31,24 @@ uv run feuille verify       # 全量反向验证（16 套 250 项断言）
 uv run feuille verify --list       # 列出所有验证套件
 uv run feuille verify --only rig   # 单跑一套
 ```
+
+## skills/ 跨机器复用
+
+三个自建 skill 自足在仓库内，不含任何绝对路径或本机解释器绑定；换机器 clone 后只需三步：
+
+```bash
+cd explorateur && uv sync --project usine   # ① Python 依赖（edge-tts / pillow / numpy 由 usine/pyproject.toml 锁定）
+mkdir -p ~/.agents/skills                    # ② 挂软链，让本机 agent 能发现 skill
+for s in one-page-poster karaoke-video publish-copy; do ln -sfn "$PWD/usine/skills/$s" ~/.agents/skills/$s; done
+# ③ 系统外部工具：google-chrome（headless 渲染）、ffmpeg（合成/测量）；可选 Playwright 走 publish 组
+```
+
+自足约定（skill 收录时必须满足，违反即无法跨机器复用）：
+
+- 脚本与 SKILL.md 内**禁止出现**任何 `/home/…`、`~/.agents`、特定 conda/venv 解释器路径——一律写 `uv run --project usine python …` 或仓库相对路径；
+- 每种文字系/场景的**完整工作样例**必须进 skill 资产（`assets/example/`），不得只留骨架模板、让使用者去翻历史项目或 reflog；
+- 逐字形实测的几何值（如韩语色块）不可硬编码迁移，必须配套可重跑的测量脚本（`one-page-poster/scripts/measure_korean.py`）；
+- 依赖外部能力（如 BGM 的 Google Lyria）必须在 SKILL.md 显式声明为可选，并给出无该能力时的退化路径（`bgm.file` 接任意纯音乐 wav 或删掉 bgm 段）。
 
 ## docs/ 一览
 

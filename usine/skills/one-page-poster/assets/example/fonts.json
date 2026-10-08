@@ -1,0 +1,60 @@
+[
+ {
+  "family": "OBS SC",
+  "google": "Noto+Serif+SC:wght@600",
+  "text": "一杯茶十二种语言文字元音辅音声调符号不发音合体假名记号汉语中文日语韩阿拉伯希伯来腊俄印地格鲁吉亚美拉丁转写注音（）下红层上蓝·＋双色标记　ㄧㄅㄟㄔㄚˊㄅㄆㄇㄈ林小满配音",
+  "classes": [
+   "f-sc",
+   "annot",
+   "zhuyin"
+  ]
+ },
+ {
+  "family": "OBS JP",
+  "google": "Noto+Sans+JP:wght@500",
+  "text": "日本語お茶一杯いっぱいちゃかなリク",
+  "classes": [
+   "f-jp"
+  ]
+ },
+ {
+  "family": "OBS KR",
+  "google": "Noto+Sans+KR:wght@500",
+  "text": "한국어차한잔글서연",
+  "classes": [
+   "f-kr"
+  ]
+ },
+ {
+  "family": "OBS Arabic",
+  "google": "Noto+Sans+Arabic:wght@500",
+  "text": "كوبشايعمرالعربيةحركات",
+  "classes": [
+   "f-ar"
+  ]
+ },
+ {
+  "family": "OBS Hebrew",
+  "google": "Noto+Sans+Hebrew:wght@500",
+  "text": "כוסתהנועהעבריתניקוד",
+  "classes": [
+   "f-he"
+  ]
+ },
+ {
+  "family": "OBS Deva",
+  "google": "Noto+Sans+Devanagari:wght@500",
+  "text": "एक कप चाय हिन्दी मात्रा अर्जुन",
+  "classes": [
+   "f-deva"
+  ]
+ },
+ {
+  "family": "OBS West",
+  "google": "Noto+Sans:wght@500;700",
+  "text": "однакнига́áРусскийчашкачаяАнякириллицаέναβιβλίοΕλληνικάφλιτζάνιτσάιΝίκοςyīběncháshkayaénaflitzánitsáiek kap chāykūbshāykos te ocha ippai cha han jan Lín Xiǎomǎn Ruby Felix Théo Lucía Arjun Omar Noa Riku Seoyeon a cup of tea eine Tasse Tee une tasse de thé una taza de té English Deutsch Français Español A CUP OF TEA IN TWELVE LANGUAGES EDGE TTS NEURAL 01/12 ūǐěêʾʿ'xʌʊɪːˈɾœ̃ʁθðæɑɛɔəabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ·,.ǎú0123456789",
+  "classes": [
+   "translit"
+  ]
+ }
+]

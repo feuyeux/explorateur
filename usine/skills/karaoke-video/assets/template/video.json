@@ -1,0 +1,54 @@
+{
+ "src": "video_src.html",
+ "fonts_css": "../test/fonts.css",
+ "tts_dir": "tts",
+ "locales": [
+  "zh-CN",
+  "en-US",
+  "de-DE",
+  "fr-FR",
+  "es-ES",
+  "ru-RU",
+  "el-GR",
+  "hi-IN",
+  "ar-SA",
+  "he-IL",
+  "ja-JP",
+  "ko-KR"
+ ],
+ "preroll": 0.8,
+ "tail": 0.8,
+ "done": 0.5,
+ "intro": 2.2,
+ "outro": 2.8,
+ "intro_image": "../poster.png",
+ "desk": "0xe8e2d4",
+ "bgm": {
+  "file": "bgm_raw.wav",
+  "gain": 0.1,
+  "fade_in": 1.5,
+  "fade_out": 3.0
+ },
+ "formats": [
+  {
+   "name": "landscape",
+   "w": 1920,
+   "h": 1080,
+   "frames": "frames",
+   "output": "one_book.mp4",
+   "fmt": null,
+   "poster_filter": "scale=1920:1080",
+   "intro_image": "../cover_landscape.png"
+  },
+  {
+   "name": "portrait",
+   "w": 1080,
+   "h": 1920,
+   "frames": "frames_v",
+   "output": "one_book_vertical.mp4",
+   "fmt": "v",
+   "poster_filter": "scale=1080:1920",
+   "intro_image": "../cover_portrait.png"
+  }
+ ]
+}

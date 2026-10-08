@@ -1,0 +1,153 @@
+{
+ "tts_dir": "tts",
+ "langs": [
+  {
+   "locale": "zh-CN",
+   "persona": "林小满",
+   "latin": "Lín Xiǎomǎn",
+   "gender": "f",
+   "voice": "zh-CN-XiaoxiaoNeural",
+   "text": "一本书",
+   "tokens": [
+    "一",
+    "本",
+    "书"
+   ]
+  },
+  {
+   "locale": "en-US",
+   "persona": "Ruby",
+   "latin": "Ruby",
+   "gender": "f",
+   "voice": "en-US-JennyNeural",
+   "text": "one book",
+   "tokens": [
+    "one",
+    "book"
+   ]
+  },
+  {
+   "locale": "de-DE",
+   "persona": "Felix",
+   "latin": "Felix",
+   "gender": "m",
+   "voice": "de-DE-ConradNeural",
+   "text": "ein Buch",
+   "tokens": [
+    "ein",
+    "Buch"
+   ]
+  },
+  {
+   "locale": "fr-FR",
+   "persona": "Théo",
+   "latin": "Théo",
+   "gender": "m",
+   "voice": "fr-FR-HenriNeural",
+   "text": "un livre",
+   "tokens": [
+    "un",
+    "livre"
+   ]
+  },
+  {
+   "locale": "es-ES",
+   "persona": "Lucía",
+   "latin": "Lucía",
+   "gender": "f",
+   "voice": "es-ES-ElviraNeural",
+   "text": "un libro",
+   "tokens": [
+    "un",
+    "libro"
+   ]
+  },
+  {
+   "locale": "ru-RU",
+   "persona": "Аня",
+   "latin": "Anya",
+   "gender": "f",
+   "voice": "ru-RU-SvetlanaNeural",
+   "text": "одна книга",
+   "tokens": [
+    "одна",
+    "книга"
+   ]
+  },
+  {
+   "locale": "el-GR",
+   "persona": "Νίκος",
+   "latin": "Nikos",
+   "gender": "m",
+   "voice": "el-GR-NestorasNeural",
+   "text": "ένα βιβλίο",
+   "tokens": [
+    "ένα",
+    "βιβλίο"
+   ]
+  },
+  {
+   "locale": "hi-IN",
+   "persona": "अर्जुन",
+   "latin": "Arjun",
+   "gender": "m",
+   "voice": "hi-IN-MadhurNeural",
+   "text": "एक किताब",
+   "tokens": [
+    "एक",
+    "किताब"
+   ]
+  },
+  {
+   "locale": "ar-SA",
+   "persona": "عمر",
+   "latin": "Omar",
+   "gender": "m",
+   "voice": "ar-SA-HamedNeural",
+   "text": "كتاب واحد",
+   "tokens": [
+    "كتاب",
+    "واحد"
+   ]
+  },
+  {
+   "locale": "he-IL",
+   "persona": "נועה",
+   "latin": "Noa",
+   "gender": "f",
+   "voice": "he-IL-HilaNeural",
+   "text": "ספר אחד",
+   "tokens": [
+    "ספר",
+    "אחד"
+   ]
+  },
+  {
+   "locale": "ja-JP",
+   "persona": "リク",
+   "latin": "Riku",
+   "gender": "m",
+   "voice": "ja-JP-KeitaNeural",
+   "text": "一冊の本",
+   "tokens": [
+    "一",
+    "冊",
+    "の",
+    "本"
+   ]
+  },
+  {
+   "locale": "ko-KR",
+   "persona": "서연",
+   "latin": "Seoyeon",
+   "gender": "f",
+   "voice": "ko-KR-SunHiNeural",
+   "text": "책 한 권",
+   "tokens": [
+    "책",
+    "한",
+    "권"
+   ]
+  }
+ ]
+}

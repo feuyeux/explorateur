@@ -87,6 +87,8 @@
 | 平台持久 profile | 各平台独立 user-data 目录（macOS / Linux：`~/.{douyin,xhs,bili,zhihu}_creator_profile`），登录态存盘**勿删** |
 | 外部依赖 | ffmpeg / ffprobe、ImageMagick `magick`——一律经 resolver，不写死路径 |
 | 交付位置 | 本目录内；不写 Desktop / Downloads / 临时目录（workspace 约定） |
+| SKILL 资产 | 本仓库自建的 SKILL 一律落到 `skills/`（仓库资产，随 git 版本化）；运行机器 `~/.agents/skills/` 只放**全局软链**指向这里，不存实体。新建 SKILL 同样走这条路径 |
+| headless 浏览器隔离 | headless 截图一律带独立 `--user-data-dir`，且 URL 必须绝对路径（相对路径 → Chrome 落 Google 搜索页）；截图后跑白页哨兵（`karaoke-video/scripts/scan_blank.py` 思路） |
 
 ---
 
@@ -105,6 +107,7 @@ feuille/
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
   docs/                全部文档（工作流/工具链 + playbook 系列：发布/知乎/取数/渲染手册/经验总纲/坑总账）
   examples/yiyezhiqiu/ 示例项目：《一叶知秋》完整内容包（诗稿/文案/数据/设计稿/H3 母版）
+  skills/              自建 SKILL 资产（one-page-poster 一页纸海报 / karaoke-video 卡拉OK视频 / publish-copy 平台发布词）；~/.agents/skills/ 软链引用
 ```
 
 - 每个机制模块**同步带反向验证**（纪律 2）；逐帧像素判据保持可用（`-map 0:v`、基线按平台分桶）。

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>一本书 · Video Scenes</title>
+<style>
+/*__FONTS__*/
+:root {
+  --paper: #f7f2e6;
+  --ink:   #2c2620;
+  --line:  #d9cdb7;
+  --vowel: #c9403a;
+  --cons:  #2f5d9e;
+  --mut:   #a2967f;
+  --sub:   #8a7e6c;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidden; }
+
+/* ---------- karaoke token states (deterministic, set by JS) ---------- */
+.tok { border-radius: 0.14em; }
+.tok.dim   { opacity: 0.18; }
+.tok.sung  { opacity: 1; }
+.tok.cur   { opacity: 1; background: rgba(44, 38, 32, 0.09); }
+
+/* ---------- scene chrome ---------- */
+.scene {
+  width: 1920px; height: 1080px; background: var(--paper); color: var(--ink);
+  font-family: "OBS West", "Noto Sans", sans-serif;
+  display: none; flex-direction: column; padding: 52px 90px 44px; position: relative;
+}
+.scene.on { display: flex; }
+.brand { font-size: 21px; letter-spacing: 0.14em; color: var(--sub); font-weight: 600; }
+.brand b { color: var(--ink); }
+.brand .f-sc { font-family: "OBS SC", "Noto Serif SC", serif; letter-spacing: 0.06em; }
+.pageno { position: absolute; top: 52px; right: 90px; font-size: 21px; color: var(--mut); letter-spacing: 0.2em; }
+.headrule { border-bottom: 2.5px solid var(--ink); margin-top: 18px; }
+
+.langline { margin-top: 66px; display: flex; align-items: baseline; gap: 22px; }
+.langlabel { font-size: 40px; font-weight: 600; letter-spacing: 0.05em; }
+.langlabel small { font-size: 22px; color: var(--mut); letter-spacing: 0.16em; margin-left: 12px; font-weight: 500; }
+.natv { font-size: 30px; color: var(--mut); }
+
+.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+
+/* ---------- the big word (CSS lifted from the poster) ---------- */
+.word { white-space: nowrap; line-height: 1.28; }
+.v { color: var(--vowel); }
+.c { color: var(--cons); }
+.n { color: var(--mut); }
+.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.t { color: transparent; }
+.sp { padding-left: .2691em; }           /* Devanagari in-cluster advance; BEFORE the reordered base */
+.ksyl {
+  display: inline-block; line-height: 1.28;
+  color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-repeat: no-repeat;
+}
+.ks1, .ks2 {
+  background-image:
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--cons), var(--cons));
+  background-position: right top, 0 0;
+}
+.ks1 { background-size: 44% 64.5%, 100% 100%; }
+.ks2 { background-size: 31.5% 77.2%, 100% 100%; }
+.ks3 {
+  background-image:
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--cons), var(--cons));
+  background-size: 29% 75%, 47% 11%, 70% 4.8%, 26.5% 26%, 100% 100%;
+  background-position: right top, right 0 top 60.7%, left 0 top 47.5%, 36.05% 66.2%, 0 0;
+}
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+.stack .lay { color: var(--vowel); }
+.f-sc { font-family: "OBS SC", "Noto Serif SC", serif; }
+.f-jp   { font-family: "OBS JP", "Noto Sans JP", sans-serif; }
+.f-kr   { font-family: "OBS KR", "Noto Sans KR", sans-serif; }
+.f-ar   { font-family: "OBS Arabic", "Noto Sans Arabic", sans-serif; }
+.f-he   { font-family: "OBS Hebrew", "Noto Sans Hebrew", sans-serif; }
+.f-deva { font-family: "OBS Deva", "Noto Sans Devanagari", sans-serif; }
+
+/* per-character columns (Chinese below / Japanese furigana above);
+   annotation sizes ride on em so they scale with the fitted word */
+.zi { display: inline-flex; flex-direction: column; align-items: center; margin: 0 0.03em; vertical-align: top; }
+.hz { display: block; }
+.annot {
+  display: block; margin-top: 0.14em;
+  font-size: 0.30em;
+  font-family: "OBS SC", "Noto Serif SC", serif;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-align: center; margin-left: 0.08em;
+}
+.jpat {
+  font-family: inherit;
+  font-size: 0.20em; font-weight: 500;
+  margin-top: 0; margin-bottom: 0.2em; margin-left: 0.08em;
+}
+.wjp .zi { vertical-align: bottom; }
+
+/* ---------- persona badge ---------- */
+.badge {
+  margin-top: 8px; display: flex; align-items: center; justify-content: center;
+  gap: 16px; font-size: 27px;
+}
+.badge .pdot { width: 17px; height: 17px; border-radius: 50%; background: var(--vowel); flex: none; }
+.badge .pname { font-weight: 600; }
+.badge .platin { color: var(--sub); letter-spacing: 0.04em; }
+.badge .pvoice { color: var(--mut); font-size: 21px; }
+
+/* ---------- translit ---------- */
+.translit {
+  margin-top: 30px; text-align: center;
+  font-size: 44px; color: var(--sub);
+  letter-spacing: 0.05em;
+  font-family: "OBS West", "Noto Sans", sans-serif;
+}
+.translit .v { color: var(--vowel); }
+.translit .c { color: var(--cons); }
+
+.footrule { border-bottom: 1.5px solid var(--line); margin-top: 40px; }
+.footer { margin-top: 14px; display: flex; justify-content: space-between; font-size: 18px; color: var(--mut); letter-spacing: 0.14em; }
+
+/* ---------- portrait variant (?fmt=v): 1080x1920 ---------- */
+html.vert, body.vert { width: 1080px; height: 1920px; }
+body.vert .scene { width: 1080px; height: 1920px; padding: 64px 60px 52px; }
+body.vert .brand { font-size: 24px; }
+body.vert .pageno { top: 64px; right: 60px; font-size: 24px; }
+body.vert .langline { margin-top: 130px; flex-direction: column; gap: 16px; align-items: flex-start; }
+body.vert .langlabel { font-size: 54px; }
+body.vert .langlabel small { font-size: 28px; }
+body.vert .natv { font-size: 34px; }
+body.vert .badge { font-size: 32px; gap: 18px; flex-wrap: wrap; }
+body.vert .badge .pvoice { font-size: 24px; }
+body.vert .translit { font-size: 52px; margin-top: 44px; }
+body.vert .footer { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ONE .scene PER ITEM. data-lang MUST equal the locale key in
+     voices.json / video.json (it selects the scene via ?lang=).
+     Wrap each karaoke token (the unit that lights up) in .tok,
+     in SPOKEN ORDER; the fit JS sizes .word into the stage box.
+     Token recipes (from the one-page-poster skill):
+       simple spans:        <span class="tok"><span class="v">o</span><span class="c">n</span></span>
+       hanzi columns:       .tok > .zi > (.hz + .annot)          (reading below)
+       furigana columns:    .tok > .zi > (.annot.jpat + .hz), .word gets .wjp
+       korean in-glyph:     .tok > .ksyl.ks1|ks2|ks3
+       mark-script overlay: .tok > .stack > .lay(red, full text) + .top(blue)
+       devanagari:          .sp spacer BEFORE the reordered base, marks removed
+     ============================================================ -->
+<section class="scene" id="sc-zh-CN" data-lang="zh-CN">
+  <div class="brand"><b>ONE BOOK</b> · <span class="f-sc">一本书</span> · IN TWELVE LANGUAGES</div>
+  <div class="pageno">01 / 12</div>
+  <div class="headrule"></div>
+  <div class="langline"><span class="langlabel">汉语<small>CHINESE</small></span><span class="natv f-sc">中文 · ㄅㄆㄇㄈ</span></div>
+  <div class="stage"><div class="word f-sc" id="w-zh-CN" style="color:var(--ink)"><span class="tok"><span class="zi"><span class="hz">一</span><span class="annot"><span class="v">ㄧ</span></span></span></span><span class="tok"><span class="zi"><span class="hz">本</span><span class="annot"><span class="c">ㄅ</span><span class="v">ㄣ</span><span class="n">ˇ</span></span></span></span><span class="tok"><span class="zi"><span class="hz">书</span><span class="annot"><span class="c">ㄕ</span><span class="v">ㄨ</span></span></span></span></div></div>
+  <div class="badge"><span class="pdot"></span><span class="pname f-sc">林小满</span><span class="platin">Lín Xiǎomǎn</span><span class="pvoice">zh-CN · Xiaoxiao Neural</span></div>
+  <div class="translit"><span class="c">y</span><span class="v">ī</span> <span class="c">b</span><span class="v">ě</span><span class="c">n</span> <span class="c">sh</span><span class="v">ū</span></div>
+  <div class="footrule"></div>
+  <div class="footer"><span>元音 <span class="v">■</span> · 辅音 <span class="c">■</span></span><span>配音 · EDGE TTS NEURAL</span></div>
+</section>
+
+<!-- ...one such section per item, then: -->
+
+<script>
+// ?lang=zh-CN&state=-1|0..K-1|K   -1 = pre-roll (all dim), K = done (all full)
+const q = new URLSearchParams(location.search);
+const lang = q.get("lang");
+const state = parseInt(q.get("state") ?? "-1", 10);
+const vert = q.get("fmt") === "v";
+if (vert) { document.body.classList.add("vert"); document.documentElement.classList.add("vert"); }
+
+// per-scene stage box (CSS px) for the fit
+const STAGE_W = vert ? 940 : 1740;
+const STAGE_H = vert ? 900 : 430;
+
+for (const sc of document.querySelectorAll(".scene")) {
+  if (sc.dataset.lang !== lang) continue;
+  sc.classList.add("on");
+  const word = sc.querySelector(".word");
+  // fit: largest font size keeping the word inside the stage box
+  let lo = 20, hi = 420;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    word.style.fontSize = mid + "px";
+    const r = word.getBoundingClientRect();
+    if (r.width <= STAGE_W && r.height <= STAGE_H) lo = mid; else hi = mid;
+  }
+  word.style.fontSize = lo + "px";
+
+  const toks = sc.querySelectorAll(".tok");
+  toks.forEach((t, i) => {
+    t.classList.remove("dim", "sung", "cur");
+    if (state < 0) t.classList.add("dim");
+    else if (state >= toks.length) t.classList.add("sung");
+    else if (i < state) t.classList.add("sung");
+    else if (i === state) t.classList.add("cur");
+    else t.classList.add("dim");
+  });
+}
+</script>
+</body>
+</html>

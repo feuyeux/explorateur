@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>一杯茶 · Twelve Scripts</title>
+<style>
+/*__FONTS__*/
+:root {
+  --paper: #f7f2e6;
+  --ink:   #2c2620;
+  --line:  #d9cdb7;
+  --vowel: #c9403a;
+  --cons:  #2f5d9e;
+  --mut:   #a2967f;
+  --sub:   #8a7e6c;
+  --gold:  #b8860b;   /* title accent — used ONLY by the top-left hanzi */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #e8e2d4; }
+.poster {
+  width: 1240px; height: 1754px;
+  margin: 0 auto; background: var(--paper);
+  color: var(--ink);
+  font-family: "Noto Sans", "OBS West", sans-serif;
+  display: flex; flex-direction: column;
+  padding: 46px 50px 40px;
+}
+
+/* ---------- header ---------- */
+header { display: flex; align-items: flex-end; justify-content: space-between; }
+.title-zh {
+  font-family: "Noto Serif SC", "OBS SC", serif;
+  font-weight: 700; font-size: 88px; line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+.title-sub {
+  margin-top: 14px; font-size: 17px; color: var(--sub);
+  letter-spacing: 0.14em;
+}
+.title-sub b { color: var(--ink); font-weight: 700; }
+.legend { display: flex; flex-direction: column; gap: 7px; padding-bottom: 6px; }
+.legend .li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--sub); }
+.legend .li b { color: var(--ink); font-weight: 500; font-size: 15px; }
+.dot { width: 15px; height: 15px; border-radius: 50%; flex: none; }
+.dot.v { background: var(--vowel); }
+.dot.c { background: var(--cons); }
+.dot.n { background: var(--mut); }
+.dot.cv { background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%); border-radius: 3px; }
+.dot.ink { background: var(--ink); border-radius: 3px; }
+
+.rule { border-bottom: 2.5px solid var(--ink); margin: 26px 0 0; }
+
+/* ---------- grid ---------- */
+.grid {
+  flex: 1; margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 1.5px; background: var(--line);
+  border: 1.5px solid var(--line);
+}
+.cell {
+  background: var(--paper);
+  display: flex; flex-direction: column;
+  padding: 18px 20px 14px;
+  min-height: 0; min-width: 0;
+}
+.cellhead {
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex: none;
+}
+.lang { font-size: 15.5px; color: var(--ink); letter-spacing: 0.06em; }
+.lang small { color: var(--mut); font-size: 12.5px; letter-spacing: 0.1em; margin-left: 7px; font-weight: 500; }
+.natv { font-size: 15px; color: var(--mut); }
+
+.wordbox {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4px 0 10px;
+}
+
+/* the big word, size set per-cell by JS */
+.word { white-space: nowrap; line-height: 1.28; }
+.v { color: var(--vowel); }
+.c { color: var(--cons); }
+.n { color: var(--mut); }
+.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.t { color: transparent; }               /* hidden spacing letter in overlay layers */
+.sp { padding-left: .2691em; }           /* in-cluster advance of Devanagari ि/ा (0.259em
+                                            glyph + run-boundary residue) — inline padding,
+                                            not an atomic box, so no layout snapping of the
+                                            text that follows; must sit AFTER a post-base
+                                            matra's base (ा) and BEFORE a pre-base one (ि) */
+
+/* Korean: direct in-glyph coloring — each syllable is an inline-block whose ink
+   is painted by stacked hard-edged background patches under background-clip:text.
+   Patch geometry measured from glyph ink masks at 200px (fractions of the
+   184×256 element box; right-top anchored, blue full-box patch beneath).
+   차: ㅏ bar x[130,178] y[49,230], no other ink right of x=117 → 32%×95.5%
+   한: proven one-book geometry (ks2)
+   잔: ㅏ bar x[131,177] y[49,181], other ink maxx=116 → 31.5%×76.2% */
+.ksyl {
+  display: inline-block; line-height: 1.28;
+  color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-repeat: no-repeat;
+}
+.fallback .ksyl { color: var(--ink); }
+.ks2, .kta, .kja {
+  background-image:
+    linear-gradient(var(--vowel), var(--vowel)),
+    linear-gradient(var(--cons), var(--cons));
+  background-position: right top, 0 0;
+}
+.ks2 { background-size: 31.5% 77.2%, 100% 100%; }   /* 한: ㅏ red */
+.kta { background-size: 32% 95.5%, 100% 100%; }     /* 차: ㅏ red (no final — longer bar) */
+.kja { background-size: 31.5% 76.2%, 100% 100%; }   /* 잔: ㅏ red */
+
+/* transliteration — same two-color coding as the scripts */
+.translit {
+  flex: none; text-align: center;
+  font-size: 24px; color: var(--sub);
+  letter-spacing: 0.05em;
+  font-family: "OBS West", "Noto Sans", sans-serif;
+}
+.translit .v { color: var(--vowel); }
+.translit .c { color: var(--cons); }
+
+/* script-specific families */
+/* embedded subsets first: identical rendering with or without local fonts */
+.f-jp   { font-family: "OBS JP", "Noto Sans JP", sans-serif; }
+.f-kr   { font-family: "OBS KR", "Noto Sans KR", sans-serif; }
+.f-ar   { font-family: "OBS Arabic", "Noto Sans Arabic", sans-serif; }
+.f-he   { font-family: "OBS Hebrew", "Noto Sans Hebrew", sans-serif; }
+.f-deva { font-family: "OBS Deva", "Noto Sans Devanagari", sans-serif; }
+
+/* Chinese cell: one column per hanzi (its 隔断), zhuyin sits inside its own
+   character's column — per-character alignment, not one left/center line */
+.f-sc { font-family: "OBS SC", "Noto Serif SC", serif; }
+.zi { display: inline-flex; flex-direction: column; align-items: center; margin: 0 0.03em; vertical-align: top; }
+.hz { display: block; }
+.annot {
+  display: block; margin-top: 0.14em;
+  font-size: 34px;              /* fixed: does NOT scale with the fit */
+  font-family: "OBS SC", "Noto Serif SC", serif;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-align: center;           /* centered inside its own column */
+  margin-left: 0.08em;          /* cancel letter-spacing's trailing gap so
+                                   ink centers, not the box */
+}
+.annot .syll { margin: 0 0.22em; }
+/* Japanese per-kanji columns: kana reading ABOVE its character (unlike the
+   Chinese cell). Bottom-align the columns so all kanji share one row. */
+.jpat {
+  font-family: inherit;
+  font-size: 20px; font-weight: 500;
+  margin-bottom: 0.2em; margin-left: 0.08em;
+}
+.wjp .zi { vertical-align: bottom; }
+
+/* two-layer overlay for mark-scripts (nikkud / harakat / matras):
+   both layers share one grid cell — identical layout origin, so the two
+   rasters land on the same subpixel grid and no fringe of the bottom
+   (red) layer peeks around the top (blue) layer. */
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+.fallback .cv { color: var(--cons); } /* bg-clip unsupported fallback */
+
+ruby rt { font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <header>
+    <div>
+      <div class="title-zh">一杯茶</div>
+      <div class="title-sub"><b>A CUP OF TEA · IN TWELVE LANGUAGES</b>　十二种语言 · 元音辅音双色标记 · 拉丁转写</div>
+    </div>
+    <div class="legend">
+      <div class="li"><span class="dot v"></span><b>元音</b> vowel</div>
+      <div class="li"><span class="dot c"></span><b>辅音</b> consonant</div>
+      <div class="li"><span class="dot n"></span><b>声调 · 不发音符号</b> tone / silent</div>
+      <div class="li"><span class="dot cv"></span><b>辅音＋元音合体</b> kana</div>
+      <div class="li"><span class="dot ink"></span><b>汉字 · 注音</b> ink + annotation</div>
+    </div>
+  </header>
+  <div class="rule"></div>
+
+  <div class="grid">
+    <!-- 1 汉语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">汉语<small>CHINESE</small></div><div class="natv f-sc">中文</div></div>
+      <div class="wordbox"><div class="word f-sc" style="color:var(--ink)"><span class="zi"><span class="hz">一</span><span class="annot"><span class="v">ㄧ</span></span></span><span class="zi"><span class="hz">杯</span><span class="annot"><span class="c">ㄅ</span><span class="v">ㄟ</span></span></span><span class="zi"><span class="hz">茶</span><span class="annot"><span class="c">ㄔ</span><span class="v">ㄚ</span><span class="n">ˊ</span></span></span></div></div>
+      <div class="translit"><span class="c">y</span><span class="v">ī</span> <span class="c">b</span><span class="v">ēi</span> <span class="c">ch</span><span class="v">á</span></div>
+    </div>
+
+    <!-- 2 英语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">英语<small>ENGLISH</small></div><div class="natv">English</div></div>
+      <div class="wordbox"><div class="word"><span class="v">a</span> <span class="c">c</span><span class="v">u</span><span class="c">p</span> <span class="v">o</span><span class="c">f</span> <span class="c">t</span><span class="v">ea</span></div></div>
+      <div class="translit">/ə ˈkʌp əv ˈtiː/</div>
+    </div>
+
+    <!-- 3 德语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">德语<small>GERMAN</small></div><div class="natv">Deutsch</div></div>
+      <div class="wordbox"><div class="word"><span class="v">ei</span><span class="c">n</span><span class="v">e</span> <span class="c">T</span><span class="v">a</span><span class="c">ss</span><span class="v">e</span> <span class="c">T</span><span class="v">ee</span></div></div>
+      <div class="translit">/ˈaɪnə ˈtasə ˈteː/</div>
+    </div>
+
+    <!-- 4 法语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">法语<small>FRENCH</small></div><div class="natv">Français</div></div>
+      <div class="wordbox"><div class="word"><span class="v">u</span><span class="c">n</span><span class="v">e</span> <span class="c">t</span><span class="v">a</span><span class="c">ss</span><span class="v">e</span> <span class="c">d</span><span class="v">e</span> <span class="c">t</span><span class="n">h</span><span class="v">é</span></div></div>
+      <div class="translit">/yn tas də te/</div>
+    </div>
+
+    <!-- 5 西班牙语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">西班牙语<small>SPANISH</small></div><div class="natv">Español</div></div>
+      <div class="wordbox"><div class="word"><span class="v">u</span><span class="c">n</span><span class="v">a</span> <span class="c">t</span><span class="v">a</span><span class="c">z</span><span class="v">a</span> <span class="c">d</span><span class="v">e</span> <span class="c">t</span><span class="v">é</span></div></div>
+      <div class="translit">/ˈu.na ˈta.θa ðe ˈte/</div>
+    </div>
+
+    <!-- 6 俄语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">俄语<small>RUSSIAN</small></div><div class="natv">Русский</div></div>
+      <div class="wordbox"><div class="word"><span class="c">ч</span><span class="v">а</span><span class="c">ш</span><span class="c">к</span><span class="v">а</span> <span class="c">ч</span><span class="v">а</span><span class="v">я</span></div></div>
+      <div class="translit"><span class="c">ch</span><span class="v">á</span><span class="c">shk</span><span class="v">a</span> <span class="c">ch</span><span class="v">á</span><span class="v">ya</span></div>
+    </div>
+
+    <!-- 7 希腊语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">希腊语<small>GREEK</small></div><div class="natv">Ελληνικά</div></div>
+      <div class="wordbox"><div class="word"><span class="v">έ</span><span class="c">ν</span><span class="v">α</span> <span class="c">φ</span><span class="c">λ</span><span class="v">ι</span><span class="c">τ</span><span class="c">ζ</span><span class="v">ά</span><span class="c">ν</span><span class="v">ι</span> <span class="c">τ</span><span class="c">σ</span><span class="v">ά</span><span class="v">ι</span></div></div>
+      <div class="translit"><span class="v">é</span><span class="c">n</span><span class="v">a</span> <span class="c">fl</span><span class="v">i</span><span class="c">tz</span><span class="v">á</span><span class="c">n</span><span class="v">i</span> <span class="c">ts</span><span class="v">á</span><span class="v">i</span></div>
+    </div>
+
+    <!-- 8 印地语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">印地语<small>HINDI</small></div><div class="natv f-deva">हिन्दी</div></div>
+      <div class="wordbox"><div class="word"><span class="stack f-deva"><span class="lay v" aria-hidden="true">एक कप चाय</span><span class="top"><span class="t">ए</span><span class="c">क</span> <span class="c">क</span><span class="c">प</span> <span class="c">च</span><span class="sp"></span><span class="c">य</span></span></span></div></div>
+      <div class="translit"><span class="v">e</span><span class="c">k</span> <span class="c">k</span><span class="v">a</span><span class="c">p</span> <span class="c">ch</span><span class="v">ā</span><span class="c">y</span></div>
+    </div>
+
+    <!-- 9 阿拉伯语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">阿拉伯语<small>ARABIC</small></div><div class="natv f-ar" dir="rtl">العربية</div></div>
+      <div class="wordbox"><div class="word"><span class="stack f-ar" dir="rtl"><span class="lay" dir="rtl" aria-hidden="true" style="color:var(--vowel)">كوب شاي</span><span class="top" dir="rtl"><span class="c">ك</span><span class="t">و</span><span class="c">ب</span> <span class="c">ش</span><span class="t">ا</span><span class="t">ي</span></span></span></div></div>
+      <div class="translit"><span class="c">k</span><span class="v">ū</span><span class="c">b</span> <span class="c">sh</span><span class="v">ā</span><span class="v">y</span></div>
+    </div>
+
+    <!-- 10 希伯来语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">希伯来语<small>HEBREW</small></div><div class="natv f-he" dir="rtl">עברית</div></div>
+      <div class="wordbox"><div class="word"><span class="stack f-he" dir="rtl"><span class="lay v" dir="rtl" aria-hidden="true">כוס תה</span><span class="top" dir="rtl"><span class="c">כ</span><span class="t">ו</span><span class="c">ס</span> <span class="c">ת</span><span class="t">ה</span></span></span></div></div>
+      <div class="translit"><span class="c">k</span><span class="v">o</span><span class="c">s</span> <span class="c">t</span><span class="v">e</span></div>
+    </div>
+
+    <!-- 11 日语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">日语<small>JAPANESE</small></div><div class="natv f-jp">日本語</div></div>
+      <div class="wordbox"><div class="word f-jp wjp" style="color:var(--ink)"><span class="zi"><span class="hz" style="color:var(--vowel)">お</span></span><span class="zi"><span class="annot jpat"><span class="cv">ち</span><span class="cv">ゃ</span></span><span class="hz">茶</span></span><span class="zi"><span class="annot jpat"><span class="v">い</span><span class="c">っ</span></span><span class="hz">一</span></span><span class="zi"><span class="annot jpat"><span class="cv">ぱ</span><span class="v">い</span></span><span class="hz">杯</span></span></div></div>
+      <div class="translit"><span class="v">o</span><span class="c">ch</span><span class="v">a</span> <span class="v">i</span><span class="c">pp</span><span class="v">a</span><span class="v">i</span></div>
+    </div>
+
+    <!-- 12 韩语 -->
+    <div class="cell">
+      <div class="cellhead"><div class="lang">韩语<small>KOREAN</small></div><div class="natv f-kr">한국어</div></div>
+      <div class="wordbox"><div class="word f-kr"><span class="ksyl kta">차</span> <span class="ksyl ks2">한</span> <span class="ksyl kja">잔</span></div></div>
+      <div class="translit"><span class="c">ch</span><span class="v">a</span> <span class="c">h</span><span class="v">a</span><span class="c">n</span> <span class="c">j</span><span class="v">a</span><span class="c">n</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// per-cell auto-fit: binary-search the largest font size that keeps the word
+// inside its wordbox (width and height), so every script fills its own cell.
+function fitCell(cell) {
+  const box = cell.querySelector('.wordbox');
+  const word = cell.querySelector('.word');
+  const availW = box.clientWidth;
+  const availH = box.clientHeight;
+  let lo = 10, hi = 400;
+  while (hi - lo > 0.5) {
+    const mid = (lo + hi) / 2;
+    word.style.fontSize = mid + 'px';
+    const r = word.getBoundingClientRect();
+    if (r.width <= availW && r.height <= availH) lo = mid; else hi = mid;
+  }
+  word.style.fontSize = lo + 'px';
+}
+function fitAll() {
+  document.querySelectorAll('.cell').forEach(fitCell);
+}
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(fitAll);
+} else {
+  window.addEventListener('load', fitAll);
+}
+
+// ?verify=1 → dump per-cell fit diagnostics as JSON into the <title>
+if (/verify=1/.test(location.search + location.hash)) {
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve())
+    .then(() => setTimeout(() => {
+      const diag = [];
+      document.querySelectorAll('.cell').forEach(cell => {
+        const word = cell.querySelector('.word');
+        const wr = word.getBoundingClientRect();
+        const cr = cell.getBoundingClientRect();
+        diag.push({
+          lang: cell.querySelector('.lang').firstChild.textContent.trim(),
+          fs: parseFloat(word.style.fontSize) || null,
+          overflowX: wr.right > cr.right + 0.5 || wr.left < cr.left - 0.5,
+          overflowY: wr.bottom > cr.bottom + 0.5,
+          word: [Math.round(wr.left), Math.round(wr.top), Math.round(wr.width), Math.round(wr.height)]
+        });
+      });
+      const fonts = [...document.fonts].map(f => f.family + ':' + f.status).join(',');
+      document.title = 'DIAG ' + JSON.stringify({fonts: fonts, cells: diag});
+      const pre = document.createElement('pre'); pre.id = 'diag';
+      pre.textContent = document.title; document.body.appendChild(pre);
+    }, 300));
+}
+window.addEventListener('load', fitAll);
+</script>
+</body>
+</html>

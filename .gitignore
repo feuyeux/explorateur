@@ -59,3 +59,9 @@ htmlcov/
 
 # ── 产物（可再生，不入库）─────────────────────────────────
 examples/
+# 海报/视频项目目录整体视为输出产物：源文件已归档为 usine/skills/*/assets/example/，
+# 任意内容均可由 one-page-poster / karaoke-video skill 管线一键再生，整个目录不入库
+one-cup-tea-poster/
+one-unit-money-poster/
+# firecrawl 抓取缓存
+.firecrawl/

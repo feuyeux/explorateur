@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<!-- One-page poster skeleton. Copy this file, replace TODOs, keep the pipeline:
+     fetch_fonts.py fonts.json && assemble.py && render_poster.sh && verify.
+     Full coloring recipes for complex scripts: references/script-coloring.md -->
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>TODO · One-Page Poster</title>
+<style>
+/*__FONTS__*/
+:root {
+  --paper: #f7f2e6;   /* warm paper */
+  --ink:   #2c2620;
+  --line:  #d9cdb7;   /* grid lines */
+  --vowel: #c9403a;   /* warm red  */
+  --cons:  #2f5d9e;   /* cool blue */
+  --mut:   #a2967f;   /* neutral gray: tones / silent marks */
+  --gold:  #b8860b;   /* title accent — used ONLY by the top-left hanzi */
+  --sub:   #8a7e6c;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #e8e2d4; }
+.poster {
+  width: 1240px; height: 1754px;      /* A4 ratio @150dpi; pair with render size */
+  margin: 0 auto; background: var(--paper); color: var(--ink);
+  font-family: "OBS West", "Noto Sans", sans-serif;
+  display: flex; flex-direction: column;
+  padding: 46px 50px 40px;
+}
+
+/* ---------- header ---------- */
+header { display: flex; align-items: flex-end; justify-content: space-between; }
+.title-zh { font-weight: 700; font-size: 88px; line-height: 1; letter-spacing: .06em; color: var(--gold); }
+.title-sub { margin-top: 14px; font-size: 17px; color: var(--sub); letter-spacing: .14em; }
+.title-sub b { color: var(--ink); font-weight: 700; }
+.legend { display: flex; flex-direction: column; gap: 7px; padding-bottom: 6px; }
+.legend .li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--sub); }
+.legend .li b { color: var(--ink); font-weight: 500; font-size: 15px; }
+.dot { width: 15px; height: 15px; border-radius: 50%; flex: none; }
+.dot.v  { background: var(--vowel); }
+.dot.c  { background: var(--cons); }
+.dot.n  { background: var(--mut); }
+.dot.cv { background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%); border-radius: 3px; }
+.dot.ink{ background: var(--ink); border-radius: 3px; }
+.rule { border-bottom: 2.5px solid var(--ink); margin: 26px 0 0; }
+
+/* ---------- grid ---------- */
+.grid {
+  flex: 1; margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);   /* TODO cols */
+  grid-template-rows: repeat(4, 1fr);      /* TODO rows */
+  gap: 1.5px; background: var(--line);
+  border: 1.5px solid var(--line);
+}
+.cell { background: var(--paper); display: flex; flex-direction: column;
+        padding: 18px 20px 14px; min-height: 0; min-width: 0; }
+.cellhead { display: flex; justify-content: space-between; align-items: baseline; flex: none; }
+.lang { font-size: 15.5px; color: var(--ink); letter-spacing: .06em; }
+.lang small { color: var(--mut); font-size: 12.5px; letter-spacing: .1em; margin-left: 7px; font-weight: 500; }
+.natv { font-size: 15px; color: var(--mut); }
+.wordbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+           padding: 4px 0 10px; }
+
+/* the big word — size set per-cell by the fit script below */
+.word { white-space: nowrap; line-height: 1.28; }
+.v { color: var(--vowel); }
+.c { color: var(--cons); }
+.n { color: var(--mut); }                 /* tones / silent letters */
+.cv {                                      /* consonant+vowel fusion (kana) */
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* two-layer overlay for mark-scripts — MUST be inline-grid, one grid cell
+   (grid-area:1/1) so both rasters share the same origin. position:absolute
+   rounds origins differently and produces visible fringes. */
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+.t  { color: transparent; }               /* independent vowel letters hidden in .top */
+.sp { padding-left: .2691em; }            /* Devanagari in-cluster matra advance — inline
+                                             padding (NOT inline-block, it snaps); place
+                                             BEFORE the base the mark reorders ahead of */
+
+/* Korean in-glyph patches: inline-block + stacked hard-edge background
+   patches + background-clip:text. NEVER use the `font:` shorthand inside —
+   it resets line-height and shifts the patch fractions. */
+.ksyl {
+  display: inline-block; line-height: 1.28; color: transparent;
+  -webkit-background-clip: text; background-clip: text; background-repeat: no-repeat;
+}
+
+/* transliteration row — same two-color coding */
+.translit { flex: none; text-align: center; font-size: 24px; color: var(--sub);
+            letter-spacing: .05em; font-family: "OBS West", "Noto Sans", sans-serif; }
+.translit .v { color: var(--vowel); }
+.translit .c { color: var(--cons); }
+.translit .n { color: var(--sub); }       /* IPA stays gray */
+
+/* per-character column (隔断): one column per character, its reading
+   fixed-size inside the column. Chinese zhuyin: reading BELOW (default,
+   columns top-aligned). Japanese furigana: reading ABOVE — put the reading
+   first in the column and bottom-align (see .wjp). */
+.zi { display: inline-flex; flex-direction: column; align-items: center;
+      margin: 0 .03em; vertical-align: top; }
+.hz { display: block; }                    /* the character — auto-fit scales it */
+.annot {                                   
+  display: block; margin-top: .14em; text-align: center;
+  font-size: 34px;                         /* FIXED px — does NOT scale with fit */
+  font-weight: 600; letter-spacing: .08em;
+  margin-left: .08em;                      /* cancel trailing letter-spacing */
+}
+.jpat { font-family: inherit; font-size: 20px; font-weight: 500;
+        margin-bottom: .2em; margin-left: .08em; }   /* furigana above */
+.wjp .zi { vertical-align: bottom; }       /* kanji share one row */
+
+/* script families — embedded subset FIRST so rendering is identical
+   with or without local fonts */
+/* .f-xx { font-family: "OBS X", "Noto Sans X", sans-serif; } */
+</style>
+</head>
+<body>
+<div class="poster">
+  <header>
+    <div>
+      <div class="title-zh">TODO标题</div>
+      <div class="title-sub"><b>TODO · LATIN SUBTITLE</b>　TODO中文副题</div>
+    </div>
+    <div class="legend">
+      <div class="li"><span class="dot v"></span><b>元音</b> vowel</div>
+      <div class="li"><span class="dot c"></span><b>辅音</b> consonant</div>
+      <div class="li"><span class="dot n"></span><b>声调 · 不发音符号</b> tone / silent</div>
+      <div class="li"><span class="dot cv"></span><b>辅音＋元音合体</b> fusion</div>
+      <div class="li"><span class="dot ink"></span><b>TODO</b> ink + annotation</div>
+    </div>
+  </header>
+  <div class="rule"></div>
+
+  <div class="grid">
+    <!-- cell anatomy — pick the body variant per language:
+    <div class="cell">
+      <div class="cellhead"><div class="lang">语种<small>ENGLISH</small></div><div class="natv f-xx">原文</div></div>
+      <div class="wordbox">
+        simple:        <div class="word f-xx"><span class="v">…</span><span class="c">…</span></div>
+        overlay:       <div class="word"><span class="stack f-xx"><span class="lay v" aria-hidden="true">FULL</span><span class="top">CONSONANTS+spacers</span></span></div>
+        korean:        <div class="word f-xx">…<span class="ksyl ks1">책</span>…</div>
+        hanzi+annot:   <div class="word" style="color:var(--ink)">汉<span class="annot">…</span></div>
+      </div>
+      <div class="translit"><span class="v">…</span><span class="c">…</span></div>
+    </div>
+    -->
+    <!-- TODO cells -->
+  </div>
+</div>
+
+<script>
+// per-cell auto-fit: binary-search the largest font size keeping the word
+// inside its wordbox, so every script fills its own cell.
+function fitCell(cell) {
+  const box = cell.querySelector('.wordbox');
+  const word = cell.querySelector('.word');
+  const availW = box.clientWidth, availH = box.clientHeight;
+  let lo = 10, hi = 400;
+  while (hi - lo > 0.5) {
+    const mid = (lo + hi) / 2;
+    word.style.fontSize = mid + 'px';
+    const r = word.getBoundingClientRect();
+    if (r.width <= availW && r.height <= availH) lo = mid; else hi = mid;
+  }
+  word.style.fontSize = lo + 'px';
+}
+function fitAll() { document.querySelectorAll('.cell').forEach(fitCell); }
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(fitAll);
+} else { window.addEventListener('load', fitAll); }
+
+// ?verify=1 → dump per-cell fit diagnostics as DIAG JSON (parse with fit_diag.py)
+if (/verify=1/.test(location.search + location.hash)) {
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve())
+    .then(() => setTimeout(() => {
+      const diag = [];
+      document.querySelectorAll('.cell').forEach(cell => {
+        const word = cell.querySelector('.word');
+        const wr = word.getBoundingClientRect();
+        const cr = cell.getBoundingClientRect();
+        diag.push({
+          lang: cell.querySelector('.lang').firstChild.textContent.trim(),
+          fs: parseFloat(word.style.fontSize) || null,
+          overflowX: wr.right > cr.right + 0.5 || wr.left < cr.left - 0.5,
+          overflowY: wr.bottom > cr.bottom + 0.5,
+          word: [Math.round(wr.left), Math.round(wr.top), Math.round(wr.width), Math.round(wr.height)]
+        });
+      });
+      const fonts = [...document.fonts].map(f => f.family + ':' + f.status).join(',');
+      const pre = document.createElement('pre'); pre.id = 'diag';
+      pre.textContent = 'DIAG ' + JSON.stringify({fonts: fonts, cells: diag});
+      document.body.appendChild(pre);
+    }, 300));
+}
+</script>
+</body>
+</html>

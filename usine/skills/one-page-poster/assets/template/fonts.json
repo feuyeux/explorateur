@@ -1,0 +1,8 @@
+[
+  {"family": "OBS West", "google": "Noto+Sans:wght@500;700",
+   "text": "однакнига́áРусскийέναβιβλίοΕλληνικάabcdefgāīḥḍéèêǔŋʌʊɪːˈɾœ̃ʁ/wʌnbʊkaɪnxˈliḷř・·,.",
+   "classes": ["translit"]},
+  {"family": "OBS Deva", "google": "Noto+Sans+Devanagari:wght@500",
+   "text": "एक किताब हिन्दीिा",
+   "classes": ["f-deva"]}
+]

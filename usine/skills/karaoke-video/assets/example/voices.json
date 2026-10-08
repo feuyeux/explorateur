@@ -1,0 +1,162 @@
+{
+ "tts_dir": "tts",
+ "langs": [
+  {
+   "locale": "zh-CN",
+   "persona": "林小满",
+   "latin": "Lín Xiǎomǎn",
+   "gender": "f",
+   "voice": "zh-CN-XiaoxiaoNeural",
+   "text": "一杯茶",
+   "tokens": [
+    "一",
+    "杯",
+    "茶"
+   ]
+  },
+  {
+   "locale": "en-US",
+   "persona": "Ruby",
+   "latin": "Ruby",
+   "gender": "f",
+   "voice": "en-US-JennyNeural",
+   "text": "a cup of tea",
+   "tokens": [
+    "a",
+    "cup",
+    "of",
+    "tea"
+   ]
+  },
+  {
+   "locale": "de-DE",
+   "persona": "Felix",
+   "latin": "Felix",
+   "gender": "m",
+   "voice": "de-DE-ConradNeural",
+   "text": "eine Tasse Tee",
+   "tokens": [
+    "eine",
+    "Tasse",
+    "Tee"
+   ]
+  },
+  {
+   "locale": "fr-FR",
+   "persona": "Théo",
+   "latin": "Théo",
+   "gender": "m",
+   "voice": "fr-FR-HenriNeural",
+   "text": "une tasse de thé",
+   "tokens": [
+    "une",
+    "tasse",
+    "de",
+    "thé"
+   ]
+  },
+  {
+   "locale": "es-ES",
+   "persona": "Lucía",
+   "latin": "Lucía",
+   "gender": "f",
+   "voice": "es-ES-ElviraNeural",
+   "text": "una taza de té",
+   "tokens": [
+    "una",
+    "taza",
+    "de",
+    "té"
+   ]
+  },
+  {
+   "locale": "ru-RU",
+   "persona": "Аня",
+   "latin": "Anya",
+   "gender": "f",
+   "voice": "ru-RU-SvetlanaNeural",
+   "text": "чашка чая",
+   "tokens": [
+    "чашка",
+    "чая"
+   ]
+  },
+  {
+   "locale": "el-GR",
+   "persona": "Νίκος",
+   "latin": "Nikos",
+   "gender": "m",
+   "voice": "el-GR-NestorasNeural",
+   "text": "ένα φλιτζάνι τσάι",
+   "tokens": [
+    "ένα",
+    "φλιτζάνι",
+    "τσάι"
+   ]
+  },
+  {
+   "locale": "hi-IN",
+   "persona": "अर्जुन",
+   "latin": "Arjun",
+   "gender": "m",
+   "voice": "hi-IN-MadhurNeural",
+   "text": "एक कप चाय",
+   "tokens": [
+    "एक",
+    "कप",
+    "चाय"
+   ]
+  },
+  {
+   "locale": "ar-SA",
+   "persona": "عمر",
+   "latin": "Omar",
+   "gender": "m",
+   "voice": "ar-SA-HamedNeural",
+   "text": "كوب شاي",
+   "tokens": [
+    "كوب",
+    "شاي"
+   ]
+  },
+  {
+   "locale": "he-IL",
+   "persona": "נועה",
+   "latin": "Noa",
+   "gender": "f",
+   "voice": "he-IL-HilaNeural",
+   "text": "כוס תה",
+   "tokens": [
+    "כוס",
+    "תה"
+   ]
+  },
+  {
+   "locale": "ja-JP",
+   "persona": "リク",
+   "latin": "Riku",
+   "gender": "m",
+   "voice": "ja-JP-KeitaNeural",
+   "text": "お茶一杯",
+   "tokens": [
+    "お",
+    "茶",
+    "一",
+    "杯"
+   ]
+  },
+  {
+   "locale": "ko-KR",
+   "persona": "서연",
+   "latin": "Seoyeon",
+   "gender": "f",
+   "voice": "ko-KR-SunHiNeural",
+   "text": "차 한 잔",
+   "tokens": [
+    "차",
+    "한",
+    "잔"
+   ]
+  }
+ ]
+}
