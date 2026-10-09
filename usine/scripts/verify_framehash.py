@@ -114,6 +114,40 @@ def check():
                  "桶不含 ffmpeg（合成器不参与逐帧像素，入桶只会让基线无谓失效）"))
     rows.append((fh.baseline_path(d).name == f"framehash-{bkt}.txt",
                  "基线路径按桶命名（不同平台不会互相读到）"))
+
+    # ---- 7. CLI 叶子（feuille framehash save|check）端到端 ----
+    # 叶子是薄编排，但薄编排也有自己的死法：筛空静默成功（坑㉟）、采完不回读
+    # （坑㉞）、退出码口径漂移。端到端 = 临时项目根里真造产物、真采、真查、真改坏。
+    proj = d / "proj"
+    (proj / "build" / "sub").mkdir(parents=True)
+    x = make_video(proj / "build" / "x.mp4", "0x707070")
+    y = make_video(proj / "build" / "sub" / "y.mp4", "0x707070")
+    rc_save = fh.main_save(["--root", str(proj)])
+    rows.append((rc_save == 0 and fh.read_baseline(fh.baseline_path(proj))
+                 == {"x.mp4": fh.framehash(x), "y.mp4": fh.framehash(y)},
+                 "save 叶子：build/ 全量发现（含子目录）→ 分桶落盘 → 回读逐条一致"))
+
+    rows.append((fh.main_check(["--root", str(proj)]) == 0,
+                 "check 叶子：零漂移 → 退出码 0"))
+
+    make_video(proj / "build" / "sub" / "y.mp4", "0xA0A0A0")     # 改坏一支
+    rows.append((fh.main_check(["--root", str(proj)]) == 1,
+                 "check 叶子：一支改坏 → 退出码 1（drift 必被抓）"))
+
+    (proj / "build" / "sub" / "y.mp4").unlink()                  # 产物没了
+    rows.append((fh.main_check(["--root", str(proj)]) == 1,
+                 "check 叶子：产物缺失 → 退出码 1（gone 也算漂移）"))
+
+    for bad, label in ((d / "no-build", "没有 build/"), (d / "bare-build", "build/ 下没有 mp4")):
+        bad.mkdir()
+        if "bare" in bad.name:
+            (bad / "build").mkdir()
+        try:
+            fh._discover_videos(bad)
+            ok_bad = False
+        except SystemExit:
+            ok_bad = True
+        rows.append((ok_bad, f"发现层：{label} → 显式报错（不静默产空基线，坑㉟）"))
     return rows
 
 

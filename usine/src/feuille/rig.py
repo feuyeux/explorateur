@@ -97,33 +97,25 @@ def rnd(seed):
 
 def gaze(seed, t):
     """视线跟随镜头（gaze="camera"）：瞳孔绕镜头注视点做
-    种子化微漂移＋短促扫视，确定性幂等。返回 (dx, dy)∈[-1,1]；
+    种子化平滑有机微漂移，神采奕奕且确定性幂等。返回 (dx, dy)∈[-1,1]；
     像素幅度 = (巩膜−瞳孔) 余量 × 0.35（探针安全余量内，qa_char 同源引用）。"""
     ph = 2 * math.pi * rnd(f"{seed}:gaze")
-    gx = 0.45 * math.sin(2 * math.pi * 0.19 * t + ph)
-    gy = 0.30 * math.sin(2 * math.pi * 0.13 * t + ph * 1.7)
-    cyc = 2.6
-    t0 = rnd(f"{seed}:gaze:phase") * cyc
-    k = int((t + t0) / cyc)
-    tt = (t + t0) - k * cyc
-    if tt < 0.22:  # 短促扫视：幅度/方向按扫视序号锁定
-        amp = rnd(f"{seed}:sacc:{k}")
-        gx += 0.55 * amp * math.sin(2 * math.pi * rnd(f"{seed}:sxa:{k}"))
-        gy += 0.35 * amp * math.cos(2 * math.pi * rnd(f"{seed}:sya:{k}"))
+    gx = 0.35 * math.sin(2 * math.pi * 0.16 * t + ph)
+    gy = 0.20 * math.sin(2 * math.pi * 0.11 * t + ph * 1.5)
     return clamp(gx, -1, 1), clamp(gy, -1, 1)
 
 
 def phys(seed, code, kind, t):
     """挂件物理（四锚点分层）：相位频率种子化，确定性幂等。
-    swing→(dx,dy) 摆动；bounce→(0,dy) 颠动；reflect→(dx,0) 高光位移。"""
+    swing→(dx,dy) 摆动；bounce→(0,dy) 柔和颠动（余弦缓冲无尖角）；reflect→(dx,0) 高光位移。"""
     ph = 2 * math.pi * rnd(f"{seed}:phys:{code}")
     if kind == "swing":
-        return (5.0 * math.sin(2 * math.pi * 0.85 * t + ph),
-                1.6 * abs(math.cos(2 * math.pi * 0.85 * t + ph)))
+        return (4.5 * math.sin(2 * math.pi * 0.85 * t + ph),
+                1.2 * (1.0 - math.cos(2 * math.pi * 0.85 * t + ph)))
     if kind == "bounce":
-        return (0.0, -3.0 * abs(math.sin(2 * math.pi * 1.15 * t + ph)))
+        return (0.0, -1.8 * (1.0 - math.cos(2 * math.pi * 1.15 * t + ph)))
     if kind == "reflect":
-        return (9.0 * math.sin(2 * math.pi * 0.55 * t + ph), 0.0)
+        return (8.0 * math.sin(2 * math.pi * 0.55 * t + ph), 0.0)
     return (0.0, 0.0)
 
 
@@ -173,16 +165,16 @@ EYE_MOOD = {"neutral": 1.0, "happy": 0.94, "puzzled": 1.05, "encouraging": 0.98,
 
 
 # 脸型规格表（6 型，按人设分配）。
-# 元组 = (头高 H, 头宽系数 WH/H)。heart＝上圆下圆收下巴（draw_character 组合绘制，
-# 贝塞尔弧收底、无尖角——尖下巴观感像鬼，禁用）、square＝方颌（椭圆底缘两侧补平）
+# 元组 = (头高 H, 头宽系数 WH/H)。头身比与头面体量深度协调（全班底头高锚定 356~378，
+# 告别过往 348~396 参差不齐的大头与瘦窄异形）；heart＝上圆下圆收下巴、square＝方颌端庄
 # ——下颌轮廓只由这两个键驱动，其余型为纯椭圆。
 FACE_SPECS = {
-    "round":  (356.0, 0.955),   # 婴儿圆：宽圆头
-    "tall":   (396.0, 0.78),    # 窄长：清瘦长头
-    "oval":   (386.0, 0.84),    # 端正椭圆：利落匀称
-    "wide":   (348.0, 1.02),    # 宽和：扁宽大头
-    "heart":  (372.0, 0.90),    # 心形尖下巴
-    "square": (392.0, 0.88),    # 方颌硬朗
+    "round":  (356.0, 0.955),   # 婴儿圆：宽圆头，亲和萌态
+    "tall":   (378.0, 0.81),    # 窄长：清瘦秀气，挺拔匀称（告别过长）
+    "oval":   (372.0, 0.86),    # 端正椭圆：利落俊秀
+    "wide":   (356.0, 0.98),    # 宽和：开朗温和，面貌舒展（告别极度扁压）
+    "heart":  (368.0, 0.90),    # 心形：清秀俏丽，下颌圆润微收
+    "square": (374.0, 0.88),    # 方颌：端庄沉稳，骨相分明而不生硬
 }
 
 # 下颌轮廓参数（单一事实源）——heart / square 两种非椭圆下颌都走 jaw_point()。
@@ -194,11 +186,11 @@ FACE_SPECS = {
 #   (hx, y) 折返，polygon 边界不是圆底而是**一根横着的针**（xiaoman/giulia 实测：
 #   颏线处一根约 0.8px 高、27px 宽的横向尖刺）。
 #   超椭圆 m>1 时 f'(s) → −∞（s→1），底缘切线**竖直**，两支镜像后合成光滑圆底。
-# m 的含义：1.7 = 上圆下收（心形·圆下巴）；3.2 = 侧廓接近竖直、底缘宽平（方颌）。
+# m 的含义：1.7 = 上圆下收（心形·圆下巴）；2.4 = 侧廓端庄俊朗、底缘微平（方颌，自然协调）。
 # y1 略小于 1 时底缘是一条短平边而不是收成一点——方颌要的就是这个。
 JAW = {
     "heart":  dict(y0=0.42, y1=1.04, m=1.70, n=30),
-    "square": dict(y0=0.00, y1=0.985, m=3.20, n=30),
+    "square": dict(y0=0.00, y1=0.985, m=2.40, n=30),
 }
 
 # 前发/侧发帘内缘下限（相对 rx）：脸颊高度以下不再向中轴收。
@@ -329,9 +321,9 @@ def face_geo(face):
     leg_cx, leg_w = u(0.145), u(0.185)
     return dict(
         H=H_h, WH=WH, rx=WH / 2, ry=H_h / 2, hy=hy, cx=540.0, ground=1700.0,
-        eye_dx=0.300 * WH, scl_rx=0.140 * WH, scl_ry=0.170 * WH, pup_r=0.078 * WH,
-        eye_y=eye_y, brow_y=eye_y - 0.170 * WH - u(0.035),
-        mouth_y=hy - H_h / 2 + u(0.815), blush_y=hy - H_h / 2 + u(0.700),
+        eye_dx=0.285 * WH, scl_rx=0.136 * WH, scl_ry=0.156 * WH, pup_r=0.098 * WH,
+        eye_y=eye_y, brow_y=eye_y - 0.156 * WH - u(0.026),
+        mouth_y=hy - H_h / 2 + u(0.810), blush_y=eye_y + 0.156 * WH * 0.95,
         chin=chin,
         torso_top=torso_top, torso_h=torso_h, torso_hw=torso_hw,
         sh_dy=sh_dy, sh_hw=sh_hw,
@@ -818,7 +810,7 @@ def draw_character(img, d, p, t, ctx):
         for s in (-1, 1):
             side_curtain(s, hy - ry * 0.45, hy + ry * yl, out_w=34.0, in_w=22.0)
     if style in ("short", "short_messy", "short_gray", "short_stubble", "crop", "crop_ahoge"):
-        for fx, fy, fr in ((-0.45, -1.02, 22), (0.05, -1.08, 24), (0.52, -1.00, 20)):
+        for fx, fy, fr in ((-0.55, -0.92, 30), (-0.28, -0.98, 32), (0.02, -1.02, 34), (0.30, -0.98, 32), (0.55, -0.92, 30)):
             E(hx + rx * fx - fr, hy + ry * fy - fr, hx + rx * fx + fr, hy + ry * fy + fr, fill=hair_c)
         if style == "short_messy":
             E(hx + rx * 0.72, hy - ry * 1.04, hx + rx * 0.98 + 16, hy - ry * 0.84, fill=hair_c)
@@ -868,7 +860,7 @@ def draw_character(img, d, p, t, ctx):
         # 胡须线、下缘沿脸廓 face_profile 走、圆胡尖只探出下巴 0.03·ry）。
         # 注意不能把络腮画成「内外两条同起点的曲线」——那会在鬓角收成零厚度、只剩一个人字形。
         bc = mix(hair_c, skin, 0.25)
-        v_side, v_top = 0.42, 0.54           # 鬓角起点 / 胡须线
+        v_side, v_top = 0.48, 0.60           # 鬓角起点 / 络腮上缘（自然贴合下颌轮廓）
         w_side = face_profile(face, v_side)
         w_top = face_profile(face, v_top) * 0.90
         top = [(hx - w_side * rx, hy + ry * v_side), (hx - w_top * rx, hy + ry * v_top),
@@ -882,12 +874,12 @@ def draw_character(img, d, p, t, ctx):
             lower.append((hx + face_profile(face, min(v, 1.0)) * rx * (2 * uu - 1), hy + v * ry))
         d.polygon([T(p) for p in (top + lower[::-1])], fill=bc)
         E(hx - rx * 0.18, hy + ry * 0.93, hx + rx * 0.18, hy + ry * 1.03, fill=bc)   # 圆胡尖
-        # 八字胡：贴上唇一小片，两端**挑到胡须线以上**（这就是「八字」的形状来源）
+        # 八字胡：贴上唇一小片，两端挑到胡须线以上（这就是「八字」的形状来源）
         d.polygon([T(p) for p in (
             (hx - rx * 0.32, mouth_y - ry * 0.17), (hx - rx * 0.20, mouth_y - ry * 0.13),
-            (hx, mouth_y - ry * 0.09),
+            (hx, mouth_y - ry * 0.08),
             (hx + rx * 0.20, mouth_y - ry * 0.13), (hx + rx * 0.32, mouth_y - ry * 0.17),
-            (hx + rx * 0.20, mouth_y + ry * 0.02), (hx, mouth_y + ry * 0.04),
+            (hx + rx * 0.20, mouth_y + ry * 0.02), (hx, mouth_y + ry * 0.03),
             (hx - rx * 0.20, mouth_y + ry * 0.02))], fill=bc)
     elif has("beard"):  # BEARD_LEGACY：坑㉓ 之前的 PIE 形胡须，**只给反向验证用**
         PIE(hx - rx * 0.70, hy + ry * 0.34, hx + rx * 0.70, hy + ry * 1.30, 25, 155,
@@ -904,21 +896,39 @@ def draw_character(img, d, p, t, ctx):
     for s in (-1, 1):
         ex = hx + s * eye_dx
         if ctx["blink"]:
-            ARC(ex - scl_rx * 0.92, eye_y - scl_ry * 0.45, ex + scl_rx * 0.92, eye_y + scl_ry * 0.55,
-                15, 165, u(0.024), fill=THEME["ink"])
+            # 柔美笑眯弧（自然月牙眼与外挑睫羽）
+            ARC(ex - scl_rx * 0.88, eye_y - scl_ry * 0.25, ex + scl_rx * 0.88, eye_y + scl_ry * 0.65,
+                20, 160, u(0.022), fill=THEME["ink"])
+            if female:
+                CAP((ex + s * scl_rx * 0.82, eye_y + scl_ry * 0.08),
+                    (ex + s * scl_rx * 1.10, eye_y - scl_ry * 0.12), u(0.018), fill=THEME["ink"])
         else:
+            # 巩膜白底（大眼舒展明亮）
             E(ex - scl_rx, eye_y - scl_ry * eye_k, ex + scl_rx, eye_y + scl_ry * eye_k, fill=(255, 255, 255))
             px, py = ex + gpx, eye_y + gpy
-            E(px - pup_r, py - pup_r * 1.15, px + pup_r, py + pup_r * 1.25, fill=THEME["ink"])
-            E(px - pup_r * 0.78, py - pup_r * 0.90, px - pup_r * 0.16, py - pup_r * 0.16,
+            pup_rx = pup_r * 0.96
+            pup_ry = pup_r * 1.10
+            # 瞳孔深色基底（占比饱满，彻底告别四白眼/死鱼眼）
+            E(px - pup_rx, py - pup_ry, px + pup_rx, py + pup_ry, fill=THEME["ink"])
+            # 下虹膜微光层（晶莹透亮，眼波流转）
+            E(px - pup_rx * 0.76, py + pup_ry * 0.08, px + pup_rx * 0.76, py + pup_ry * 0.86,
+              fill=mix(THEME["ink"], (115, 125, 155), 0.36))
+            # 主高光（左上晶亮视线光点）
+            E(px - pup_rx * 0.65, py - pup_ry * 0.72, px - pup_rx * 0.16, py - pup_ry * 0.20,
               fill=(255, 255, 255))
-            E(px + pup_r * 0.25, py + pup_r * 0.35, px + pup_r * 0.70, py + pup_r * 0.80,
+            # 辅高光（右下环境微光点）
+            E(px + pup_rx * 0.22, py + pup_ry * 0.25, px + pup_rx * 0.56, py + pup_ry * 0.60,
               fill=(255, 255, 255))
+            # 上眼睑自然眼褶描线（勾勒眼型轮廓）
+            ARC(ex - scl_rx * 0.94, eye_y - scl_ry * eye_k * 1.04, ex + scl_rx * 0.94, eye_y + scl_ry * eye_k * 0.84,
+                205, 335, u(0.016), fill=THEME["ink"])
             if female:
-                CAP((ex + s * (scl_rx - u(0.008)), eye_y - scl_ry * eye_k * 0.82),
-                    (ex + s * (scl_rx + u(0.040)), eye_y - scl_ry * eye_k - u(0.040)), u(0.020), fill=THEME["ink"])
+                # 灵动睫羽微挑（柔和贴合外眼角）
+                CAP((ex + s * (scl_rx * 0.76), eye_y - scl_ry * eye_k * 0.62),
+                    (ex + s * (scl_rx * 1.14), eye_y - scl_ry * eye_k * 0.92), u(0.018), fill=THEME["ink"])
         brow_y = brow_y0 - lift
-        CAP((ex - s * u(0.062), brow_y - tilt), (ex + s * u(0.078), brow_y + tilt * 0.4), u(0.036),
+        # 柔美秀气眉形（线条匀称有弧度，告别粗黑电工胶布）
+        CAP((ex - s * u(0.054), brow_y - tilt), (ex + s * u(0.068), brow_y + tilt * 0.4), u(0.020),
             fill=THEME["ink"])
     mcx, mcy = hx, mouth_y
     op = ctx["openness"]
@@ -929,42 +939,64 @@ def draw_character(img, d, p, t, ctx):
         mt = mo * 0.45
         PIE(mcx - mw * 0.60, mcy + mo * 0.35 - mt, mcx + mw * 0.60, mcy + mo * 0.35 + mt, 0, 180,
             fill=THEME["tongue"])
+        CAP((mcx - mw * 0.95, mcy), (mcx + mw * 0.95, mcy), u(0.015), fill=THEME["ink"])
     else:
-        sw = WH * (0.155 + 0.05 * mood["smile"])
+        # 微笑幅度适中匀称，带甜美唇角弧度（告别大嘴怪小丑弧）
+        sw = WH * (0.088 + 0.025 * mood["smile"])
         if mood["smile"] > 0.4:
-            ARC(mcx - sw, mcy - sw * 0.55, mcx + sw, mcy + sw * 0.80, 28, 152, u(0.026), fill=THEME["ink"])
+            ARC(mcx - sw, mcy - sw * 0.55, mcx + sw, mcy + sw * 0.70, 25, 155, u(0.020), fill=THEME["ink"])
         else:
-            CAP((mcx - u(0.055), mcy), (mcx + u(0.055), mcy + (4 if tilt else 0)), u(0.022), fill=THEME["ink"])
+            CAP((mcx - u(0.040), mcy), (mcx + u(0.040), mcy + (3 if tilt else 0)), u(0.018), fill=THEME["ink"])
     if p["energy"] == "lively":
         for s in (-1, 1):
-            E(hx + s * 0.42 * WH - u(0.05), blush_y - u(0.028), hx + s * 0.42 * WH + u(0.05), blush_y + u(0.028),
-              fill=THEME["blush"])
+            # 腮红落在双眼正下方偏外侧（苹果肌处，元气透亮）
+            bx_c = hx + s * 0.290 * WH
+            RR(bx_c - u(0.038), blush_y - u(0.016), bx_c + u(0.038), blush_y + u(0.016),
+               8, fill=THEME["blush"])
 
     # ================= 头部配饰 =================
     for code in ("glasses_round", "glasses_thin", "glasses_square", "glasses_plastic"):
         if has(code):
             col = {"glasses_plastic": THEME["glasses_plastic"],
                    "glasses_thin": THEME["glasses_thin"]}.get(code, THEME["glasses_dark"])
-            wd = u(0.016) if code == "glasses_thin" else u(0.024)
+            # 增大镜框尺寸，舒展大方地包裹大眼睛、睫毛与苹果肌（彻底告别小窄框压眼球）
+            if code == "glasses_thin":
+                wd = u(0.016)
+                grx, gry = scl_rx * 1.30, scl_ry * 1.28
+                grad = u(0.042)
+            elif code == "glasses_plastic":
+                wd = u(0.024)
+                grx, gry = scl_rx * 1.36, scl_ry * 1.35
+                grad = u(0.065)
+            elif code == "glasses_round":
+                wd = u(0.020)
+                grx, gry = scl_rx * 1.40, scl_ry * 1.34
+                grad = 0
+            else:  # glasses_square
+                wd = u(0.020)
+                grx, gry = scl_rx * 1.34, scl_ry * 1.30
+                grad = u(0.046)
+
+            bridge_y = eye_y - gry * 0.10
             for s in (-1, 1):
                 ex = hx + s * eye_dx
                 if code == "glasses_round":
-                    d.ellipse(TB(ex - scl_rx * 0.88, eye_y - scl_ry * 0.88, ex + scl_rx * 0.88, eye_y + scl_ry * 0.88),
+                    d.ellipse(TB(ex - grx, eye_y - gry, ex + grx, eye_y + gry),
                               outline=col, width=max(1, int(wd * sc * ss)))
                 else:
-                    d.rounded_rectangle(TB(ex - scl_rx * 0.92, eye_y - scl_ry * 0.78, ex + scl_rx * 0.92, eye_y + scl_ry * 0.78),
-                                        u(0.035) * sc * ss, outline=col, width=max(1, int(wd * sc * ss)))
+                    d.rounded_rectangle(TB(ex - grx, eye_y - gry, ex + grx, eye_y + gry),
+                                        grad * sc * ss, outline=col, width=max(1, int(wd * sc * ss)))
                 eax = hx + s * rx * 0.94
-                CAP((ex + s * scl_rx * 0.92, eye_y - scl_ry * 0.40), (eax + s * u(0.02), eye_y - scl_ry * 0.55),
-                    wd * 0.7, fill=col)  # 镜腿
-            CAP((hx - eye_dx + scl_rx * 0.85, eye_y - scl_ry * 0.38), (hx + eye_dx - scl_rx * 0.85, eye_y - scl_ry * 0.38),
-                wd * 0.8, fill=col)  # 鼻梁
+                CAP((ex + s * grx, eye_y - gry * 0.12), (eax + s * u(0.015), eye_y - gry * 0.24),
+                    wd * 0.75, fill=col)  # 镜腿
+            CAP((hx - eye_dx + grx, bridge_y), (hx + eye_dx - grx, bridge_y),
+                wd * 0.85, fill=col)  # 鼻梁
             if acc[code].get("physics") == "reflect":  # 镜片反光随时间滑动（qa_motion 探针）
                 ggx = phys(seed, code, "reflect", t)[0]
                 for s2 in (-1, 1):
                     ex2 = hx + s2 * eye_dx
-                    E(ex2 - scl_rx * 0.62 + ggx, eye_y - scl_ry * 0.58,
-                      ex2 - scl_rx * 0.30 + ggx, eye_y - scl_ry * 0.34, fill=THEME["glint_soft"])
+                    E(ex2 - grx * 0.65 + ggx, eye_y - gry * 0.60,
+                      ex2 - grx * 0.32 + ggx, eye_y - gry * 0.32, fill=THEME["glint_soft"])
     if has("sunglasses_head"):  # 顶戴：镜架倒扣在发顶，不遮眼（几何见 SUNGLASS_HEAD）
         S = SUNGLASS_HEAD
         sg = sunglasses_head_geo(G, hdx, hdy)
@@ -1065,33 +1097,57 @@ def pose_for(code, u, t, p):
     elif code == "point":
         P["armR"] = (96, 6, "index")
     elif code == "nod":
-        P["head_dy"] = 12 * math.sin(min(u, 1) * math.pi * 3) * (1 - min(u, 1))
+        P["head_dy"] = 8 * math.sin(min(u, 1) * math.pi * 2) * (1 - min(u, 1))
     elif code == "shrug":
         P["armL"] = (52, 66, "open")
         P["armR"] = (52, 66, "open")
-        P["yoff"] = -10
-        P["head_dy"] = -4
+        P["yoff"] = -6
+        P["head_dy"] = -3
     elif code == "mini_jump":
-        hop = -abs(math.sin(u * math.pi * 2)) * jump_height(p)  # 起跳高度随 movement.bounce
-        P["yoff"] = hop
-        P["squash"] = 0.05 * math.sin(u * math.pi * 4)
-        P["armL"] = (96, 30, "open")
-        P["armR"] = (96, 30, "open")
-    elif code == "jump_celebrate":  # 跳跃庆祝（原语；示范场景二幕八专用）
-        # squash-stretch：起跳蓄力下压 → 腾空纵向拉伸 → 落地压扁回弹
-        air = abs(math.sin(u * math.pi * 2))
-        P["yoff"] = -air * jump_height(p) * 1.15
-        P["squash"] = 0.085 * math.cos(u * math.pi * 4) * (1 - 0.45 * air)
-        P["armL"] = (152 - 14 * air, 18, "open")
-        P["armR"] = (152 - 14 * air, 18, "open")
-        P["head_dy"] = -5 * air
+        # 顺滑单次起跳抛物线：0..0.15 蓄力下沉，0.15..0.85 滞空抛物线，0.85..1.0 落地缓冲
+        if u < 0.15:
+            c = math.sin(u / 0.15 * math.pi)
+            P["yoff"] = 5.0 * c
+            P["squash"] = 0.03 * c
+        elif u < 0.85:
+            ju = (u - 0.15) / 0.70
+            arc = math.sin(ju * math.pi)
+            P["yoff"] = -arc * jump_height(p) * 0.85
+            P["squash"] = -0.04 * math.sin(ju * math.pi * 2)
+        else:
+            c = math.sin((u - 0.85) / 0.15 * math.pi)
+            P["yoff"] = 4.0 * c
+            P["squash"] = 0.02 * c
+        P["armL"] = (92, 28, "open")
+        P["armR"] = (92, 28, "open")
+    elif code == "jump_celebrate":  # 欢跃庆祝：蓄力舒展升空与柔和落地（告别一蹦一蹦）
+        if u < 0.15:
+            c = math.sin(u / 0.15 * math.pi)
+            P["yoff"] = 6.0 * c
+            P["squash"] = 0.04 * c
+            P["armL"] = (90, 20, "open")
+            P["armR"] = (90, 20, "open")
+        elif u < 0.85:
+            ju = (u - 0.15) / 0.70
+            air = math.sin(ju * math.pi)
+            P["yoff"] = -air * jump_height(p) * 1.05
+            P["squash"] = -0.05 * math.sin(ju * math.pi * 2)
+            P["armL"] = (148 - 10 * air, 18, "open")
+            P["armR"] = (148 - 10 * air, 18, "open")
+            P["head_dy"] = -4 * air
+        else:
+            c = math.sin((u - 0.85) / 0.15 * math.pi)
+            P["yoff"] = 5.0 * c
+            P["squash"] = 0.03 * c
+            P["armL"] = (110, 20, "open")
+            P["armR"] = (110, 20, "open")
     elif code == "run_out":
         P["xoff"] = 1500 * ease_out_cubic(u)
         P["legL"] = 28 * math.sin(t * 16)
         P["legR"] = -28 * math.sin(t * 16)
         P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
         P["armR"] = (40 - 20 * math.sin(t * 16), 40, "open")
-        P["yoff"] = -6 * abs(math.sin(t * 16))
+        P["yoff"] = -4.0 * (1 - math.cos(t * 16))
     elif code == "turn_freeze":
         P["xoff"] = -34 * u
         P["head_dx"] = -12 * u

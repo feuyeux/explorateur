@@ -52,7 +52,7 @@ persona validate` 可独立跑，不读本文件也行）。
 **不做 / 转交**：
 
 - 画人物 / 背景 / 装置外框，或校验人设契约 → `character-rig`
-- 成片 → `karaoke-video`（海报驱动）/ `multilingual-video-poetry`（实拍驱动）
+- 成片 → `karaoke-video`（单卡片）/ `storyteller-video`（多幕评书）/ `multilingual-video-poetry`（实拍驱动）
 - 做海报 → `one-page-poster`
 - 写发布词 → `publish-copy`
 - 发到平台 → `multilingual-video-publishing`

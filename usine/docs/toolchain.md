@@ -39,7 +39,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 |---|---|---|---|---|---|
 | **uv** | 全阶段（工程基座） | Python 环境与依赖管理 | 一切 Python 调用走 `uv run`；`uv sync --group publish` / `--group music` 按需装可选组；锁文件自动同步 | Win / macOS / Linux 官方支持 | — |
 | **Python 3** | ②–⑬ | 脚本运行时 | 经 `uv run` 调用，不直接用系统 / homebrew python；过渡态例外见 AGENTS.md | 同上 | — |
-| **Microsoft Edge**（headless） | ⑥渲字 ⑦封面 | 文字层 / 封面截图渲染 | `raqm=False` 的唯一正确出路（阿/希/天城文必须走它）；`--window-size` ≠ 视口高，先探后补（`edge_window_h`）；与像素基线同源故 resolver 排首位 | 候选链 Edge → Chrome → Chromium；环境变量可临时覆盖 | `feuille.textlayer.viewport_deficit` |
+| **Microsoft Edge**（headless） | ⑥渲字 ⑦封面 | 文字层 / 封面截图渲染 | `raqm=False` 的唯一正确出路（阿/希/天城文必须走它）；`--window-size` ≠ 视口高，先探后补（`viewport_deficit`）；与像素基线同源故 resolver 排首位 | 候选链 Edge → Chrome → Chromium；环境变量可临时覆盖 | `feuille.textlayer.viewport_deficit` |
 | **Google Chrome** | ⑨发布 ⑩合集收录 ⑪发布后核对 | Playwright 驱动 + 持久 profile | 用**系统 Chrome**（`executable_path`），不用 Playwright 自带浏览器——四平台 profile 各一、绑定登录态 | 写死的 `/Applications/...` 路径是已核实缺陷，现已改走 resolver | `feuille.publish` |
 | **Chromium** | 备选 | resolver 第三候选 | 找不到浏览器返回 None 并显式失败，绝不退化「系统默认」 | 三系统 | `feuille.platform` |
 | **ffmpeg** | ⑥合成 ⑬验收 | 基底叠加、混音（loudnorm −14 LUFS）、逐帧像素哈希 | `apad` 必须前置 `loudnorm`（EOF 冲刷竞态，10 连跑丢补尾 3 次）；时长控制 `-t` + 前置 apad/atrim，**禁 `-shortest`**；像素判据 `-map 0:v -f hash -hash md5`（少 `-map 0:v` 数字不同且不报错） | 三系统；经 resolver | `feuille.audio.compose_track`；`feuille.framehash` |
@@ -48,7 +48,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 | **bash** | 批量产线（历史参考） | 批量校验 / 实测时长 / 渲染脚本 | 只对传输层错误重试（`NoAudioReceived` 等），渲染/预算错误重试无意义；workers ≤5（10 并发压垮内存） | ⚠️ **Windows 无原生 bash——feuille 的批处理不沿用此形态**，统一入口走 `uv run feuille` | — |
 | **git** | 全程 | 版本控制 + 事故恢复 | `git show` 旧版文件逐字节回填；⚑ U+2691 易写成 ⚡ U+26A1 | 三系统 | — |
 | **mavis-trash** | 清理 / 删除 | 删除走回收站，不用 `rm -rf` | workspace 约定：`/Users/han/.minimax/bin/mavis-trash --` | ⚠️ macOS 本机工具；跨平台时需等价回收站方案 | workspace 约定 |
-| **H3**（mcode-tools） | ⑥ 基底（提示词出自 ③ 分镜；**仅内容项目**） | 文生视频母版 | **铁律：绝不自动调用**，逐次展示提示词/画幅/时长/分辨率/消耗并取得明确同意；一次生成、按画幅成对、生成后冻结，后续只叠加（见 AGENTS.md 铁律） | 网页 / API | `examples/yiyezhiqiu/masters/` |
+| **Hailuo-2.3 / H3 / H3 Max**（mcode-tools） | ⑥ 基底（提示词出自 ③ 分镜；**仅内容项目**） | 文生 / 图生视频母版 | **铁律：绝不自动调用**，逐次展示提示词/画幅/时长/分辨率/消耗并取得明确同意；一次生成、按画幅成对、生成后冻结，后续只叠加（见 AGENTS.md 铁律）。**默认 Hailuo-2.3**：走套餐额度不烧积分；只有时长/画质不够才升H3（只扣积分） | 网页 / API | `examples/yiyezhiqiu/masters/` |
 
 ---
 

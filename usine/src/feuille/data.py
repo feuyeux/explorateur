@@ -51,6 +51,29 @@ def personas_doc(personas_dir=None):
 
 
 @lru_cache(maxsize=None)
+def extras_doc(extras_dir=None):
+    """班底之外的**编外专班**（storyteller.json：说书人等单角色专职）。
+
+    为什么不进 personas.json：班底级不变量（每语种恰一男一女 × 一活泼一沉稳，
+    persona.validate_roster）会把编外角色判成破坏配对，而编外专班本来就不占
+    A/B 选角槽。逐人字段契约与班底**同一份** validate_persona（脸型/音色/
+    挂件全走同一注册表），只在 roster 配对不变量上豁免。
+
+    目录参数化同 personas_dir：缺省 = PERSONAS_DIR（与 personas.json 同目录，
+    随班底一起版本化）。文件缺失 = 空专班（调用方无需判文件存在）。
+    """
+    path = _dir(extras_dir, PERSONAS_DIR) / "storyteller.json"
+    if not path.exists():
+        return {"note": "", "personas": []}
+    return _read_json(path)
+
+
+def storytellers(extras_dir=None):
+    """{id: persona} 索引（编外专班）。未配置 = 空 dict。"""
+    return {p["id"]: p for p in extras_doc(extras_dir)["personas"]}
+
+
+@lru_cache(maxsize=None)
 def language_manifests(languages_dir=None):
     """{locale: languages/<locale>/manifest.json}。语种目录——**语种知识的事实源**。
 

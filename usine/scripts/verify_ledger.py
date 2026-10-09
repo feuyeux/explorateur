@@ -132,6 +132,24 @@ def check() -> list[tuple[bool, str]]:
     # ---- 12. report() 不炸、条目可读 ----
     fresh, stale = ledger.report(root)
     rows.append((fresh + stale > 0, f"report() 可跑（{fresh} 新鲜 / {stale} 过期）"))
+
+    # ---- 13. CLI 叶子（feuille ledger status）的退出码口径 ----
+    leaf_root = root / "leaf"
+    rows.append((ledger.main_status(["--root", str(leaf_root)]) == 0,
+                 "status 叶子：空账本 → 退出码 0（还没登记 ≠ 失败）"))
+    leaf_root.mkdir(parents=True, exist_ok=True)
+    leaf_data = leaf_root / "leaf.json"
+    leaf_data.write_text("{}", "utf-8")
+    leaf_art = leaf_root / "build" / "out.bin"
+    leaf_art.parent.mkdir(parents=True, exist_ok=True)
+    leaf_art.write_text("x", "utf-8")
+    ledger.register_line("leafline", modules=["__init__.py"], data=["leaf.json"])
+    ledger.record(leaf_root, "leafline", "u1", [str(leaf_art)])
+    rows.append((ledger.main_status(["--root", str(leaf_root)]) == 0,
+                 "status 叶子：全新鲜 → 退出码 0"))
+    leaf_data.write_text('{"k": 1}', "utf-8")      # 输入指纹变了
+    rows.append((ledger.main_status(["--root", str(leaf_root)]) == 1,
+                 "status 叶子：有过期 → 退出码 1（「有活要干」的信号）"))
     return rows
 
 

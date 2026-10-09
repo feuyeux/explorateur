@@ -13,6 +13,17 @@
 - **feuille 自身零 H3 调用。** 任何阶段都没有理由碰视频生成额度。
 - 消耗额度的调用只可能发生在**使用 feuille 的内容项目**里，那时逐次按 workspace AGENTS.md 执行：先展示提示词 / 画幅 / 时长 / 分辨率 / 消耗性质，拿到用户明确同意才提交；「你直接跑」不算授权。
 - **母版纪律**：H3 母版一次生成、按画幅成对、生成后冻结；后续一切加工只做叠加（字幕 / 配音 / 封面），**永不重复消耗**。母版文件与画幅几何在配置里**成对绑定**：换档位 = 换一份母版 + 一套文字层尺寸。
+- **选线纪律（额度优先于画质）**：`mcode-tools` 三条视频线扣的不是同一个账——
+  `MiniMax-Hailuo-2.3` 走 **Token Plan / M Plan 套餐额度**，`H3` 与 `H3 Max`
+  **只扣积分不吃套餐额度**。**默认选 Hailuo-2.3 出母版**：只要套餐额度还有余额，
+  就不要为同一条母版烧积分。H3 / H3 Max 留到「Hailuo 的时长或画质确实不满足」
+  时再用，且要在展示里写明「本条走积分、约扣多少」。
+  - Hailuo-2.3 的边界（选之前先认）：只有 768P 6s / 10s 与 1080P 6s；
+    **成片静音**（母版不带声，正好由 `library.tts` + `bgm-bed` 各自叠上去）；
+    无多模态参考（不能传参考图/视频/音频锁人物与风格）。
+  - 积分参考：1000 积分 = ¥7；H3 768P ¥0.50/秒 ≈ 71 积分/秒，2K ¥0.80/秒
+    ≈ 114 积分/秒，H3 Max 480P ¥0.33/秒 ≈ 47 积分/秒。传参考视频会**按同价另计**
+    一份时长费（图片前 5 张免费、每张 ¥0.20）。套餐额度见 `mmx quota`。
 
 ---
 
@@ -102,13 +113,13 @@ feuille/
   pyproject.toml       uv 工程（Python 一律 uv run；publish 组 = Playwright）
   uv.lock              依赖精确锁版（Pillow 12.3.0 = 像素基线锚点）
   src/feuille/         代码：按工作流 ①–⑬ 分模块（每件带反向验证）
-  scripts/             20 个反向验证脚本（19 套件 + verify_probes 聚合器；uv run feuille verify 聚合全量跑）
+  scripts/             21 个反向验证脚本（20 套件 + verify_probes 聚合器；uv run feuille verify 聚合全量跑）
   languages/           语种注册表（14 manifest：字体栈/展示字体栈/国旗/书写方向/引号对）
   personas/            人设目录：28 人班底数据 + schema/声库/视觉/选角文档；
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
   docs/                全部文档（工作流/工具链 + playbook 系列：发布/知乎/取数/渲染手册/经验总纲/坑总账）
   examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；可再生，不入库）
-  skills/              自建 SKILL 资产（8 个：one-page-poster / karaoke-video / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
+  skills/              自建 SKILL 资产（10 个：one-page-poster / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
 ```
 
 - 每个机制模块**同步带反向验证**（纪律 2）；逐帧像素判据保持可用（`-map 0:v`、基线按平台分桶）。

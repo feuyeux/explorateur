@@ -41,7 +41,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 **不做 / 转交**：
 
 - 真的点发布、建合集、回列表核验 → `multilingual-video-publishing`
-- 生产成片 → `karaoke-video`（海报驱动）/ `multilingual-video-poetry`（实拍驱动）
+- 生产成片 → `karaoke-video`（单卡片）/ `storyteller-video`（多幕评书）/ `multilingual-video-poetry`（实拍驱动）
 - 做海报 → `one-page-poster`
 
 ## 代码归属

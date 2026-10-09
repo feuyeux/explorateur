@@ -16,9 +16,9 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06 }
 > | 加一语种 / 加一个人物 / 改台词 | [render-handbook.md](render-handbook.md) §3 参数地图、§6 调优 |
 > | 发到抖音 / 小红书 / 知乎 | [publish-playbook.md](publish-playbook.md) · [zhihu-publish-playbook.md](zhihu-publish-playbook.md) |
 > | 看效果、取数据、判好坏 | [metrics-playbook.md](metrics-playbook.md) |
-> | 写一门新课的剧本 | [_格式契约.md](../thingking/final/_格式契约.md)（机器可渲契约） |
-> | 人物设定与选角 | [plan.md](plan.md) · [self-introductions.md](self-introductions.md) |
-> | 为什么选 Pillow 不选视频生成 | [adr-character-tech.md](adr-character-tech.md) |
+> | 写一门新课的剧本 | [render-handbook.md](render-handbook.md) §6.7 场景线体例（机器可渲契约；`uv run feuille lesson new` 生成骨架） |
+> | 人物设定与选角 | [../personas/casting.md](../personas/casting.md) · [../personas/visual.md](../personas/visual.md) · [../personas/voice.md](../personas/voice.md) |
+> | 为什么选 Pillow 不选视频生成 | 裁定记录未随仓库迁移（考古看 git 历史）；现行结论 = Pillow 管线续役 + H3 绝不自动调用（[../AGENTS.md](../AGENTS.md) 铁律） |
 
 ---
 
@@ -47,7 +47,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06 }
   `[40, 55]` 秒，跑量前四名（阿 331 / 俄 270 / 粤 259 / 印 253）**全在这个区间内**，
   与第二批同一时长。时长不是区分变量。
 
-**唯一能解释全灭的，是语种与包装**——见 [strategy-2026q4.md](strategy-2026q4.md)：
+**唯一能解释全灭的，是语种与包装**（完整复盘在旧项目 strategy-2026q4.md，未随迁；结论已并入本节）：
 抖音 colors 14 语种里 8 个播放 <50，且跑量的全是「有需求 + 供给稀缺」的蓝海语种。
 
 **给抖音做内容的两条修正**（已收窄，取代原三条）：

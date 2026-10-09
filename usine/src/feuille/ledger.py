@@ -245,3 +245,24 @@ def report(root: Path, kinds=None) -> tuple[int, int]:
     if not doc["entries"]:
         print("  （空：先跑一次 render 才会登记）")
     return len(fresh), len(stale)
+
+
+def main_status(argv=None) -> int:
+    """cli.py 路由入口：`feuille ledger status [--root DIR] [--kind KIND]`。
+
+    回答「谁过期了、因为什么」。有过期 → 退出码 1：账本说过期就是
+    「有活要干」的信号，失败判定一律看退出码（AGENTS.md 工程约定）；
+    空账本不算失败（还没登记过任何产物，如实报空）。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille ledger status")
+    ap.add_argument("--root", default=".", help="项目根（build/manifest.json 所在层）")
+    ap.add_argument("--kind", action="append", default=None,
+                    help="只看某产物线（可多次给，如 --kind scene）")
+    a = ap.parse_args(argv)
+    root = Path(a.root).resolve()
+    if not load(root)["entries"]:
+        print(f"账本是空的（{ledger_path(root)}）——还没有登记过任何产物")
+        return 0
+    fresh, stale = report(root, a.kind)
+    return 1 if stale else 0

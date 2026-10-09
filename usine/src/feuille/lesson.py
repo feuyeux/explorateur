@@ -569,7 +569,8 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         "" if not no_copy else f"写进 lessons/{sid}/publish/{{plat}}-copy.md")
     add("⑥发布", "发布台账", OK if ledger_n else TODO,
         f"{ledger_n} 条" if ledger_n else "台账里没有这课",
-        "" if ledger_n else "uv run feuille publish build（台账构建尚未接入）")
+        "" if ledger_n else "项目侧组装 plans 后经 feuille.manifest.build_manifest 建台账"
+                           "（该契约吃闭包，有意不设 CLI 叶子）")
 
     # ---- ⑦ 验收 ----
     # qa_scene（场景线逐项探针）尚未接入：它逐帧读 mp4，依赖场景渲染管线（⑥）。

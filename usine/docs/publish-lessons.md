@@ -53,7 +53,7 @@ Error: Event loop is closed! Is Playwright already stopped?
 此时 `page.is_closed()` 仍然返回 `False`，但**所有 `evaluate` 全挂**——极具迷惑性。
 
 **修法**：长任务拆成短命进程，每批干完就退出，靠磁盘上的进度 JSON 接力。
-参见 `scripts/zhihu_relay.py` 的 `--all` 模式。
+旧知乎项目用 `zhihu_relay.py` 的 `--all` 模式落实过这个形态（内容项目侧脚本，不在 feuille）。
 
 ### 0.7 正文变长后，纯文本定位器会点错
 

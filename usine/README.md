@@ -14,7 +14,7 @@
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + uv 统一）+ H3 铁律 |
 | [pyproject.toml](pyproject.toml) + `uv.lock` | uv 工程（Python 3.12；publish 组 = Playwright） |
 | `src/feuille/` | 代码：33 个归属模块（约 1.03 万行），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
-| `scripts/` | 20 个反向验证脚本（19 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，330+ 项断言） |
+| `scripts/` | 21 个反向验证脚本（20 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，370+ 项断言） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
@@ -82,7 +82,7 @@ cd usine                      # uv 工程根（pyproject.toml 所在层）
 uv sync                     # 安装主依赖
 uv sync --group publish    # 加装 Playwright（发布器用）
 uv sync --group music      # 加装 Lyria 客户端（bgm-bed 生成 BGM 床用）
-uv run feuille verify       # 全量反向验证（19 套 330+ 项断言）
+uv run feuille verify       # 全量反向验证（20 套 370+ 项断言）
 uv run feuille verify --list       # 列出所有验证套件
 uv run feuille verify --only rig   # 单跑一套
 ```

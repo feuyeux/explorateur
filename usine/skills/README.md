@@ -1,6 +1,6 @@
 # Skills 总路由
 
-八个 skill,三层。**先判断在哪一层,再选 skill**。
+九个 skill,三层。**先判断在哪一层,再选 skill**。
 
 ## 层次
 
@@ -11,23 +11,29 @@
 └──────────────────────────────────────────────────────────┘
 ┌─ 成品层（出画面）───────────────────────────────────────┐
 │  Cluster A 画面由渲染生成                                 │
-│    one-page-poster → karaoke-video                       │
+│    one-page-poster → karaoke-video（单卡片）              │
+│                      └→ storyteller-video（多幕评书导演层）│
 │  Cluster B 画面是实拍                                     │
-│    multilingual-video-poetry                             │
+│    video-generation（出母版）→ multilingual-video-poetry  │
 └──────────────────────────────────────────────────────────┘
-┌─ 音频层（两条成片线共用）────────────────────────────────┐
+┌─ 音频层（成片线共用）────────────────────────────────────┐
 │  bgm-bed            底床生成（Lyria 实测线；死线已删）+          │
 │                     床位定标                                      │
 └──────────────────────────────────────────────────────────┘
 ┌─ 收尾层───────────────────────────────────────────────┐
-│  publish-copy               写发布词（两条线共用）         │
+│  publish-copy               写发布词（各线共用）           │
 │  multilingual-video-publishing   发平台 + 建合集 + 核验   │
 └──────────────────────────────────────────────────────────┘
 ```
 
 **画面产线的分水岭：有没有实拍母版。** 有 → Cluster B；只有海报/卡片 → Cluster A。
-音频不分线——两条线读的是同一条床，只是压法不同（线性 / 侧链），所以 `bgm-bed`
-独立成 skill，不挂在任何一条线下面。
+Cluster A 内部再分：**单卡片逐词高亮 → karaoke-video；多幕评书（每幕一景一镜
+一转场、说书人立绘）→ storyteller-video**——它复用 karaoke 的时间轴与合片
+机制，只新增导演层。音频不分线——各成片线读的是同一条床，只是压法不同
+（线性 / 侧链），所以 `bgm-bed` 独立成 skill。
+
+**Cluster B 的母版从哪来**：`video-generation`——三条视频线选线（Hailuo-2.3 走
+套餐额度、H3 烧积分），提交前确认、取回后冻结。
 
 ## 路由表
 
@@ -35,7 +41,9 @@
 |---|---|---|---|
 | 一页纸海报 / 12 语种排版 / 逐字着色 | `one-page-poster` | 内容清单 + 网格规格 + 配色 | 成片视频 |
 | 海报/卡片 → 旁白视频（逐词高亮） | `karaoke-video` | 已有海报 + 各语种文案 + 音色 | 实拍画面 |
-| **实拍母版** → 配文视频（压字幕 + 侧链混音） | `multilingual-video-poetry` | **一条实拍母版视频** + 配文 | 海报/卡片画面 |
+| **人物小传 / 多幕评书**（说书人 + 每幕一景一镜一转场 + 醒木） | `storyteller-video` | 人物资料 + 幕表（文本/场景/镜头）+ 说书人 | 单卡片成片、实拍画面 |
+| **出实拍母版**（选视频线 / 提交确认 / 取回冻结） | `video-generation` | 画面描述 + 画幅 + 时长 + 套餐额度状态 | 母版上的字幕/旁白/混音 |
+| **实拍母版** → 配文视频（压字幕 + 侧链混音） | `multilingual-video-poetry` | **一条实拍母版视频**（由 `video-generation` 出）+ 配文 | 海报/卡片画面 |
 | 生成 BGM 床 / 定床位（两条成片线共用） | `bgm-bed` | 成片时长 + 配器短词 + 旁白实测电平 + 至少一家供应商 key | 把床混进成片 |
 | 新课开坑 / 课件解析 / 场景校验 / 草稿 | `lesson-scene` | 课 id + 场景骨架 + 语种范围 | 画人物与背景 |
 | 画人物 / 背景场景 / 装置外框 / 校验人设 | `character-rig` | 人设字段 + 场景名（取注册表真键） | 写课件 |
@@ -50,8 +58,8 @@
 
 | 层 | Cluster A 海报驱动 | Cluster B 实拍驱动 | 完成判据 |
 |---|---|---|---|
-| 画面层 | `one-page-poster` → `karaoke-video` | `multilingual-video-poetry` | build 退出 0 + `verify_sync` 全过（A）/ 母版与字幕验收（B） |
-| 音频层 | `bgm-bed`（两线读同一条床，压法不同） | 同左 | `gen_bgm` 判据全绿，床长 ≥ 成片时长 |
+| 画面层 | `one-page-poster` → `karaoke-video`（单卡片）或 `storyteller-video`（多幕评书） | `multilingual-video-poetry` | build 退出 0 + `verify_sync` 全过（A）/ 母版与字幕验收（B） |
+| 音频层 | `bgm-bed`（各线读同一条床，压法不同） | 同左 | `gen_bgm` 判据全绿，床长 ≥ 成片时长 |
 | 混后验收 | 床位 15–18 dB · 连续性 ≥ −45 dBFS · 平稳性 ≤ 12 dB · LUFS 配比 ≥ 8 dB | 同左（侧链压法） | 五项全过，数字记进项目文档 |
 | 收尾层 | `publish-copy`：竖屏 → 小红书/抖音，横屏 → B站 | 同左 | 每平台一份 `publish/*.md` + no-hard-wrap 自检 0 违规 |
 | 发布执行 | `multilingual-video-publishing` | 同左 | 需用户明确指令，agent 不自动碰；平台回列表核验通过 |
@@ -82,6 +90,7 @@
 | 脸型 / 表情 / 装置规格注册表 | `library` 的 `rig`、`devices` | `persona.py` 与 `scene_schema.py` 取**同一份**，不抄名单（纪律 7） |
 | BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。全局 `music-generation` skill 的能力已并入 `bgm-bed`（MiniMax/Suno/Udio 三条死线已删，现存唯一实测线 Lyria）——本工程里它已被取代，见 `bgm-bed` 边界段 |
 | BGM 的**混音压法** | 看画面来源 | 海报驱动 → `karaoke-video` 的线性 `amix`；实拍驱动 → `multilingual-video-poetry` 的侧链压缩 |
+| 多幕评书**导演层**（幕表 schema / 镜头 / 叠化 / 醒木） | `storyteller-video` | 词级时间轴与合片复用 `karaoke-video` 的脚本，不另写；说书人编外专班走 `feuille.data.storytellers()`，不进班底 roster |
 | 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `make_covers.py`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
 | 发布词 | `publish-copy` | 发布执行 → `multilingual-video-publishing` |
 

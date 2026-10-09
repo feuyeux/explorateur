@@ -41,6 +41,7 @@ SUITES = {
     "skills":    ("verify_skills.py",   "skills 去歧义（前置契约/边界/转交/事实源唯一）"),
     "skill_scripts": ("verify_skill_scripts.py",
                       "skill 层脚本判据（publish-copy 指纹/溯源 + bgm 垫量/床长 + poetry gate）"),
+    "docs":     ("verify_docs.py",  "docs 清账门禁（命令/脚本/符号/链接真实性 + 死入口零容忍）"),
 }
 
 SCRIPTS_DIR = ROOT / "scripts"

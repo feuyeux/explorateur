@@ -259,7 +259,7 @@ Draft.js 里 `Control+Shift+ArrowLeft` **不是**「按词左移」，实测等�
 
 **解法**：**在正文里显式说明**。受影响语种在顶部挂一段「排版说明」，
 把「这是平台限制不是漏排」和「原字去哪看」讲清楚；主文导览的跨语种总表也要挂同一段。
-本项目由 `build_zhihu.py` 的 `ARABIC_STRIPPED_LOCALES` 驱动，
+旧知乎项目由其构建脚本的 `ARABIC_STRIPPED_LOCALES` 驱动（内容项目侧，不在 feuille），
 验收脚本 `[4d]` 断言「说明必须存在」（已做反向验证：去掉说明即 FAIL）。
 
 ⚠️ 唯一真正可靠的绕开方式是**把阿拉伯文做成图片**。本项目没做，因为 446 个字符簇
@@ -405,7 +405,7 @@ DELETE https://zhuanlan.zhihu.com/api/articles/2089911058764977000/draft  → 40
 **平台机制部分完全通用**（§1–§6），只有 §7 的台账是项目相关的。换项目时：
 
 1. 事实源文案另建，参考 `lessons/colors/publish/zhihu/` 的体例；
-2. 先用 `scripts/build_zhihu.py` 那套「单一事实源 → Markdown + 反向验收」把内容出好，
+2. 先按「单一事实源 → Markdown + 反向验收」那套流程把内容出好（旧项目 `build_zhihu.py` 的形态，内容项目侧实现），
    **不要从 HTML 解析重建**；
 3. 链接一律用**绝对 URL**，并且**不要放进表格**（坑 ①）；
 4. 分篇先发、导览最后发（坑 ⑮）；

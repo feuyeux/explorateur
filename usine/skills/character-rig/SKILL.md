@@ -43,7 +43,7 @@ not a pipeline: callers compose these, they do not run them end to end.
 **不做 / 转交**：
 
 - 写/解析/校验课件 → `lesson-scene`
-- 成片 → `karaoke-video`（海报驱动）/ `multilingual-video-poetry`（实拍驱动）
+- 成片 → `karaoke-video`（单卡片海报驱动）/ `storyteller-video`（多幕评书，说书人从 `feuille.data.storytellers()` 现取）/ `multilingual-video-poetry`（实拍驱动）
 - 多语种字体子集与逐字着色 → `one-page-poster`
 - 写发布词 → `publish-copy` / 发到平台 → `multilingual-video-publishing`
 

@@ -1,0 +1,61 @@
+{
+ "$schema": "schema.md",
+ "note": "编外专班（不占班底 roster 配对槽）——评书线说书人。逐人字段契约与班底同一份 persona.validate_persona（脸型/音色/挂件同注册表），仅豁免「每语种一男一女×一活泼一沉稳」的班底配对不变量（validate_roster）。消费方：storyteller-video 成片线（feuille.data.storytellers 现取，不另抄）。",
+ "personas": [
+  {
+   "id": "changlianke",
+   "locale": "zh-CN",
+   "gender": "male",
+   "energy": "steady",
+   "name": {
+    "native": "常连科",
+    "latin": "Cháng Liánkē",
+    "gloss": "常＝恒常评书艺人之姓，连科＝评书世家「连」字辈、科考连捷之谐"
+   },
+   "archetype": "评书先生：醒木一拍，话分两头",
+   "identity": "#8C6239",
+   "palette": {
+    "hair": "#6B6259",
+    "hairHighlight": "#8A8078",
+    "skin": "#EFCBA4",
+    "skinShade": "#EBCCA8",
+    "outfitTop": "#55402E",
+    "outfitBottom": "#43382C"
+   },
+   "movement": {
+    "face": "wide",
+    "bounce": 10,
+    "blinkCycleSec": 3.8,
+    "breathAmp": 0.006
+   },
+   "moves": {
+    "point": "point",
+    "palm_open": "both_hands",
+    "both_hands": "both_hands",
+    "nod": "deadpan_nod",
+    "jump_celebrate": "clap",
+    "mini_jump": "lean_in",
+    "wave": "ciao_wave",
+    "scratch_head": "head_tilt",
+    "deadpan_nod": "nod"
+   },
+   "hairStyle": "short_gray",
+   "voice": {
+    "voiceId": "zh-CN-YunjianNeural",
+    "rate": "-12%",
+    "pitch": "-4Hz",
+    "timbre": "评书先生声：浑厚带沙，降速降调，句尾下沉如醒木余音（单田芳式沙砾感；实测 -12%/-4Hz 不劈嗓，安全域内）"
+   },
+   "accessories": [
+    {
+     "code": "beard"
+    }
+   ],
+   "relation": {
+    "partner": "jiangyuan",
+    "label": "同乡"
+   },
+   "quirk": "说到紧要处必拍醒木——「且听下回分解」是他的口头禅"
+  }
+ ]
+}

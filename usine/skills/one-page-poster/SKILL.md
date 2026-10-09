@@ -50,7 +50,7 @@ is what the example is for.
 
 **不做 / 转交**：
 
-- 组装成片 → `karaoke-video`
+- 组装成片 → `karaoke-video`（单卡片）或 `storyteller-video`（多幕评书人物小传）
 - 实拍画面上烧字幕 → `multilingual-video-poetry`
 - 写发布词 → `publish-copy`
 - 真的点发布 → `multilingual-video-publishing`

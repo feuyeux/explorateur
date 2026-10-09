@@ -9,6 +9,8 @@
     uv run feuille lesson new|doctor                 新课开坑 / 就绪度体检
     uv run feuille persona validate                  人设契约体检（逐人 + 班底不变量）
     uv run feuille cover  make|check                 封面（整页 HTML 截图 / 尺寸底色检查）
+    uv run feuille framehash save|check              逐帧像素基线（采基线 / 零漂移门禁）
+    uv run feuille ledger status                     缓存账本（谁过期了、因为什么）
     uv run feuille publish login|douyin|xhs|bilibili 平台发布（Playwright）
     uv run feuille verify   [suite …]                反向验证聚合
 
@@ -39,6 +41,13 @@ COMMANDS: dict[tuple[str, str], tuple[str, str]] = {
     # 把无参不可调用的库函数直接登记 = 路由表说谎（verify_cli 会抓）。
     ("cover", "make"):  ("feuille.covers", "main_make"),
     ("cover", "check"): ("feuille.covers", "main_check"),
+    # ---- 逐帧像素基线（⑬ 验收的像素判据；lesson doctor 的⑦层引用的就是这对叶子）----
+    # save 采基线（回读自证内建）/ check 零漂移门禁。库判据全在 feuille.framehash，
+    # 叶子只做「发现产物 → 调库 → 定退出码」的薄编排。
+    ("framehash", "save"):  ("feuille.framehash", "main_save"),
+    ("framehash", "check"): ("feuille.framehash", "main_check"),
+    # ---- 缓存账本（产物新鲜度问答；report 薄适配层）----
+    ("ledger", "status"):   ("feuille.ledger", "main_status"),
     # ---- 平台发布（⑨⑩⑪）----
     # ⚠️ 发布类叶子**要求 --group publish**（playwright 是可选依赖）。
     # 没装时 import 在函数内 lazy 失败，报的是「缺 playwright」而不是

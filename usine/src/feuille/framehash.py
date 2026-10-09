@@ -229,3 +229,66 @@ def compare(videos, baseline_file, *, subset: bool = False,
                   f"末异帧 {last}；参考帧 {len(ref)} vs 当前 {len(frames)}")
             extract_frame(video, first, ref_dir / f"{name}-cur-{first}.png")
     return r, 1 if (r["diff"] or r["gone"]) else 0
+
+
+# ---- CLI 适配层（feuille framehash save|check）--------------------------------
+# 库函数已有全部判据；叶子只做「发现产物 → 调库 → 定退出码」的薄编排。
+# 与 covers.main_make/main_check 同一形态：路由表只登记无参可调用的 main*。
+
+
+def _discover_videos(root) -> list[Path]:
+    """build/ 下全部成片（全量发现——子集基线会随目录演变而烂）。
+
+    没有产物时显式报错退出，绝不静默产出一个空基线（坑㉟ 的病：
+    「筛不中照样成功退出」比报错危险得多）。
+    """
+    build = Path(root) / "build"
+    if not build.is_dir():
+        raise SystemExit(f"没有 build/ 目录（root={root}）——基线登记的是产物，先有产物")
+    vids = sorted(build.rglob("*.mp4"))
+    if not vids:
+        raise SystemExit(f"build/ 下没有 mp4（root={root}）——没找到成片，videos 为空")
+    return vids
+
+
+def main_save(argv=None) -> int:
+    """cli.py 路由入口：`feuille framehash save [--root DIR]`。
+
+    采基线：build/ 全部成片的整支像素哈希 → 按平台分桶落盘（baseline_path）。
+    **坑㉞ 的纪律内建**：采完立刻回读自证——落盘表逐条与当前哈希一致才算数；
+    不回读的话，「采基线」这个动作本身就可能是把当时的 bug 固化成标准。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille framehash save")
+    ap.add_argument("--root", default=".", help="项目根（build/ 与基线文件所在层）")
+    a = ap.parse_args(argv)
+    root = Path(a.root).resolve()
+    cur = {p.name: framehash(p) for p in _discover_videos(root)}
+    out = save_baseline(cur, baseline_path(root))
+    back = read_baseline(out)
+    mismatch = [n for n, h in cur.items() if back.get(n) != h]
+    extra = [n for n in back if n not in cur]
+    if mismatch or extra:
+        raise SystemExit(f"基线回读自证失败（写 {len(cur)} 读 {len(back)}）："
+                         f"不符 {mismatch[:3]} 多出 {extra[:3]} → {out}")
+    print(f"基线已采：{len(cur)} 支 → {out}")
+    print(f"分桶：{bucket()}（基线按平台分桶，跨平台不可比）")
+    return 0
+
+
+def main_check(argv=None) -> int:
+    """cli.py 路由入口：`feuille framehash check [--root DIR] [--subset]`。
+
+    门禁：当前 build/ 全部成片 vs 基线。退出码沿用 `compare` 的口径
+    （diff 或 gone → 1）；`--subset` 时基线里不在本次范围的条目归跳过、不判缺失
+    ——否则一次合法的子集核查就会喊狼嚎，长期全红会被当噪音忽略。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="feuille framehash check")
+    ap.add_argument("--root", default=".", help="项目根")
+    ap.add_argument("--subset", action="store_true",
+                    help="子集核查：基线中不在 build/ 范围内的条目按跳过计，不判缺失")
+    a = ap.parse_args(argv)
+    root = Path(a.root).resolve()
+    _, rc = compare(_discover_videos(root), baseline_path(root), subset=a.subset)
+    return rc

@@ -6,7 +6,7 @@
 
 ## 技能库（复用入口）
 
-**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 8 个自建 SKILL：
+**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 10 个自建 SKILL：
 
 | skill | 用途 |
 |---|---|
@@ -18,6 +18,8 @@
 | `character-rig` | 人物 rig / 背景场景 |
 | `publish-copy` | 发布词写作 |
 | `multilingual-video-publishing` | 平台发布 + 合合集 + 核验 |
+| `storyteller-video` | 多幕评书成片（说书人 + 景/镜/转场） |
+| `video-generation` | 视频生成母版（选线/提交确认/取回冻结） |
 
 - **总路由表**：[usine/skills/README.md](usine/skills/README.md)——先判断在哪一层，再选 skill；
   每个 skill 的 description 自带排除语句（Not for …），路由靠它而不是靠猜。

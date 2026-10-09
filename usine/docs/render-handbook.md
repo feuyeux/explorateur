@@ -6,108 +6,95 @@
 > `devices`（装置外框）/ `textlayer`（Edge 渲字）/ `compose`（母版叠加）/ `render`（帧编码基座）/
 > `timeline` / `audio`。**改任何东西前先读 §3 参数地图。**
 >
-> **阅读须知（历史包袱）**：本手册由「亮相卡管线」沉淀而来，正文里的命令示例仍用旧项目的
-> `run.ps1 <子命令>` / `usine-*` 入口、`qa_*.py` 验收脚本与 `intro_cards.py` / `scene_video.py`
-> 等旧模块名——这些编排命令**尚未接入 feuille CLI**（现状见 `uv run feuille` 与
-> [workflow.md](workflow.md)）。阅读时把命令示例当作「管线意图」，把几何 / 绘制 / 踩坑结论
-> 当作对上面 library 模块仍然成立的知识。当前工程约定、入口与目录以
-> [../AGENTS.md](../AGENTS.md) 为准。
+> **出身与口径（2026-10 清账）**：本手册由旧「亮相卡管线」项目沉淀而来。正文里出现的
+> 命令一律是**当前可跑**的 `uv run feuille …` 入口；凡是尚未实现接线的管线（场景渲染线
+> tts / assets / render、成片级验收、教学文档管线、派生封面），都**显式标「未接入」**
+> 并说明判据暂由谁承担。历史事故记录（§5）里的死工具名已按现行等价物改写，需要考古
+> 原文看 git 历史。当前工程约定、入口与目录以 [../AGENTS.md](../AGENTS.md) 为准；
+> 「文档不教跑不了的命令」由 `scripts/verify_docs.py` 机检兜底。
 
 ---
 
 ## 0. 快速上手
 
-统一入口 [`run.ps1`](../run.ps1)（全部经 `uv run` 走单一 `.venv`，见 §1；缺 venv 时自动 `uv sync`）：
+统一入口 `uv run feuille <组> <命令>`（路由表是数据不是 if/elif，见 `src/feuille/cli.py`；
+每个叶子都经 `scripts/verify_cli.py` 机检「真实可达且无参可调用」）：
 
-```powershell
-./run.ps1 tts              # 逐行合成 + 词级时间戳（系统 Python · edge-tts）
-./run.ps1 assets           # 文字层 PNG（Edge headless，~144 张）
-./run.ps1 render           # 帧渲染 + ffmpeg（捆绑 Python · Pillow），--Workers 7
-./run.ps1 render -Only xiaoman,layla
-./run.ps1 qa               # 32 单元全量验收（28 卡 + 4 变体，qa_all.py）
-./run.ps1 qa-motion        # 动态验收（卡拉OK/口型/眨眼/气泡镜像/进度条/语言牌/挂件物理/幂等）
-./run.ps1 qa-shape         # 人物层形状/连接/图层几何探针（28 人 × 11）
-./run.ps1 qa-annotate      # 把探针判定的缺陷框画到 build/chars/qa/<id>.png（改代码前先看）
-./run.ps1 verify           # 探针反向验证统一入口：形状 + 文本契约 + 场景 schema
-./run.ps1 qa-shape-verify  # 只跑形状那套（= python scripts/verify_shape_fixes.py）
-./run.ps1 chars            # 人物形象体检台 -> build/chars/（立绘 + alpha 剪影 + 总览 + 索引页）
-./run.ps1 chars -Openness 0.9 -Pose wave   # 张嘴/指定姿态，检查「袖子不得压脸」
-./run.ps1 all              # tts → assets → render → qa → qa-motion → qa-shape（~6 分钟）
-
-./run.ps1 scene            # 教学场景 A/B 对话线：parse → tts → assets → render（-Scene <id> 选场景，缺省 colors）
-./run.ps1 scene -Only "zh-CN,ja-JP"           # 逗号列表要加引号：PowerShell 会把裸 zh-CN,ja-JP 解析成数组
-./run.ps1 scene-list       # 场景概览（token 序 / RTL / 装置 / 时长）
-./run.ps1 qa-scene         # 场景线验收（qa_scene.py --scene <id>：规格/文本契约/选角/画面探针/音频契约/幂等）
+```bash
+uv run feuille scene parse   --scene <id>      # lessons/<id>/scene.md → scene.json（只抽取不改写）
+uv run feuille scene validate --scene <id>      # 场景数据前置校验（parse 与 render 之间的闸门）
+uv run feuille scene draft   --brief <file>    # 创意 brief → scene.md 结构草稿（拒覆盖非草稿）
+uv run feuille lesson new <id> --title "…" --tokens "apple:#D8453B,…"   # 新课开坑（合法值现取自注册表）
+uv run feuille lesson doctor --scene <id>      # 七层体检：每条未完成都带「下一步敲什么」
+uv run feuille lesson doctor --all --json      # 全课体检（机读，看板 / CI 用）
+uv run feuille persona validate                # 28 人班底契约体检（逐人 + 班底不变量）
+uv run feuille cover make|check <key> …        # 封面（平台规格从 SPECS 注册表现取）
+uv run feuille publish login|douyin|xhs|bilibili   # 平台发布（--group publish；认证人工）
+uv run feuille verify                          # 全量反向验证（20 套 370+ 断言）
+uv run feuille verify --list                   # 列出全部套件；--only <套> 单跑
 ```
 
-> **`verify` 为什么是统一入口**：三套反向验证（形状探针 / 文本契约 / 场景 schema）是
-> 「探针会不会恒真」的唯一防线。原先它们散在 `scripts/` 下且没接进主流程
-> （`qa-shape-verify` 那个 switch case 因 ValidateSet 漏列而是死代码，见 run.ps1 注释）——
-> 防线存在但没人跑得到。改任何探针后必须跑 `./run.ps1 verify`。
+- **产线不在 CLI 里，在 skills**：生产一条视频走 [../skills/README.md](../skills/README.md)
+  总路由表选产线（karaoke-video / multilingual-video-poetry / lesson-scene…）——
+  CLI 承载的是数据、校验、体检与反向验证，编排属内容项目侧；
+- 「这课到哪一步了、下一步敲什么」的唯一活事实源是 `uv run feuille lesson doctor`：
+  它对未接入的管线如实标「预留 / 尚未接入」，**不要拿任何静态命令清单替代体检**；
+- 改任何探针 / 注册表后必须跑 `uv run feuille verify`——反向验证是「探针会不会恒真」的
+  唯一防线（坑⑳ 的教训）。
 
-直连命令（run.ps1 的等价形式）：
+**共用内核**——曾在两条管线里各写一份、已经漂移后收敛为单一实现的能力
+（多副本实现与多副本数据同罪，AGENTS.md 纪律 10）：
 
-```powershell
-uv run usine-cards tts     [--only id1,id2]          # 逐行合成 + 词级时间戳（edge-tts 7.2.8）
-uv run usine-cards assets  [--only id1,id2]          # Edge headless 文字层
-uv run usine-cards render  [--only id1,id2] [--workers 7]   # 帧渲染 + ffmpeg（Pillow 12.3.0）
-uv run python -m usine.qa_all                        # 32 单元静态验收
-uv run python -m usine.qa_motion                     # 动态验收（含幂等重渲抽检）
-uv run python -m usine.qa_shape                      # 人物层几何探针（28 人 × 11）
-uv run python -m usine.qa_shape --annotate           # 缺陷框标注图（改 draw_character 前先看）
-uv run python scripts/verify_probes.py               # 探针反向验证统一入口（形状+文本契约+schema）
-uv run usine-chars solo|sheet|html|all [--only id] [--openness 0.9] [--pose wave]  # 人物形象体检台
-uv run usine-parse --scene colors                    # lessons/<id>/scene.md → lessons/<id>/scene.json（只抽取不改写）
-uv run usine-validate --scene colors                 # 场景数据前置校验（parse 与 render 之间）
-uv run usine-scene render --scene colors [--only zh-CN]
-uv run python -m usine.qa_scene --scene colors [--only zh-CN]
-```
+| 能力 | 现址 |
+|---|---|
+| ffmpeg 音轨合成（坑③ 的 apad 前置次序） | `feuille.audio.compose_track` |
+| 卡拉OK进度轴 | `feuille.timeline.karaoke_points` / `frac_at` |
+| Edge 视口探测（坑⑩） | `feuille.textlayer.viewport_deficit` |
+| 人设/卡片/场景数据入口 | `feuille.data`（`personas` / `cards_doc` / `scene_doc`，路径唯一锚定） |
+| 场景数据前置校验 | `feuille.scene_schema.validate_scene` |
+| 装置外框样式 | `feuille.devices.DEVICE_STYLES` 注册表（16 样式） |
+| 语种知识（字体栈/国旗/方向/引号对） | `languages/<lc>/manifest.json`（`feuille.data.fonts_css` 等派生） |
 
-**共用内核（2026-10-04 收重构）**——下列实现在两条管线里曾各写一份、已经漂移，现已收敛：
-
-| 能力 | 现址 | 旧双份位置与漂移证据 |
-|---|---|---|
-| ffmpeg 音轨合成（含坑③） | `media.compose_track` | `intro_cards.compose_audio` / `scene_video.compose_scene_audio`；坑③修法写了两遍，n==1 分支形状不一 |
-| 卡拉OK进度轴 | `media.karaoke_points` / `frac_at` | 两份逐行同构（scene 版 docstring 自称"与亮相卡同一实现"）；`frac_at` 末尾返回值不同 |
-| Edge 视口探针（坑⑩） | `media.edge_window_h` | 两份 `edge_viewport_h`；scene 侧用 `BAND_H` 而非标称 300 作减数，多补 (BAND_H−300) px 窗口高度 |
-| 人设/卡片/场景数据入口 | `data.personas()` / `cards_doc()` / `scene_doc()` | 6 处各自 `json.load` + 手抄路径 |
-| 场景数据前置校验 | `scene_schema.validate_scene` | 原先无校验层，字段缺失要到渲染时才炸 |
-| 装置外框样式 | `scene_video` 的 `@device_style` 注册表（15 种） | 原先是 `draw_device` 里一条 15 分支 if/elif + 一个裸元组闭集；加样式要改函数体 |
-| 班底彩蛋色值 | `parse_scene` 抽 `easterEgg` → `scene_schema` 校验指向的演员色板 | 原先只活在 md 散文里，解析时被整段丢弃，无人校验 |
-
-代码都在 `src/usine/`（uv 项目 src 布局，editable 安装）；`uv run` 自动按 `pyproject.toml` + `uv.lock` 同步 `.venv`（uv 托管 CPython 3.12）。
-依赖精确锁版（`edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`）——**Pillow 12.3.0 是像素基线**，升级前必须重验 framehash 基线。
-
-产物：`build/intro/<id>.mp4`（1080×1920，30fps，**恰好 10.0s**，h264 crf18 + aac 192k）。
-改完任何东西的验收基线：**qa_all 32/32 PASS（28 卡 + 4 个 RTL 女性观众版）+ qa_motion PASS**。
+代码在 `src/feuille/`（uv 工程 src 布局，editable 安装），一切 Python 经 `uv run`
+（约定权威：[../AGENTS.md](../AGENTS.md)「工程约定」）。依赖精确锁版
+（`edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`）——**Pillow 12.3.0 是像素基线**，
+升级前必须重验 framehash 基线。改完任何东西的验收基线：**`uv run feuille verify` 全量绿**。
 
 ---
 
 ## 1. 架构与数据流
 
+画面侧产线的数据流（以场景线为例）。**渲染编排（tts / assets / render 的成片叶子）
+未接入 CLI**——本节描述的是 library 模块各自承担的环节，编排落地时按此对号：
+
 ```
 personas/personas.json ──┐
-（28 人档案：声线/色板/    │
- 发型/配饰/identity/RTL）  │
-personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ render ──→ <id>.mp4
-（每卡 lines/gestures/       │          │             │
- scene/close/cast A|B）      │          │             │
-                        audio/<key>.mp3   text/*.png   build/intro/<id>.mp4
-                        audio/<key>.json  (band/badge  + audio/<id>.m4a
-                        （词级时间戳）     /pill/bubble  + audio/<id>.timeline.json
-                                           双 matte 抠像）
+（28 人档案：声线/色板/     │
+ 发型/配饰/identity/RTL）   │
+languages/<lc>/manifest.json│
+（字体栈/国旗/方向/引号对）  │
+lessons/<id>/scene.md ─────┴→ parse_scene → scene.json → scene_schema 校验闸门
+                                    │
+      ⑤ 语音：feuille.tts（逐行合成 + 词级时间戳，内容寻址缓存）
+      ⑥ 文字层：feuille.textlayer（Edge headless 截图 + 双 matte 抠像）
+         时间轴：feuille.timeline（行时间轴 + 词级进度轴）
+         合成：feuille.compose（母版叠加 / 混音）+ feuille.render（帧编码基座）
+                                    │
+                                    ▼
+                        build/…/<名>_<locale>.mp4
 ```
 
-- **① tts**：每行按 mood 合成（见 §2 声线契约），`boundary="WordBoundary"` 捕词级时间戳；
-  混音 `amix → loudnorm(-16 LUFS) → apad → atrim` 出 `<id>.m4a`（恰好 10.0s）+ `<id>.timeline.json`。
-- **② assets**：Edge headless 双色截图（白底/黑底）→ `matte_combine` 精确抠像
+- **⑤ tts**：每行按 mood 合成（声线契约见 §2），`boundary="WordBoundary"` 捕词级时间戳；
+  行时长 = `min(探针时长, 末词 end + 0.2s)` 裁尾部静音（坑②）。
+- **⑥ 文字层**：Edge headless 双色截图（白底/黑底）→ `matte_combine` 精确抠像
   （`alpha = 255 − (C_w − C_b)`，半透明投影可精确还原）。
-- **③ render**：每帧 = 背景层（1 次 2x 预渲染）→ RGBA 2x 人物层（`draw_character`，
-  BOX 降采样抗锯齿）→ 文字带卡拉OK裁贴 → 名牌/语言牌/气泡贴图 → rgb24 管道给 ffmpeg。
+- **⑥ 合成**：禁 `-shortest`（坑⑯），时长控制一律显式 `-t` + 音频前置 apad/atrim；
+  rawvideo 逐帧喂 ffmpeg 的基座是 `feuille.render.encode_frames`。
 
-**缓存**：行音频按 `sha256(voiceId|rate|pitch|text)[:16]` 为文件名——改台词自动重合成，
-改声线参数全员失效（故**调优只许改文本，不许改声线**）；文字层按名字直接覆盖。
+**缓存**：行音频按 `sha256(voiceId|rate|pitch|text)[:16]` 为文件名（`feuille.tts.content_hash`）
+——改台词自动重合成，改声线参数全员失效（故**调优只许改文本，不许改声线**）。
 孤儿缓存（被改掉的旧文本 mp3）留在 `audio/` 无害，可整目录清理后全量重建。
+产物级的新鲜度判定走 `feuille.ledger`（输入指纹，见 §6.9）。
 
 ---
 
@@ -115,90 +102,89 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 
 | 不变量 | 出处 | 纪律 |
 |---|---|---|
-| **头身几何**：全部派生尺寸（眼位/眉/嘴/躯干/四肢/脚）只从 `face_geo(face)` 取 | `intro_cards.py::face_geo` | 渲染与 qa 探针都 import 它，**永不手抄数字** |
-| **声线契约**：缓存键 = `sha256(voiceId\|rate\|pitch\|text)[:16]`；有效参数 = 基线 + mood 增量，钳制 \|rate\|≤20%、\|pitch\|≤12Hz | `intro-cards.json.moods`（neutral 0/0，happy +4/+5，puzzled −8/−2，encouraging −5/+2，emphatic +2/−3，teach −15/0） | **台词超时长只改文本**，声线参数动一次全员重合成且破坏音色一致性 |
-| **时长预算**：speech_end ≤ 8.5s（收尾动作 ≥ 1.1s + 呼吸位）；成片恰好 10.0s | `self-introductions.md` §3.2 | tts 阶段打印 speech_end，超限回改文本 |
-| **表情基线**：MOOD_FACE（lift/tilt/smile） | `intro_cards.py::MOOD_FACE` | 情绪是数据不是发挥，改表全员生效 |
-| **词轴三用**：词级时间戳同时驱动 口型开合 + 逐词高亮 + 手势触发 | `render_card` | 动口型/卡拉OK节奏不需要新数据，换台词自动重对齐 |
-| **描边禁令**：人物无描边（多邻国纯平涂）；场景道具描边只用 `pal["ink"]` 柔色 | `draw_character` / `prerender_bg` | 别给人物加 outline 回归"廉价感" |
-| **贴图层级**：背景 → 人物层(2x) → 文字带 → 名牌 → 语言牌 → 气泡（尾在人物层内画，被气泡本体盖住尾根） | `render_card` 主循环 | 改层级前想清楚气泡尾的遮挡关系 |
-| **uv 单环境**：全部 Python 经 `uv run`（src 布局包 `usine` + 控制台入口）；依赖精确锁版，Pillow 12.3.0 = 像素基线 | `pyproject.toml` + `uv.lock` + `run.ps1` | 裸 `python` 跑管线要么缺依赖要么错版本；升级 Pillow 必须先重验 framehash 基线 |
-| **封面必须表达主题**（不变量⑨）：每支成片有封面，且封面由该片 `scene.json` 派生（装置 + token + 标题 + 语种），**不是抽帧**；文字↔底对比 ≥100、安全区内缩 ≥2%、同输入逐字节一致 | 判据全文见 **§6.13**；门禁 `qa_cover` + `verify_cover.py` | 抽帧封面表达的是"某一秒"不是"这支片"，且两次渲可能给出不同封面（破幂等⑦）；通用图更糟——换支片照样能用 |
+| **头身几何**：全部派生尺寸（眼位/眉/嘴/躯干/四肢/脚）只从 `face_geo(face)` 取 | `feuille.rig.face_geo` | 渲染与探针同源——`verify_rig` 的几何探针直接跑在 rig 上，**永不手抄数字** |
+| **声线契约**：缓存键 = `sha256(voiceId\|rate\|pitch\|text)[:16]`；有效参数 = 基线 + mood 增量，钳制 \|rate\|≤20%、\|pitch\|≤12Hz | `personas/intro-cards.json` `moods`（neutral 0/0，happy +4/+5，puzzled −8/−2，encouraging −5/+2，emphatic +2/−3，teach −15/0）＋ `feuille.tts`（SAFE_RATE / SAFE_PITCH 钳制） | **台词超时长只改文本**，声线参数动一次全员重合成且破坏音色一致性 |
+| **时长预算**：`scene.md` §0 `durationBudget` 声明区间；超预算 → 回改文本 | `scene.md` §0 ＋ `feuille.scene_schema`（区间合法性校验） | 「tts 阶段即判」的门禁在渲染线（**未接入**）——现由 `feuille lesson doctor` 报缺口、成片后由逐帧基线兜底；判据一次报全，不要碰到第一个就中断 |
+| **表情基线**：MOOD_FACE（lift/tilt/smile） | `feuille.rig.MOOD_FACE` | 情绪是数据不是发挥，改表全员生效；合法 mood 现取注册表（`verify_lesson` 的全注册值演习） |
+| **词轴三用**：词级时间戳同时驱动 口型开合 + 逐词高亮 + 手势触发 | `feuille.timeline`（行轴 + 词级进度轴）；渲染端三用消费在渲染线（**未接入**） | 动口型/卡拉OK节奏不需要新数据，换台词自动重对齐 |
+| **描边禁令**：人物无描边（多邻国纯平涂）；场景道具描边只用 `pal["ink"]` 柔色 | `feuille.rig.draw_character` / `feuille.scenes.prerender_bg` | 别给人物加 outline 回归"廉价感" |
+| **贴图层级**：背景 → 人物层(2x) → 文字带 → 名牌 → 语言牌 → 气泡（尾在人物层内画，被气泡本体盖住尾根） | 渲染端主循环（**未接入**）；图层序准则对编排落地仍然成立 | 改层级前想清楚气泡尾的遮挡关系；袖子压脸那次的完整准则见坑⑮ |
+| **uv 单环境**：全部 Python 经 `uv run`（src 布局 + 统一入口）；依赖精确锁版，Pillow 12.3.0 = 像素基线 | `pyproject.toml` + `uv.lock`（权威文本 [../AGENTS.md](../AGENTS.md)「工程约定」） | 裸 `python` 跑管线要么缺依赖要么错版本；升级 Pillow 必须先重验 framehash 基线 |
+| **封面必须表达主题**（不变量⑨）：每支成片有封面，且封面由该片数据派生（装置 + token + 标题 + 语种），**不是抽帧**；文字↔底对比 ≥100、安全区内缩 ≥2%、同输入逐字节一致 | 判据全文见 **§6.13**；现行门禁 `uv run feuille cover check`（规格/底色）；「由 scene.json 派生主题封面」的生成器**未接入** | 抽帧封面表达的是"某一秒"不是"这支片"，且两次渲可能给出不同封面（破幂等⑦）；通用图更糟——换支片照样能用 |
 
----
+
 
 ## 3. 参数地图（想改 X → 去哪改）
 
 | 想调什么 | 改哪里 | 注意 |
 |---|---|---|
-| 台词 / 注音 / 中文对照 | [self-introductions.md](self-introductions.md) + `personas/intro-cards.json` `lines[].text`（**两处同步**） | 改完跑 tts 看 speech_end ≤ 8.5s |
-| 情绪分段 / 手势触发（`at` 关键词 / `do` / `dur`） | `intro-cards.json` `lines[].mood`、`gestures[]` | 手势词必须真实存在于台词，否则回退到行首 |
-| 收尾招牌动作 | `intro-cards.json` `close`（单码或按序码列；pose_for 全部码：wave/thumbs_up/point/nod/shrug/mini_jump/run_out/turn_freeze/snap/camera_snap/chest_pat/deadpan_nod/twirl/lean_in/pocket_sway/head_tilt_smile/thumbs_run/shoot_run/…） | 码列按时序衔接，`close_dur_for` 表在 `render_card`；跑出画族占满剩余时长 |
-| 入场姿态 | `intro-cards.json` `entry_pose`（码列，窗口 [0.05, min(entry,1.2)]s） | 取代旧"活泼统一挥手"硬编码；与手势/收尾优先级 close > gesture > entry |
-| 人设（名字/声线/色板/发型/配饰/identity/RTL） | `personas/personas.json` | 色板字段被 qa_char 对照，改色必跑 qa_all |
-| 脸型 / 服装轮廓 | `movement.face`（`FACE_SPECS` 6 型：round/tall/oval/wide/heart/square）＋ `outfit` 槽（bottom=skirt / kind=tunic\|pinafore\|vest / buttons） | 几何全部从 `face_geo()` 派生，探针自动跟随；新增 `zipper`/`clipboard`/`towel_shoulder` 挂件均有 qa_char 探针（不变量⑩） |
-| **头身比例 / 五官位置** | `face_geo()` 比率表（见 [../personas/visual.md §3](../personas/visual.md)）+ `neck_hw/neck_top/neck_bot`（颈）、`sh_x`（肩点内收量）、`sh_out`（肩部体块外缘，≤头宽 0.99）、`hip_hw`（胯块半宽 = `torso_hw·0.92`）、`arm_rest`（静止姿态角） | 探针自动跟随；**全部渲染与 qa_shape 探针共用同一份**（不变量①）。改完跑 `qa_shape` + `qa_all` + `qa_motion` |
-| **袖子与衣身的色阶** | `sleeve_color(base, f=0.13)`（浅衣压深/深衣提亮） | 纯平涂无描边（不变量⑤），重叠的手臂只能靠色阶读出来；色差不得 <10/通道，否则 B1 判 FAIL |
-| **挂在身上的头发（辫子/低马尾/长侧发帘）** | `body_edge(s, y)`（剪影左右缘）+ `side_curtain()`（沿轮廓的多边形，n=18） | 钉死在 `hx±rx` 会落在下颌与肩之间的空档里浮成一串圆点 |
-| 发型绘制 | `draw_character` 前发/背发层两段（`style` 分支） | 侧发会盖耳朵：新发型想露耳要留出 `rx*0.94` 之外的空间 |
-| 配饰绘制 | `draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.435×头宽` |
-| **顶戴墨镜几何** | `SUNGLASS_HEAD` 参数表 + `sunglasses_head_geo(G, hdx, hdy)`（镜架倒扣在 `hy−0.80·ry`，不遮眼） | 绘制与 `qa_char` 探针**共用这一份**，魔数不许散进 `draw_character`（坑㉑）；`hdx/hdy` 必须传进去，否则头部弹跳时墨镜与发顶脱开 |
-| **下颌轮廓（heart / square）** | `JAW` 参数表 + `jaw_point(face, s)` + `face_profile(face, v)`（超椭圆 `(1−s^m)^(1/m)`） | m>1 才能保证底缘切线**竖直**（m<1 的曲线切线水平 → 下巴折返成横向针尖，坑㉒）；`y1<1` 让底缘收成短平边 |
-| **发帘内缘下限** | `HAIR_CHEEK_KEEP=0.72`（`side_curtain` 内缘 `max(剪影半宽−in_w, 下限)`，颏线以下再收到 `neck_hw`） | 内缘跟着收窄的下颌走到中轴 = 把脸夹成尖楔（坑㉒）；下限取 0 等于退回旧行为 |
-| `body_edge` 颏下过渡 | `JAW_BELOW=0.16`（smoothstep 到 `sh_out`） | 硬切会有 ~90px 台阶，发帘外缘在那里折角（坑㉒） |
-| 名牌 / 语言牌 / 气泡样式 | `badge_html` / `pill_html` / `bubble_html` | **禁 position:absolute / transform**（坑⑦）；尾色必须同 `UI_INK`；语言牌 = 国旗 emoji＋语种名（`pill_<locale>` 14 张按语种共享） |
-| 场景背景 | `SCENES` 注册表（64 个原语，`@scene("名")`）+ `intro-cards.json` `scene[]` | 全部用 `pal` 色板 + 模块级 `SCENE` 中性色表，禁写字面 RGB；场景描边只许 `pal["ink"]` |
-| 文字带（字幕条） | 亮相卡 `band_html`；**场景线 `band_text_html` 三层堆叠**：原文 64px 自动缩排 → 中文对照 30px（`BAND_GLOSS` #AEB6DC，比原文小）→ ⚑ 文化/语言注记 22px（`BAND_NOTE` 主题金，比对照再小） | BAND_Y=100, BAND_H=300，头像区 400–840 之间别放东西；坑⑩ 补偿多出的截图高度在 `band_png()` 载入时裁掉，深色尾巴不进成片 |
-| 场景线人物动作（排他） | `personas/personas.json` 每人 `moves` 槽位表（9 槽→逐人姿态码），`persona_pose()` 渲染时映射 | 槽位语义写剧本 `` `pose` `` 注记（数据），动作词汇逐人单射；活泼池∩沉稳池=∅ → 同台 A/B 零交集（qa §3 有探针）；未映射槽位回退槽名 |
-| 场景线人物↔背景不靠色 | `prerender_scene_bg`：`band_alpha()` 舞台背板带只压**渐变**（y 760–1720 最多 26%）；场景原语与站位阴影画完后跑**半空间推开**（距同台取样色 <96 且投影 <48 的像素沿 band_dark 方向补足到 48） | 压整幅会把中间调原语推到服装色上（de-DE trail↔卡其裤实测 4.1），只压渐变+定点推开才两全；半空间对 LANCZOS 平均封闭（双向推开会被边缘混色拉回，he-IL 实测 15.0）；装置是教学 UI 画在推开之后不动；qa §4 探针：立绘取样色 vs 本列纯背景最小欧氏距离 ≥36（28 人实测最小 36.9） |
-| 文字层字体 | `FONT_CSS`（14 语种映射） | 新语种先确认 Windows 字体可用 |
-| 超采样倍率 / 帧率 / 片长 | `SS`（现 2）/ `W,H,FPS,DUR` | SS 提到 3 渲染耗时 ×~2.2，先单卡试 |
-| 口型/眨眼/呼吸节奏 | `openness_at` / blinkCycleSec（personas）/ `breath` | 眨眼相位由 `rnd(seed:blink:n)` 锁定，幂等 |
-| **封面**（全局约定） | 判据在 **§6.13**；生成器 `usine.cover.render()`，输入只有 `lessons/<id>/scene.json` | 装置/token/标题/语种**全部取自数据**，禁硬编码 RGB（不变量⑤）；文字↔底对比 ≥100、安全区内缩 ≥2%；同输入逐字节一致。**抽帧（`make_poster`）只服务教学文档 `<video>` 占位，不许当发布封面** |
+| 台词 / 注音 / 中文对照 | 场景线：`lessons/<id>/scene.md` §2 台词行（`feuille.parse_scene` 抽取成 scene.json）；亮相卡历史文案：`personas/intro-cards.json` `lines[].text`（数据仍在，渲染线未接入） | 改台词后重跑 `scene parse`；时长预算超限**删字**（不变量②，绝不动声线） |
+| 情绪分段 / 手势触发（`at` 关键词 / `do` / `dur`） | 亮相卡：`intro-cards.json` `lines[].mood`、`gestures[]`；场景线：台词行情绪/姿态注记（parse_scene 抽取，`scene_schema` 对注册表校验） | 手势词必须真实存在于台词，否则回退到行首 |
+| 收尾招牌动作 | `intro-cards.json` `close`（单码或按序码列；合法姿态码现取 `feuille.rig.POSE_CODES` 注册表：wave/thumbs_up/point/nod/shrug/…） | 码列按时序衔接；跑出画族占满剩余时长（消费端在渲染线，未接入） |
+| 入场姿态 | `intro-cards.json` `entry_pose`（码列，窗口 [0.05, min(entry,1.2)]s） | 与手势/收尾优先级 close > gesture > entry |
+| 人设（名字/声线/色板/发型/配饰/identity/RTL） | `personas/personas.json` | 改色/改档案必跑 `uv run feuille persona validate`（契约逐人 + 班底不变量） |
+| 脸型 / 服装轮廓 | `feuille.rig.FACE_SPECS`（6 型：round/tall/oval/wide/heart/square）＋ `outfit` 槽（bottom=skirt / kind=tunic\|pinafore\|vest / buttons） | 几何全部从 `face_geo()` 派生，探针自动跟随；挂件由 `verify_rig` 探针覆盖（不变量⑩） |
+| **头身比例 / 五官位置** | `face_geo()` 比率表（见 [../personas/visual.md §3](../personas/visual.md)）+ `neck_hw/neck_top/neck_bot`（颈）、`sh_x`（肩点内收量）、`sh_out`（肩部体块外缘，≤头宽 0.99）、`hip_hw`（胯块半宽 = `torso_hw·0.92`）、`arm_rest`（静止姿态角）——全部在 `feuille.rig` | 探针自动跟随；**渲染与几何探针共用同一份**（不变量①）。改完跑 `uv run feuille verify --only rig` |
+| **袖子与衣身的色阶** | `feuille.rig.sleeve_color(base, f=0.13)`（浅衣压深/深衣提亮） | 纯平涂无描边（不变量⑤），重叠的手臂只能靠色阶读出来；色差不得 <10/通道，否则 B1 探针 FAIL |
+| **挂在身上的头发（辫子/低马尾/长侧发帘）** | `feuille.rig.body_edge(s, y)`（剪影左右缘）+ `side_curtain()`（沿轮廓的多边形，n=18） | 钉死在 `hx±rx` 会落在下颌与肩之间的空档里浮成一串圆点 |
+| 发型绘制 | `feuille.rig.draw_character` 前发/背发层两段（`style` 分支） | 侧发会盖耳朵：新发型想露耳要留出 `rx*0.94` 之外的空间 |
+| 配饰绘制 | `feuille.rig.draw_character` 躯干挂件段 + 头部配饰段 | 帽类 PIE 见 §5 坑④；宽度参考 `torso_hw=0.435×头宽` |
+| **顶戴墨镜几何** | `feuille.rig.SUNGLASS_HEAD` 参数表 + `sunglasses_head_geo(G, hdx, hdy)`（镜架倒扣在 `hy−0.80·ry`，不遮眼） | 绘制与探针**共用这一份**，魔数不许散进 `draw_character`（坑㉑）；`hdx/hdy` 必须传进去，否则头部弹跳时墨镜与发顶脱开 |
+| **下颌轮廓（heart / square）** | `feuille.rig` 的 `JAW` 参数表 + `jaw_point(face, s)` + `face_profile(face, v)`（超椭圆 `(1−s^m)^(1/m)`） | m>1 才能保证底缘切线**竖直**（m<1 的曲线切线水平 → 下巴折返成横向针尖，坑㉒）；`y1<1` 让底缘收成短平边 |
+| **发帘内缘下限** | `feuille.rig.HAIR_CHEEK_KEEP=0.72`（`side_curtain` 内缘 `max(剪影半宽−in_w, 下限)`，颏线以下再收到 `neck_hw`） | 内缘跟着收窄的下颌走到中轴 = 把脸夹成尖楔（坑㉒）；下限取 0 等于退回旧行为 |
+| `body_edge` 颏下过渡 | `feuille.rig.JAW_BELOW=0.16`（smoothstep 到 `sh_out`） | 硬切会有 ~90px 台阶，发帘外缘在那里折角（坑㉒） |
+| 名牌 / 语言牌 / 气泡样式 | 文字层 HTML builder **未接入**（渲染线单独立项）；语种知识（国旗/语种名/字体栈）现址 `languages/<lc>/manifest.json`（`feuille.data` 派生） | **禁 position:absolute / transform**（坑⑦）——流式布局截图才可靠；这条约束对接线时的 builder 仍然成立 |
+| 场景背景 | `feuille.scenes.SCENES` 注册表（**65** 个原语，`@scene("名")`）+ `scene.md` §0.2 装置规格表（locale 缺行 = 纯对话） | 全部用 `pal` 色板 + 中性色表，禁写字面 RGB；场景描边只许 `pal["ink"]` |
+| 文字带（字幕条） | 三层堆叠**体例**在 `scene.md` 台词行：原文 → 中文对照 → ⚑ 注记（`parse_scene` 抽取、`scene_schema` 校验注记承诺）；band 装配与常量（BAND_Y/BAND_H/三层配色）在渲染线（**未接入**） | 坑⑩ 的视口补偿现址 `feuille.textlayer.viewport_deficit`（减数一律用标称值） |
+| 场景线人物动作（排他） | `personas/personas.json` 每人 `moves` 槽位表（9 槽→逐人姿态码，`persona validate` 校验槽位合法）；槽位→姿态的渲染时映射在渲染线（**未接入**） | 槽位语义写剧本 `` `pose` `` 注记（数据），动作词汇逐人单射；活泼池∩沉稳池=∅ → 同台 A/B 零交集由构造保证 |
+| 场景线人物↔背景不靠色 | 渲染线算法（**未接入**）：舞台背板带只压**渐变**（最多 26%）；场景原语与站位阴影画完后跑**半空间推开**（距同台取样色 <96 且投影 <48 的像素沿暗带方向补足到 48） | 压整幅会把中间调原语推到服装色上（de-DE 实测 4.1）；半空间对 LANCZOS 平均封闭（双向推开被边缘混色拉回，he-IL 实测 15.0）；装置是教学 UI 画在推开之后不动。验收阈值保留：立绘取样色 vs 纯背景最小欧氏距离 ≥36（28 人实测最小 36.9） |
+| 文字层字体 | `languages/<lc>/manifest.json` `fontCss`（`feuille.data.fonts_css()` 派生） | 字体栈必须带 `sans-serif` 兜底；新语种先确认 Windows 字体可用 |
+| 超采样倍率 / 帧率 / 片长 | 超采样 `feuille.scenes.SS`（现 2）；画幅/帧率/片长是渲染线的编排参数（**未接入**） | SS 提到 3 渲染耗时 ×~2.2，先单件试 |
+| 口型/眨眼/呼吸节奏 | `feuille.rig.openness_at` / `personas` 的 `blinkCycleSec`/`breathAmp` 字段（契约校验） | 眨眼相位由 `feuille.rig.rnd(seed:…)` 锁定，幂等 |
+| **封面**（全局约定） | 判据在 **§6.13**；现行机制 `feuille.covers`（`uv run feuille cover make|check`，平台规格从 SPECS 注册表现取） | 装置/token/标题/语种**全部取自数据**，禁硬编码 RGB（不变量⑤）；文字↔底对比、安全区、幂等判据见 §6.13；**由 scene.json 派生主题封面**的生成器**未接入** |
 
----
+
 
 ## 4. 验收体系（无视觉模型也能验收）
 
-| 脚本 | 职责 | 通过标准 |
+现行验收分三层，全部可跑：**反向验证**（验机制本身，跑在 library 模块与注册表上，
+`uv run feuille verify` 聚合）、**逐帧像素基线**（验产物没变，`feuille framehash`）、
+**就绪度体检**（验「这课到哪一步了」，`feuille lesson doctor`）。
+
+| 套件 / 入口 | 职责 | 通过标准 |
 |---|---|---|
-| `qa_grid.py [--persona id] <frame.png>` | 帧降采样 36×64 色块分类图（S肤/H发/T衣/B裤/I标识/#带/W白/G地）；色板从 personas.json 按人设读取 | 人工目检布局：头>躯干、眼位低、鞋在地面带 |
-| `qa_char.py` | 单卡调色板探针（发/肤/颈影/衣/裤/鞋/巩膜/瞳/高光/眉/腮红/帽），几何**从 face_geo 派生**，眉形/眼形/视线与 MOOD_FACE/EYE_MOOD/gaze 同源（`mood=`/`t=` 参数）；新特征探针：织带/滑板贴纸/书袋挂饰/膝盖补丁/三色旗（不变量⑩） | 0 fail；起跳帧 `probe_crown=False`（头顶撞气泡属正常遮挡） |
-| `qa_all.py` | 32 单元全量（28 卡 + 4 个 `<id>_f` 变体，变体共享人设探针）：时长=10.0±0.05s、aac、t=3.0 探针（mood 从时间线推导）、收尾帧按 9.4s 活跃码查躯干（跑出画族跳过） | `ALL 32 UNITS PASS` |
-| `qa_motion.py` | 卡拉OK LTR 覆盖率递增 / RTL 高亮中位 x 左移、口型开合+收尾闭合、RTL 气泡镜像、眨眼跌落、进度条推进、名牌/语言牌弹出、项链吊坠摆动、镜片反光位移、瞳孔视线漂移、呆毛颤动（采样框全部从 face_geo/布局常量推导） | `MOTION QA PASS` |
-| 幂等抽检 | **qa_motion 内置**：重渲一卡 → `ffmpeg -f hash -hash md5`（`-map 0:v`） | **视频流逐帧一致**（容器字节差来自 ffmpeg 元数据，属正常——曾误报"逐字节一致"，见 §5 坑⑫） |
-| `qa_scene.py`（场景线） | 六组：产物规格 / **文本契约** / 选角与骨架（含 **moves 排他**：单射合法 + 同台零交集）/ 画面探针（三层带翻译/金色注记呈现与层序、立绘↔背景不靠色 ≥36、带内各文字色↔带底 ≥100）/ 音频契约 / 幂等 | `N PASS / 0 FAIL` |
-| `qa_shape.py`（**人物层**） | **十一**探针在**人物层**上跑（同 `draw_character`、同成片坐标）：A1 颈肩接缝（颏线下 `chin+0.005H…+0.10H` 无夹心洞）/ A2 胯部连接（`cx±0.80·torso_hw` 处必须是下装色——**不取 hip_hw**，否则注回旧值时取样点跟着缩进腿里、腿与下装同色 → 恒真；另腿根无夹心洞）/ B1 手臂可读性（剪影外探 ≥0.22·arm_w **且**袖色与衣色差 ≥10/通道）/ B2 头身重叠 / C1·C2 五官可见性（抬臂姿态族 mouth/eye 可见比例）/ **D1 下颌开口**（颏线上方可见肤色半宽 ≥0.30·rx，抓「尖下巴」与「发帘夹脸」）/ **D2 下颌单调**（`face_profile` 半宽非增，抓「脸被拉宽」）/ **D3 下颌内凹**（`face_profile` 斜率非增，抓「下巴外凸折返成横向针尖」）/ **E1 胡须不压颈**（颏下 `chin+0.10·ry` 以下胡须色 0px，抓「胡须糊到脖子上」）/ **E2 八字胡在上唇**（`mouth_y−0.15·ry` 处胡须色 ≥25px，抓「嘴上没胡子」） | `SHAPE QA PASS`（28 人 × 11） |
-| `scripts/verify_shape_fixes.py` | 坑⑱⑲⑳㉑㉒ 修复的**反向验证**：①现状全 PASS ②判定窗内合成凿洞必须 FAIL ③注回旧取值必须 FAIL ④顶戴墨镜三步（现状／镜框染成发色 → `glasses_frame` 阶跃归零必 FAIL／镜片退化 → `glasses_lens` 必 FAIL）⑤下颌三步（注回旧方颌 → D2 FAIL／注回旧心形 → D3 FAIL／撤掉发帘内缘下限 → D1 FAIL）⑥胡须（`BEARD_LEGACY` 接回旧 PIE → E1+E2 同时 FAIL）⑦旧魔数取样点留证 | `SHAPE FIX VERIFY PASS` |
-| `scripts/verify_scene_schema.py` | **场景 schema 校验层**的反向验证：真实 scene.json 判 PASS 作基线 → 12 种定向破坏（删顶层字段/tokenOrder 少 key/chip 非法/rtlLocales 指向不存在语种/speaker 越界/mood 未注册/手势码未注册/装置 style 未注册/§0.3 marker 清空/A 角姓名不符/durationBudget 反了/dialogue 为空）逐一要求报出**预期问题** → 确认破坏后原数据仍 PASS（用例无副作用） | `SCENE SCHEMA VERIFY PASS`（12/12） |
-| `scripts/verify_probes.py` | 上面三套反向验证的**统一入口**（`./run.ps1 verify`）：进程级聚合，统一非零退出码。只聚合不改内部——它们各自 monkeypatch 模块属性注入旧取值，聚合层碰这些会引入耦合 | `PROBE VERIFY PASS` |
+| `uv run feuille verify`（聚合器 [scripts/verify_probes.py](../scripts/verify_probes.py)） | 20 套反向验证一条命令全量跑（370+ 断言）；聚合层只转发不改内部——各套件自证「探针会不会恒真」 | 全部套件 PASS；需要成片/浏览器的断言如实 SKIP，不冒充 PASS |
+| [scripts/verify_rig.py](../scripts/verify_rig.py)（人物层几何） | 十一探针跑在 `feuille.rig` 上（28 人班底夹具）：A1 颈肩接缝（颏线下 `chin+0.005H…+0.10H` 无夹心洞——正常解剖凹角不算缺陷）/ A2 胯部连接（`cx±0.80·torso_hw` 处必须是下装色，**不取 hip_hw**：判据 ∌ 被测字段）/ B1 手臂可读性（剪影外探 ≥0.22·arm_w **且**袖色与衣色差 ≥10/通道）/ B2 头身重叠 / C1·C2 五官可见性（数五官自身颜色，不数衣色）/ D1 下颌开口（可见肤色半宽 ≥0.30·rx）/ D2 下颌单调（`face_profile` 半宽非增）/ D3 下颌内凹（斜率非增）/ E1 胡须不压颈 / E2 八字胡在上唇——**旧人物层成片验收的现行载体**，含自证凿洞（判定窗里人为凿洞必 FAIL）+ 幂等（同参数两渲 PNG 逐字节一致） | 套件全 PASS |
+| [scripts/verify_personas.py](../scripts/verify_personas.py)（班底契约） | 逐人契约（脸型/姿态码在注册表、色板 hex、声线安全域、locale、moves 槽位）+ 班底不变量（撞 id、语种配对）；**好数据放行是第一条断言** | 套件全 PASS |
+| [scripts/verify_lesson.py](../scripts/verify_lesson.py)（课件校验层） | `scene_schema` 用遍全部注册值的演习场景零问题通过（每个 mood / pose / device_style 至少一次——注册表↔校验层的契约测试）+ 定向破坏必被抓（坏 mood/坏 pose/幽灵说话人/token 错位/空角色表/缺节拍表/形态-同台表错配）+ doctor 接线 | 套件全 PASS |
+| [scripts/verify_framehash.py](../scripts/verify_framehash.py)（逐帧像素基线） | 整支像素判据钉死 `ffmpeg -v error -i X -map 0:v -f hash -hash md5 -`（**少 `-map 0:v` 数字不同且不报错**，坑㉛）；按平台分桶（桶 = 系统+架构+浏览器+Pillow）；改 1 帧 / 改色相 / 抽帧三支坏片必判漂移 | 套件全 PASS |
+| `uv run feuille cover check <png> <key>` | 封面规格与底色检查（平台规格从 `feuille.covers.SPECS` 注册表现取） | 问题列表空 |
+| `uv run feuille lesson doctor --scene <id>` | 七层就绪度体检（创意/数据/成片/文档/发布/验收），每条未完成带「下一步敲什么」 | 无 FAIL；TODO / SKIP 如实分列（纪律 12） |
+| 成片级验收（**未接入**，依赖渲染线） | 六组：产物规格 / **文本契约** / 选角与骨架（moves 排他对账）/ 画面探针（三层带呈现与层序、立绘↔背景不靠色 ≥36、带内文字色↔带底 ≥100）/ 音频契约 / 幂等重渲 | 接线时按本表与 §6.7 的阈值实现；在此之前，像素判据由逐帧基线承担（`lesson doctor` ⑦层如实报「暂由基线兜底」） |
 
 **「文本契约」这组是踩过坑才加的**——三类问题都不影响渲染，ffmpeg 全部 `rc=0`，
-画面探针也照样 PASS，全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，
-所以统一做成数据声明 + 验收对账（数据在 `scene-<id>.md §0`，管线零改动）：
+全靠人眼/记性发现。它们的共同形状是「**承诺与文本不一致**」，所以做成数据声明 + 验收对账
+（数据在 `scene.md` §0，管线零改动）：
 
-| 检查 | 数据来源 | 抓的是什么 | 实例 |
+| 检查 | 数据来源与现行落点 | 抓的是什么 | 实例 |
 |---|---|---|---|
-| 句末标点 | 代码（Unicode 事实，非场景数据） | 句末不得是半角分号 `;`；疑问句须用本文字系统的问号（希腊文 `U+037E`） | el-GR 7 个疑问句用 ASCII 分号收尾，TTS 读成陈述句 |
-| 语体差 | `§0.3` 表 `locale \| 语体 A \| 语体 B \| 区分标记` | A 线不得含标记、B 线必须含标记——「语体差即关系戏」只能在文本层验 | ko-KR 注记承诺「서연 敬语体」，成片里 B 全线해체 |
-| 时长预算 | `scene_video.cmd_tts` **tts 阶段即判**（超预算 → 列出全部超时语种并 `exit 1`）＋ `qa_scene` §2 复核 | 超时即 FAIL，处方是回改文本（不变量②，绝不动基线） | he-IL 60.04s / hi-IN 56.97s / ar-SA 56.45s |
+| 句末标点 | 机械检查在成片验收层（**未接入**）；判据教训保留：句末不得是半角分号 `;`，疑问句须用本文字系统的问号（希腊文 U+037E） | el-GR 7 个疑问句用 ASCII 分号收尾，TTS 读成陈述句 |
+| 语体差 | `scene.md` §0.3 表（`locale \| 语体 A \| 语体 B \| 区分标记`）→ `feuille.parse_scene` 抽 `speechLevels` → `feuille.scene_schema` 校验「列了语体差就必须有非空 marker」（声明层已接入；A/B 线逐行含标记的对账属成片验收，未接入） | ko-KR 注记承诺「敬语体」，成片里 B 全线非敬语 |
+| 时长预算 | `scene.md` §0 `durationBudget`（区间合法性由 `scene_schema` 校验）；「tts 阶段即判」门禁在渲染线（**未接入**），超预算的处方 = 回改文本（不变量②） | he-IL 60.04s / hi-IN 56.97s / ar-SA 56.45s |
 
-> **门禁要放在「还能便宜地修」的地方**（2026-10-04 把时长预算门禁从 qa_scene 前移到 tts）：
-> 剧本写超了，原先要等 14 支全渲完（约 20 分钟）才知道，而处方恰恰是**改文本**——
-> 改文本的成本远低于重渲。门禁的位置决定它有没有用：出片后查是事后诸葛，
-> 出片前查才是守门。判据一次报全（列出所有超时语种），不要碰到第一个就中断。
+> **门禁要放在「还能便宜地修」的地方**：剧本写超了，最便宜的修法是**改文本**——
+> 出片后查是事后诸葛，出片前查才是守门（时长门禁从成片验收前移到 tts 的那次重构就是这么来的；
+> 渲染线接线时把这条门禁放回 tts 阶段）。判据一次报全（列出所有超时语种），不要碰到第一个就中断。
 
-> 回归测试：`uv run python scripts/verify_text_contract.py` 把**修复前**的原始数据喂进
-> 同一套检查逻辑，要求三项全部判 FAIL、再喂修复后的数据要求全部 PASS。
-> 这条测试真抓到过一个 bug：`QMARK_BY_SCRIPT` 里的希腊问号在编辑过程中被工具链
-> 静默归一成 ASCII 分号，导致真跑验收时 7 个希腊问句全部误判。
-> **教训：形近码位（`;` U+003B / `;` U+037E）一律用 `chr(0x…)` 写死，
-> 不要在源码里直接敲字面字符，也不要靠肉眼看 diff。**
+> 标点判据本身也踩过坑：`QMARK_BY_SCRIPT` 里的希腊问号（`;` U+037E）在编辑过程中被工具链
+> 静默归一成 ASCII 分号（`;` U+003B），导致真跑验收时 7 个希腊问句全部误判。
+> **教训：形近码位一律用 `chr(0x…)` 写死，不要在源码里直接敲字面字符，也不要靠肉眼看 diff。**
+> （同族坑：⚑ U+2691 误写成 ⚡ U+26A1，注记被静默丢弃——坑㊀。）
 
 **探针纪律**：新加视觉特性 = 同时加对应探针；探针采样点必须从 `face_geo` 算，
-不许手抄坐标（今天 3 个"假失败"全是手抄坐标撞上大眼/气泡/帽檐——见 §5）。
+不许手抄坐标（曾出现 3 个"假失败"全是手抄坐标撞上大眼/气泡/帽檐——坑⑨）。
 
----
+
 
 ## 5. 踩坑实录（症状 → 根因 → 修法）
 
@@ -227,11 +213,11 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
    c) 大眼改宽后旧"脸颊"采样点落进巩膜。 → 探针点全部改为 face_geo 派生 + 遮挡感知。
 10. **文字层截图底部截断**：Edge headless 的 `--window-size` 高度 ≠ 实际视口高度
     （本机实测差 94px），文字带底部被裁掉一截。
-    → `edge_viewport_h()` 探针实测视口高，`edge_win_h = BAND_H + max(0, 300 − 视口高)` 动态补高
-    （`intro_cards.py::cmd_assets`）——不写死 94，换机器自动重测。
+    → 视口探针实测视口高，动态补高（现址 `feuille.textlayer.viewport_deficit`）
+    ——不写死 94，换机器自动重测。
     **残留尾巴**：补高后的 opaque 截图比 BAND_H 高一截，场景线把带底以下的深色像素一并贴进成片
-    （成片 y 400–494 有一块深色矩形，名牌只盖住下半）。→ `scene_video.py::band_png()` 载入时
-    统一裁到 `(0, 0, W, BAND_H)`；qa §4 帧探针顺带看守带窗边界。
+    （成片 y 400–494 有一块深色矩形，名牌只盖住下半）。→ 载入时
+    统一裁到 `(0, 0, W, BAND_H)`；成片验收（未接入）接线时顺带看守带窗边界。
 11. **肩点落在躯干轮廓外 + 臂躯间露底缝**：几何拼接无解剖概念，肩关节浮在躯干外
     ~35px，臂与躯干之间 22px 露出背景；静止手位距躯干 100px（a1=14° 外张）。
     → `face_geo` 躯干加宽 `torso_hw=sh_hw=0.435×头宽`（旧 0.34×）+ 腿加粗 0.185H +
@@ -259,15 +245,15 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     唯一例外 `face_cam`（举到脸前的道具相机，要的就是遮脸）仍留在表情之后。
     **准则：图层序 = 背发 → 腿脚 → 躯干/挂件 → 手臂 → 颈与头 → 前发 → 胡子 → 表情 → 头部配饰**；
     抽帧验证：嘴部窗口袖子色 0 像素（28 人 × wave/thumbs_up/hand_shoot/jump/idle 全过）。
-16. **`-shortest` 按时机丢内部帧**（intro_cards/scene_video 两处渲染命令同坑）：
+16. **`-shortest` 按时机丢内部帧**（两处渲染命令同坑）：
     rawvideo 走 stdin 流式喂帧，`-shortest` 在音频流 EOF 冲刷时按**当时**已入队的视频包决定取舍——
     7 并发批量渲染下 xiaoman 被丢掉 pts=9.9333 一帧（299 帧、末帧 pts 9.9667 跳格），
-    单渲 `--only` 不丢 → `qa_motion` 幂等探针 framehash 必挂（批量 5eda99 vs 单渲 d27ee0）。
+    单渲不丢 → 幂等探针 framehash 必挂（批量 5eda99 vs 单渲 d27ee0）。
     音频已 `apad=whole_dur`+`atrim` 到恰好 DUR、`-t DUR` 封顶双流，`-shortest` 纯属冗余。
     → 两处渲染命令删掉 `-shortest`；验证：批量 32 部全 300 帧，xiaoman 批量 framehash ==
-    单渲 d27ee0a78e165e1b881b3f8b4a2a4437，qa_motion PASS。
+    单渲 d27ee0a78e165e1b881b3f8b4a2a4437，逐帧一致。
     **准则：封装命令里不许有依赖 I/O 时序的取舍开关；时长控制一律 `-t` + 音频前置 apad/atrim**。
-17. **QA 数色探针被布景污染**（qa_scene 探针②，2026-10-03 版式重调后暴露）：
+17. **QA 数色探针被布景污染**（成片验收第②组，2026-10-03 版式重调后暴露）：
     `near()` 容差是**逐通道**的（`all(|px-t|≤tol)`），不是欧氏距离——庭院深色阴影 (50,24,56)
     逐通道距 UI_INK (35,40,61) 全 ≤26（欧氏 36），数「描边色像素」时深色布景整片误计；
     反过来数「气泡白底」又会被浅色布景（咖啡座白墙/天光）污染。旧探针凑巧成立是因为
@@ -277,10 +263,10 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     **准则：成片探针不许「数某种颜色在某个大窗里的总量」；要用渲染端可复算的几何定位
     （资产 bbox + 粘贴公式），在确切位置验证确切特征。大窗数色只能当冒烟，不能当验收。**
 
-18. **人物层几何：头浮在肩上、手臂读不出来、裤子浮在空中**（2026-10-03 全员目检 + `qa_shape.py` 驱动）：
-    既有探针（qa_char/qa_all）都在**成片**上跑，而这些缺陷长在**人物层**上——被气泡/名牌盖住、
-    压在 mp4 里只能逐卡肉眼过。造了 `char_sheet.py`（人物层单独落盘 + alpha 剪影）与
-    `qa_shape.py`（形状/连接/图层六探针）后，28 人逐个量出四类缺陷：
+18. **人物层几何：头浮在肩上、手臂读不出来、裤子浮在空中**（2026-10-03 全员目检 + 人物层几何探针驱动）：
+    既有探针都在**成片**上跑，而这些缺陷长在**人物层**上——被气泡/名牌盖住、
+    压在 mp4 里只能逐卡肉眼过。造了「人物层单独落盘 + alpha 剪影」的体检工具与
+    形状/连接/图层探针后，28 人逐个量出四类缺陷：
 
     | 类 | 现象（实测） | 根因 | 修法 |
     |---|---|---|---|
@@ -305,8 +291,8 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
     逐姿态数五官自己的颜色（嘴 = 口型/舌/口线，眼 = 巩膜白）取最小可见比例。
     → C1/C2 五官可见性探针。**图层序守恒靠「五官可见」保证，不靠数衣色。**
 
-20. **探针必须反向验证，否则可能是恒真的**（2026-10-03，照 `verify_text_contract.py` 体例，
-    `scripts/verify_shape_fixes.py`）：要求 ①现状全 PASS；②在判定窗里**合成凿洞**后对应探针必须 FAIL
+20. **探针必须反向验证，否则可能是恒真的**（2026-10-03；这套「凿洞必 FAIL」的方法后来成为现行 `uv run feuille verify`
+    全部套件的标准体例）：要求 ①现状全 PASS；②在判定窗里**合成凿洞**后对应探针必须 FAIL
     （证明窗口真看在那里）；③注回旧取值后必须 FAIL。这条当场抓到两个真问题：
     - **判定窗不能依赖被测字段**。A2 扫描窗写成 `±0.78·hip_hw`，注回旧 `hip_hw` 时窗口跟着缩，
       洞直接跑到窗外 → 探针 0/28 命中、恒真。改成 `±0.72·torso_hw`（不随 hip_hw 变）。
@@ -323,7 +309,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
       反向测试从 1/28 升到 **21/28**。**判据恒等式：`x_判据 ∌ x_被测`。**
 
 21. **配饰的绘制参数不要散成魔数，探针取样点必须从同一份参数派生**（2026-10-03）：
-    `qa_all` 报 `omar` / `omar_f` 的 `glasses_perch` 失败，实测像素 `(70,73,91)`。
+    全量验收报 `omar` / `omar_f` 的 `glasses_perch` 失败，实测像素 `(70,73,91)`。
     查下来**不是图层回归**（顶戴墨镜不归侧发帘管，omar 是 `short_curly` 走弧线发型），
     而是探针自己的取样点 `hy − ry*0.76` 落在了**镜片** `THEME["lens"]=(70,76,92)` 正中，
     却拿 `metal_dark` 去比——魔数不共享，探针与渲染必然漂移。
@@ -376,7 +362,7 @@ personas/intro-cards.json ┴→ ① tts ──→ ② assets ──→ ③ rend
 **修法**：`--workers 1` 串行渲。实测 `workers=4` 连挂 5 轮 0 产出，`workers=1` 一次跑通 6/6。
 TTS 侧的口语速差异（经验总纲 §2）另算，那是 `durationBudget` 的事，与本坑无关。
 
-**教训**：`_render_rest.sh` 默认 `WORKERS=5` 是为**渲多门课**调的（每门内部串行），
+**教训**：批量渲染脚本的默认并发 `WORKERS=5` 是为**渲多门课**调的（每门内部串行），
 **不是为渲一门课的多个语种调的**。单课多语种要显式降到 1–2。
 
 ### 坑㉕：非拉丁语种的 token 词表要同时给大小写形（2026-10-06）
@@ -397,28 +383,27 @@ TTS 侧的口语速差异（经验总纲 §2）另算，那是 `durationBudget` 
 > （CJK 无词边界、俄/阿/印地词表是词干而台词是变格形），写新语种时要预期并主动规避，
 > 而不是等 parse 报错。
 
-### 坑㉓：统一入口全线不可用——`$ErrorActionPreference="Stop"` 把原生命令的 stderr 判成致命错（2026-10-04）
+### 坑㉓：Shell 把原生命令的 stderr 判成致命错——统一入口全线不可用（2026-10-04）
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| `./run.ps1 <任何子命令>` 都在第一步就抛 `NativeCommandError` 并附 `uv : Building usine @ file:///…`，哪怕退出码是 0、哪怕是 `scene-list` 这种纯读命令 | PowerShell 5.1 里，**原生命令只要往 stderr 写一行**就抛 terminating error；`$ErrorActionPreference="Stop"`（run.ps1 原第 30 行）把它升级成中断。uv 每次运行都会往 stderr 写构建进度，ffmpeg 的告警同理 | 判据统一交给 `$LASTEXITCODE`（`Invoke-Step` 本来就在做），把 `$ErrorActionPreference` 降为 `Continue`；`Invoke-Step` 开头补 `$global:LASTEXITCODE = 0`，避免上条命令的残留退出码造成假失败 |
+| 旧统一入口的任何子命令都在第一步就抛 `NativeCommandError`，哪怕退出码是 0、哪怕是纯读命令 | PowerShell 5.1 里，**原生命令只要往 stderr 写一行**就抛 terminating error；`$ErrorActionPreference="Stop"` 把它升级成中断。uv 每次运行都会往 stderr 写构建进度，ffmpeg 的告警同理 | 判据统一交给**退出码**，不把 stderr 当致命信号——现行约定固化为 [AGENTS.md](../AGENTS.md)「失败判定一律看退出码」，「入口必须三系统可跑」的跨平台要求也由这次事故而来 |
 
-**为什么记这条**：它让手册 §0 教的**每一条**命令都跑不起来，而 `./run.ps1 verify`
-这种"跑一下确认没坏"的习惯动作恰好是最先被放弃的——工具坏了会静默，退化成"直接看视频"。
+**为什么记这条**：它让手册 §0 当时教的**每一条**命令都跑不起来，而「跑一下确认没坏」的
+习惯动作恰好是最先被放弃的——工具坏了会静默，退化成「直接看视频」。
 
-> 同批还修掉 `run.ps1` 的 `ValidateSet` 漏列：`qa-annotate` / `qa-shape-verify` 两个 case
-> 在 switch 里存在、枚举里没有，是**永不可达的死代码**，而手册 §0 正把它们当标准命令教。
-> **教训：`ValidateSet` 与 `switch` 的 case 标签必须逐项对齐**；加 case 时记得同步枚举。
+> 同批教训：**枚举与 switch 的 case 标签必须逐项对齐**——两个 case 在 switch 里存在、
+> 枚举里没有，是永不可达的死代码，而文档正把它们当标准命令教。
 >
-> **同一个坑当天又踩了第二次，症状更坏**：给 `verify` 加枚举时只加了内层 `Invoke-Cards` 的 case、
-> 忘了顶层 `switch` 的 case——结果是 switch 无匹配分支，命令**静默无输出、退出码为空**。
+> **同一个坑当天又踩了第二次，症状更坏**：顶层 switch 无匹配分支，命令**静默无输出、退出码为空**。
 > 「跑完了但什么也没干」比报错危险得多：会让人以为验过了。
-> → 现在 `run.ps1` 末尾有**机检**：每次运行都比对 Phase 枚举与顶层 case 标签，不一致直接 `exit 2`
-> （见文件末尾自检块）。新增子命令后不必再靠人眼对齐。
+> → 修法是**机检**：每次运行都比对枚举与 case 标签，不一致直接 `exit 2`——新增子命令后
+> 不必再靠人眼对齐。现行同源机检：聚合器「登记了却没执行」的检查（坑㉇）与
+> `verify_cli` / `verify_docs` 的「文档与路由表必须一致」。
 
 ### 坑㉘：通用探针里写着某一课的质量线——新课一上来就被判失败（2026-10-04）
 
-P1 验收新课 `lessons/numbers`（字牌 chip，2 语种）时，`qa_scene` 报了 4 项 FAIL。
+P1 验收新课 `lessons/numbers`（字牌 chip，2 语种）时，成片验收报了 4 项 FAIL。
 两处都是**同一类病**：某条规则本该属于那一课，却被写死在通用探针里。
 
 | 症状 | 根因 | 修法 |
@@ -433,11 +418,11 @@ P1 验收新课 `lessons/numbers`（字牌 chip，2 语种）时，`qa_scene` �
 
 1. **裁剪失效**——字牌的文字层是 **opaque**（Edge 截图底色 = 装置空井色），
    而 `tight()` 按 **alpha bbox** 裁剪，对 RGB 图等于不裁 → 1080×554 整窗被缩进井里，
-   几乎全是井底色。新增 `tight_on_bg()`（按「与底色的差异」裁，numpy 求 bbox）。
-2. **贴图漏乘 SS**——`layer` 是 `W*SS × H*SS` 的**超采样画布**（SS=2），而 `cell_box()`
+   几乎全是井底色。新增**按「与底色的差异」裁剪**（numpy 求 bbox）——opaque 资产从此可裁。
+2. **贴图漏乘 SS**——`layer` 是 `W*SS × H*SS` 的**超采样画布**（SS=2），而场景格子盒
    给的是 **1x 语义坐标**。`DrawScaled` 内部乘了 SS，所以同一个画布上 `lds.*` 一直没事；
    手写 `alpha_composite` 就漏了 → 数字被贴到**画布左上角空白处**，井当然永远不亮。
-   判据仍是「贴图位置必须与绘制代理的坐标系一致」：**要么全走 `DrawScaled`，要么手动乘 SS。**
+   判据仍是「贴图位置必须与绘制代理的坐标系一致」：**要么全走 `DrawScaled`（`feuille.scenes`），要么手动乘 SS。**
 
 > 教训：**一条「声明支持」但从未被真正跑过的代码路径，等于没有测试。**
 > colors 是 6 种色片 chip，numbers 才是第一次用字牌——两个字牌 bug 都是它第一次跑就暴露的。
@@ -447,7 +432,7 @@ P1 验收新课 `lessons/numbers`（字牌 chip，2 语种）时，`qa_scene` �
 1. **探针的判据要取真实目的，不是代理量**。「井亮了没有」是目的，「井里有没有那个颜色」是代理量——
    代理量一换类型就失效，而且是**静默失效**（恒假，不是恒真）。
 2. **凡是「某课的质量线」，问一句它属于谁**。属于 colors 的 `≥3` 就该进 colors 的 §0 声明，
-   不该在 `qa_scene` 里替所有课定一个数。
+   不该在通用验收里替所有课定一个数。
 3. **验收层的规则反转比缺失更危险**：缺一条检查，新课少受约束；反转一条，**合法的课被判失败**，
    而人第一反应是「这门课有问题」——会把力气花在改内容上，直到发现根本改不动。
 4. **探针别钉死单行/单点坐标**：用行带或小窗搜索取最佳。窄元素上「差一点」就掉出判据，
@@ -472,7 +457,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 **两条准则**：
 1. **声明要忠实于既有行为，不要顺手"改进"它**。发问人交替是**剧本承诺**（写在 §1.1 幕次表，
-   qa_scene 第 3 组按它验问答对称性），不属于骨架节拍的职责——**声明要各自只承担一件事**。
+   成片验收第 3 组按它验问答对称性），不属于骨架节拍的职责——**声明要各自只承担一件事**。
    正确写法是 `ask: even, askBy: -`。
 2. **数据化改造的第一道验收是「diff 只有新增」**：`git diff lessons/<id>/scene.json` 应为
    `+N / -0`。一旦出现删除行，说明行为被改动了——要么是 bug，要么是有意的语义变更，
@@ -486,7 +471,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| tts 阶段打印 `[tts] WARN theo speech_end=8.69s exceeds budget`，但 `run.ps1 all` 照样「全部通过」 | 不变量②（speech_end ≤ 8.5s）只由 `cmd_tts` 里一行 `print` 负责。qa_all 查的是成片时长 10.0±0.05s 与 aac 音轨，**没有任何验收看 speech_end**。「违反即引入回归」的不变量事实上无人把关 | qa_all 新增时长门禁（见下） |
+| tts 阶段打印 `[tts] WARN theo speech_end=8.69s exceeds budget`，但整链跑完照样「全部通过」 | 不变量②（speech_end ≤ 8.5s）只由 tts 命令里一行 `print` 负责。成片级验收查的是成片时长 10.0±0.05s 与 aac 音轨，**没有任何验收看 speech_end**。「违反即引入回归」的不变量事实上无人把关 | 全量验收新增时长门禁（见下） |
 
 **判据怎么定的**：手册原文是「speech_end ≤ 8.5s（收尾动作 ≥ 1.1s + 呼吸位）」——括号里写明了这条例外的**真实目的**。于是把硬判据取成目的本身：`10.0 − speech_end ≥ 1.1s`；8.5s 降级为「达标提示，只报不判」。
 
@@ -510,10 +495,10 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 场景线文字层 PNG 高 713px、亮相卡 394px；`build/scene/text/` 里 1100 张 394px 与 1226 张 713px **混存** | 两处 `edge_viewport_h` 各自实现。亮相卡按标称 `300 − 视口` 算亏空；场景线误用 `BAND_H − 视口`（BAND_H=460），多补了 `BAND_H−300 = 160px` 窗口高度。那些 394px 是上一门课遗留的孤儿产物（无 `scene-<id>_` 前缀） | 收敛为 `media.edge_window_h(text_dir, band_h, html_head, edge)`，**减数一律用标称值**，`band_h` 只用于算目标窗口高度 |
+| 场景线文字层 PNG 高 713px、亮相卡 394px；`build/scene/text/` 里 1100 张 394px 与 1226 张 713px **混存** | 两处视口探测各自实现。亮相卡按标称 `300 − 视口` 算亏空；场景线误用 `BAND_H − 视口`（BAND_H=460），多补了 `BAND_H−300 = 160px` 窗口高度。那些 394px 是上一门课遗留的孤儿产物（无 `scene-<id>_` 前缀） | 收敛为单一实现（现址 `feuille.textlayer.viewport_deficit`），**减数一律用标称值**，带高只用于算目标窗口高度 |
 
 **为什么统一后像素没变（已实测验证）**：`HTML_HEAD` 的 `html,body{height:{h}px}` + `#wrap{height:{h}px}`
-是**固定高度盒**，布局与视口高度无关；截图多出来的尾部空白会被 `band_png()` 裁到 `BAND_H`。
+是**固定高度盒**，布局与视口高度无关；截图多出来的尾部空白在文字层载入时裁到 `BAND_H`。
 所以窗口从 713 改到 554，`ffmpeg -f hash` 逐帧一致（`scene-colors_zh-CN.mp4` MD5 未变）。
 
 > 顺带记一条产物卫生：`build/scene/text/` 曾同时躺着两门课的资产（孤儿 PNG）。
@@ -524,10 +509,11 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 加一个语种要同时改 `intro_cards.FONT_CSS`、`intro_cards.FLAG`、`personas[].langLabel`；漏改任一处**不报错**——字体栈回落系统默认、国旗空着、语言牌只剩一个 locale 码 | 语种的知识（本该是语种属性）被拆进「渲染模块的字面量表」和「人物档案」两处；而 `langLabel` 每个语种在 28 条人设记录里各存一份（2 人/语种），共 28 份、实际只有 14 个不同值 | 建 `languages/<locale>/manifest.json` 作唯一事实源（label/flag/dir/fontCss），`data.fonts_css()/flags()/lang_label()` 派生，`intro_cards` 不再抄一份，`personas.json` 删掉 28 个 `langLabel`。**新增语种 = 新建一个目录** |
+| 加一个语种要同时改字体栈表、国旗表、`personas[].langLabel` 三处；漏改任一处**不报错**——字体栈回落系统默认、国旗空着、语言牌只剩一个 locale 码 | 语种的知识（本该是语种属性）被拆进「渲染模块的字面量表」和「人物档案」两处；而 `langLabel` 每个语种在 28 条人设记录里各存一份（2 人/语种），共 28 份、实际只有 14 个不同值 | 建 `languages/<locale>/manifest.json` 作唯一事实源（label/flag/dir/fontCss），`feuille.data.fonts_css()/flags()/lang_label()` 派生，渲染模块不再抄一份，`personas.json` 删掉 28 个 `langLabel`。**新增语种 = 新建一个目录** |
 
-**门禁**（`scripts/verify_languages.py`，71 项）：字段齐备 / 目录名与 `locale` 一致 / `dir` 合法 /
-字体栈带通用兜底 / **国旗 = locale 的 ISO 区码** / 在用人设都有目录。
+**门禁**（71 项：字段齐备 / 目录名与 `locale` 一致 / `dir` 合法 /
+字体栈带通用兜底 / **国旗 = locale 的 ISO 区码** / 在用人设都有目录）**未随迁**——语种目录与派生
+已在 feuille，但结构门禁还没有任何现行套件在验（「登记了却没人验」同坑㉇ 的病，待补）。
 
 > 判据特意取「国旗真的是那个国家的旗」而不是「`flag` 字段存在」——手册坑⑬的原话是
 > **错旗比字母对更糟**，所以错旗必须判死，不能降级为提示。反向验证 7 条里第一条就是
@@ -546,7 +532,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 新写的基线脚本一跑，`[DRIFT] × 48`，连从没动过的成片也全红 | `-f hash` 是**输出**格式（`-i X -f hash`，不是 `-f hash -i X`，后者直接报 `Unknown input format`）；且**少了 `-map 0:v`** 时 ffmpeg 走默认流选择，同一支片子算出 `e94654c8…` 而不是 `de149ce1a0ee…`——**不报错、不警告，只是数字不同** | 口径钉死为 `ffmpeg -v error -i X -map 0:v -f hash -hash md5 -`，与 `qa_scene`/`qa_motion` 的幂等判据一致；工具落在 `scripts/framehash.py`，反向验证用「改 1 帧 / 改色相 / 抽帧」三支坏片证明它真能判漂移 |
+| 新写的基线脚本一跑，`[DRIFT] × 48`，连从没动过的成片也全红 | `-f hash` 是**输出**格式（`-i X -f hash`，不是 `-f hash -i X`，后者直接报 `Unknown input format`）；且**少了 `-map 0:v`** 时 ffmpeg 走默认流选择，同一支片子算出 `e94654c8…` 而不是 `de149ce1a0ee…`——**不报错、不警告，只是数字不同** | 口径钉死为 `ffmpeg -v error -i X -map 0:v -f hash -hash md5 -`，与逐帧基线同一口径；现行实现是 `feuille.framehash`，`scripts/verify_framehash.py` 用「改 1 帧 / 改色相 / 抽帧」三支坏片反向验证它真能判漂移 |
 
 > **判据的口径本身也是判据的一部分。** 拿一把跟基线不同的尺子去量，会得到「全部漂移」的假结论——
 > 症状比「没检查」还坏，因为它会让人去追一个不存在的回归。
@@ -555,7 +541,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 新加的 `./run.ps1 scene-draft` 一跑，`lessons/numbers/scene.md` 变成了草稿：34 行台词全是 `TODO`，而已验收的 17 行中文剧本被覆盖 | 生成器本来就有保护——目标文件不是草稿（缺 `draft: true`）就拒绝覆盖——但 `run.ps1` 里我又补了个 `--force`，把保护直接关掉了 | 去掉 `run.ps1` 里的 `--force`。**生成类命令的默认必须是保守的**：想要破坏性行为就显式敲出来 |
+| 新接的草稿生成命令一跑，`lessons/numbers/scene.md` 变成了草稿：34 行台词全是 `TODO`，而已验收的 17 行中文剧本被覆盖 | 生成器本来就有保护——目标文件不是草稿（缺 `draft: true`）就拒绝覆盖——但外层包装脚本又补了个 `--force`，把保护直接关掉了 | 去掉外层的 `--force`（现行 `feuille scene draft` 不暴露该开关）。**生成类命令的默认必须是保守的**（AGENTS.md 纪律 13）：想要破坏性行为就显式敲出来 |
 
 > **恢复手法（比"重打一遍"可靠得多）**：好 `scene.md` 的解析产物 `scene.json` 还在，
 > 里面逐行存着原文与 ⚑ 注记。于是从 `git show HEAD:…scene.json` 取旧值、从工作区取新值，
@@ -598,11 +584,11 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| `render --scene directions --only stage` 立刻返回，打印「全部 0 支都是新鲜的，无需重渲」。命令成功退出，成片还是上一版——**看上去跑过了，实际一支都没渲** | 同台（polyglot）形态的渲染单元叫 `stage`，而 `--only` 收的是**语种码**；`units_of` 命中不到就返回 `[]`，`cmd_render` 拿到空列表走「都是新鲜的」分支 | `units_of` 筛选落空**当场 `raise`**（两种形态都适用），错误信息说清同台形态只有一支、单元名不是语种码；门禁 `verify_polyglot` 加两条：筛不中必报错 / 合法语种仍命中，且都做过反向验证 |
+| `render --only stage` 立刻返回，打印「全部 0 支都是新鲜的，无需重渲」。命令成功退出，成片还是上一版——**看上去跑过了，实际一支都没渲** | 同台（polyglot）形态的渲染单元叫 `stage`，而 `--only` 收的是**语种码**；`units_of` 命中不到就返回 `[]`，渲染命令拿到空列表走「都是新鲜的」分支 | `feuille.scene_schema.units_of` 筛选落空**当场 `raise`**（两种形态都适用），错误信息说清同台形态只有一支、单元名不是语种码；配套断言：筛不中必报错 / 合法语种仍命中，且都做反向验证 |
 
 > **「没验」不许长得像「验过了」。** 空结果、静默跳过、异常被 `capture_output`
 > 吞掉后脚本死在标题上——这三种都产出同一个假象：终端干净、退出码正常、没有红字。
-> 配套的三道防线：`qa_scene` 幂等段改传**语种码**（原来传 `unit`，同台下必炸）；
+> 配套的三道防线：幂等抽检改传**语种码**（原来传 `unit`，同台下必炸）；
 > 渲染失败不再 `check=True` 直接抛（改成记 FAIL 并继续出结论）；
 > `__main__` 加兜底 `except BaseException`——**任何异常都必须在结论之前报出来**。
 
@@ -632,11 +618,11 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 字幕原文折成两行时，两行被**同一个比例**从左往右点亮：「正在念的词」和「亮着的词」对不上，视觉上像字幕自己在乱跳。俄/英长句必现，是这一门课的普遍现象而非长句特例 | 高亮是**底版/高亮版两张整带图之间的矩形擦除**：`bw = int(BAND_W*frac)`，整带高度扫过。擦除线只知道「整句的字符进度」，不知道「哪些字在同一视觉行上」，于是同一个 x 把两行同时点亮 | 文字层渲染时把原文的**逐视觉行**位置量出来落成旁挂文件（`band_*_base_lines.json`），高亮改为**按行接力**：把整句字符进度换算成行内进度，一行念完才轮到下一行 |
+| 字幕原文折成两行时，两行被**同一个比例**从左往右点亮：「正在念的词」和「亮着的词」对不上，视觉上像字幕自己在乱跳。俄/英长句必现，是这一门课的普遍现象而非长句特例 | 高亮是**底版/高亮版两张整带图之间的矩形擦除**：`bw = int(BAND_W*frac)`，整带高度扫过。擦除线只知道「整句的字符进度」，不知道「哪些字在同一视觉行上」，于是同一个 x 把两行同时点亮 | 文字层渲染时把原文的**逐视觉行**位置量出来落成旁挂的行映射文件，高亮改为**按行接力**：把整句字符进度换算成行内进度，一行念完才轮到下一行 |
 
 **行映射怎么量**：不猜换行点，直接在页面里逐字符 `Range.getBoundingClientRect()`，按 `top` 归行，
 每行记 `{y0,y1,x0,x1,c0,c1}`。只在 `_base` 这一版取一次（版式与颜色无关），
-用 `edge_window_h` 已经验证过的 `--dump-dom` 机制把 `#lm` 取回来。
+用视口探测同款的 DOM 落盘机制把 `#lm` 取回来（视口探测现址 `feuille.textlayer.viewport_deficit`）。
 
 > **「文字区太小，调大就行」在这里不成立。** 画幅宽度 1080 是硬上限：
 > 49 字的俄语句子要压进一行，字号得掉到 36px 以下，1080×1920 的竖版在手机上读不清——
@@ -662,7 +648,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| `qa_cover` / `qa_scene` 的幂等断言在 `.venv` 下全绿，换个解释器跑就 `ModuleNotFoundError: No module named 'usine'`；重渲那一步静默失败，于是**幂等判红——一条好数据被判成红的** | 幂等断言靠 `sys.executable -m usine.xxx` 重渲。`-m` 只把 **cwd** 放进子进程 `sys.path`，**不含 `src/`**；父进程能 import 是因为 `scripts/*.py` 自己 `sys.path.insert` 过，而这份修改不会传给子进程。`check=True` 抛出来后被 `capture_output` 吞掉，只留下一条红 | `usine.child_env()`：由 `usine/__init__.py` 显式把 `src/` 写进子进程 `PYTHONPATH`，6 处调用点全部接上。**导入路径必须由包自己提供**，不能指望父进程的 `sys.path` 或某个特定 venv |
+| 封面/场景的幂等断言在 `.venv` 下全绿，换个解释器跑就 `ModuleNotFoundError`；重渲那一步静默失败，于是**幂等判红——一条好数据被判成红的** | 幂等断言靠 `sys.executable -m 包.模块` 重渲。`-m` 只把 **cwd** 放进子进程 `sys.path`，**不含 `src/`**；父进程能 import 是因为入口脚本自己 `sys.path.insert` 过，而这份修改不会传给子进程。`check=True` 抛出来后被 `capture_output` 吞掉，只留下一条红 | 由**包自己**显式把 `src/` 写进子进程 `PYTHONPATH`，全部调用点接上。**导入路径必须由包自己提供**，不能指望父进程的 `sys.path` 或某个特定 venv |
 
 > **验证方式本身要经得起检验。** 修完之后如果改用正牌 `.venv` 跑绿了，那**不算证明**——
 > 那个 venv 本来就能 import。必须继续用那个「错」解释器（conda python）跑，绿了才算数。
@@ -673,7 +659,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| `qa_scene --scene colors --only zh-CN` 的幂等段必红：`重渲失败 rc=1：… ar-SA.timeline.json`。而单独跑 `render --only zh-CN` 是成功的，看着像渲染坏了 | 幂等段**哈希量的是 `locales[0]` 的成片，重渲的却是 `sorted(scene["locales"])[0]`**。`--only zh-CN` 时前者是 zh-CN，后者排出来是 **ar-SA**——一个没渲过、连 `timeline.json` 都不存在的语种。量 A 的像、用 B 重渲，炸在 B 上 | 重渲语种 = **本次实际验收的那个单元**（`lc`）；只有同台形态（单元叫 `stage`、`--only` 收语种码）才退回「挑一个参与语种」 |
+| 场景线验收 `--scene colors --only zh-CN` 的幂等段必红：`重渲失败 rc=1：… ar-SA.timeline.json`。而单独跑 `render --only zh-CN` 是成功的，看着像渲染坏了 | 幂等段**哈希量的是 `locales[0]` 的成片，重渲的却是 `sorted(scene["locales"])[0]`**。`--only zh-CN` 时前者是 zh-CN，后者排出来是 **ar-SA**——一个没渲过、连 `timeline.json` 都不存在的语种。量 A 的像、用 B 重渲，炸在 B 上 | 重渲语种 = **本次实际验收的那个单元**（`lc`）；只有同台形态（单元叫 `stage`、`--only` 收语种码）才退回「挑一个参与语种」 |
 
 > **错配比缺失更难查**：这次的报错指向 `ar-SA.timeline.json` 缺失，
 > 而本轮压根没验 ar-SA——第一反应会去查「为什么 ar-SA 的音频没了」，
@@ -687,20 +673,20 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 新写的反向验证套 `verify_karaoke.py` 单独跑 11/11 全绿，接进 `verify_probes` 后**一次都没执行过**——汇总里 14 套全 PASS，看着毫无异常 | 真正决定跑哪些套件的是硬编码的 `ORDER`，不是 `SUITES`。新套在 `SUITES` 登记完就以为接上了 | 两处都补，并加一条**机检**：`SUITES` 与 `ORDER` 不一致就直接 `SystemExit(2)` |
+| 新写的反向验证套单独跑 11/11 全绿，接进聚合器后**一次都没执行过**——汇总里 14 套全 PASS，看着毫无异常 | 真正决定跑哪些套件的是另一份硬编码清单，不是登记表。新套在登记表填完就以为接上了 | 登记与执行收敛为同一份结构（现行 `verify_probes.SUITES`：登记即执行序），并加**机检**：引用了不存在脚本的套件、或两份清单不一致，直接非零退出 |
 
 > **门禁最坏的失效方式不是判红，是根本不跑。** 「登记了但没进执行名单」的套件
 > 不会产生任何红字，输出干净、退出码 0、汇总全绿——**「没验」长得和「验过了」
 > 一模一样**。凡是靠两份清单维护的东西，都必须有机制当场证明它们一致。
 >
 > 通用教训：**「我加了一个检查」这句话，要用「它确实被执行了」的证据来担保**，
-> 而不是用「文件建好了」来担保。`verify_karaoke.py` 11/11 通过≠它在门禁里。
+> 而不是用「文件建好了」来担保。某套件单跑 11/11 通过 ≠ 它在门禁里。
 
 ### 坑㉦：`report()` 忘了传 `extra`，所有带 extra 的条目永久判过期（2026-10-04）
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 渲完后 `usine-ledger status` 一直报 16 条场景 STALE「输入指纹变了」，但源码确实没动 | `record()` 记指纹时传了 `extra=[SCENE_ID]`，而 `report()` 按条目遍历调 `status_of()` 时**没传**，于是复算出一个不含 extra 的指纹，永远对不上 | `record()` 把 `extra` 存进条目，`status_of(extra=None)` 照单复算。**账本必须自描述**：任何「按条目遍历」的调用方都不可能记得住当初登记时传过什么 |
+| 渲完后缓存账本一直报 16 条场景 STALE「输入指纹变了」，但源码确实没动 | `record()` 记指纹时传了 `extra=[SCENE_ID]`，而 `report()` 按条目遍历调 `status_of()` 时**没传**，于是复算出一个不含 extra 的指纹，永远对不上 | `record()` 把 `extra` 存进条目，`status_of(extra=None)` 照单复算（现行 `feuille.ledger` 即此实现）。**账本必须自描述**：任何「按条目遍历」的调用方都不可能记得住当初登记时传过什么 |
 
 > 症状极有欺骗性：它看起来像「账本坏了 / 有东西一直在变」，会让人去查渲染代码，
 > 而真正的病灶在调用方少传了一个参数。同源的第二条见坑㉣（键没带课 id）——
@@ -710,7 +696,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| 建发布台账时想直接抄 `xiaohongshu-copy.md` 里人工标的字数做「正文字数」维度 | 标在标题旁的是**对的**（14/14 与实测一致），标在正文旁的**是错的**：三支实测 158/161/159，标注 154/157/170，差 +4 / +4 / **−11** | 台账的字数**一律从文本 `len()` 派生**，不抄文件里的数字。`publish.build()` 从代码块原文算 `titleChars`/`bodyChars`/`topicCount` |
+| 建发布台账时想直接抄 `xiaohongshu-copy.md` 里人工标的字数做「正文字数」维度 | 标在标题旁的是**对的**（14/14 与实测一致），标在正文旁的**是错的**：三支实测 158/161/159，标注 154/157/170，差 +4 / +4 / **−11** | 台账的字数**一律从文本 `len()` 派生**，不抄文件里的数字（现行 `feuille.manifest.parse_copy` 即此口径：标题/正文/话题属性全部现算） |
 
 > 这条是**实测出来的**，不是猜的。副产物比原问题更值钱：
 > **「同一个人手工维护的两组数字，一组可信另一组不可信」时，不要假设它们同源可信**——
@@ -726,7 +712,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 > **判据取真实目的的又一次**：目的不是「必须有 url」，是「这句话有据可查」。
 > 抖音/小红书的核验证据本来就不是链接，硬要 url 只会逼着人编——而编出来的 url
-> 比没有凭据更坏。`publish/results.json` 里 28 条凭据全部摘自 playbook §8 原文，没有一条是我编的。
+> 比没有凭据更坏。台账里的凭据全部摘自 playbook 原文，没有一条是我编的。
 >
 > 同源的坑：**两级凭据别合成一个布尔再 `else`**。写成
 > `weak = verifiedBy and verifiedAt` 之后，「有核验方式、没核验日期」时 `weak` 为假，
@@ -745,9 +731,9 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 **账本的定位（别拿它当正确性依据）**：
 
 - 账本说 `fresh` 只意味着「**没有理由重渲**」，不意味着「画面是对的」；
-- 真正的判据仍然是 `ffmpeg -f hash` 的逐帧像素（`./run.ps1 pixelgate`）；
+- 真正的判据仍然是 `ffmpeg -f hash` 的逐帧像素（`feuille.framehash`，CLI 叶子 `uv run feuille framehash check`）；
 - 指纹的**粒度是源码文件级**，不是函数级——模块之间 import 极深
-  （`scene_video` 直接用 `intro_cards.draw_character`），细粒度一旦算错，
+  （场景线直接共用 rig 的人物绘制），细粒度一旦算错，
   代价是「跳过本该重渲的产物 → 静默产出一支旧画面」，而多渲几秒几乎没有代价；
 - **指纹算不出来的输入一律判过期**：模块/数据/工具链任一项读不到就返回 `None`，
   绝不假设它没影响。产物文件本身不存在 → 无论指纹是否匹配一律过期
@@ -764,7 +750,7 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 一个恒返回 stale 的账本同样安全，但毫无价值（每次都全渲，等于没做）。
 之后才逐条注入坏数据：改模块字节 / 改数据字节 / 少一个输入文件 / 指纹不符 /
 删产物 / 无条目 / 账本损坏 / 账本版本升级 / 未知产物线 / 端到端跳过不改字节 /
-`USINE_SKIP_FRESH=0` 强制全渲 / 强制重渲幂等，共 15 条。
+强制全渲 / 强制重渲幂等，共 15 条。
 
 > 端到端那三条用的是**真的一支卡**（`xiaoman`）：先按当前源码重新登记 → 跑 `SKIP=1`
 > 要求它跳过且产物字节不变 → 跑 `SKIP=0` 要求它真的渲且成功 → 再确认重渲后字节仍不变。
@@ -774,13 +760,13 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 | 症状 | 根因 | 修法 |
 |---|---|---|
-| `usine scene validate --scene numbers` 报 `error: unrecognized arguments: validate` | 路由函数返回的 `rest` 从 `argv[1]` 起切，**命令名本身也被透传**给了下游模块。带相位参数的老模块（`intro_cards`）恰好能吃下它，于是只有那几个「没有相位」的模块（`parse_scene`/`scene_schema`/`scene_draft`/`ledger`）会炸——**症状按模块分布，不按调用形式分布**，极难联想到路由层 | `rest = argv[2:]`；并写一条端到端断言：`verify_cli.py` 真跑 `scene validate` / `ledger status` / `scene parse --list` 三条无相位的命令 |
+| 旧统一入口的 `scene validate --scene numbers` 报 `error: unrecognized arguments: validate` | 路由函数返回的 `rest` 从 `argv[1]` 起切，**命令名本身也被透传**给了下游模块。带相位参数的老模块恰好能吃下它，于是只有「没有相位」的模块会炸——**症状按模块分布，不按调用形式分布**，极难联想到路由层 | `rest = argv[2:]`；并写一条端到端断言：真跑 `scene validate` 等无相位命令（现行 `scripts/verify_cli.py` 的路由表机检仍含此条） |
 
 ### 坑㉢：路由改用 `sys.argv` 转发，不是 `main(argv)`（2026-10-04）
 
-各模块的 `main()` 签名不统一（`scene_schema.main(argv=None)` 收，`intro_cards.main()` 不收）。
-逐个改成一致属于无收益的改动；改成 `sys.argv = ["usine card render", *prefix, *rest]` 后
-`m.main()` 即可。**顺带的好处**：argparse 的 usage 行显示的是用户真正敲的命令
+各模块的 `main()` 签名不统一（有的收 argv，有的不收）。
+逐个改成一致属于无收益的改动；统一走转发适配即可（现行 `feuille.cli` 的 `main*` 适配层
+即此结论的落地——库函数挂适配层再登记）。**顺带的好处**：argparse 的 usage 行显示的是用户真正敲的命令
 （`usine card render`）而不是 `cli.py`，报错信息直接可复制。
 
 ### 坑㉣：账本键里没带课 id，两门课同语种时互相覆盖（2026-10-04）
@@ -815,109 +801,129 @@ ValueError: zh-CN 轮次行缺气泡：行 [4, 8, 12]
 
 > 坑坑⑩⑪⑫⑬ 记录于 2026-10-03 人物形象打磨（肩楔/肩点内收/Edge 视口补偿 + 幂等口径修正 + 国旗 emoji 平台回退）。
 > 坑坑⑭⑮ 记录于 2026-10-03 用户观感反馈（尖下巴像鬼、袖子遮嘴）——两条都是「图层/轮廓准则」级修复。
-> 坑⑯ 记录于 2026-10-03 qa_motion 幂等排障（`-shortest` 时机性丢帧）——封装/时序类坑。
-> 坑⑰ 记录于 2026-10-03 场景版式重调（脚本带 hero 化/名牌缩小）后的 qa_scene 探针②排障——验收探针类坑。
+> 坑⑯ 记录于 2026-10-03 幂等排障（`-shortest` 时机性丢帧）——封装/时序类坑。
+> 坑⑰ 记录于 2026-10-03 场景版式重调（脚本带 hero 化/名牌缩小）后的成片验收探针排障——验收探针类坑。
 > 坑坑⑱⑲⑳ 记录于 2026-10-03 人物层几何重设计（肩部体块/胯块/袖子色阶/发辫发帘 + 五官可见性探针 + 探针反向验证）。
 > 坑㉑ 记录于 2026-10-03 顶戴墨镜探针排障（配饰魔数不共享 + 深发角色下镜框/发色只差 8.1 的恒真陷阱）。
 > 坑㉒ 记录于 2026-10-03 下颌轮廓返工（心形下巴横向针尖 / 方颌外扩 / 长发帘夹出尖楔——三个成因 + 几何不变量该用几何查）。
-> 坑㉓㉔ 记录于 2026-10-04 管线收重构（统一入口被 `$ErrorActionPreference` 打死 + `ValidateSet` 死代码与静默无输出 / Edge 视口补偿双口径 / 4 组双份实现收敛到 media.py+data.py / 场景数据前置校验层）。
-> 坑㉕㉖ 记录于 2026-10-04 验收审计（手册里的不变量②时长门禁无人守 → qa_all 补硬判据 + 达标提示；剧本里手抄的班底彩蛋色值悬空 → 抽成 easterEgg 数据并校验指向的演员色板）。
+> 坑㉓㉔ 记录于 2026-10-04 管线收重构（Shell 把 stderr 判致命 → 失败判定改看退出码 + 枚举/分支不对齐的死代码与静默无输出 / Edge 视口补偿双口径 / 双份实现收敛到单一模块 / 场景数据前置校验层）。
+> 坑㉕㉖ 记录于 2026-10-04 验收审计（不变量②时长门禁无人守 → 全量验收补硬判据 + 达标提示；剧本里手抄的班底彩蛋色值悬空 → 抽成 easterEgg 数据并校验指向的演员色板）。
 > 坑㉗ 记录于 2026-10-04 §0.5 骨架节拍表数据化（搬进数据时把「偶数行=问句」误写成「A 问」→ parse 自检当场拦下；附「diff 只有新增」这条验收纪律）。
 > 坑㉘ 记录于 2026-10-04 P1 验收新课 `numbers`（通用探针里写着 colors 课的质量线：字牌 chip 的点亮探针只认色片→恒假无法验收；`注记行 ≥3` 把「注记可选」反转成硬要求→改为 §0 `noteFloor` 声明）。
 > 坑㉙㉚㉛ 记录于 2026-10-04 语种目录化（散在三处的语种知识 → `languages/<locale>/manifest.json` + 门禁；门禁自己判据写错被「好数据放行」抓住；`ffmpeg -f hash` 少 `-map 0:v` 造出 48/48 全漂移的假回归）。
-> 坑㉜㉝㉞ 记录于 2026-10-04 内容前置 `usine-draft`（生成 phase 带 `--force` 抹掉已验收的课 + 靠 scene.json 逐字节恢复；节拍表边界没跟着 n 走被「复现已验收的课」抓出；`⚑` U+2691 误写成 ⚡ U+26A1 导致注记被静默丢弃）。
+> 坑㉜㉝㉞ 记录于 2026-10-04 内容前置草稿生成器（生成 phase 带 `--force` 抹掉已验收的课 + 靠 scene.json 逐字节恢复；节拍表边界没跟着 n 走被「复现已验收的课」抓出；`⚑` U+2691 误写成 ⚡ U+26A1 导致注记被静默丢弃）。
 > 坑㊁㉠㉦ 记录于 2026-10-04 缓存账本 `build/manifest.json`（账本把自身源码算进输入 → 纯浪费不是谨慎，改由 `VERSION` 承担；`report()` 漏传 `extra` → 条目永久判过期，账本必须自描述；「跳过」这类优化代价不对称时必须倒向保守，账本说 fresh ≠ 画面对）。
-> 坑㉡㉢㉣ 记录于 2026-10-04 统一 CLI `usine`（命令名被当参数透传给下游 → 症状按模块分布极难定位；`main()` 签名不统一 → 改走 `sys.argv`；账本键没带课 id → 两门课同语种互相覆盖）。
+> 坑㉡㉢㉣ 记录于 2026-10-04 统一 CLI 重构（命令名被当参数透传给下游 → 症状按模块分布极难定位；`main()` 签名不统一 → 改走转发适配；账本键没带课 id → 两门课同语种互相覆盖）。
 > 坑㉤㉥ 记录于 2026-10-04 视觉基线库逐帧定位（造坏数据用了有损重编码 → 定位恒偏 −8/−9 帧，验的是编码器不是判据；整支 MD5 不同但逐帧一致 = 容器层差异，不是画面回归）。
-> 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）见 [adr-character-tech.md](adr-character-tech.md)。
+> 技术路线裁定（H3+Remotion 迁移案被否、Pillow 管线续役）：裁定记录未随仓库迁移，考古看 git 历史。
 
 ---
 
 ## 6. 调优手册（recipes）
 
-### 6.1 改台词
-1. 同时改 [self-introductions.md](self-introductions.md) 与 `intro-cards.json` 的 `text`；
-2. `./run.ps1 tts`（缓存自动失效重合成）→ 看 speech_end ≤ 8.5s，超了**删字**（对照各声线实测字/秒，见 self-introductions.md §1.5）；
-3. `./run.ps1 render -Only <id>` + qa。
+### 6.1 改台词（场景线）
+1. 改 `lessons/<id>/scene.md` §2 的台词行（只改原文与注音；说话人/姿态槽位不动）；
+2. `uv run feuille scene parse --scene <id>` 重抽 scene.json——剧本改了 JSON 没重跑是
+   最阴的漂移（`git diff` 干净、成片与剧本脱节），`feuille lesson doctor` 的
+   「scene.json 新鲜度」检查专抓这个；
+3. `uv run feuille scene validate --scene <id>`；时长预算超限**删字**（不变量②）；
+   语音重合成由行级内容寻址缓存自动失效（改哪行只重合成哪行，§1）。
+
+> 亮相卡历史文案在 `personas/intro-cards.json` `lines[].text`——改完**没有渲染入口**，
+> 数据保留作历史资产，别在它上面调优。
 
 ### 6.2 调头身/五官
-只改 `face_geo()` 比率表（单位=头高 H）。发型/配饰/探针全部按比例自动跟随。
-改完必须跑 **qa_all + qa_motion**（口型采样框、眨眼框在 qa_motion 里按 face_geo 手写，
-大改眼/嘴位置时要同步这两处采样框——见 qa_motion 头部注释）。
+只改 `feuille.rig.face_geo()` 比率表（单位=头高 H）。发型/配饰/探针全部按比例自动跟随。
+改完必须跑 `uv run feuille verify --only rig`（几何探针与绘制同源：脸型/下颌/胡须/手臂
+可读性的回归当场抓）。
 
 ### 6.3 加发型/配饰
-- 发型：`draw_character` 背发层（头后体积）+ 前发层（`style` 分支）各加分支；
+- 发型：`feuille.rig.draw_character` 背发层（头后体积）+ 前发层（`style` 分支）各加分支；
   发色统一 `hair_c`/`hl_c`（双色高光），别写死颜色。
 - 配饰：挂件放躯干段、头饰放头部配饰段；宽度以 `torso_hw`/`u()`（头高单位）表达；
   **帽类过坑④⑥**：檐不压眉、PIE 下探到檐。
-- 验收：`qa_char.check` 加 spec-aware 探针（对照 `acc` 集合），qa_all 自动带上。
+- 验收：新特征 = 新探针（§4 探针纪律）——加进 `scripts/verify_rig.py`；
+  `uv run feuille persona validate` 同步过班底契约。
 
 ### 6.4 改名牌/气泡
-改 `badge_html`/`pill_html`/`bubble_html`（流式布局！），跑 `./run.ps1 assets` 重建贴图。
-投影随意加——matte 抠像能还原任意半透明；尾色改了要同步 `render_card` 里的 `tail_col`。
+名牌/语言牌/气泡的文字层 HTML builder **未接入**（渲染线单独立项）。接线时两条已验证的
+结论直接照抄：
+- **流式布局，禁 position:absolute / transform**（坑⑦）；半透明投影经双色 matte 可精确还原
+  （`feuille.textlayer.matte_combine`），投影参数随意加；
+- 尾色必须与描边色一致；探针别在两个几乎同色的图层之间做单点比色（坑㉑ 的通则）。
 
 ### 6.5 加语种/加人物
 
-**加语种**（P1-4 起，语种知识全在目录里，代码零改动）：
+**加语种**（语种知识全在目录里，代码零改动）：
 
-1. 新建 `languages/<id>/manifest.json`：`locale` / `label` / `flag` / `dir` / `fontCss`；
+1. 新建 `languages/<lc>/manifest.json`：`locale` / `label` / `flag` / `dir` / `fontCss`；
    `flag` 必须是该 ISO 区码的区域指示符对（zh-CN → CN），`fontCss` 必须带 `sans-serif` 兜底；
-2. `personas.json` 加档案（voiceId 从 [../personas/voice.md §3](../personas/voice.md) 实测快照里选，新语种先 `edge_tts.list_voices()` 核验）；
-3. `intro-cards.json` 加卡（cast A=文字气泡 / B=地图气泡；`rtl` 语种记得卡上 `rtl:true`）；
-4. self-introductions.md 补内容种子；
-5. `./run.ps1 langs` 过门禁 → `./run.ps1 all`。
+2. `personas.json` 加档案（voiceId 从 [../personas/voice.md §3](../personas/voice.md) 实测快照里选，
+   新语种先 `edge_tts.list_voices()` 核验）；
+3. `personas/intro-cards.json` 加卡（cast A/B；`rtl` 语种记得标 `rtl`）；
+4. `uv run feuille persona validate` 过契约（含语种配对）→ `uv run feuille verify`。
 
-> **不再有第 3 步「补 `FONT_CSS`」**。过去字体栈、国旗、语种文字分散在三处，漏改不报错、
-> 只是静静渲出个没旗的语言牌（坑㉙）。现在三样都从 `languages/<locale>/manifest.json` 派生。
+> 不再有「补字体栈表」这一步：字体栈、国旗、语种文字全部从 `languages/<lc>/manifest.json`
+> 派生（坑㉙——曾分散三处，漏改不报错、静默渲出没旗的语言牌）。
+> **已知缺口**：manifest 的结构门禁（目录名=locale、flag=ISO 区码、字体栈兜底等 71 项）
+> **未随迁**，当前没有任何套件在验（坑㉙ 末条）——加语种时人工对齐 manifest 字段，
+> 门禁待补进现行套件（§7）。
 
-**加人物**：只加 `personas.json` 档案 + `intro-cards.json` 卡（见上 2、3 步），跑 `./run.ps1 all`。
+**加人物**：只加 `personas.json` 档案（+ 亮相卡历史数据的话再动 `personas/intro-cards.json`），
+跑 `uv run feuille persona validate` + `uv run feuille verify --only rig`。
 
 ### 6.6 性能
-单卡 ~36s（SS=2 不显著拖慢：开销大头是 Pillow 画形状与 BOX 降采样很快）。
-28 卡 7 workers ≈ 3 分钟。要快：`--workers` 拉满核数；要更顺滑：SS 提 3（先单卡看耗时）。
-音频缓存命中时 tts 秒回；`render` 无法缓存（幂等但每次全渲）。
+旧管线的实测数字（单卡 ~36s、28 卡 7 并发 ≈ 3 分钟、单语种 4–5 分钟）随渲染线一起成为
+历史，不再抄在这里——**渲染线接入后按当前机器重测，量出来的才进手册**（纪律 8：
+编出来的数据比没有数据更坏）。仍然成立的两条：
+- 并发上限受 TTS 连接与 Edge headless 实例约束（坑㉔：瞬时并发过高，连接被重置、
+  实例被 SIGKILL——渲一门课的多个语种要显式降到 1–2 workers）；
+- 音频缓存命中时 tts 秒回（内容寻址缓存，§1）。
 
 ### 6.7 场景线（教学场景 A/B 对话）
 
-第二条渲染线：**场景是数据不是代码**——教学 token、RTL 语种、每语种舞台装置全部由剧本自带，
-管线零改动。
+**场景是数据不是代码**——教学 token、RTL 语种、每语种舞台装置全部由剧本自带，
+解析与校验零改动。渲染编排（tts / assets / render）**未接入**：
 
 ```
-lessons/<id>/scene.md ──parse_scene.py──▶ lessons/<id>/scene.json ──scene_video.py──▶ build/scene/scene-<id>_<locale>.mp4
+lessons/<id>/scene.md ──feuille.parse_scene──▶ lessons/<id>/scene.json ──feuille.scene_schema──▶ 校验闸门
+                                                                                          │
+                                                渲染编排（tts → assets → render）：未接入
+                                                                                          ▼
+                                             build/scene/scene-<id>_<locale>.mp4（渲染线落地后）
 ```
 
-```powershell
-python  parse_scene.py --scene colors            # 剧本 → 场景 JSON（只抽取不改写）
-python  parse_scene.py --list                    # 列出仓库内已有场景 id
-./run.ps1 scene                                   # parse → tts → assets → render
-./run.ps1 scene -Only "zh-CN,ja-JP" -Workers 6   # 只渲指定语种（逗号列表必须加引号）
-./run.ps1 scene-list                              # 场景清单（token 序 / RTL / 装置 / 时长）
-./run.ps1 qa-scene                                # qa_scene.py 六组验收
+```bash
+uv run feuille scene parse    --scene <id>    # 剧本 → 场景 JSON（只抽取不改写）
+uv run feuille scene validate --scene <id>    # 校验闸门（parse 与 render 之间）
+uv run feuille lesson doctor  --scene <id>    # 就绪度体检：④层如实报「渲染线预留」
 ```
 
-- **新场景零代码接入**：新建 `lessons/<id>/scene.md` 照抄 §0 机读规格体例即可，解析器与渲染线不动。
-  §0 = `sceneId` / `title` / **`form`** / `rtlLocales` / `durationBudget`（可选，`40-55`）
+- **新场景零代码接入**：新建 `lessons/<id>/scene.md` 照抄 §0 机读规格体例即可（`feuille lesson
+  new` 开坑时自动生成骨架）。§0 = `sceneId` / `title` / **`form`** / `rtlLocales` /
+  `durationBudget`（可选，如 `40-55`）
   + §0.1 教学 token 表 + §0.2 装置规格表
   （`locale | scenes | style | shape | cellW | cellH | well | label`；locale 缺行 = 纯对话）
   + §0.3 语种文本规范表（可选，`locale | 语体 A | 语体 B | 区分标记 | 说明`；locale 缺行 = 不做语体检查）
   + §0.4 角色声明（`role | energy | 说明`；`A=lively` / `B=steady`，验收与实际选角对账）
   + §0.5 骨架节拍表（`beat | from | to | ask | askBy`；`n-K` 记法，须完整覆盖 `[0,n-1]`）。
 - **换教学形态 = 换声明，不改 Python**：`form:` + §0.5 节拍表就是形态本身。
-  `form` 须在 `scene_schema.FORMS` 注册表内（当前只有 `dialogue`）——**刻意只放真的能渲染的形态**，
-  把未实现的形态写进注册表会造出「声明合法但渲不出来」的坑，比直接报错更难查。
+  `form` 须在 `feuille.scene_schema.FORMS` 注册表内（当前 `dialogue` / `polyglot` 两种）——
+  **刻意只放真的能渲染的形态**，把未实现的形态写进注册表会造出「声明合法但渲不出来」的坑，
+  比直接报错更难查。
   > 旧实现在 `parse_locales` 里写死 `open/reply/round/summary/bye` 四个偏移与「偶数行=问句」——
   > 那是 dialogue 一种形态的骨架，却长在**通用**解析器里。声明化后那行代码消失了。
-- **改了 `draw_character` 要重渲哪几条线**（人物几何是**两条视频线共用**的，容易只刷一条）：
-  | 产物 | 命令 | 何时要动 |
-  |---|---|---|
-  | `build/intro/*.mp4`（32 支亮相卡） | `uv run usine-cards render` | 任何人物几何/调色板改动 |
-  | `build/scene/scene-*.mp4`（14 支/场景） | `uv run usine-scene render --scene colors` | 同上（`scene_video` 直接 import `draw_character`，无第二份绘制代码） |
-  | `build/chars/**`（形象体检台） | `uv run usine-chars all` | 同上 + 想目检时 |
-  | `build/scene/audio/**`、`build/scene/text*` | `tts` / `assets` | **人物改动不用动**——文字层与语音里没有立绘 |
+- **改了 `feuille.rig` / `feuille.scenes` / `feuille.devices` 之后要跑什么**（人物几何被所有产线共用，
+  容易只刷一条）：
+  | 改动 | 跑什么 |
+  |---|---|
+  | 任何人物几何 / 调色板 / 姿态注册表改动 | `uv run feuille verify --only rig` + `uv run feuille persona validate` |
+  | 装置样式注册表（devices） | `uv run feuille verify --only lesson`（全注册值演习抓「样式加了校验层不认」） |
+  | 成片重渲 | 渲染线**未接入**；产物缺口与新鲜度看 `uv run feuille lesson doctor`（④层） |
 
-  `render` 无缓存（幂等但每次全渲），且**启动即 truncate 目标 mp4**——中途失败会连旧产物一起丢，
-  别在渲染期间做会崩的改动。判断某支是否还是旧的，看 `build/**` 的 mtime 晚不晚于 `intro_cards.py`。
-- **token chip 两型**：`#hex` = 色片（井内实心填充）；`"文本"` = 字牌（Edge 渲 token 词文字层贴入井）。
+  （渲染线接入后补跑：`render` 幂等但每次全渲、**启动即截断目标 mp4**——中途失败连旧产物
+  一起丢，别在渲染期间做会崩的改动。这条教训对接线时的实现仍然有效。）
+- **token chip 两型**：`#hex` = 色片（井内实心填充）；`"文本"` = 字牌（token 词渲成文字层贴入井）。
   §0.2 `well` 缺省时由场景中性色推导——**浅色 chip 落在同色底上会看不见**，故显式给色是常用手段。
 - **台词行体例**：`- **A**（happy）：「原文」（*注音*）——中文对照｜「手势词」处 \`pose\`｜⚑文化/语言注记`。
   中文对照**只认第一个 ｜ 之前的「——」**（手势段/注记段里的「——」是行内批注，不是翻译——
@@ -925,60 +931,66 @@ python  parse_scene.py --list                    # 列出仓库内已有场景 i
   ⚑ 注记段可选（一行一句中文），渲染成比对照更小一号的金色注记条，注记内可自由用「——」。
 - **动作排他（人设是数据）**：剧本只写槽位语义（point/nod/wave…），实现走 `personas.json`
   每人 `moves` 槽位表——同一槽位每人一个专属姿态码，逐人单射；活泼池与沉稳池不相交，
-  同台 A/B 的动作词汇表零交集由构造保证（qa §3 探针对账）。
-- **三层文字带**：原文（64px 起自适应缩）→ 中文对照（30px `BAND_GLOSS`）→ ⚑ 注记（22px `BAND_NOTE` 金），
-  全部收在 BAND_H 内；卡拉OK高亮裁贴对堆叠带透明（对照/注记在 base/hl 两版逐像素相同）。
-- **舞台背板带 + 原语靠色规避**：背板带只压**渐变**（`band_alpha`，26%），奶油色上装/肤色才不与米色底靠色；
-  场景原语与站位阴影画完后跑**半空间推开**——距同台取样色 <96 且在 band_dark 一侧投影 <48 的像素补足到 48，
-  装置是教学 UI 画在最后不动。推开必须是**单向半空间**：双向推开或后画阴影都会被 LANCZOS 边缘混色
-  拉回服装色上（he-IL 15.0 / de-DE 13.4 两次实测踩坑）。
-- **人物 rig 零复制**：`scene_video.py` 从 `intro_cards` import `draw_character` / `face_geo` /
-  `pose_for` / `gaze` / `phys` / `SCENES` / 文字层抠像 / 情绪增量表，只写场景层（选角、双人站位、
-  token 装置、气泡与 RTL 镜像）。加人物或改脸型 → 只动 `intro_cards.py`，两条线同时受益。
-- **选角走 `intro-cards.json` 的 `cast` 事实源**（A=活泼先问 / B=沉稳后答），并与剧本 §4 表格
-  姓名交叉核对，不一致即报错——绝不静默换角。
-- **词级时间戳一轴三用**（不变量④）：口型开合 / 卡拉OK 逐词高亮 / 手势触发共用一条时间轴；
-  token 装置的「当前 token 弹起」再叠第四用，与色名高亮同轴。
+  同台 A/B 的动作词汇表零交集由构造保证（数据层由 `persona validate` 的 moves 槽位校验承担；
+  成片级对账属验收层，未接入）。
+- **三层文字带**：原文（起自适应缩）→ 中文对照 → ⚑ 注记（金色）全部收在带高内——
+  **体例**由 parse/校验层承担；带装配与配色常量在渲染线（未接入），卡拉OK高亮裁贴对堆叠带
+  透明（对照/注记在底版/高亮两版逐像素相同）。
+- **舞台背板带 + 原语靠色规避**（渲染线算法，未接入；阈值实测保留）：背板带只压**渐变**（26%），
+  场景原语与站位阴影画完后跑**半空间推开**——距同台取样色 <96 且投影 <48 的像素沿暗带方向
+  补足到 48，装置是教学 UI 画在最后不动。压整幅会把中间调原语推到服装色上（de-DE 实测 4.1）；
+  半空间对 LANCZOS 平均封闭（双向推开被边缘混色拉回，he-IL 实测 15.0）。
+- **人物 rig 零复制**：场景线绘制**全部**走 `feuille.rig.draw_character` / `face_geo` / `pose_for` /
+  `gaze` / `phys` 与 `feuille.scenes` 原语——加人物或改脸型只动 rig 一处，所有产线同时受益；
+  渲染线接入时不得复制绘制代码。
+- **选角走 `personas/intro-cards.json` 的 `cast` 事实源**（A=活泼先问 / B=沉稳后答），并与剧本
+  §0.4 角色声明交叉核对（`persona validate`：两人不得同 energy），不一致即报错——绝不静默换角。
+- **词级时间戳一轴三用**（不变量④）：口型开合 / 卡拉OK 逐词高亮 / 手势触发共用一条时间轴
+  （`feuille.timeline`）；token 装置的「当前 token 弹起」再叠第四用，与色名高亮同轴
+  （渲染端消费未接入）。
 - **色值分层**：token 色片只用于装置与卡拉OK高亮，不进人物色板；装置描边只用 `pal["ink"]`
-  （不变量⑤）；浅色 chip 在深色文字带上落 `THEME["gold"]`。
+  （不变量⑤）；浅色 chip 在深色文字带上落主题金色。
 - **RTL**：`rtlLocales` 内语种站位左右对调、文字带 `dir=rtl`、进度条右起、气泡尾镜像；
-  名牌随人出画退场。
-- **资产命名**：`scene-<id>_<locale>` 前缀（`band_` / `bub_` / `pill_` / `tok_`（字牌）/ 时间轴 / 音频 / mp4），
-  多场景并存不串扰；逐行语音缓存仍按 `sha256(voice|rate|pitch|text)`，跨场景天然复用；
-  `badge_<id>`（人物名牌）不含场景，跨场景共享。
-- **性能**：单语种 ~45–60s×30fps ≈ 1400–1800 帧、双立绘 2x 超采样 ≈ 4–5 分钟；
-  14 语种 6 workers ≈ 12 分钟（文字层 Edge 截图另需 ~10 分钟）。
+  名牌随人出画退场（`rtl` 同时在语种目录与 §0 声明，两者必须一致）。
+- **资产命名**：`scene-<id>_<locale>` 前缀（band / bub / pill / tok（字牌）/ 时间轴 / 音频 / mp4），
+  多场景并存不串扰；逐行语音缓存按 `sha256(voice|rate|pitch|text)` 跨场景天然复用；
+  人物名牌不含场景前缀，跨场景共享。**孤儿产物别混存**：`build/` 里两门课的资产混放会让人
+  误判「这批资产是哪一版参数渲的」（坑㉔ 视口双口径的教训）。
 
-### 6.8 新课从创意到成片（P2-1：内容前置）
+
+### 6.8 新课从创意到成片（内容前置）
 
 一课 14 份原生剧本过去是全手写的。现在**结构由生成器出、内容由作者填**：
 
 ```
-lessons/<id>/brief.json   （教学创意：token / 装置 / 角色 / 骨架行数 / 每节说话人与情绪）
-        │  usine-draft
+uv run feuille lesson new <id> --title "…" --tokens "apple:#D8453B,…" --locales zh-CN,en-US,…
+        │  开坑：合法值全部现取自注册表（style/shape/mood/pose/引号对），
+        │  生成 brief.json 并空跑一遍草稿生成——作者投入时间之前证明渲得出来
         ▼
 lessons/<id>/scene.md     （结构草稿：§0 全机读 + §2 每语种逐行骨架 + §5 词表格子；TODO = 待填）
         │  作者填台词 / 词表 / 舞台
         ▼
-     parse → tts → assets → render → qa_scene
+     scene parse → scene validate → lesson doctor（渲染：未接入）
 ```
 
-```powershell
-./run.ps1 scene-draft -Scene numbers     # brief.json → scene.md 草稿 + 欠账清单
-uv run usine-draft --brief lessons/<id>/brief.json --print-plan   # 只看结构，不落盘
-uv run usine-draft --brief lessons/<id>/brief.json --gaps         # 只查欠账
-./run.ps1 scene -Scene <id>              # 填完之后的常规流程
+```bash
+uv run feuille lesson new fruit --title "水果" --tokens "apple:#D8453B,pear:#D9A62E" --locales zh-CN,en-US,ja-JP
+uv run feuille scene draft --brief lessons/<id>/brief.json --print-plan   # 只看结构，不落盘
+uv run feuille scene draft --brief lessons/<id>/brief.json --gaps         # 只查现有 scene.md 的欠账
+uv run feuille lesson doctor --scene <id>                                 # 填完之后：七层体检
 ```
 
 **生成器填什么、不填什么**（这条边界是设计的一部分，别越界）：
 
 | 生成 | 不生成 |
 |---|---|
-| frontmatter、§0 全部机读字段（token 表/装置表/角色/节拍表）、选角姓名（从 `personas.json` × cast 表取）、引号对（从 `languages/<loc>/manifest.json` 取）、每个语种逐行的**说话人/情绪/姿态槽位**、§5 词表格子 | **台词文字、词表词义、舞台描述** —— 这些是创作，生成器一个字都不写 |
+| frontmatter、§0 全部机读字段（token 表/装置表/角色/节拍表）、选角姓名（从 `personas.json` × cast 表取）、引号对（从 `languages/<lc>/manifest.json` 取）、每个语种逐行的**说话人/情绪/姿态槽位**、§5 词表格子 | **台词文字、词表词义、舞台描述** —— 这些是创作，生成器一个字都不写 |
 
-**事实源全部现取**：情绪取 `MOOD_FACE`、姿态取 `POSE_CODES`（先过 `parse_scene._norm_pose` 归一）、
-装置样式取 `DEVICE_STYLES`、引号对取语种目录。brief 里写一个注册表没有的取值，
-生成阶段就报错——**门禁要放在还能便宜地修的地方**（改 JSON 比改代码便宜）。
+**事实源全部现取**：情绪取 `feuille.rig.MOOD_FACE`、姿态取 `POSE_CODES`（先过
+`feuille.parse_scene._norm_pose` 归一）、装置样式取 `feuille.devices.DEVICE_STYLES`、
+引号对取语种目录（`feuille.scene_draft._registries()` 统一取数，不抄名单——名单必腐烂）。
+brief 里写一个注册表没有的取值，生成阶段就报错——**门禁要放在还能便宜地修的地方**
+（改 JSON 比改代码便宜）。
 
 **骨架用行数写，用 `rest` 吸收剩余**，不用手算 `n-K`：
 
@@ -997,25 +1009,24 @@ uv run usine-draft --brief lessons/<id>/brief.json --gaps         # 只查欠账
 （规则见坑㉝）。`spec` 里每个取值都可以是字符串（整节同值）或列表（按节内行偏移逐行给），
 用于 `bye` 这种「A 收 → B 祝福 → A 走」的固定三拍。
 
-> **验收判据是「能不能复现已验收的课」**：`scripts/verify_scene_draft.py` 拿
-> `lessons/numbers`（qa_scene 60/60）当真值，要求生成器把 §0 机读规格**逐行复现**、
-> §2 每行的说话人/情绪/姿态逐行相同、节拍表语义与 `scene.json` 等价。
-> 台词与词表不比——那要求生成器替作者写作，这条验收会永远红着。
-> 反向验证喂 7 类坏 brief（情绪/姿态/装置样式不在注册表、语种无目录、骨架行数矛盾…），
-> 要求每一类都在**生成阶段**就被拦下。
+> **验收判据是「能不能复现已验收的课」**：拿一门跑通的课当真值逐行比对（§0 机读规格逐行复现、
+> §2 每行说话人/情绪/姿态逐行相同、节拍表语义与 scene.json 等价）——真值就在仓库里，比新写
+> 一堆测试强。台词与词表不比——那要求生成器替作者写作，这条验收会永远红着。
+> 这条判据的**自动化套件未随迁**：现行最接近的是 `scripts/verify_lesson.py`
+> （注册表↔校验层的全注册值契约演习）；接线时按此判据补套件，并喂 7 类坏 brief
+> （情绪/姿态/装置样式不在注册表、语种无目录、骨架行数矛盾…）要求每一类都在**生成阶段**被拦下。
 
-> 生成器**拒绝覆盖不是草稿的 scene.md**（缺 `draft: true` 标记）。真要重写请显式 `--force`。
+> 生成器**拒绝覆盖不是草稿的 scene.md**（缺 `draft: true` 标记）。真要重写请显式 `--force`
+> （AGENTS.md 纪律 13；坑㉜ 就是外层包装把它打开过的事故）。
 
-### 6.9 缓存账本：哪些产物过期了（P2-2）
+### 6.9 缓存账本：哪些产物过期了
 
-`build/manifest.json` 登记每支产物的**输入指纹**（该线的源码模块 + 数据文件 + 语种目录 +
-Pillow/Python/ffmpeg/Edge 版本）。改完任何东西先问它，而不是先重渲三分钟再反查。
+`feuille.ledger` 登记每支产物的**输入指纹**（该线的源码模块 + 数据文件 + 语种目录 +
+工具链版本），落盘 `build/manifest.json`（`feuille.ledger.ledger_path(root)`，root 参数化）。
+改完任何东西先问它，而不是先重渲再反查。
 
-```powershell
-./run.ps1 status                          # 谁过期了、因为什么
-uv run usine-ledger status --kind scene    # 只看场景线
-./run.ps1 all                             # 默认跳过指纹未变的单元
-$env:USINE_SKIP_FRESH=0; ./run.ps1 render # 强制全渲（怀疑账本时）
+```bash
+uv run feuille ledger status [--root <项目根>] [--kind scene]   # 谁过期了、因为什么；有过期 → 退出码 1
 ```
 
 | 过期原因 | 含义 |
@@ -1026,92 +1037,71 @@ $env:USINE_SKIP_FRESH=0; ./run.ps1 render # 强制全渲（怀疑账本时）
 | 指纹算不出 | 某项输入读不到（模块/数据/工具链）→ 保守判过期 |
 
 > **账本说 fresh 只意味着「没理由重渲」**，不意味着「画面是对的」。
-> 画面判据永远是 `./run.ps1 pixelgate`（逐帧像素）。
-> 改 `ledger.py` 自己会让全部条目作废（它把自身也算进输入）——这是故意的，见坑㊁。
+> 画面判据永远是逐帧像素（`uv run feuille framehash check`，§6.11）。
+> 改 `feuille.ledger` 的指纹算法必须升 `VERSION`——账本自身不算进输入（坑㊁ 的修法），
+> 升版本是让全部旧指纹失效的唯一显式开关。
 
-### 6.10 统一 CLI（P2-3）
+### 6.10 统一 CLI（现行）
 
-一个 `usine` 命令 + 子命令树。**8 个旧 console script 一个都没删**——统一是加法不是搬家，
-`run.ps1` 与本手册里所有旧命令照旧可用。
+统一入口 `uv run feuille <组> <命令>`，路由表 `feuille.cli.COMMANDS` 是**数据**不是 if/elif
+（与装置样式注册表同一条纪律），所以能被遍历、能被比对。`scripts/verify_cli.py` 机检：
+①每个叶子真实可达且**无参可调用**（库函数挂 `main*` 适配层再登记——曾一次抓出 6 个
+假叶子）→ ②`--help` 退出 0 → ③未知命令退出 2（不静默）→ ④verify 桥真跑通 →
+⑤聚合器登记的每个套件脚本真实存在。命令清单以 `uv run feuille --help` 与 §0 为准，
+本手册不再抄第二份——两处维护同一张表必腐烂（纪律 7/10）。
 
-```
-usine card   tts|assets|render                     亮相卡管线
-usine chars  solo|sheet|html|all                    人物形象体检台
-usine scene  tts|assets|render|all|list             教学场景管线
-usine scene  parse|validate|draft                   场景数据
-usine lesson build|dump                             教学文档
-usine ledger status                                 产物缓存账本
-```
-
-| 旧入口 | 等价新命令 |
-|---|---|
-| `usine-cards <phase>` | `usine card <phase>` |
-| `usine-chars <cmd>` | `usine chars <cmd>` |
-| `usine-scene <phase>` | `usine scene <phase>` |
-| `usine-parse` / `usine-validate` / `usine-draft` | `usine scene parse` / `validate` / `draft` |
-| `usine-lesson` / `usine-dump-lesson` | `usine lesson build` / `dump` |
-| `usine-ledger status` | `usine ledger status` |
-
-路由表 `cli.COMMANDS` 是**数据**不是 if/elif（与 P1-3 的 `@device_style` 同一条纪律），
-所以能被遍历、能被比对。`scripts/verify_cli.py` 机检「旧入口的每个子命令都还在」：
-①`pyproject.toml` 每个 `[project.scripts]` 有归属 → ②等价命令都在路由表 →
-③叶子都能路由到可调用的 `main()` → ④**各模块 argparse 位置参数的 `choices` 字面量**
-必须与路由表声明一致（正则抓源码）→ ⑤错误输入非零退出并说清怎么改
-→ ⑥三条无相位命令真跑通（这类模块最容易因为「命令名被当参数透传」而炸，见坑㉡）。
-
-### 6.11 视觉基线库：漂移到帧（P2-4）
+### 6.11 视觉基线库：漂移到帧
 
 整支一个 MD5 只能回答「变了/没变」。**回答不了「哪一帧开始变的」**——而后者才是定位回归时
 唯一有用的信息：第 137 帧 / t=4.57s 足以让人去查那 0.1 秒发生了什么。
 
-```powershell
-# 采集逐帧基线（每支一个 <name>.frames.txt）
-uv run python scripts/framehash.py --save-frames build/baseline/frames
-
-# 常规门禁：整支逐帧一致
-./run.ps1 pixelgate
-
-# 门禁 + 漂移定位（第一处不同的帧号/秒 + 抽证据图）
-uv run python scripts/framehash.py --locate
+```bash
+uv run feuille framehash save [--root <项目根>]    # 采基线：build/ 下全部成片 → 按平台分桶落盘
+uv run feuille framehash check [--root <项目根>]   # 门禁：整支逐帧一致；漂移/缺失 → 退出码 1
 ```
 
 | 输出 | 含义 |
 |---|---|
-| `第 137 帧（t=4.57s）起，末处第 190 帧，共 54/1100 帧不同` | 像素真的变了，范围已圈定 |
+| `逐帧像素基线：N/N 一致` | 零漂移，全部成片逐帧一致 |
+| `[DRIFT] <名> <旧哈希> → <新哈希>` | 像素变了——要查的是**代码**（渲染应是确定性的） |
 | `整支 MD5 不同但逐帧一致（容器/编码层差异，画面没变）` | 变的是容器不是画面，别去查渲染 |
-| `帧数 1100→1095` | 丢帧（`-shortest` 那类事故的症状），报在公共长度处 |
-| `没有逐帧基线` | 先 `--save-frames` 采集；只报整支漂移 |
+| `帧数变少` | 丢帧（`-shortest` 那类事故的症状，坑⑯），报在公共长度处 |
+| `没有基线` | 先 `framehash save` 采集 |
 
-**证据图**：漂移帧会抽成 PNG 存 `build/baseline/drift/<name>.f<帧号>.png`。
-若 `build/baseline/ref/<name>.f<帧号>.png` 存在（手动放进去的参考帧），
-额外生成差异热力图 `*.diff.png`。**没有参考帧就只给当前帧，绝不伪造一张「看起来像差异图」
-的合成图**——没有真值可比时，编一张比不给更坏。
+- **分桶**：基线文件按平台分桶（桶 = 系统 + 架构 + 浏览器 + Pillow，`feuille.framehash.bucket()`），
+  每台机器各采一份、互不比较；跨平台比结构与几何（探针），不比像素。
+- **采基线的纪律**（坑㉞）：**基线只能在代码稳定后采，且采完必须立刻回读自证**——`save`
+  落盘后重新读表确认逐条命中才算数。不回读的话，采基线这个动作本身就可能是
+  「把当时的 bug 固化成标准」。
+- **帧级定位**：`feuille.framehash.compare(..., locate=True)` 配 `build/baseline/ref/` 下的
+  逐帧参考文件（`<名>.frames.txt`）给出第一处漂移的帧号/秒，并抽当前帧 PNG 存证；
+  有参考帧时再出差异热力图。**没有参考帧就只给当前帧，绝不伪造一张「看起来像差异图」的
+  合成图**——没有真值可比时，编一张比不给更坏。
 
 > 定位精度：逐帧基线与被测视频必须走**同一条编码路径**。若你先用有损转码改坏了片子再比，
 > x264 的 lookahead/B 帧会扰动邻近帧，定位会偏 8–12 帧（见坑㉤）。
+> 反向验证在 `scripts/verify_framehash.py`（改 1 帧 / 改色相 / 抽帧三支坏片必判漂移）。
 
-### 6.12 发布回流：哪支文案更有效（P2-5）
+### 6.12 发布回流：哪支文案更有效
 
 ```
-lessons/<id>/publish/<platform>-copy.md   文案事实源（散文，人写的）
-                │  publish.parse_copy()  机械抽取，不改写
-                ▼
-publish/ledger.json                       ★ 机器可读台账（属性全派生）
-publish/results.json                      ★ 人工层：平台结果 + 效果指标
-                │  publish.check()       门禁
-                ▼
-             publish.analyze()        按维度分组 → 结论
+lessons/<id>/publish/<platform>-copy.md   文案事实源（散文，人写的；体例 = feuille.manifest.parse_copy）
+                 │  parse_copy 机械抽取，不改写（字数等属性一律现算，绝不手抄——坑㉲）
+                 ▼
+发布台账（feuille.metrics.ledger_path(root)）   ★ 机器可读台账（属性全派生）
+                 +  results.json                ★ 人工层：平台结果 + 效果指标（merge_results 合并）
+                 │  manifest.check_copy 逐平台限制 / metrics.check 门禁
+                 ▼
+              feuille.metrics.analyze            按维度分组 → 结论（样本 <5 不排名）
 ```
 
-```powershell
-./run.ps1 publish              # 门禁：引用完整性 / 指标取值域 / 标题上限 / 已发布凭据
-./run.ps1 publish-stats        # 指标回流分析（--metric likes 等）
-uv run usine-publish build     # 从 copy 源重建台账（会合并 results.json）
-```
-
-**属性一律派生，绝不手抄**：标题字数、正文字数、话题数、钩子形态、视频时长、
-台词行数、装置样式、教学装置两型（色片/字牌）、书写方向——全部从既有事实源算。
-理由是实测过的（坑㉲）：copy 源里手标的正文字数三支全错。
+- 门禁与回流分析是 **library 函数**（`feuille.manifest` / `feuille.metrics`），从项目脚本调用；
+  它们的反向验证是 `scripts/verify_manifest.py` / `scripts/verify_metrics.py`。
+- 台账构建的 CLI 叶子**有意不设**：`feuille.manifest.build_manifest` 吃带闭包的 plans 契约，
+  只能从项目侧组装（见其 docstring）——`feuille lesson doctor` 的⑥层因此如实写
+  「台账构建尚未接入」，不开空头支票。
+- 发布动作走 `uv run feuille publish login|douyin|xhs|bilibili`（`--group publish`；认证/风控人工，
+  见 [publish-playbook.md](publish-playbook.md)）。
 
 **可分析的维度**（每一条都是「创意或文案上的一个可变量」）：
 
@@ -1126,91 +1116,89 @@ uv run usine-publish build     # 从 copy 源重建台账（会合并 results.js
 **三条不能破的纪律**：
 
 1. **没有数据就是没有数据**。`metrics` 为 `null` 时分析器明说「这不是效果为零，是不知道」，
-   **绝不输出空洞的排名**（现在跑就是 0/28，如实报）。
-2. **没数据留 `null`，不许填 0**。0 是合法的计数，`check` 抓不住它；
-   但它会把「没数据」变成「效果垫底」并参与排名。反向验证第 17 条专门验了这一点。
+   **绝不输出空洞的排名**。
+2. **没数据留 `null`，不许填 0**。0 是合法的计数，`check` 抓不住它；但它会把「没数据」
+   变成「效果垫底」并参与排名（`scripts/verify_metrics.py` 反向验证专验这一条）。
 3. **样本不足不下结论**（`MIN_GROUP = 5`）。一条数据排出来的第一名是最容易骗人的结论形态；
    不足时只报各组 n 与原始值，不排名。
 
-> 当前状态（2026-10-05）：**28 条记录，平台指标 0 条**。这不是缺陷——
-> 抖音/小红书/知乎的数据只能从各平台后台手工导出，项目里没有、也不该造。
-> 闭环已经建好，缺的是第一次回填。
+> 现状：机制就绪（metrics 反向验证全绿），台账等第一次真实回填——抖音/小红书/知乎的数据
+> 只能从各平台后台手工导出，仓库里没有、也不该造。
 
 ### 6.13 封面：全局约定（每支成片必须有，且必须"精确表达主题"）
 
-> **这是全局约定，不是某一门课的可选项**：管线一的 32 支亮相卡、管线二的全部场景片、
-> 以后新课的第一支成片，都适用同一条判据。
-> 本节是**判据的唯一事实源**——README §7.1 只留一句原则，验收脚本只认这里的阈值。
+> **这是全局约定，不是某一门课的可选项**：任何产线的每一支成片、以后新课的第一支成片，
+> 都适用同一条判据。本节是**判据的唯一事实源**——README 只留一句原则，验收只认这里的阈值。
 
 **为什么单独立一条硬约定**：封面是观众在**决定点不点开之前**唯一看到的东西。
-抽一帧当封面（现状）有两个致命问题：一是抽到哪一帧完全随机，**同一支片两次渲可能给出不同封面**，
+抽一帧当封面有两个致命问题：一是抽到哪一帧完全随机，**同一支片两次渲可能给出不同封面**，
 破坏幂等（不变量⑦）；二是那一帧往往正处在两句台词之间、嘴半张、装置半亮，
 **说不出这支片在讲什么**——它表达的是"某一秒"，不是"这支片的主题"。
 
-**现状**（2026-10-04 实测，不要当成已实现）：
-`build_lesson.make_poster` 只在**教学文档页**给 `<video>` 抽一帧当 `poster`
-（`-ss 2.0`，即 `build/lesson/<id>/poster_<locale>.jpg`），
-抖音/小红书侧靠 `publish_douyin.py` 主动**关掉**平台的截帧弹窗（`dismiss_cover_modal`），
-合集封面 `cover_collection.jpg` 是手工做的 1080×1080 图。
-**也就是说：发布侧目前没有一支片有"表达主题的封面"，这正是本约定要补的缺口。**
+**现状**（2026-10 清账口径，不要当成已实现）：
+- **已有**：`feuille.covers` 封面机制（`uv run feuille cover make|check`——整页 HTML 截图、
+  平台规格注册表、尺寸/底色/安全区检查，反向验证 `scripts/verify_covers.py`）；
+  发布器 `feuille.publish` 可上传封面。
+- **未接入**：「由 scene.json 派生主题封面」的生成器（C1）与派生封面的验收门禁。
+  **发布侧目前没有一支片有"表达主题的封面"，这正是本约定要补的缺口。**
 
 #### 6.13.1 判据：两条，都必须过
 
 | # | 判据 | 可机检的硬阈值 | 抓什么 |
 |---|---|---|---|
 | **C1** | **主题精确**：封面必须能一眼认出这门课/这支片在讲什么 | 封面必须**由该片的 `scene.json` 派生**——装置（`locales.<lc>.prop.device.style`/`.shape`）+ 主题 token（`tokens`/`tokenOrder`：**色片型**取色值、**字牌型**取字形）+ 语种（`locale`）三者齐现；标题字牌取自 `scene.title`（`brief.json` 为 `brief.title`） | 抽帧封面：画面与主题无关，或换支片封面照样能用（**通用图**） |
-| **C2** | **精致耐看**：构图经得起看第二眼 | ① **无文字溢出边界**（标题字牌 bbox 完全落在安全区内，内缩 ≥2% 边距）② **文字↔底对比 ≥100**（沿用 `qa_scene` 文字带同一判据，探针口径一致）③ **封面与成片同调色板**（取自该片 `pal` 与 token 色板，不许硬编码 RGB——不变量⑤）④ **幂等**：同输入两次生成逐字节一致 | 廉价感来源：字压边、字糊在低对比底上、配色与片中脱节、每次渲封面都变 |
+| **C2** | **精致耐看**：构图经得起看第二眼 | ① **无文字溢出边界**（标题字牌 bbox 完全落在安全区内，内缩 ≥2% 边距）② **文字↔底对比 ≥100**（沿用 §4 文字带同一判据，探针口径一致）③ **封面与成片同调色板**（取自该片 `pal` 与 token 色板，不许硬编码 RGB——不变量⑤）④ **幂等**：同输入两次生成逐字节一致 | 廉价感来源：字压边、字糊在低对比底上、配色与片中脱节、每次渲封面都变 |
 
 > **C1 的"精确"是可证的，不是审美的**：判据是「封面上出现的东西**必须都能在
 > `scene.json` 里找到出处**」——装置、token、语种、标题，缺一件即判 FAIL。
 > 这条把"表达主题"从形容词变成了可回归的断言，**不靠人眼**。
 > 一支片的封面不能拿去给另一支片用：换 `scene.json` 必须换封面。
 >
-> **装置有两型，别只按色片写探针**（与 `publish.analyze` 的「教学装置两型」同一维度）：
-> `colors` 课 token 是 **#hex 色片**（六格调色盘），`numbers` 课是**字牌**（六只数字灯笼）。
-> 判「主题精确」时，色片型查主色是否出现在封面里，字牌型查字形——
-> 拿色值探针去查字牌型课，会判出一个假 FAIL。
+> **装置有两型，别只按色片写探针**（与 `feuille.metrics.analyze` 的「教学装置两型」同一维度）：
+> 色片型 token（如六格调色盘）查主色是否出现在封面里，字牌型（如六只数字灯笼）查字形——
+> 拿色值探针去查字牌型课，会判出一个假 FAIL（坑㉘ 的病）。
 
 #### 6.13.2 尺寸与产线
 
-| 平台 | 尺寸 | 约束 | 现状 |
-|---|---|---|---|
-| 抖音 / 小红书 单片 | **1080×1920**（9:16，与成片同幅） | <5 MB | ⬜ 未实现 |
-| 抖音合集 | 1080×1080 | <5 MB | ⚠️ 手工图，非管线产物 |
-| 教学文档 `<video poster>` | 600px 宽 | 页面内显示，可复用抽帧 | ✅ 已有 |
+| 产物 | 尺寸/规格的唯一事实源 | 现状 |
+|---|---|---|
+| 抖音 / 小红书 / B站 / 知乎 变体 | `feuille.covers.SPECS` 注册表（尺寸 / 底色 / 展示裁切 / 文字安全区）——不抄第二份 | ✅ `cover make\|check` 可用 |
+| 派生主题封面（C1 生成器） | 本节判据；输入只有 `scene.json` | ⬜ 未接入 |
+| 合集封面 1080×1080 | 发布合集流程（见 [publish-playbook.md](publish-playbook.md)） | ⚠️ 手工图，非管线产物 |
 
-**产线约定**（与流水线全景图 ③ 产物 同源新增一条）：
+**产线约定**（接线时照此实现）：
 
 ```
 lessons/<id>/scene.json
         │  装置 + token + 标题 + 语种
         ▼
-usine.cover.render()        # 派生封面，不抽帧
+派生封面生成器（未接入；不抽帧）
         ▼
 build/scene/cover_<id>_<locale>.jpg     # 9:16 单片封面
 build/scene/cover_collection_1080.jpg   # 合集封面（1:1）
 ```
 
-**与抽帧的关系**：`make_poster` 的抽帧**继续保留**——它是教学文档页里
-`<video>` 未播放时的占位图，与发布封面是两件事，不要互相替代：
-抽帧给"页面可用"，派生封面给"平台可点"。
+**与抽帧的关系**：抽帧占位（教学文档 `<video>` 未播放时的图）与发布封面是两件事，
+不要互相替代：抽帧给"页面可用"，派生封面给"平台可点"。（教学文档管线与派生封面
+生成器都未接入，两者接线时按此分工。）
 
-#### 6.13.3 门禁（`qa_cover`，与 `qa_scene` 同套哲学）
+#### 6.13.3 门禁（派生封面验收，与 §4 同套哲学）
 
-新加视觉特性 = 同时加探针（§4 探针纪律）。`qa_cover` 四组断言：
+新加视觉特性 = 同时加探针（§4 探针纪律）。派生封面的验收四组断言：
 
-1. **存在性**：每支成片在 `build/scene/` 有对应封面，且**不旧于成片**（同 `make_poster` 的 mtime 判据）
+1. **存在性**：每支成片有对应封面，且**不旧于成片**（mtime 判据）
 2. **C1 主题精确**：封面像素里能检出该片的装置形态 **且** 主题 token——
    **色片型**（token 是 #hex）查主色、**字牌型**（token 是文字）查字形（见 6.13.1 的两型提醒）；
    换一支片的 `scene.json` 必须判 FAIL（抓通用图）
 3. **C2 精致耐看**：文字 bbox 在安全区内 + 文字↔底对比 ≥100 + 无硬编码 RGB
 4. **幂等**：渲两次封面逐字节一致（不变量⑦）
 
-**反向验证**（`scripts/verify_cover.py`，接进 `verify_probes.py` 第 13 套）：
-拿已知坏数据证明它 FAIL——① 抽帧冒充封面 ② 通用图（另一支片的封面）③ 字压边 ④ 低对比 ⑤ 每次都变；
-第一条断言必须是「好数据放行」（§4 纪律三）。
+**反向验证**（接线时新增套件）：拿已知坏数据证明它 FAIL——① 抽帧冒充封面
+② 通用图（另一支片的封面）③ 字压边 ④ 低对比 ⑤ 每次都变；第一条断言必须是
+「好数据放行」（纪律 1）。现行 `scripts/verify_covers.py` 验的是封面机制
+（规格/底色/安全区/对照图），派生封面判据接入时在其旁新增，不混进同一套。
 
-> **反面教材（本约定为什么必须先立）**：`publish_douyin.py` 现在的做法是
+> **反面教材（本约定为什么必须先立）**：`feuille.publish.douyin` 现在的做法是
 > **把平台的截帧弹窗关掉**（`dismiss_cover_modal`）——即"让平台随便截一帧"，
 > 这正是"封面不表达主题"的自动化版本。立了这条约定，发布侧才有一个
 > 可以对着判的标尺，而不是"截到啥算啥"。
@@ -1219,17 +1207,21 @@ build/scene/cover_collection_1080.jpg   # 合集封面（1:1）
 
 ## 7. 后续调优 backlog（按性价比排序）
 
-1. **眨眼/呼吸随情绪**：happy 眨眼快、steady 呼吸深——mood 进 blink/breath 参数。
-2. **手势过渡**：pose_for 目前硬切，加 0.15s ease 混合（arm 角度插值）会更"贵"。
-3. **口型三态**（开/闭/圆唇）：现在只有开度一维，圆唇音（o/u）加圆口型 PIE。
-4. **发丝层次**：给长发加第二层暗色内影（现在只有单高光弧）。
-5. **场景与身份联动**：SCENES 原语按 identity 自动调色已有，可再加"每卡 1 个身份道具呼应台词"。
-6. **全量 framehash 幂等**：现在抽检 2 卡，可写脚本 28 卡全量（渲两次逐帧 hash，约 6 分钟）。
-7. **qa 探针并入 CI**：`run.ps1 qa` 已是一键，可挂 pre-push。
-8. **管线二（Remotion + 生成式人物）**：裁定记录见 [adr-character-tech.md](adr-character-tech.md)——
-   本管线的 face_geo/姿态库/词轴三用/personas.json 可直接移植。
+1. **渲染线接入**（最大的一件）：scene tts / assets / render 编排 + 成片级验收（§4 末行、§6.7）+
+   派生封面生成器（§6.13）+ 教学文档管线 + 文字层 HTML builder（名牌/语言牌/气泡/带）——
+   `feuille lesson doctor` 各层已如实标「预留 / 尚未接入」，接线时按本手册的判据与坑条目实现。
+2. **语种 manifest 结构门禁**（坑㉙ 末条的缺口）：目录名=locale、flag=ISO 区码、字体栈兜底等
+   71 项检查补进现行套件。
+3. **眨眼/呼吸随情绪**：happy 眨眼快、steady 呼吸深——mood 进 blink/breath 参数。
+4. **手势过渡**：pose_for 目前硬切，加 0.15s ease 混合（arm 角度插值）会更"贵"。
+5. **口型三态**（开/闭/圆唇）：现在只有开度一维，圆唇音（o/u）加圆口型 PIE。
+6. **发丝层次**：给长发加第二层暗色内影（现在只有单高光弧）。
+7. **场景与身份联动**：SCENES 原语按 identity 自动调色已有，可再加"每卡 1 个身份道具呼应台词"。
+8. **全量 framehash 幂等**：渲染线接入后把「渲两次逐帧 hash」做成全量抽检
+   （机制已就绪：`feuille.framehash` + `uv run feuille framehash check`）。
+9. **verify 挂 CI**：`uv run feuille verify` 已是一键，可挂 pre-push / CI。
 
----
+
 
 ## 8. 文件地图
 

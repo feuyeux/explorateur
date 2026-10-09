@@ -47,7 +47,7 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 **不做 / 转交**：
 
 - 写发布词/标题/话题标签 → `publish-copy`
-- 生产成片（两条线都转）→ `karaoke-video`（海报驱动）/ `multilingual-video-poetry`（实拍驱动）
+- 生产成片（三条线都转）→ `karaoke-video`（单卡片）/ `storyteller-video`（多幕评书）/ `multilingual-video-poetry`（实拍驱动）
 - 做海报 → `one-page-poster`
 
 ## 代码归属

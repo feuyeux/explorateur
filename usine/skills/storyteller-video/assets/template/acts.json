@@ -1,0 +1,32 @@
+{
+ "comment": "storyteller-video 幕表模板——复制到项目后改。schema 见本 skill SKILL.md 场景模型段；scene/pose/mood 必须现取注册表真键。",
+ "storyteller_id": "changlianke",
+ "formats": [
+  {"name": "portrait", "w": 1080, "h": 1920}
+ ],
+ "timing": {
+  "fps": 30,
+  "preroll": 0.8,
+  "tail": 0.8,
+  "done": 0.5,
+  "intro": 3.0,
+  "outro": 3.4,
+  "transition": 0.5
+ },
+ "acts": [
+  {
+   "id": "a1",
+   "chapter": "第一回",
+   "subtitle": "幕题示例",
+   "text": "这里写旁白文本。",
+   "tokens": ["这里", "写", "旁白", "文本"],
+   "vowel": [],
+   "scene": ["lantern_row", "table"],
+   "shot": {"kind": "push", "start": 0.92, "end": 1.10},
+   "mood": "neutral",
+   "pose": "both_hands",
+   "gavel": true,
+   "quote": "幕尾原文摘录（小字）"
+  }
+ ]
+}
