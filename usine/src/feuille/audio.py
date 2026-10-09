@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
 """audio.py — ffmpeg 音轨合成与时长探测
 
-搬运自 explorateur/src/usine/media.py 的音频半边（终态视角重构：ffmpeg/ffprobe
-改走 `feuille.platform` 解析；滤镜图提成纯函数，让顺序纪律可被反向验证直接断言）。
+ffmpeg / ffprobe 走 `feuille.platform` 解析；滤镜图是纯函数，顺序纪律可被
+反向验证直接断言。此逻辑全仓只有一份：两条管线各写一份时，修复只落一侧，
+另一侧继续随机出片。
 
-**坑③（explorateur 2026-10-03 实测的非确定竞态，顺序不许动）**：`apad=whole_dur=`
-必须放在 `loudnorm` **之前**。loudnorm 内部升采样到 192k，之后接 apad 是非确定的
-EOF 冲刷竞态——同命令 10 连跑丢补尾 3 次（9.469s），前置后 10/10 全 10.0s。
-loudnorm 是门控响度，补的静音不改变增益；对已 ≥dur 的流是 no-op。
-
-**为什么必须只有一份**（explorateur 收债时的教训）：此逻辑曾在两条管线各写一份，
-坑③的修法写了两遍，`frac_at` 一边隐式 None 一边显式 1.0——坑③只修一侧 =
-另一侧继续随机出片。共用内核让修复只有一处。
+**apad 必须在 loudnorm 之前，顺序不许动**（实测的非确定竞态）：loudnorm 内部
+升采样到 192k，之后接 apad 是非确定的 EOF 冲刷竞态——同命令 10 连跑丢补尾
+3 次（9.469s），前置后 10/10 全 10.0s。loudnorm 是门控响度，补的静音不改变
+增益；对已 ≥dur 的流是 no-op。
 
 `atrim` 只裁不补：amix 的输出止于最长行的**原始 mp3 尾**（非裁尾时长）。
 """
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from typing import Sequence
 
 from . import platform as _pt
@@ -35,7 +31,7 @@ def filter_graph(n: int, starts: Sequence[float], dur: float, loudness_i: int = 
     """构建 filter_complex 字符串（纯函数，供 compose_track 与反向验证共用）。
 
     n==1 也过一层 anull：PCM 不变（anull 直通），但滤镜链形状统一、不必分支
-    （explorateur 曾一边 mix 直连、一边 anull[m]，两份实现就此漂移）。
+    （否则 mix 直连与 anull 两条分支的实现容易就此漂移）。
     """
     fc = []
     for i, s in enumerate(starts):
@@ -57,7 +53,7 @@ def compose_track(line_files, starts, dur, out_m4a, loudness_i: int = -16) -> No
         starts: 每行起始秒（与 line_files 同序）
         dur: 目标时长秒；补齐（apad）与裁齐（atrim）都用它
         out_m4a: 输出 m4a 路径
-        loudness_i: loudnorm 目标响度（explorateur 轨道级 -16；
+        loudness_i: loudnorm 目标响度（轨道级 -16；
                     终混社媒惯例 -14 由调用方在封装时传入）
     """
     ffmpeg = _require(_pt.ffmpeg(), "ffmpeg")

@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """compose.py — 母版叠加合成（⑥ 视频：H3 母版 + 文字层 + 人声轨 → 成片）
 
-搬运自 yiyezhiqiu/make_video.py 的 mux / subtitle_spans（终态视角重构：
-ffmpeg 走 resolver；**-shortest 换成显式 -t**；滤镜图提成纯函数可反向验证）。
+ffmpeg 走 resolver；滤镜图是纯函数，可被反向验证直接断言。
 
 **两声道与两次响度**：
-- 人声轨先经 `audio.compose_track`（轨道级 loudnorm −16、apad 前置——坑③）；
+- 人声轨先经 `audio.compose_track`（轨道级 loudnorm −16、apad 前置）；
 - 终混在**长度已锁死**的混合流上再过一次 loudnorm（社媒目标 −14 LUFS——
   直送只有 −20，太轻）。此时流内没有 apad，「apad 必须在 loudnorm 前」
   不被违反：所有 apad 都在 loudnorm 之前完成。
 
-**-shortest 的教训（explorateur 坑⑯）**：yiyezhiqiu 的 mux 用了 `-shortest`，
-在 rawvideo 管道 + 并发场景下它是**时机性丢帧**开关（批量渲丢 pts 帧、单渲不丢，
-幂等必挂）；yiyezhiqiu 侥幸可用只因音频已前置补齐到恰好 dur。终态把它的真实功能
-（裁到目标时长）交给显式 `-t dur`——**封装命令里不许有依赖 I/O 时序的取舍开关**。
+**禁用 `-shortest`**：在 rawvideo 管道 + 并发场景下它是**时机性丢帧**开关
+（批量渲丢 pts 帧、单渲不丢，幂等必挂）。裁到目标时长的真实功能交给显式
+`-t dur`——**封装命令里不许有依赖 I/O 时序的取舍开关**。
 
 `subtitle_spans` 的口径：每行字幕多留 HOLD 拍，行间不重叠（min(尾拍, 下一行起点)）。
 """

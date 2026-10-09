@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """verify_rig.py — 人物 rig 的几何探针反向验证
 
-判据移植自 explorateur/qa_shape.py（28/28 全绿的那套），按其原公式跑在 feuille.rig 上：
+几何判据跑在 feuille.rig 上（28 项全绿），按其原公式：
 A1 颈肩缝（判定窗精确落在颏线下 chin+0.005H…0.10H——正常解剖凹角不算缺陷）、
 A2 胯块（取样 x 用 0.80·torso_hw，绝不用 hip_hw：判据 ∌ 被测字段）、
 B1 手臂可读（剪影 + 袖色阶差）、B2 头身重叠、
@@ -14,7 +14,7 @@ E1/E2 胡须（八字胡在场、不下脖子）。
 幂等（不变量⑦）：同参数两渲 PNG 逐字节一致。
 第 0 条好数据放行：三名典型人设（心形/方脸/大胡子）全探针通过。
 
-fixture：feuille/personas/personas.json（28 人班底，搬运自 explorateur/personas/）。
+fixture：feuille/personas/personas.json（28 人班底）。
 """
 from __future__ import annotations
 
@@ -195,7 +195,6 @@ def probe_person(p) -> list[tuple[bool, str]]:
 
 def check() -> list[tuple[bool, str]]:
     rows: list[tuple[bool, str]] = []
-    by_id = {p["id"]: p for p in PERSONAS}
 
     def pick(pred, what):
         for p in PERSONAS:

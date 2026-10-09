@@ -2,16 +2,11 @@
 # -*- coding: utf-8 -*-
 """scene_draft.py — 教学创意 → `lessons/<id>/scene.md` 草稿生成环节（P2-1）
 
-搬运自 explorateur/src/usine/scene_draft.py（407 行）。适配点（仅此四处，坑注/准则注
-与函数体逐字节照搬）：
-- 注册表现取改为 feuille 渲染线本体：`intro_cards` → `feuille.rig`、`scene_video` →
-  `feuille.devices`（与 scene_schema 取**同一份**注册表——单一事实源，不抄名单）；
-- 源模块顶部 `from usine import ROOT` + `LESSONS_DIR = ROOT / "lessons"` 是**从未被
-  引用的残留常量**（输出路径由 --brief 的同目录推导），搬运时删除；
-- 语种 / 班底数据可指目录：_langs 与 main 增加 languages / personas 目录参数
-  （缺省 = feuille/languages 语种注册表与 feuille/personas 班底——能力数据）；
-- 命令名 `usine-draft` / `usine-parse` → `uv run feuille scene draft` / `... parse`
-  （含生成的草稿里写给作者看的「下一步」命令行）。
+注册表现取 feuille 渲染线本体（`feuille.rig` / `feuille.devices`，与 scene_schema 取
+**同一份**——单一事实源，不抄名单）；输出路径由 --brief 的同目录推导，无模块级路径常量。
+语种 / 班底数据可指目录：_langs 与 main 带 languages / personas 参数（缺省 =
+feuille/languages 与 feuille/personas）。命令名 `uv run feuille scene draft`（草稿里写给
+作者看的「下一步」命令行同此命名空间）。
 
 使用契约：`render(brief, personas, cards, langs, reg)` 纯函数生成全文（一个字的内容
 都不生成，只填结构）；落盘前拒覆盖已定稿文件（frontmatter 无 `draft: true` 标记必须
@@ -299,7 +294,7 @@ def render(brief, personas, cards, langs, reg):
                            [[k, v.get("a", TODO), v.get("b", TODO), v.get("marker", TODO), v.get("note", "")]
                             for k, v in brief["levels"].items()]))
         L.append("")
-    L.append("### 0.4 角色声明（选角纪律的可验收形式——plan §6.1）")
+    L.append("### 0.4 角色声明（选角纪律的可验收形式）")
     L.append("")
     L.append(_md_table(["role", "energy", "说明"],
                        [[r, brief["roles"][r].get("energy", "lively"), brief["roles"][r].get("note", "")]

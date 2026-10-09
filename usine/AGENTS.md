@@ -89,7 +89,7 @@
 | 外部依赖 | ffmpeg / ffprobe、ImageMagick `magick`——一律经 resolver，不写死路径 |
 | 交付位置 | 本目录内；不写 Desktop / Downloads / 临时目录（workspace 约定） |
 | SKILL 资产 | 本仓库自建的 SKILL 一律落到 `skills/`（仓库资产，随 git 版本化）；运行机器 `~/.agents/skills/` 只放**全局软链**指向这里，不存实体。新建 SKILL 同样走这条路径 |
-| headless 浏览器隔离 | headless 截图用 `--headless=new` 且**不带 `--user-data-dir`**——2026-10 实测（macOS + Edge）：带 `--user-data-dir` 图能出但**进程永不退出**，整个 build 挂死；而 `--headless=new` 不会抢占已开着的桌面浏览器（抢占是旧 `--headless` 的问题）。URL 必须绝对路径（相对路径 → Chrome 落 Google 搜索页）；截图后跑白页哨兵（`karaoke-video/scripts/scan_blank.py` 思路） |
+| headless 浏览器隔离 | headless 截图用 `--headless=new` 且**不带 `--user-data-dir`**——实测（macOS + Edge）：带 `--user-data-dir` 图能出但**进程永不退出**，整个 build 挂死；而 `--headless=new` 不会抢占已开着的桌面浏览器（抢占是旧 `--headless` 的问题）。URL 必须绝对路径（相对路径 → Chrome 落 Google 搜索页）；截图后跑白页哨兵（`karaoke-video/scripts/scan_blank.py` 思路） |
 
 ---
 
@@ -102,12 +102,12 @@ feuille/
   pyproject.toml       uv 工程（Python 一律 uv run；publish 组 = Playwright）
   uv.lock              依赖精确锁版（Pillow 12.3.0 = 像素基线锚点）
   src/feuille/         代码：按工作流 ①–⑬ 分模块（每件带反向验证）
-  scripts/             18 个反向验证脚本（17 套件 + verify_probes 聚合器；uv run feuille verify 聚合全量跑）
+  scripts/             20 个反向验证脚本（19 套件 + verify_probes 聚合器；uv run feuille verify 聚合全量跑）
   languages/           语种注册表（14 manifest：字体栈/展示字体栈/国旗/书写方向/引号对）
   personas/            人设目录：28 人班底数据 + schema/声库/视觉/选角文档；
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
   docs/                全部文档（工作流/工具链 + playbook 系列：发布/知乎/取数/渲染手册/经验总纲/坑总账）
-  examples/yiyezhiqiu/ 示例项目：《一叶知秋》完整内容包（诗稿/文案/数据/设计稿/H3 母版）
+  examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；可再生，不入库）
   skills/              自建 SKILL 资产（8 个：one-page-poster / karaoke-video / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
 ```
 

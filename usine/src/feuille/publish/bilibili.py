@@ -1,25 +1,15 @@
 # -*- coding: utf-8 -*-
-"""bilibili.py — B 站发布器（⑨）：分区/创作声明双硬闸门 + 二次确认 + .txt 字幕
+"""bilibili.py — B 站发布器（⑨）：分区/创作声明/封面三重硬闸门 + .txt 字幕
 
-搬运自 yiyezhiqiu/scripts/publish_bilibili_yyzq.py（函数体逐字节照搬，
-坑注释一字不动——尤其 set_bili_statement 的假阳性注释与 publish_one 尾部的
-「稿件投递成功」全词判定）。
+硬闸门（纪律 19：宁可整条不发，也不带病发布）：分区、创作声明、封面
+任一未生效 → 中止本条并截图留证，不点投稿键。
 
-**已核实缺陷的修复**（逐条指认，公共件在 base.py）：
-- ③ 写死的 Chrome 绝对路径 → `base.launch`（resolver）。
-- ① 防风控节流 → `base.run_tasks`（循环内）；本平台节流间隔沿用原版 4s。
-
-**双硬闸门**（纪律 19：宁可整条不发，也不带病发布）：
-- 创作声明选不中 → 中止投稿（对外声明涉及责任，绝不跳过）；
-- 封面没换上 → 中止投稿。
-
-**使用契约**：
+使用契约：
 - tasks 是 `feuille.manifest.build_manifest` 的产物；profile 默认
   `base.PROFILES["bilibili"]`；截图与 result JSON 全部落 log_dir。
-- .txt 字幕从 subs_dir/{lang}.txt 取（原项目布局 build/subs/，参数化），
-  文件不存在就如实跳过——不编路径。
-- 必填项取值由用户明确指定（见 BILI_ZONE / BILI_STMT_REQUIRED 的注释），
-  换项目时由调用方传入，不在本模块里私自改。
+- .txt 字幕从 subs_dir/{lang}.txt 取，文件不存在就如实跳过——不编路径。
+- 必填项取值（BILI_ZONE / BILI_STMT_REQUIRED）由用户指定，换项目时由
+  调用方传入，不在本模块里私自改。
 
 用法：
     from feuille.publish import bilibili
@@ -35,7 +25,7 @@ from . import base
 UPLOAD_URL = "https://member.bilibili.com/platform/upload/video/frame"
 BILI_WALL = ("扫码登录", "密码登录", "手机号登录", "登录后")
 
-# 必填项取值。分区与创作声明由用户 2026-10-06 明确指定：
+# 必填项取值。分区与创作声明由用户明确指定：
 #   分区 = 知识；创作声明 = 自制/原创（不标注 AI 生成）
 BILI_ZONE = "知识"
 # 必填的「创作声明」只认这 6 项之一。
@@ -45,7 +35,7 @@ BILI_ZONE = "知识"
 # 蓝色对勾只是版权声明的选中态，必填框仍是占位符。
 BILI_STMT_REQUIRED = ("内容无需标注", "含AI生成内容", "含虚构演绎内容",
                       "内容含营销信息", "个人观点，仅供参考", "内容为转载")
-# 用户 2026-10-06 指定：不标注 AI 生成 + 保留「自制」版权声明，两者同时勾。
+# 用户指定：不标注 AI 生成 + 保留「自制」版权声明，两者同时勾。
 BILI_STMT_OPTIONAL = "内容为自制：未经作者允许，禁止转载"
 
 # B 站成功页文案是「**稿件投递成功**」，不是「投稿/提交成功」。
@@ -349,7 +339,7 @@ def set_bili_statement(page, keywords: tuple[str, ...], *, log_dir) -> str:
     """设创作声明。返回实际选中的文案，没选成返回空串。
 
     这是对外声明，涉及责任，**选不中就如实报错，绝不跳过**。
-    用户 2026-10-06 明确指示：选「自制 / 原创」，不标注 AI 生成。
+    用户明确指示：选「自制 / 原创」，不标注 AI 生成。
     """
     log_dir = Path(log_dir)
     # 「请选择符合…」是 input 的 placeholder，不是文本节点，get_by_text
@@ -485,79 +475,16 @@ def set_bili_statement(page, keywords: tuple[str, ...], *, log_dir) -> str:
         return ""
     return want
 
-    # ↓↓↓ 以下是原版保留的历史代码（return 之后不可达），只作坑记录搬运 ↓↓↓
-    # Vue 的选中逻辑挂在父级 label/li 上。表现是日志打「✓ 已选」、
-    # 框里却还是占位符。改成逐级向上点，并以 input 读回值为准。
 
-    def is_selected() -> bool:
-        """判断目标项是否处于选中态。
-
-        栽过两次：① 只看 input.value——「内容为自制」这条属于内容授权声明，
-        选中后不回写 input，永远读回空；② 找 `.bcc-icon-ic_MenuButton-tick`
-        对勾——那个 class 在这条上并没有。
-
-        实际可见的选中特征是**文字变成高亮蓝**。直接比对该项与其余项的
-        computed color：不同即视为选中。
-        """
-        try:
-            return bool(page.evaluate("""(want) => {
-              const spans = [...document.querySelectorAll(
-                'ul.bcc-select-option-list span')];
-              if (!spans.length) return false;
-              const mine = spans.find(s => (s.innerText||'').trim().includes(want));
-              if (!mine) return false;
-              const other = spans.find(s => s !== mine
-                                        && (s.innerText||'').trim()
-                                        && (s.innerText||'').trim() !== want);
-              const c1 = getComputedStyle(mine).color;
-              const c2 = other ? getComputedStyle(other).color : null;
-              const box = mine.closest('li,article');
-              const hasSelCls = box ? /selected|active|checked|is-check/i
-                                       .test(box.className || '') : false;
-              return hasSelCls || (c2 !== null && c1 !== c2);
-            }""", want))
-        except Exception:
-            return False
-
-    def dump_sel() -> None:
-        try:
-            h = page.evaluate("""(want) => {
-              const s = [...document.querySelectorAll(
-                'ul.bcc-select-option-list span')]
-                .find(x => (x.innerText||'').trim().includes(want));
-              if (!s) return '(找不到)';
-              const b = s.closest('li,article');
-              return (b ? b.outerHTML : s.outerHTML).slice(0,460);
-            }""", want)
-            print("      · 选中项 HTML:", h)
-        except Exception:
-            pass
-
-    el = None
-    for sel in (
-        "ul.bcc-select-option-list article.option-hover-tips span.option-text",
-        "ul.bcc-select-option-list li.bcc-option span",
-    ):
-        cand = page.locator(sel).filter(has_text=want)
-        try:
-            if cand.count():
-                el = cand.first
-                break
-        except Exception:
-            continue
-    if el is None:
-        print("   ⚠️ 找不到声明选项元素")
-        return ""
+def _bail(res: dict, page, log_dir: Path, tag: str, stage: str, msg: str) -> dict:
+    """硬闸门中止：记 stage + 现场截图 + 返回结果（宁可整条不发）。"""
+    res["stage"] = stage
+    print(f"   🛑 {msg}")
     try:
-        el.scroll_into_view_if_needed(); time.sleep(0.4)
-    except Exception as e:
-        print(f"   ⚠️ 声明选项定位失败：{type(e).__name__}")
-        return ""
-
-    page.screenshot(path=str(log_dir / "bili-stmt-debug.png"))
-    return ""
-    print(f"   ✓ 创作声明 = {want}")
-    return want
+        page.screenshot(path=str(log_dir / f"coverfail-bili-{tag}.png"))
+    except Exception:
+        pass
+    return res
 
 
 def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
@@ -624,16 +551,13 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
         print(f"   ⚠️ 标题：{e}")
 
     # 必填项：分区 + 创作声明（B 站不填这两个 投稿键不解禁）
-    zone_ok = set_bili_zone(page, BILI_ZONE)
-    stmt = set_bili_statement(page, BILI_STMT_REQUIRED, log_dir=log_dir)
-    if not stmt:
-        res["stage"] = "创作声明未选定（已中止投稿）"
-        print("   🛑 创作声明没选上 → 中止，不投")
-        try:
-            page.screenshot(path=str(log_dir / f"coverfail-bili-{t['no']:02d}-stmt.png"))
-        except Exception:
-            pass
-        return res
+    tag = f"{t['no']:02d}"
+    if not set_bili_zone(page, BILI_ZONE):
+        return _bail(res, page, log_dir, f"{tag}-zone",
+                     "主分区未生效（已中止投稿）", "主分区没设上 → 中止，不投")
+    if not set_bili_statement(page, BILI_STMT_REQUIRED, log_dir=log_dir):
+        return _bail(res, page, log_dir, f"{tag}-stmt",
+                     "创作声明未选定（已中止投稿）", "创作声明没选上 → 中止，不投")
 
     # 简介：B站正文是 contenteditable
     desc = page.locator(
@@ -681,20 +605,12 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
         print("   （未找到 .txt 字幕口，跳过）" if txtf is None
               else "   （未给 subs_dir，跳过字幕）")
 
-    # 封面：必须换成预制带文字版（PUBLISH-RULES.md 规则 1）。
-    # 不允许用「系统推荐封面 / AI 生成封面」，也不允许退回视频首帧。
-    cover_ok = set_bili_cover(page, cov, f"{t['no']:02d}", log_dir=log_dir)
-
-    # 硬闸门：封面没换上就整条不投
+    # 封面：必须换成预制带文字版，不允许退回视频首帧或系统推荐封面
+    cover_ok = set_bili_cover(page, cov, tag, log_dir=log_dir)
     if not cover_ok:
-        res["stage"] = "封面未生效（已中止投稿）"
-        print("   🛑 封面未生效 → 中止本条，不点投稿")
         print(f"      预制封面：{cov}")
-        try:
-            page.screenshot(path=str(log_dir / f"coverfail-bili-{t['no']:02d}.png"))
-        except Exception:
-            pass
-        return res
+        return _bail(res, page, log_dir, tag,
+                     "封面未生效（已中止投稿）", "封面未生效 → 中止本条，不点投稿")
     print("   ✓ 封面已是预制带文字版，继续")
 
     # 等投稿按钮解禁
@@ -731,7 +647,7 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
     page.screenshot(path=str(log_dir / f"postbili-{t['no']:02d}.png"))
 
     # ⚠️ 点「立即投稿」之后**还有一道二次确认**，不点等于没投。
-    # 栽过：2026-10-06 首轮 11 条全卡在这，稿件管理里一条都没有，
+    # 栽过：首轮 11 条全卡在这，稿件管理里一条都没有，
     # 而汇总只打「已提交未确认」。这里把可能的确认键全试一遍。
     for kw2 in ("确认投稿", "确定", "确认", "提交稿件", "知道了", "完成"):
         try:

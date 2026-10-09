@@ -1,20 +1,14 @@
 # -*- coding: utf-8 -*-
 """scenes.py — 场景原语（⑥ 视频：背景装置的 Pillow 绘制）
 
-搬运自 explorateur/src/usine/intro_cards.py 479–1019（场景原语全段，函数体逐字节
-照搬，含全部坑注/准则注）：DrawScaled 超采样代理 / SS 全局超采样倍率 / prerender_bg
-渐变背景与场景装配 / _sun / @scene 注册表（SCENES）与全部 s_* 场景函数
-（62 个函数、65 个注册名——arch / lantern / boardn 三件双名注册）。
+DrawScaled 超采样代理 / SS 全局超采样倍率 / prerender_bg 渐变背景与场景装配 /
+_sun / @scene 注册表（SCENES）与全部 s_* 场景函数：62 个函数、65 个注册名
+（arch / lantern / boardn 三件双名注册）。
 
-终态说明（丢了什么、为什么）：
-
-- 本段自洽无路径耦合：prerender_bg(p, card) 只读 p["identity"] 与 card["scene"]，
-  其余全靠参数注入；搬运零适配。
-- 色表与画布基准来自 rig：SCENE（场景中性色）、W / H（语义画布 1080×1920）、
-  mix / hexc 由 .rig 提供——不变量⑤（场景原语禁写字面 RGB）与不变量①（坐标锚定
-  画布基准）的判据已在源码注释里，此处不重复。
-- 不搬：无。intro 卡片编排（进度条 / 文字带 / 名牌粘贴等）在 render_card 里，
-  随 feuille.render 的不搬清单处理。
+自洽无路径耦合：prerender_bg(p, card) 只读 p["identity"] 与 card["scene"]，
+其余全靠参数注入。色表与画布基准来自 rig：SCENE（场景中性色）、
+W / H（语义画布 1080×1920）、mix / hexc——场景原语禁写字面 RGB，
+坐标锚定画布基准（判据见 rig 源码注释）。
 """
 
 from .rig import H, SCENE, W, hexc, mix

@@ -39,9 +39,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from feuille import platform as pt                    # noqa: E402
-from feuille.publish import (bilibili, collections,  # noqa: E402
-                             douyin, login, veriflive, xhs)
-from feuille.publish import base                      # noqa: E402
+from feuille.publish import bilibili, douyin, login, xhs  # noqa: E402
+from feuille.publish import base                          # noqa: E402
+# 导入冒烟：这两个模块本套件不直接驱动，import 成功本身就是断言
+from feuille.publish import collections, veriflive        # noqa: E402,F401
 
 EV = ROOT / "build" / "publish-verify"      # 证据截图（build/ 不入库）
 

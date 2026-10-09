@@ -1,25 +1,21 @@
 # -*- coding: utf-8 -*-
 """textlayer.py — Edge headless 渲字：视口探测 / 截图 / 双 matte 抠像
 
-合并自 explorateur.intro_cards（HTML 头 / matte_combine / 截图命令 / edge_window_h）
-与 yiyezhiqiu.make_video（shoot_matte：双底截图 + **载入前裁齐画布**——补高后的
-opaque 截图比画布高一截，不裁会把画布外的深色像素贴进成片）。
-
 **为什么文字必须走 Edge 截图而不是 Pillow 画字**：本机 Pillow `raqm=False`
 （无 HarfBuzz/FriBiDi），阿拉伯语 / 希伯来语 / 天城文会渲染成散字、错向、缺 matra；
 Chromium 内核自带完整塑形，一次截图就对。这是铁律级的经验（workspace AGENTS.md）。
 
-**坑⑩（视口亏空）**：Edge 的 `--window-size` 高度 ≠ 实际视口高度（explorateur 本机
-实测 300 → 206，差 94px；不同版本/机器会变）。**先探一次差值**、之后所有截图用
-补偿后的窗口高度——不写死 94，换机器自动重测。探法：`--dump-dom` 读
-`window.innerHeight`。
+**视口亏空**：Edge 的 `--window-size` 高度 ≠ 实际视口高度（实测 300 → 206，
+差值随版本/机器变）。**先探一次差值**、之后所有截图用补偿后的窗口高度——
+不写死差值，换机器自动重测。探法：`--dump-dom` 读 `window.innerHeight`。
 
 **双 matte 抠像的数学**：白底/黑底各截一次，`C_w - C_b = (1-a)·255` →
 `alpha = 255 - max(C_w - C_b)`；去预乘 `rgb = C_b / a`。半透明投影可精确还原。
-不透明整图（封面）**不需要**这套，单次截图即可。
+不透明整图（封面）**不需要**这套，单次截图即可。双底截图后**载入前裁齐画布**：
+补高后的 opaque 截图比画布高一截，不裁会把画布外的深色像素贴进成片。
 
-**Edge 截图一律串行**：explorateur 8 线程并发侥幸可用，yiyezhiqiu 4 线程就被
-SIGKILL（METER-AUDIT 实测）——并发收益是分钟级，炸掉是整批重做，不赌。
+**Edge 截图一律串行**：4 线程并发曾被系统 SIGKILL——并发收益是分钟级，
+炸掉是整批重做，不赌。
 
 浏览器一律经 `feuille.platform` 解析，绝不写死路径（跨平台约定 1）。
 """

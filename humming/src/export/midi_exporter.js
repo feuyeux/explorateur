@@ -14,12 +14,29 @@ export class MidiExporter {
   static exportMidi(notes, bpm = 100, meter = { beats: 4, unit: 4 }) {
     const ticksPerBeat = 480; // 标准四分音符 Tick 细度
 
+    // 连奏补足 (Legato Fill)：量化会把实际演唱 0.45s 的音缩短为记谱 0.5 拍
+    // (88BPM 下 0.34s)，直接按记谱时值演奏会听到一片细碎断音。
+    // 演奏时长补到下一音符起点（封顶 0.5 拍、且不越过换气空档的 90%），
+    // 乐谱记谱不受影响——只作用于导出的听感。
+    const ordered = [...notes].sort((a, b) => a.startBeat - b.startBeat);
+    const playDurations = new Array(ordered.length);
+    for (let i = 0; i < ordered.length; i++) {
+      const n = ordered[i];
+      const next = ordered[i + 1];
+      if (!next) {
+        playDurations[i] = n.durationBeats;
+        continue;
+      }
+      const gap = Math.max(0, next.startBeat - (n.startBeat + n.durationBeats));
+      playDurations[i] = n.durationBeats + Math.min(gap * 0.9, 0.5);
+    }
+
     // 收集所有 Note On 与 Note Off 事件并按时间排序
     const rawEvents = [];
 
-    notes.forEach(note => {
+    ordered.forEach((note, i) => {
       const onTick = Math.round(note.startBeat * ticksPerBeat);
-      const offTick = Math.round((note.startBeat + note.durationBeats) * ticksPerBeat);
+      const offTick = Math.round((note.startBeat + playDurations[i]) * ticksPerBeat);
 
       rawEvents.push({
         tick: onTick,

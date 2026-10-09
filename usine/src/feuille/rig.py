@@ -1,55 +1,38 @@
 # -*- coding: utf-8 -*-
 """rig.py — 人物 rig 本体（⑥ 视频：Pillow 绘制能力）
 
-搬运自 explorateur/src/usine/intro_cards.py（函数体逐字节照搬，含全部坑注/准则注）：
-- 46–108：THEME / SCENE / NECK_SHADE_F 常量色表（人物/道具与场景中性色的唯一事实源）
-- 171–210：rnd / gaze / phys / jump_height（种子命名空间、视线漂移与挂件物理）
-- 454–477：mix / hexc / ease_out_cubic / pop_scale（色彩插值与入场缓动）
-- 1020–1110：MOOD_FACE / EYE_MOOD / FACE_SPECS / JAW / HAIR_CHEEK_KEEP / JAW_BELOW /
-  BEARD_LEGACY / jaw_point / face_profile / sleeve_color（表情参数与下颌几何单一事实源）
-- 1113–1208：SUNGLASS_HEAD / sunglasses_head_geo / face_geo（头身规格单一事实源）
-- 1211–1900：draw_character（人物绘制主体；图层序纪律见函数内注释——衣不遮嘴）
-- 1902–2059：POSE_CODES / pose_for（姿态库）
-- 2070–2083：openness_at（词级时间轴驱动的口型开合）
+本模块只提供「绘制能力」，不含管线编排、文件/路径耦合或卡片布局常量——
+tts / assets / render 的产物目录与缓存账本由 feuille 其他层负责。
 
-终态说明（丢了什么、为什么）：
+绘制能力清单（每项均为单一事实源）：
+- 色表：THEME / SCENE / NECK_SHADE_F（人物·道具与场景中性色）
+- 物理与随机：rnd / gaze / phys / jump_height（种子命名空间、视线漂移、挂件物理）
+- 插值缓动：mix / hexc / ease_out_cubic / pop_scale
+- 表情与头身几何：MOOD_FACE / EYE_MOOD / FACE_SPECS / JAW / HAIR_CHEEK_KEEP /
+  JAW_BELOW / BEARD_LEGACY / jaw_point / face_profile / sleeve_color /
+  SUNGLASS_HEAD / sunglasses_head_geo / face_geo
+- 绘制主体：draw_character（图层序纪律见函数内注释——衣不遮嘴）
+- 姿态库：POSE_CODES / pose_for；口型：openness_at（词级时间轴驱动）
 
-- 只搬「绘制能力」，不搬「管线」：tts / assets / render 三阶段编排、产物目录与缓存
-  账本调用属 explorateur 的工厂形态，feuille 已有等价层，在此不重复实现。
-- 不搬清单：load_data / card_units / find_card / synth_line / cmd_tts / cmd_assets /
-  cmd_render / main（管线编排，含 TTS 阶段的 synth_line——feuille.tts.synth_line
-  已含重试与内容寻址缓存）；parse_signed / clamp / effective_voice / content_hash
-  （feuille.tts）；html_escape / band_html / badge_html / pill_html / bubble_html /
-  matte_combine（feuille.textlayer）；require_browser（feuille.platform.browser）；
-  load_timeline（explorateur AUDIO_DIR 路径耦合）；karaoke_points / frac_at
-  （feuille.timeline）；render_card（intro 卡片编排，其通用 rawvideo→ffmpeg 管道
-  已提取为 feuille.render.encode_frames）；AUDIO_DIR / TEXT_DIR / EDGE / FONT_CSS /
-  BAND_H 等模块级路径常量，以及 FPS / DUR / FRAMES / BAND_Y / UI_INK / BAND_BG /
-  BADGE_* / PILL_* / BUBBLE_* / PROG_* 等卡片编排布局常量。
-  （W / H 保留：它们是 rig 的语义画布基准，见下方定义处注释。）
-- 本模块无文件/路径耦合，签名与 ctx 契约未改：draw_character(img, d, p, t, ctx) /
-  pose_for(code, u, t, p) / openness_at(lines, t, seed) 的全部输入由调用方注入
-  （p = personas.json 人设 dict；ctx = 姿态上下文）。
-  ctx 契约：scale / squash / xoff / yoff / head_dx / head_dy / pose / mood / blink /
-  openness（可选 xscale / ss / brow_lift_extra）。pose_for 产出的顶层键
-  （yoff / xoff / squash / xscale / head_dx / head_dy / brow_lift_extra）由调用方
-  pop 进 ctx 后再传入——explorateur render_card 的用法（源 2246–2267 行）。
+ctx 契约：draw_character(img, d, p, t, ctx) 的输入全部由调用方注入
+（p = personas.json 人设 dict）。ctx 键：scale / squash / xoff / yoff /
+head_dx / head_dy / pose / mood / blink / openness（可选 xscale / ss /
+brow_lift_extra）；pose_for 产出的顶层键由调用方 pop 进 ctx 后再传入。
 
-核心纪律不在此重复：图层序（衣不遮嘴）、种子命名空间幂等（不变量⑦）、下颌超椭圆
-（坑㉓）、袖子色阶（坑⑱）、单一事实源（不变量①⑤）等判据全部随函数体原样保留在
-代码注释里，与 explorateur 逐字节一致。
+核心纪律随函数体保留在代码注释里：图层序（衣不遮嘴）、种子命名空间幂等、
+下颌超椭圆、袖子色阶、单一事实源等。
 """
 import hashlib
 import math
 
-from .tts import clamp  # clamp 已在 feuille.tts（不搬清单），只引用不复制
+from .tts import clamp  # clamp 单一事实源在 feuille.tts，只引用不复制
 
 # rig 语义画布基准：face_geo 的 cx=540 / ground=1700 / hy=1140 与 scenes 的全部场景坐标
 # 都锚定在 1080×1920 上（几何事实，非路径常量）；目标画布不同时经 ctx["ss"] 等比缩放。
 W, H = 1080, 1920
 
 
-THEME = {  # 人物/道具常量色唯一事实源（plan §7.2-1：色值只存于 personas.json 与主题文件；qa_char 同源引用）
+THEME = {  # 人物/道具常量色唯一事实源（色值只存于 personas.json 与主题文件；qa_char 同源引用）
     "ink": (46, 42, 54),             # 瞳孔/眉毛/口型线（无描边人物的唯一深色）
     "mouth": (122, 54, 60), "tongue": (236, 120, 112), "blush": (247, 197, 185),
     "shoe": (56, 56, 64),
@@ -113,7 +96,7 @@ def rnd(seed):
 
 
 def gaze(seed, t):
-    """视线跟随镜头（requirement §3.2 / plan §4 gaze="camera"）：瞳孔绕镜头注视点做
+    """视线跟随镜头（gaze="camera"）：瞳孔绕镜头注视点做
     种子化微漂移＋短促扫视，确定性幂等。返回 (dx, dy)∈[-1,1]；
     像素幅度 = (巩膜−瞳孔) 余量 × 0.35（探针安全余量内，qa_char 同源引用）。"""
     ph = 2 * math.pi * rnd(f"{seed}:gaze")
@@ -131,7 +114,7 @@ def gaze(seed, t):
 
 
 def phys(seed, code, kind, t):
-    """挂件物理（requirement §3.4 / plan §7.3-4 四锚点分层）：相位频率种子化，确定性幂等。
+    """挂件物理（四锚点分层）：相位频率种子化，确定性幂等。
     swing→(dx,dy) 摆动；bounce→(0,dy) 颠动；reflect→(dx,0) 高光位移。"""
     ph = 2 * math.pi * rnd(f"{seed}:phys:{code}")
     if kind == "swing":
@@ -145,7 +128,7 @@ def phys(seed, code, kind, t):
 
 
 def jump_height(p):
-    """mini_jump 起跳高度：movement.bounce 越小越弹（plan §4 个性参数；qa_char 同源引用）。"""
+    """mini_jump 起跳高度：movement.bounce 越小越弹（个性参数；qa_char 同源引用）。"""
     return 60 + 28 * clamp(14.0 / p["movement"]["bounce"], 0.75, 1.6)
 
 
@@ -163,7 +146,7 @@ def ease_out_cubic(u):
 
 
 def pop_scale(t, t0, dur, overshoot=True, damp=None):
-    """damp=movement.bounce：越小越弹（入场弹跳按个性参数缩放，plan §4）"""
+    """damp=movement.bounce：越小越弹（入场弹跳按个性参数缩放）"""
     if t <= t0:
         return 0.0
     u = (t - t0) / dur
@@ -186,10 +169,10 @@ MOOD_FACE = {
     "teach": dict(lift=2, tilt=0, smile=0.55),
 }
 EYE_MOOD = {"neutral": 1.0, "happy": 0.94, "puzzled": 1.05, "encouraging": 0.98, "emphatic": 0.97, "teach": 1.0}
-# 眼形缩放（巩膜 ry 系数）：happy 微闭笑眼 / puzzled 睁大（plan §4 眼神变化）
+# 眼形缩放（巩膜 ry 系数）：happy 微闭笑眼 / puzzled 睁大
 
 
-# 脸型规格表（plan §8.3；2026-10-03 人物形象打磨：2 型 → 6 型，按人设分配）。
+# 脸型规格表（6 型，按人设分配）。
 # 元组 = (头高 H, 头宽系数 WH/H)。heart＝上圆下圆收下巴（draw_character 组合绘制，
 # 贝塞尔弧收底、无尖角——尖下巴观感像鬼，禁用）、square＝方颌（椭圆底缘两侧补平）
 # ——下颌轮廓只由这两个键驱动，其余型为纯椭圆。
@@ -205,7 +188,7 @@ FACE_SPECS = {
 # 下颌轮廓参数（单一事实源）——heart / square 两种非椭圆下颌都走 jaw_point()。
 # 轮廓 = **超椭圆** f(s) = (1 − s^m)^(1/m)，s ∈ [0,1] 从颊部走到下巴底，半宽相对 rx。
 #
-# 为什么不能用随手一条二次曲线（坑㉓，2026-10-03 用户反馈「下巴太尖」）：
+# 为什么不能用随手一条二次曲线（坑㉓「下巴太尖」）：
 #   旧心形用 x(t) = (1−t)² + 0.80t(1−t)、y(t) = 0.42 + 1.26t − 0.64t²。求导得
 #   x'(1) = −0.80·rx、y'(1) = −0.02·ry —— 顶点切线几乎**水平**。左右两支在同一个
 #   (hx, y) 折返，polygon 边界不是圆底而是**一根横着的针**（xiaoman/giulia 实测：
@@ -322,7 +305,7 @@ def face_geo(face):
     低位大眼（头顶下 0.615H）、宽瞳距 ±0.30×头宽、大巩膜 0.28×头宽；
     眉贴眼上（巩膜顶 + 0.035H）；嘴位头顶下 0.815H；粗短胶囊四肢贴躯干。
 
-    2026-10-03 头/身/臂几何重设计（坑⑱，qa_shape.py 探针驱动）：
+    头/身/臂几何重设计（坑⑱）：
     - `neck_*`：颈侧 x 半径与上下缘。肩部体块从**颈缘**起坡（旧版从 0.10H 起，
       比颈缘窄 0.005H，颈侧到臂根之间露出一条背景楔形缝）。
     - `sh_x`：肩点外移量（arm_w·0.30 → 0.18）。旧肩点内收过多 + 静止角 7°，
@@ -378,7 +361,7 @@ def draw_character(img, d, p, t, ctx):
     female = p["gender"] == "female"
     seed = p["id"]  # 一切随机走人设 id 命名空间（不变量⑦；qa 探针同源可复算）
     skin_sh = hexc(pal["skinShade"])
-    sk = p.get("skin", {})  # 皮肤层叠加槽（plan §1/§3 原则五：做旧/补丁，不改基型配色）
+    sk = p.get("skin", {})  # 皮肤层叠加槽（做旧/补丁，不改基型配色）
     # ---- 头身规格（face_geo 单一事实源；cx/ground 永不手抄——不变量①）----
     G = face_geo(face)
     cx, ground = G["cx"], G["ground"]
@@ -391,14 +374,14 @@ def draw_character(img, d, p, t, ctx):
     acc = {a["code"]: a for a in p.get("accessories", [])}
     has = lambda c: c in acc
     ss = ctx.get("ss", 1.0)
-    out = p.get("outfit", {})  # 服装轮廓槽（plan §4：bottom=skirt 长裙装 / kind=tunic|pinafore|vest；缺省=长裤）
+    out = p.get("outfit", {})  # 服装轮廓槽（bottom=skirt 长裙装 / kind=tunic|pinafore|vest；缺省=长裤）
     skirt = out.get("bottom") == "skirt"
     tunic = out.get("kind") == "tunic"
     pinafore = out.get("kind") == "pinafore"
     vest = out.get("kind") == "vest"
 
     def pfy(code, kind):
-        """挂件物理偏移：数据声明了对应 physics 才生效（plan §4 accessories.physics）"""
+        """挂件物理偏移：数据声明了对应 physics 才生效（accessories.physics）"""
         return phys(seed, code, kind, t) if has(code) and acc[code].get("physics") == kind else (0.0, 0.0)
 
     u = lambda f: f * G["H"]
@@ -413,7 +396,6 @@ def draw_character(img, d, p, t, ctx):
     torso_bot = torso_top + G["torso_h"] * (1.30 if tunic else 1.0)  # 长衫：下摆过臀（outfit.kind=tunic）
     torso_hw = G["torso_hw"]
     sh_y = torso_top + G["sh_dy"]
-    sh_hw = G["sh_hw"]
     sh_x, sh_out, neck_hw = G["sh_x"], G["sh_out"], G["neck_hw"]
     leg_cx, leg_w = G["leg_cx"], G["leg_w"]
     foot_cy, foot_l, foot_h = G["foot_cy"], G["foot_l"], G["foot_h"]
@@ -531,7 +513,7 @@ def draw_character(img, d, p, t, ctx):
     legL_ang, legR_ang = pose.get("legL", 0), pose.get("legR", 0)
     leg_top = torso_bot - u(0.10)
     leg_bot = foot_cy - foot_h * 0.30
-    worn_bottom = not skirt and "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白（plan §1 皮肤层）
+    worn_bottom = not skirt and "bottom" in sk.get("worn", [])  # 做旧：裤腿下半段轻微磨白
     leg_col = skin if skirt else bottom  # 裙装露腿：腿画肤色（裙身在躯干段画）
     # 胯块（坑⑱）：躯干下缘 0.62·torso_hw 的大圆角往里收，而双腿内收在 leg_cx，
     # 两者之间留下一个背景空洞——裤子看着浮在空中（qa_shape.py A2，28 人 26 人中）。
@@ -652,7 +634,7 @@ def draw_character(img, d, p, t, ctx):
                            "pouch": (THEME["bag_pouch"], 58)}.items():
         if has(code):
             bxr = 540 + 152
-            kind = acc[code].get("physics")  # 挎包物理：swing 摆 / bounce 颠（plan §7.3-4）
+            kind = acc[code].get("physics")  # 挎包物理：swing 摆 / bounce 颠
             sx_p, sy_p = phys(seed, code, kind, t) if kind else (0.0, 0.0)
             ARC(bxr - bw // 2 + 14 + sx_p, torso_top + 40 + sy_p * 0.4, bxr + bw // 2 - 14 + sx_p,
                 torso_top + 128 + sy_p * 0.4, 180, 360, 8, fill=bc)
@@ -735,7 +717,7 @@ def draw_character(img, d, p, t, ctx):
 
     # ================= 手臂（胶囊袖 + 圆手 + 袖口） =================
     # 画在躯干之后、颈与头之前：袖子是「衣服层」，抬臂姿态（wave/thumbs_up/hand_shoot…）
-    # 会把袖子胶囊扫过人脸——衣层在脸前会遮嘴（2026-10-03 用户反馈），故脸/嘴永远画在手臂之上；
+    # 会把袖子胶囊扫过人脸——衣层在脸前会遮嘴，故脸/嘴永远画在手臂之上；
     # 各姿态的手都落在脸轮廓之外（肩点外展），移到脸后不丢姿态可读性。face_cam 是举到脸前的
     # 道具相机，仍留在表情之后画（要的就是遮脸）。
 
@@ -881,7 +863,7 @@ def draw_character(img, d, p, t, ctx):
 
     if has("beard") and not BEARD_LEGACY:  # 表情之前画：嘴要盖在胡子上面
         # 旧实现是一个 PIE（顶边 0.82·ry 的水平直弦、底边伸到 1.30·ry），整张脸从嘴以下
-        # 糊成一条围兜一直糊到脖子上——「嘴像长在脖子上」（坑㉓，2026-10-03 用户反馈）。
+        # 糊成一条围兜一直糊到脖子上——「嘴像长在脖子上」（坑㉓）。
         # 拆成两件：**八字胡**（压在嘴上、两端挑出胡须线）+ **络腮**（实心块：上缘一条
         # 胡须线、下缘沿脸廓 face_profile 走、圆胡尖只探出下巴 0.03·ry）。
         # 注意不能把络腮画成「内外两条同起点的曲线」——那会在鬓角收成零厚度、只剩一个人字形。
@@ -915,7 +897,7 @@ def draw_character(img, d, p, t, ctx):
     mood = MOOD_FACE[ctx["mood"]]
     lift = mood["lift"] + ctx.get("brow_lift_extra", 0)
     tilt = mood["tilt"]
-    eye_k = EYE_MOOD[ctx["mood"]]  # 眼形：happy 微闭笑眼 / puzzled 睁大（plan §4 眼神变化）
+    eye_k = EYE_MOOD[ctx["mood"]]  # 眼形：happy 微闭笑眼 / puzzled 睁大
     gdx, gdy = gaze(seed, t)  # 视线跟随镜头：漂移 ≤ (巩膜−瞳孔) 余量 × 0.35（探针安全）
     gpx = gdx * (scl_rx - pup_r) * 0.35
     gpy = gdy * (scl_ry - pup_r * 1.2) * 0.35
@@ -1090,12 +1072,12 @@ def pose_for(code, u, t, p):
         P["yoff"] = -10
         P["head_dy"] = -4
     elif code == "mini_jump":
-        hop = -abs(math.sin(u * math.pi * 2)) * jump_height(p)  # 起跳高度随 movement.bounce（plan §4）
+        hop = -abs(math.sin(u * math.pi * 2)) * jump_height(p)  # 起跳高度随 movement.bounce
         P["yoff"] = hop
         P["squash"] = 0.05 * math.sin(u * math.pi * 4)
         P["armL"] = (96, 30, "open")
         P["armR"] = (96, 30, "open")
-    elif code == "jump_celebrate":  # 跳跃庆祝（plan §4.2 原语；示范场景二幕八专用）
+    elif code == "jump_celebrate":  # 跳跃庆祝（原语；示范场景二幕八专用）
         # squash-stretch：起跳蓄力下压 → 腾空纵向拉伸 → 落地压扁回弹
         air = abs(math.sin(u * math.pi * 2))
         P["yoff"] = -air * jump_height(p) * 1.15
@@ -1217,7 +1199,7 @@ def pose_for(code, u, t, p):
     return P
 
 
-# karaoke_points / frac_at 见 feuille.timeline（2026-10-04 从本文件与 scene_video 双份收敛为一处）
+# karaoke_points / frac_at 见 feuille.timeline（单一事实源，不在本文件重复）
 
 
 def openness_at(lines, t, seed=""):

@@ -1,26 +1,17 @@
 # -*- coding: utf-8 -*-
 """douyin.py — 抖音发布器（⑨）：上传 → 标题/正文/话题 → 发布；封面**后补**
 
-搬运自 yiyezhiqiu/scripts/publish_douyin_yyzq.py（发布序列）+
-fix_all_douyin_covers.py（fix_covers 编辑流程补封面）。
+**封面为什么后补**：上传流程的封面面板喂不准——`input[0]` 挂在 `list-*`
+（生成参考图）下，正确入口是 `selectArea-*`；确认键上传层是「保存」、
+编辑层是「完成」。曾整批封面全发成平台默认帧而脚本自报全部成功。
+所以发布是两步：先发视频（publish），再走已验证的编辑流程补封面（fix_covers）。
 
-**已核实缺陷的修复**（逐条指认，公共件在 base.py）：
-- ③ 写死的 Chrome 绝对路径 → `base.launch`（内部 `base.resolve_chrome()`，
-  经 `feuille.platform.browser(only="chrome")` 解析）。
-- ① 防风控节流 → `base.run_tasks` 写在循环内（本平台节流间隔沿用原版 3s）。
-
-**封面为什么后补**（2026-10-06 首轮事故，注释原文见 publish_one 内）：
-上传流程的封面面板喂不准——`input[0]` 挂在 `list-*`（生成参考图）下，
-正确入口是 `selectArea-*`；确认键上传层是「保存」、编辑层是「完成」。
-首轮 12 条封面全发成平台默认帧而脚本自报 12/12 成功。所以发布流程是**两步**：
-先发视频（本模块 publish），再用 fix_covers（已验证的编辑流程）补封面。
-
-**使用契约**：
+使用契约：
 - tasks 是 `feuille.manifest.build_manifest` 的产物（no/lang/locale/title/body/tags/video/cover）；
   profile 默认 `base.PROFILES["douyin"]`；截图与 result JSON 全部落 log_dir。
 - 修改预算（纪律 20）：抖音每个作品**最多修改 5 次，补封面算 1 次**——
   批量补之前先单条验证落库（fix_covers 只筛要补的条目，不盲目全跑）。
-- 补完必须用 veriflive.verify 回查缩略图确认有文字（PUBLISH-RULES 规则 1/3）。
+- 补完必须用 veriflive.verify 回查缩略图确认有文字。
 
 用法：
     from feuille.publish import douyin
@@ -40,7 +31,7 @@ from . import base
 UPLOAD_URL = "https://creator.douyin.com/creator-micro/content/upload"
 MANAGE_URL = "https://creator.douyin.com/creator-micro/content/manage"
 
-# 抖音登录墙面板文案（publish_douyin_yyzq.login_wall_visible 实测词表）
+# 抖音登录墙面板文案（实测词表）
 DOUYIN_WALL = ("扫码登录", "验证码登录", "密码登录", "手机号登录")
 
 
@@ -210,7 +201,7 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
     # ── 封面不在发布流程里做，发布后单独补 ─────────────────────────
     # 上传流程的封面面板喂不准：file input[0] 挂在 list-*（生成参考图）下，
     # 正确入口是 selectArea-* 下的那个；确认键在上传层是「保存」、
-    # 在编辑层是「完成」。2026-10-06 首轮就是这么把 12 条封面全发成
+    # 在编辑层是「完成」。曾就这么把 12 条封面全发成
     # 平台默认首帧的，而脚本自报 12/12 成功。
     #
     # 改用已验证的编辑流程补封面：
@@ -285,7 +276,7 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
         shot = log_dir / f"dryrun-douyin-{t['no']:02d}.png"
         page.screenshot(path=str(shot))
         res.update(ok=not left, stage="已填词(dry-run，未发布)")
-        print(f"   🧪 dry-run：已填词并停在发布前，未点击发布")
+        print("   🧪 dry-run：已填词并停在发布前，未点击发布")
         if left:
             res["stage"] = f"dry-run 残留弹窗 {left}"
             print(f"   ❌ 仍有弹窗挡着：{left}")
@@ -481,9 +472,9 @@ def fix_one(page, task: dict, *, search_kw: str, log_dir) -> bool:
     # 定位目标条目：按「编辑作品」按钮的纵向顺序，与同位置的标题文本对齐。
     # 每张卡片是一行：封面 | 标题+数据 | 操作区(编辑/设置权限/删除)
     #
-    # ⚠️ 2026-10-08 修正：原定位器写死成 get_by_text(f"「{search_kw}」的")
-    # ——即「**「X」的Y版**」这种标题格式。本项目标题是「老树枯枝立野原，中文的
-    # 冬天很轻」，**不含该结构** → 匹配到 0 个标题，整条卡在「没找到」。
+    # ⚠️ 原定位器写死成 get_by_text(f"「{search_kw}」的")
+    # ——即「**「X」的Y版**」这种标题格式。标题一旦不含该结构
+    # → 匹配到 0 个，整条卡在「没找到」。
     # 这与 collections 的硬编码是同一类病：**把某个项目的文案格式当成通用格式**。
     # 现在直接用**清单里的真实标题**做前缀匹配，与文案格式无关。
     eds = page.get_by_text("编辑作品", exact=False)

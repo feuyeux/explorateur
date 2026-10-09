@@ -93,7 +93,7 @@ def check():
     r, rc = fh.compare([c], base_with_old, subset=True)
     rows.append((rc == 0 and r["skipped"] == ["a.mp4", "old.mp4"] and r["gone"] == []
                  and r["new"] == ["c.mp4"],
-                 f"子集核查：范围外 2 支归 skipped、退出码 0（新片不判失败）"))
+                 "子集核查：范围外 2 支归 skipped、退出码 0（新片不判失败）"))
 
     # ---- 5. 证据帧 + 热力图契约 ----
     rows.append((fh.extract_frame(a, 0, d / "f0.png"),

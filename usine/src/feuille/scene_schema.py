@@ -2,14 +2,9 @@
 # -*- coding: utf-8 -*-
 """scene_schema.py — 场景数据前置校验层（parse 与 render 之间）
 
-搬运自 explorateur/src/usine/scene_schema.py（466 行）。适配点（仅此三处，判据与
-坑注逐字节照搬）：
-- 判定源注册表改取 feuille 渲染线本体：`intro_cards.MOOD_FACE / POSE_CODES` →
-  `feuille.rig`，`scene_video.DEVICE_STYLES` → `feuille.devices`（注册表已随 ⑥
-  渲染线先行搬运；判定仍现取注册表，不抄名单——名单必腐烂，纪律 7）；
-- main 的 scene_doc 取数加 lessons 目录（--lessons 参数，缺省 = feuille 仓库根
-  lessons/，data.py 锚定）；
-- 命令名 `usine-validate` → `uv run feuille scene validate`（feuille cli.py 路由表）。
+判定源全部现取 feuille 渲染线注册表，不抄名单（名单必腐烂，纪律 7）：情绪/姿态取
+`feuille.rig`，装置样式取 `feuille.devices`。main 的 scene_doc 取数带 --lessons
+（缺省 = feuille 仓库根 lessons/，data.py 锚定）；命令名 `uv run feuille scene validate`。
 
 使用契约：`validate_scene(scene, personas=None, cards=None) -> 问题列表`（空 = 通过）。
 纯函数、不做 I/O、不抛异常——反向验证可以直接喂坏数据。选角/班底检查只在给了
@@ -18,9 +13,6 @@ personas 与 cards 两份数据时才跑（parse 自检不给、doctor 全量给
 **为什么需要**：`scene.json` 此前是自由 dict，没有任何 schema 约束。字段缺失、token
 对不上、装置 style 拼错，都要等到**渲染时**才炸，或者更糟——不炸但静默出错片。
 `qa_scene` 第 1 组「产物规格」是出片**之后**才发现问题的，属于事后诸葛。
-
-本模块是纯函数 `validate_scene()`：输入 scene dict（可选带班底数据），返回问题列表，
-空列表 = 通过。不做 I/O、不抛异常，因此可以被反向验证脚本直接喂坏数据。
 
 **人物数量不写死**：合法说话人 = §0.4 `roles` 里**本课自己声明**了谁，就是谁。
 不再有一张写死的 `("A","B")` 白名单——那张表把「两人对话」当成了世界的上限，
@@ -450,7 +442,6 @@ def _palette_hexes(persona):
 
 def main(argv=None):
     import argparse
-    import sys
     ap = argparse.ArgumentParser(description="场景数据前置校验（parse 与 render 之间）")
     ap.add_argument("--scene", required=True, help="场景 id，如 colors")
     ap.add_argument("--lessons", default=None,
@@ -477,5 +468,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    import sys
     raise SystemExit(main())

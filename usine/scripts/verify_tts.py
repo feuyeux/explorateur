@@ -42,7 +42,7 @@ def check():
                       tts.content_hash("zh-CN-XiaoxiaoNeural", "-8%", "+0Hz", "一叶知秋。") != k1]),
                  "voiceId / rate / pitch / text 任一变 → 缓存键必变"))
 
-    # ---- 1. parse_signed（口径 = explorateur 原版；yiyezhiqiu 复制版把 "+7%" 读成 0 的走样已修）----
+    # ---- 1. parse_signed（曾把 "+7%" 读成 0 的走样已修）----
     cases = [("+7%", 7), ("-3Hz", -3), ("+0%", 0), ("", 0), ("garbage", 0), ("+12.6Hz", 12)]
     bad = [(v, want) for v, want in cases if tts.parse_signed(v) != want]
     rows.append((not bad, f"parse_signed 全对（错例 {bad}）" if bad else "parse_signed 全对"))

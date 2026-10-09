@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """timeline.py — 行时间轴与词级进度轴（⑤ 补齐 + ⑥ 渲染共用）
 
-合并自 yiyezhiqiu.rebuild_timeline（start 累进口径）与 explorateur.media 的
-卡拉OK进度轴（karaoke_points / frac_at——「词级时间戳一轴多用」里的渲染轴：
-换台词自动重对齐，不需要新数据）。
+karaoke_points / frac_at 是「词级时间戳一轴多用」里的渲染轴：换台词
+自动重对齐，不需要新数据。
 
-口径（与已验收的 24 支成片一致）：
+口径（与已验收的成片一致）：
 
     start[0]     = 0
     start[i]     = start[i-1] + speech_dur[i-1] + line_gap

@@ -1,23 +1,17 @@
 # -*- coding: utf-8 -*-
 """xhs.py — 小红书发布器（⑨）：像素探测发布键 + 风控停等 + 每条 reset_page
 
-搬运自 yiyezhiqiu/scripts/publish_xhs_yyzq.py（函数体逐字节照搬，坑注释一字不动）。
-
-**已核实缺陷的修复**（逐条指认）：
-- ① **防风控节流写在循环外**（publish_xhs_yyzq.main 原版：循环结束后才
-  `time.sleep(35)`，注释却写「每条之间多歇一会儿」——整批只睡了最后一次）。
-  修复：publish() 走 `base.run_tasks(between_s=35)`，节流在循环**内**、
-  每条之间都睡（实测教训：连发 2 条就撞风控）。
-- ③ 写死的 Chrome 绝对路径 → `base.launch`（resolver，见 base.resolve_chrome）。
-
 **发布键为什么用像素探测**：底栏「发布」不在主文档流里（get_by_text /
 querySelectorAll / elementFromPoint 全扫不到，很可能是跨源 iframe 合成层），
-唯一可信的证据就是**真实像素**——品牌红 #FF2442 的实心药丸（见 submit_btn 注释）。
+唯一可信的证据是**真实像素**——品牌红 #FF2442 的实心药丸（见 submit_btn）。
 
-**使用契约**：
+防风控节流在 `base.run_tasks` 循环内（between_s=35）——连发 2 条就撞风控
+是实测教训，节流必须在每条之间。
+
+使用契约：
 - tasks 是 `feuille.manifest.build_manifest` 的产物；profile 默认
   `base.PROFILES["xiaohongshu"]`；截图与 result JSON 全部落 log_dir。
-- 封面是硬闸门：换不上预制带文字版就整条不发（纪律 19，PUBLISH-RULES 规则 1）。
+- 封面是硬闸门：换不上预制带文字版就整条不发（纪律 19）。
 - 风控撞上**绝不自动重试**（纪律 21）：停下等你本人扫码，解除后确认遮罩消失。
 
 用法：
@@ -34,7 +28,7 @@ from . import base
 
 UPLOAD_URL = "https://creator.xiaohongshu.com/publish/publish"
 
-# 小红书登录墙/风控/成功词表（publish_xhs_yyzq 实测词表）
+# 小红书登录墙/风控/成功词表（实测）
 XHS_WALL = ("扫码登录", "验证码登录", "手机号登录", "立即登录")
 XHS_SUCCESS_WORDS = ("发布成功", "提交成功", "笔记已发布")
 
@@ -224,8 +218,8 @@ def pick_cover(cov: str, *, alt_dir: str = "covers-3x4",
     """小红书封面画布是 3:4。优先用预裁好的 3:4 版（零裁切，位置与裁切审计一致），
     没有就退回 9:16 原图让平台自己适配。
 
-    alt_dir/from_size/to_size 是**调用方**的素材目录约定（原项目 yiyezhiqiu
-    的布局：封面 9:16 与预裁 3:4 分放两个目录、同名不同尺寸后缀），参数化不写死。
+    alt_dir/from_size/to_size 是**调用方**的素材目录约定（封面 9:16 与预裁 3:4
+    分放两个目录、同名不同尺寸后缀），参数化不写死。
     """
     p = Path(cov)
     alt = p.parent.parent / alt_dir / p.name.replace(f"_{from_size}.png", f"_{to_size}.png")

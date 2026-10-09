@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """packaging.py — 交付打包（zipfile，非 ASCII 文件名必须置 UTF-8 flag）
 
-搬运自 yiyezhiqiu/package.py 的核心教训：macOS 自带 Info-ZIP 对非 ASCII
-文件名**不置 UTF-8 flag（bit 0x800）**，解包到别的机器上中文/阿拉伯语
-文件名全变乱码。Python 的 zipfile 默认置位，所以打包一律走 zipfile，
-不走命令行 zip。
+macOS 自带 Info-ZIP 对非 ASCII 文件名**不置 UTF-8 flag（bit 0x800）**，
+解包到别的机器上中文/阿拉伯语文件名全变乱码。Python 的 zipfile 默认
+置位，所以打包一律走 zipfile，不走命令行 zip。
 """
 from __future__ import annotations
 

@@ -60,7 +60,7 @@ def check():
     rows.append((n == 1 and m == {"views": 100},
                  f"合并按整体替换 metrics（原口径；得 {m}，合并 {n} 条）"))
     probs = mt.check(good, d)
-    rows.append((not probs, f"好台账 + 全凭据 + 合法指标 → check 全过"
+    rows.append((not probs, "好台账 + 全凭据 + 合法指标 → check 全过"
                  + (f"　**{probs}**" if probs else "")))
 
     # ---- 1. 悬空引用 → 当场报错 ----

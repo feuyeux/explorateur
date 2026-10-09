@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 """tts.py — edge-tts 语音合成内核（⑤ 音频）
 
-合并自 explorateur.intro_cards（缓存键 / 词级时间戳 / 词级真值裁尾）与
-yiyezhiqiu.synth_poems（NoAudioReceived 退避重试 / 项目偏移夹取）——
-此前两份实现各修了一半经验，此处终态合一。
-
 经验（全部实测过）：
 
 - **WordBoundary**：edge-tts 7.2.8 默认只发 `SentenceBoundary`，
@@ -34,7 +30,7 @@ import edge_tts
 RETRY_BACKOFF = 1.2
 RETRY_TRIES = 5
 
-# 声线安全域（explorateur plan §4.1）：越界会劈嗓/机械。
+# 声线安全域：越界声音会破音、发机械声。
 SAFE_RATE = (-20, 20)
 SAFE_PITCH = (-12, 12)
 
@@ -47,10 +43,8 @@ def content_hash(*parts) -> str:
 def parse_signed(v) -> int:
     """把 "+7%" / "-3Hz" 解析成整数偏移；空/垃圾输入 → 0（不猜）。
 
-    口径 = explorateur 原版（strip 后去尾部单位再转数）。yiyezhiqiu 的复制版
-    在前导 `+` 上断了循环、把人设基线**静默读成 0**——实际 12 语种全部统一跑在
-    项目偏移上（结果恰好可用，那是运气不是设计）。终态以正确口径为准，
-    搬运时顺手修掉这处走样。
+    口径：strip 后去尾部单位再转数。曾因在前导 `+` 上断循环把人设基线
+    **静默读成 0**（12 语种全跑在项目偏移上，结果碰巧可用——那是运气不是设计），故以此为戒。
     """
     s = str(v).strip().rstrip("%Hz")
     try:
@@ -74,7 +68,7 @@ def voice_params(base_rate, base_pitch, rate_off: int = 0, pitch_off: int = 0) -
 
 
 def is_fake_word(words: list[dict], text: str) -> bool:
-    """伪词判定（explorateur 口径）：整行只有一个词、且词面是文本前 12 字。
+    """伪词判定：整行只有一个词、且词面是文本前 12 字。
     伪词是兜底产物，裁尾与卡拉OK都要绕开它。"""
     return len(words) == 1 and words[0]["w"] == text[:12]
 

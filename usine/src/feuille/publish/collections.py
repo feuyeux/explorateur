@@ -1,27 +1,15 @@
 # -*- coding: utf-8 -*-
-"""collections.py — 合集收录（⑩）：以 douyin_fix_collection.py 为基准
+"""collections.py — 抖音合集收录（⑩）：编辑补挂 / 新建两条流程
 
-搬运自 yiyezhiqiu/scripts/douyin_fix_collection.py（**基准版**），
-参考 douyin_make_collection.py / douyin_collection_step1.py（创建合集的表单/
-封面/面板步骤）。
-
-**已核实缺陷②的修复声明**：douyin_make_collection.py 的 JS_ROWS「扫文本行→
-按去重序号取第 i 个」方案有去重 bug——去重后每轮都返回 target[0]，12 次点击
-全落在同一行（希伯来语）。基准版改用「+」按钮**本身**做选择器：面板里未添加
-的行右侧是 24x24 的 svg，已添加的行文字含「已添加」（JS_PLUS）。本模块
-**不携带** JS_ROWS 方案的任何可执行代码，创建流程的挂作品环节也走 JS_PLUS。
-
-**平台差异**（搬运时点实测，源：yiyezhiqiu AGENTS.md 平台硬限制表 +
-probe_bili_collection / check_bili_level / probe_xhs_collection 系列）：
-- 抖音：合集在内容管理 `?tab=collections`，本模块两条流程（编辑补挂 / 新建）
-  都实测过——这是唯一在本模块实现全流程的平台。
-- B 站：合集功能需**创作中心 Lv2**，等级不够时 UI 上是灰字、无任何可点控件，
-  无法绕过（先攒等级，别硬闯；check_bili_level.py 只读查等级的先例）。
+平台差异（实测）：
+- 抖音：合集在内容管理 `?tab=collections`，两条流程都实测过——
+  这是唯一在本模块实现全流程的平台。
+- B 站：合集需**创作中心 Lv2**，等级不够时 UI 上是灰字、无可点控件，
+  无法绕过（先攒等级，别硬闯）。
 - 小红书：网页创作平台**没有合集管理页**——加入合集走「编辑单条笔记 →
-  选择合集」的逐条链路（见源项目 xhs_add_collection.py），不存在本模块这种
-  「打开合集编辑页批量补挂」的入口。
+  选择合集」的逐条链路，不存在批量补挂入口。
 
-**使用契约**：
+使用契约：
 - 只对**自己的账号内容**操作；page 由 base.launch 给出（resolver Chrome）。
 - 保存是修改类操作：计数不符就不点保存、保留现场（每步截图落 out_dir）。
 - title / want / search_kw / desc / cover 全部由调用方传入——本模块不写死
@@ -30,30 +18,18 @@ probe_bili_collection / check_bili_level / probe_xhs_collection 系列）：
 from __future__ import annotations
 
 import json
-import re
 import time
 from pathlib import Path
 
-from . import base
 
 MANAGE = "https://creator.douyin.com/creator-micro/content/manage?tab=collections"
 
-# 找出「+」按钮：24x24 svg，在**右侧抽屉面板内**，行内不含「已添加」
-# （缺陷②修复的核心：选择器长在按钮自己的几何特征上，不靠「文本行去重取序号」）
-#
-# ⚠️ 2026-10-08 修正两处硬编码（原版把实测值写进了选择器）：
-# ① x 区间 1500..1600 是 viewport=1600 时量出的**绝对坐标**；本项目
-#    viewport=1700 时「+」落在 x≈1674，全部被过滤 → 面板明明有 3 个作品
-#    （截图可证），脚本却报「待加=0」。现改为**相对视口**判定。
-# ② 行文本必须包含 search_kw（"四季"）：12 条里只有 3 条标题含它，
-#    其余 9 条静默漏挂。现改为「未添加的一律返回」，数量核对交给调用方。
-# 教训：**几何选择器里出现绝对坐标，等于把 viewport 宽度写死了。**
-#（search_kw 不再进本 JS——「未添加的一律返回」后 want 形参已删，数量核对
-#  交给调用方。）
-#
-# 几何判据只允许有一份实现：JS_PLUS（找候选）与滚入视口的 scroller
-# （点前重取坐标）共用 _JS_GEOM。2026-10-08 之前两处各写一份，漂移后
-# scroller 找不到元素 → 滚动没发生 → 拿旧坐标连点同一条希伯来语行 3 次。
+# 找「+」按钮：24x24 svg，在右侧抽屉面板内，行内不含「已添加」。
+# 选择器长在按钮自己的几何特征上，不靠「文本行去重取序号」（曾每轮都点
+# 同一行）。几何判定禁绝对坐标——那等于把 viewport 宽度写死，inPanel 一律
+# 相对视口；行文本也不按 search_kw 过滤（曾静默漏挂），未添加的一律返回，
+# 数量核对交给调用方。几何判据只允许一份实现：JS_PLUS 与 scroller 共用
+# _JS_GEOM，各写一份必然漂移。
 _JS_GEOM = """
   const vw = window.innerWidth || 1600;
   const inPanel = (r) => r.x + 24 >= vw * 0.62     // 在右侧抽屉面板内
@@ -73,8 +49,8 @@ JS_PLUS = """() => {""" + _JS_GEOM + """  const cands = [];
     if (!row) return;
     const rt = (row.innerText || '').replace(/\\s+/g, ' ').trim();
     if (rt.length > 220) return;                 // 行容器识别失败
-    // ⚠️ 2026-10-08：原来要求行文本包含 search_kw（"四季"）。实测 12 条里
-    // 只有 3 条标题含「四季」，其余 9 条永远匹配不上 → 静默漏挂。
+    // ⚠️ 原来要求行文本包含 search_kw。实测标题未必含该词（12 条里只 3 条含），
+    // 其余永远匹配不上 → 静默漏挂。
     // 改为：**未添加的一律返回**，数量核对交给调用方。
     if (rt.includes('已添加')) return;
     cands.push({t: rt.slice(0, 46), x: Math.round(r.x), y: Math.round(r.y)});
@@ -85,7 +61,7 @@ JS_PLUS = """() => {""" + _JS_GEOM + """  const cands = [];
 
 JS_COUNT = """() => {
   const b = document.body.innerText || '';
-  // ⚠️ 2026-10-08：空合集时页面**根本没有**「合集内作品 N」这段文本
+  // ⚠️ 空合集时页面**根本没有**「合集内作品 N」这段文本
   //（截图实证：只有标题 +「点击添加作品」）。旧正则匹配不到返回 -1，
   // 与「面板被服务端清空」混为一谈。
   // 现在区分三种状态：正数 = 计数 / 0 = 确认空 / -1 = 未知。
@@ -98,7 +74,7 @@ JS_COUNT = """() => {
 # 面板是否被服务端错误清空
 JS_PANEL_EMPTY = """() => {
   const b = document.body.innerText || '';
-  // ⚠️ 2026-10-08 修正：原来把「没有更多视频」当成面板被清空。实测那是
+  // ⚠️ 原来把「没有更多视频」当成面板被清空。实测那是
   // **分页到底**的正常文案，不是故障。判据应是「共 0 个作品」或服务端错误。
   if (/共\\s*0\\s*个作品/.test(b)) return true;
   if (/服务器\\/网络开小差了/.test(b)) return true;
@@ -217,7 +193,7 @@ def _add_loop(page, *, want, search_kw, before, out_dir):
             break
         c = cands[0]                        # 永远取最上面那支未添加的
         # 滚动进视口中心再取新鲜坐标。几何判据**不再另写一份**——直接拼
-        # _JS_GEOM（2026-10-08 之前这里曾另有 `r.x > 1500` 硬编码，两份
+        # _JS_GEOM（这里曾另有 `r.x > 1500` 硬编码，两份
         # 漂移后 viewport=1700 找不到元素 → 滚动没发生 → 拿旧坐标点击 →
         # 轮10/11/12 三次都点在同一条希伯来语行上（12 次点击只加进 9 支））。
         page.evaluate("""(y) => {""" + _JS_GEOM + """
@@ -236,7 +212,7 @@ def _add_loop(page, *, want, search_kw, before, out_dir):
             researches += 1
             research(page, search_kw=search_kw, out_dir=out_dir); continue
         c = c2[0]
-        # ⚠️ 2026-10-08 加的护栏：坐标失效时 JS_PLUS 会反复返回同一支
+        # ⚠️ 护栏：坐标失效时 JS_PLUS 会反复返回同一支
         # （上一版实测轮10/11/12 连点同一条希伯来语，12 次点击只加进 9 支）。
         # 这里按**行首文字**去重，已点过的直接跳过——
         # 宁可少点，也不要把同一条点 12 次然后拿一个假计数当成功。
@@ -364,8 +340,7 @@ def fix_collection(page, *, title, want, search_kw, out_dir) -> dict:
 def create_collection(page, *, title, desc, cover, want, search_kw, out_dir) -> bool:
     """创建合集：填表 + 上传封面 + 打开作品选择面板 + JS_PLUS 挂 want 支 → 创建。
 
-    表单/封面/面板步骤搬运自 douyin_make_collection.py / douyin_collection_step1.py
-    （这些步骤实测有效）；挂作品环节**不用** make 版的 JS_ROWS 循环（缺陷②），
+    表单/封面/面板步骤为实测有效的做法；挂作品环节**不用** make 版的 JS_ROWS 循环（缺陷②），
     走 fix 版的 _add_loop（JS_PLUS）。
     """
     out_dir = Path(out_dir)

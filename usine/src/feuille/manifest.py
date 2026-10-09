@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
 """manifest.py — 发布清单（⑧）：文案稿解析 / 平台限制检查 / 标注回填 / 清单构建
 
-合并自 explorateur/src/usine/publish.py（parse_copy / hook_shape / PLATFORMS）
-与 yiyezhiqiu 的 build_publish_manifest.py + check_copy.py（素材存在性前置 /
-len() 实测回填 / B 站上限）。两项目**独立收敛到同一文案体例**（T2），但解析器
-各写一份、已经漂移（explorateur 的节头带 `· MM:SS`，yiyezhiqiu 不带）——
-终态合成一份，**时长字段可选**，两边都吃。
-
-体例（机器可解析，人写可 diff）：
+体例（机器可解析，人写可 diff）；节头的时长字段可选：
 
     ### 01 · 英语 `en-US` · 00:52 [· ✅ 已发布]      ← 时长与已发布标记可选
     **标题**（20 字）                                  ← 括号标注会被 fill_annotations
@@ -26,9 +20,9 @@ len() 实测回填 / B 站上限）。两项目**独立收敛到同一文案体�
 
 铁律（纪律 7 的机制化）：
 - **属性一律派生**：title_chars / body_chars / topic_count / hook 全部现算
-  （explorateur 坑㉲：手标字数实测三支全错）。
+  （手标字数实测全错过）。
 - **素材存在性前置**：视频 / 封面**真实在盘**才算清单齐（发到一半发现文件缺失
-  是最贵的失败方式；yiyezhiqiu 把它卡在 build 阶段）。
+  是最贵的失败方式，卡在 build 阶段最便宜）。
 - hook 分类**可判定、可复现**，不做语义猜测：emoji × question 两个特征交叉
   （抖音=question、小红书=emoji+question——压成一维会把两个变量混进一个结论）。
 """
@@ -38,7 +32,7 @@ import re
 from pathlib import Path
 
 # ---------------------------------------------------------------- 平台约束
-# 写成数据不是 if/else：加平台 = 加一行。B 站 80 是 yiyezhiqiu 手测口径。
+# 写成数据不是 if/else：加平台 = 加一行。B 站 80 是手测口径。
 PLATFORMS = {
     "douyin":      {"label": "抖音", "titleMax": 30, "bodyMax": 1000, "hook": "question"},
     "xiaohongshu": {"label": "小红书", "titleMax": 20, "bodyMax": 1000, "hook": "emoji+question"},
@@ -49,7 +43,7 @@ PLATFORMS = {
 
 # ---------------------------------------------------------------- 文案解析
 
-# 时长字段可选：explorateur 体例带 `· MM:SS [· ✅ 已发布]`，yiyezhiqiu 只到 `locale`。
+# 时长字段可选：完整体例带 `· MM:SS [· ✅ 已发布]`，最简只到 `locale`。
 _SEC = re.compile(r"^###\s+(\d+)\s*·\s*(\S+)\s*`([^`]+)`"
                   r"(?:\s*·\s*(\d\d):(\d\d))?(.*)$")
 _FENCE = re.compile(r"\*\*(标题|正文|话题)\*\*[^\n]*\n```\n(.*?)\n```", re.S)

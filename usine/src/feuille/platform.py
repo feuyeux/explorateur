@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
 """platform.py — 外部可执行文件（浏览器 / ffmpeg / ffprobe / magick）的跨平台解析，全仓唯一事实源
 
-搬运自 explorateur/src/usine/platform_tools.py（终态视角重构：补 magick、
-环境变量改名 FEUILLE_BROWSER、浏览器支持按内核过滤——发布器只认 Chrome）。
+**它防的两种静默故障**（两次真实事故换来的）：
 
-**它防的两种静默故障**（explorateur 用两次真实事故换来的，经验原文保留）：
-
-1. 写死路径（如 `EDGE = "C:\\...\\msedge.exe"`）在别的系统上直接 file-not-found
-   ——而浏览器明明装了；
+1. 写死路径在别的系统上直接 file-not-found——而浏览器明明装了；
 2. 更阴的：账本类工具读到 `null` 按「不可信 = 保守判过期」处理——
    **每个产物永久判过期、每次全量重做，且没有任何东西报错**。缓存就这么悄悄变成「不存在」。
 
-**为什么 Edge 排在 Chrome 前面**：原工程像素基线是在 Edge 上采的，Edge 在候选首位
+**为什么 Edge 排在 Chrome 前面**：像素基线是在 Edge 上采的，Edge 在候选首位
 才能保证 Windows 渲染结果逐像素不变；macOS / Linux 没装 Edge 时自然落到同为
 Chromium 的 Chrome（`--headless=new` / `--screenshot` 用法通用）。
 

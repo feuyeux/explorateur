@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""verify_ledger.py — 缓存账本的反向验证（搬运自 explorateur，适配注册制 + root 参数化）
+"""verify_ledger.py — 缓存账本的反向验证（注册制 + root 参数化）
 
 **第 0 条纪律是好数据放行**：登记 → status 必须报 fresh；这条不过，后面的
 「能抓坏」全部没有意义。
 
-其余各条各防一种真实退化（explorateur 坑㊁㉣㉡的机检版）：
+其余各条各防一种真实退化：
 - 改一个字节 → 指纹必变（模块与数据各验一次）
 - 读不到的输入 → 指纹 None（保守判过期，绝不假设没影响）
 - 产物被删 / 账本没这条 / 指纹不符 → 判过期
@@ -19,7 +19,6 @@
 """
 from __future__ import annotations
 
-import json
 import pathlib
 import sys
 import tempfile
@@ -100,7 +99,7 @@ def check() -> list[tuple[bool, str]]:
     ledger.record(root, "testline", "unit-b", [str(art)])
     entries = ledger.load(root)["entries"]
     rows.append(("testline:unit-a" in entries and "testline:unit-b" in entries,
-                 "不同 unit 键不碰撞（explorateur 坑㉣：键不带身份段会互相覆盖）"))
+                 "不同 unit 键不碰撞（键不带身份段会互相覆盖）"))
 
     # ---- 9. extra 账本自描述 ----
     ledger.record(root, "testline", "unit-extra", [str(art)], extra=("16x9",))

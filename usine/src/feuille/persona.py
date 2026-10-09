@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """persona.py — 人设契约校验器（②③ 数据检查层的 persona 半边）
 
-契约文档：`personas/schema.md`（搬运自 explorateur/personas/）。本模块是它的机器判定：
+契约文档：`personas/schema.md`。本模块是它的机器判定：
 `validate_persona(p) -> 问题列表`（纯函数、不做 I/O——因此反向验证可以直接喂坏数据）。
 
 **合法值一律现取注册表，不复制**（纪律 7）：
@@ -9,7 +9,7 @@
 - moves 槽位值 → `rig.POSE_CODES` 的键（姿态库的唯一事实源）；
 - 声线安全域 → `tts.SAFE_RATE / SAFE_PITCH`（|rate|≤20%、|pitch|≤12Hz——越界劈嗓）。
 
-**班底级不变量**（explorateur 选角规则）：每语种恰两人、一男一女、一活泼一沉稳
+**班底级不变量**（选角规则）：每语种恰两人、一男一女、一活泼一沉稳
 （活泼者当 A / 沉稳者当 B 的戏剧分工天然成立）；id 全局唯一（id = rnd 种子命名空间，
 撞 id = 幂等破坏）。`validate_roster(personas)` 判这两条。
 
@@ -58,7 +58,7 @@ def validate_persona(p: dict, *, where: str = "") -> list[str]:
             add(f"{w}: name.{k} 缺失")
     for k in ("archetype", "quirk"):
         if not isinstance(p.get(k), str) or not p[k].strip():
-            add(f"{w}: 档案字段 {k} 缺失（2026-10-03 起 28 人全量入档）")
+            add(f"{w}: 档案字段 {k} 缺失（28 人全量入档）")
     rel = p.get("relation") or {}
     if not isinstance(rel.get("partner"), str) or not rel["partner"].strip():
         add(f"{w}: relation.partner 缺失（语种内搭档）")

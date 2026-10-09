@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """verify_audio.py — 音轨合成的反向验证
 
-核心是坑③那条顺序纪律：**apad 必须在 loudnorm 之前**（explorateur 实测的
+核心是坑③那条顺序纪律：**apad 必须在 loudnorm 之前**（实测的
 非确定 EOF 冲刷竞态：后置时 10 连跑丢补尾 3 次）。顺序写错不会立刻炸，
 只会随机出片——所以用断言钉住 filter_graph 的字符串顺序，不跑 ffmpeg 也能验。
 

@@ -1,32 +1,24 @@
 # -*- coding: utf-8 -*-
-"""base.py — 发布器共享骨架（M13 / 工作流 ⑨）：三份发布器重复结构的可测拆分
+"""base.py — 发布器共享骨架（⑨）：三份发布器的公共结构拆成可测小函数
 
-搬运自 yiyezhiqiu/scripts/publish_douyin_yyzq.py / publish_xhs_yyzq.py /
-publish_bilibili_yyzq.py（三份发布器独立收敛到同一副骨架；本模块是终态合成：
-公共结构拆成小函数，平台特有逻辑在 douyin.py / xhs.py / bilibili.py）。
+平台特有逻辑在 douyin.py / xhs.py / bilibili.py。两条硬约定：
+- `run_tasks` 的防风控节流写在**循环内**（每条之间都睡；实测连发 2 条就撞风控）。
+- `resolve_chrome()` 经 `feuille.platform.browser(only="chrome")` 解析，
+  找不到显式报缺（SystemExit），绝不编路径、绝不退化成「系统默认」；
+  `FEUILLE_BROWSER` 环境变量可临时覆盖。
 
-**已核实缺陷的修复声明**（feuille AGENTS.md 工程约定表，逐条指认）：
-- ① 防风控节流写在循环外 → `run_tasks` 把节流挪进**循环内**（每条之间都睡）。
-  原版：publish_xhs_yyzq.py main 循环结束后才 `time.sleep(35)`，注释却写着
-  「每条之间多歇一会儿」——整批 12 条实际只睡了最后那一次（实测连发 2 条就撞风控）。
-- ② douyin_make_collection 的 JS_ROWS 去重每轮返回同一行 → 合集以
-  `douyin_fix_collection.py`（「+」按钮 svg 选择器）为基准，见 collections.py。
-- ③ 发布器写死的 Chrome 绝对路径 → `resolve_chrome()` 经
-  `feuille.platform.browser(only="chrome")` 解析（跨平台约定 1：找不到 = 显式报缺，
-  绝不编造路径、绝不退化成「系统默认」）。
-
-**使用契约**：
-- playwright **只在函数内 lazy import**：feuille 主环境不装 playwright 也必须能
-  `import feuille.publish`；发布前先 `uv sync --group publish` 再调用。
+使用契约：
+- playwright **只在函数内 lazy import**：主环境不装 playwright 也必须能
+  `import feuille.publish`；发布前先 `uv sync --group publish`。
 - 任务来源参数化：`tasks` 是 `feuille.manifest.build_manifest` 的产物
-  （no / lang / locale / title / body / tags / video / cover），本模块不读任何写死路径。
-- profile 默认值是 PROFILES 平台表里的**数据**（`~/.{平台}_creator_profile` 命名约定，
-  macOS / Linux 如此，Windows 为用户目录下同构命名）。
+  （no / lang / locale / title / body / tags / video / cover），本模块不读写死路径。
+- profile 默认值是 PROFILES 平台表里的数据，登录态存盘勿删。
 - 认证与风控一律人工（纪律 21）：wait_login / wait_risk_clear 只等待、绝不代填、
   绝不自动重试；解除后必须确认遮罩真的消失。
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import time
@@ -230,7 +222,7 @@ def wait_risk_clear(page, *, no=0, log_dir, limit_min=10, kws=RISK_WORDS,
         page.screenshot(path=str(shot))
     except Exception:
         pass
-    print(f"\n🛑 撞上平台风控，需要你本人扫码验证")
+    print("\n🛑 撞上平台风控，需要你本人扫码验证")
     print(f"   📸 {shot}")
     print(f"   请在弹出的 Chrome 窗口里{hint}（最多等 {limit_min} 分钟）…")
     deadline = time.time() + limit_min * 60
@@ -338,14 +330,13 @@ def filter_tasks(tasks, only=None, frm=None):
 
 
 # ---------------------------------------------------------------- CLI 适配层
-def manifest_argparser(prog: str) -> "argparse.ArgumentParser":
+def manifest_argparser(prog: str) -> argparse.ArgumentParser:
     """三个发布器 CLI 叶子的公共参数表（平台差异项由调用方再 add_argument）。
 
     参数表长一个样是**约定**不是巧合（cli.py 路由叶子；`feuille.manifest.
     build_manifest` 的清单格式三个平台同构），各抄一份只会漂移出三个
     「文档说 a、代码收 b」的版本。
     """
-    import argparse
     ap = argparse.ArgumentParser(prog=prog)
     ap.add_argument("manifest", help="build_manifest 落盘的清单 JSON")
     ap.add_argument("--log-dir", required=True,

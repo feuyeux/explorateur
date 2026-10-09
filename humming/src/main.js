@@ -798,10 +798,47 @@ export class App {
       finalQuantized = [fallbackNote];
     }
 
+    // 自动测速校准：用户哼唱速度常与 BPM 滑杆不一致，网格量化会把节奏全部
+    // 错位。用原始音符（时间域，与预设 BPM 无关）估计真实速度。
+    // 阈值按样本量自适应：
+    // - 音符 ≥30 个（整首歌曲级样本）：累计网格拟合统计可靠，6% 即校准
+    // - 音符 <30 个（哼唱短句）：basic_pitch 精炼音符的 onset 有 ±8% 抖动，
+    //   阈值太松会把本来正确的 BPM「校」错（实测 100 被改到 107 后节奏崩坏），
+    //   放宽到 12%，6%~12% 只在状态里提示
+    let bpmCalibrationNote = null;
+    // 测速信号优先用 tempoNotes：完整混音下它是「全编曲精炼结果」（含鼓/贝斯
+    // 节拍层），主旋律线（rawNotes）的人声常按八分音符跑、锚点会翻倍
+    const estimatedBpm = this.segmenter.estimateTempo(transcription.tempoNotes || transcription.rawNotes || []);
+    if (estimatedBpm && finalQuantized.length > 1) {
+      const rawCount = (transcription.tempoNotes || transcription.rawNotes || []).length;
+      const calibThreshold = rawCount >= 30 ? 0.06 : 0.12;
+      const drift = Math.abs(estimatedBpm - this.segmenter.bpm) / this.segmenter.bpm;
+      if (drift > calibThreshold) {
+        const previousBpm = this.segmenter.bpm;
+        // 不走 setBpm：它会因 quantizedNotes 非空而排 150ms 防抖重排，
+        // 与本处重量化重复；这里直接同步所有持有 BPM 的状态与控件
+        this.segmenter.bpm = estimatedBpm;
+        this.aiEngine.segmenter.bpm = estimatedBpm;
+        this.metronome?.setBpm(estimatedBpm);
+        const numInput = document.getElementById('input-bpm-num');
+        if (numInput) numInput.value = String(estimatedBpm);
+        const slider = document.getElementById('input-bpm');
+        if (slider) slider.value = String(estimatedBpm);
+        finalQuantized = this.segmenter.quantizeNotes(
+          transcription.rawNotes, estimatedBpm, this.segmenter.quantizeGrid
+        );
+        bpmCalibrationNote = `已按哼唱速度自动校准 BPM: ${previousBpm} → ${estimatedBpm}`;
+      } else if (drift > 0.06) {
+        bpmCalibrationNote = `检测到哼唱速度约 ${estimatedBpm} BPM，如节奏错位可微调滑杆`;
+      }
+    }
+
     this.quantizedNotes = finalQuantized;
 
     this.updateStageStatus(2, 'completed', `引擎: ${transcription.engineUsed}`);
-    this.updateStageStatus(3, 'completed', `切分量化出 ${this.quantizedNotes.length} 个结构化离散音符 (已消解滑音与碎音)`);
+    this.updateStageStatus(3, 'completed',
+      (bpmCalibrationNote ? `${bpmCalibrationNote}；` : '') +
+      `切分量化出 ${this.quantizedNotes.length} 个结构化离散音符 (已消解滑音与碎音)`);
     this.displayStage3Metrics({ rawNotes: transcription.rawNotes || [], quantizedNotes: this.quantizedNotes });
 
     // 阶段四：乐理推断

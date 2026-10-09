@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""verify_cli.py — 统一入口路由表的反向验证（explorateur verify_cli.py 体例）
+"""verify_cli.py — 统一入口路由表的反向验证
 
 **它要证的那句话**：「路由表里的每个叶子都真的可达。」
 统一时漏搬一个子命令，它就静默消失——直到有人在旧入口找不到功能。
@@ -85,7 +85,7 @@ def check():
               if p.name != "verify_probes.py"
               and not any(s == p.name for s, _ in vp.SUITES.values())]
     rows.append((not orphan,
-                 f"scripts/ 下没有游离的 verify_*.py（全部被聚合器管住）"
+                 "scripts/ 下没有游离的 verify_*.py（全部被聚合器管住）"
                  + (f"　**游离 {orphan}**" if orphan else "")))
 
     # ---- 3. 文档宣称 ⊆ 已登记（反向机检，防「文档说谎」）----

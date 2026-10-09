@@ -3,7 +3,7 @@
 """verify_personas.py — 人设契约校验器的反向验证
 
 第 0 条好数据放行：**28 人班底全部通过**（validate_persona 逐人零问题 +
-validate_roster 零问题）——判据写反时这条会全红（explorateur 坑㉚ 的教训）。
+validate_roster 零问题）——判据写反时这条会全红。
 
 反向：定向破坏必须被抓（每条对应一类真实退化）：
 坏脸型（不在 FACE_SPECS）、坏姿态码（不在 POSE_CODES）、坏 hex、缺调色板键、
@@ -33,9 +33,9 @@ def check():
     bad = []
     for p in PERSONAS:
         bad += persona.validate_persona(p)
-    rows.append((not bad, f"28 人班底逐人校验零问题" + (f"　**{bad[:2]}**" if bad else "")))
+    rows.append((not bad, "28 人班底逐人校验零问题" + (f"　**{bad[:2]}**" if bad else "")))
     roster = persona.validate_roster(PERSONAS)
-    rows.append((not roster, f"班底级不变量通过（14 语种配对齐全）"
+    rows.append((not roster, "班底级不变量通过（14 语种配对齐全）"
                  + (f"　**{roster[:2]}**" if roster else "")))
 
     # ---- 1. 反向：定向破坏必须被抓 ----

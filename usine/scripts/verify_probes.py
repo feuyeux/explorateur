@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""verify_probes.py — 反向验证聚合器（feuille 版，搬运自 explorateur 同名脚本）
+"""verify_probes.py — 反向验证聚合器
 
 **SUITES 登记 + ORDER 执行，两处必须逐项一致**：登记了却没进执行名单的门禁
-= 没有。聚合器对此当场 exit 2（explorateur 坑㊇：套件登记在 SUITES、
+= 没有。聚合器对此当场 exit 2（曾有套件登记在 SUITES、
 实际跑的是另一份 ORDER，门禁存在但从未执行——防线看着在，不在）。
 
 **PASS 与 SKIP 分开报**：需要成片/浏览器的断言在没条件的机器上标 [SKIP]，

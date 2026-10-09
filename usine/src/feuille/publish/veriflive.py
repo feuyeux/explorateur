@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
-"""veriflive.py — 发布后核对（⑪）：进管理页 → 按标题搜索 → 逐条截图 → 拼对照图
+"""veriflive.py — 发布后核对（⑪）：管理页 → 按标题搜索 → 逐条截图 → 拼对照图
 
-搬运自 yiyezhiqiu/scripts/verify_douyin_covers_live.py / verify_bilibili_live.py /
-verify_xhs_all.py（逐条核对）+ verify_douyin_collection.py /
-verify_douyin_collection_full.py（合集核对）。**全部只读，不做任何修改。**
+全部只读，不做任何修改。最终判定 = 人眼看缩略图里有文字（纪律 5：
+发布成功的唯一权威判据 = 回列表核验到这条作品）。本模块只产证据
+（逐条截图 + full-page 截图 + 对照图），不判 ok/fail——程序打 ✓ 不算数。
 
-**最终判定 = 人眼看缩略图里有文字**（PUBLISH-RULES 判定证据条款；纪律 5：
-发布成功的唯一权威判据 = 回列表核验到这条作品）。照片底图上程序判不了墨迹，
-本模块只产出证据（逐条截图 + full-page 截图 + 对照图），不判 ok/fail——
-「程序不判」就是防「打 ✓ 不算数」假阳性事故的重演。
+对照图用 `feuille.covers.sheet` 拼（PIL），不用 magick montage，少一个外部件。
 
-**对照图用 `feuille.covers.sheet` 拼（PIL）**——不再用 magick montage
-（magick 仍走 resolver 只服务旧项目；feuille 内一律 PIL 拼图，少一个外部件依赖）。
+合集核对是双通道互证：① 合集卡片的「N 个作品」计数；② 进编辑页滚遍
+列表抓到的逐条唯一标题清单。两通道都等于 want 才算齐——只看计数会被
+「计数对但挂错条」骗，只看清单会被「重复挂同一条」骗。可再加交叉验证：
+「只看可添加的作品」计数应为 0（否则还有漏挂）。
 
-**合集核对是双通道互证**：① 合集卡片上的「N 个作品」计数；② 进编辑页滚遍
-列表抓到的逐条唯一标题清单。两通道都要等于 want 才算齐——只看计数会被
-「计数对但挂错条」骗，只看清单会被「重复挂同一条」骗（缺陷②的事故形态）。
-可再加交叉验证：「只看可添加的作品」计数应为 0（还有漏没挂）。
-
-**使用契约**：page 由 base.launch 给出（resolver Chrome + 平台 profile）；
+使用契约：page 由 base.launch 给出（resolver Chrome + 平台 profile）；
 截图全部落 out_dir；返回 dict 只是证据索引，结论由人眼下。
 """
 from __future__ import annotations
@@ -211,7 +205,7 @@ def verify(platform: str, page, out_dir, *, keyword: str = "一叶知秋") -> di
 
     返回证据索引 dict（截图清单 / 对照图路径 / 命中数）。
     **最终判定 = 人眼看对照图缩略图里有文字**——本函数不判 ok/fail。
-    keyword 默认是搬运源项目（一叶知秋）的系列关键词；接入新项目必须传自己的。
+    keyword 默认值只是示例系列词；接入新项目必须传自己的。
     """
     if platform not in PLATFORMS:
         raise SystemExit(f"未知平台 {platform!r}（合法：{sorted(PLATFORMS)}）")

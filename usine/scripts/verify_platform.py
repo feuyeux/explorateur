@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""verify_platform.py — 跨平台解析的反向验证（搬运自 explorateur，终态精简）
+"""verify_platform.py — 跨平台解析的反向验证
 
 **它要证的那句话**：「feuille 在 Windows / macOS / Linux 上都能跑。」
 
 这句话在有产物的机器上看起来永远是绿的，全靠记忆——所以把「会不会退化成单平台」
 变成断言。四条判据各对应一种真实退化：
 
-1. **代码里不再有写死的可执行文件路径**（explorateur 的坑：写死 Windows Edge 路径
-   → macOS 静默失效；yiyezhiqiu 的已核实缺陷③：发布器写死 `/Applications/...` Chrome
-   → 跨平台必炸）。判据两条：Windows 盘符路径 + macOS .app 路径，候选表之外不许出现。
+1. **代码里不再有写死的可执行文件路径**（写死 Windows Edge 路径 → macOS
+   静默失效；发布器写死 `/Applications/...` Chrome → 跨平台必炸）。判据两条：
+   Windows 盘符路径 + macOS .app 路径，候选表之外不许出现。
 2. **浏览器解析落到真实存在的文件上**；`FEUILLE_BROWSER` 指到不存在的路径必须返回 None
    （不静默换人）。
 3. **候选全不命中必须返回 None**（拿不到就说拿不到，不编造路径）。

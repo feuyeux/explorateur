@@ -1,16 +1,17 @@
-# 亮相卡管线 · 工程与调优手册
+# 渲染工程手册（人物 rig · 场景 · 文字层 · 合成）
 
-
-
-
-> 本手册沉淀 28+4 × 10s 亮相卡（`build/intro/<id>.mp4`；RTL 4 语另有 `<id>_f.mp4`
-> 女性观众版，self-intro §1.4）从 0 到 1 的全部工程决策：
-> 架构不变量、参数地图、验收体系、踩坑实录与调优手册。规划与 schema 见
-> [plan.md](plan.md)（§8.2 音频契约、§8.3 人物绘制规格），内容种子见
-> [self-introductions.md](self-introductions.md)。**改任何东西前先读 §3 参数地图。**
+> **本手册是什么**：多语种视频「画面侧」的工程与调优知识库——架构不变量、参数地图、
+> 验收体系、踩坑实录（§5；代码注释里的「手册坑 N」即指向这里）、调优 recipes。
+> 它对应的实现是 feuille 的**画面侧 library 模块**：`rig`（人物绘制）/ `scenes`（背景原语）/
+> `devices`（装置外框）/ `textlayer`（Edge 渲字）/ `compose`（母版叠加）/ `render`（帧编码基座）/
+> `timeline` / `audio`。**改任何东西前先读 §3 参数地图。**
 >
-> 人物生成技术路线的裁定记录（含被否的 H3+Remotion 迁移方案）见
-> [adr-character-tech.md](adr-character-tech.md)：**现役 = 本手册的 Pillow 管线**。
+> **阅读须知（历史包袱）**：本手册由「亮相卡管线」沉淀而来，正文里的命令示例仍用旧项目的
+> `run.ps1 <子命令>` / `usine-*` 入口、`qa_*.py` 验收脚本与 `intro_cards.py` / `scene_video.py`
+> 等旧模块名——这些编排命令**尚未接入 feuille CLI**（现状见 `uv run feuille` 与
+> [workflow.md](workflow.md)）。阅读时把命令示例当作「管线意图」，把几何 / 绘制 / 踩坑结论
+> 当作对上面 library 模块仍然成立的知识。当前工程约定、入口与目录以
+> [../AGENTS.md](../AGENTS.md) 为准。
 
 ---
 
@@ -1232,73 +1233,20 @@ build/scene/cover_collection_1080.jpg   # 合集封面（1:1）
 
 ## 8. 文件地图
 
-```
-une_usine_avec_des_machines_rugissantes/
-├─ CLAUDE.md / README.md             # 项目规则（简）· 项目说明（新人入口）——工具惯例留在仓库根
-├─ docs/                             # 全部工程文档
-│  ├─ render-handbook.md             # ★ 本手册
-│  ├─ requirement.md / plan.md       # 需求 · 总规划（§8.2 音频契约 / §8.3 绘制规格 / §8.4-8.6 三管线）
-│  ├─ adr-character-tech.md          # 人物生成技术选型裁定（H3+Remotion 迁移案 = 备选，Pillow 续役）
-│  ├─ self-introductions.md          # 28+4 卡内容种子（台词/注音/对照/分镜/验收清单）
-│  ├─ publish-playbook.md            # 多平台发布手册（抖音/小红书流程 · 差异对照 · 踩坑 · 核验清单）
-│  └─ benchmark-duolingo.md          # 对标台账（多邻国三文档逐条裁定）
-├─ lessons/                          # ★ 课程统一目录（每课一目录 lessons/<id>/；新课在这里新建）
-│  └─ <id>/brief.json                #    教学创意（§6.8）：token/装置/角色/骨架行数/每节说话人与情绪
-│  └─ colors/                        # colors 课（说到颜色，你会想到什么）
-│     ├─ scene.md                    # 场景剧本（机读事实源：§0 机读规格 + 共享骨架 + 14 语种原生剧本 + 词表）
-│     ├─ scene.json                  # 场景线数据（parse_scene.py 从 scene.md 机械抽取；渲染与教学文档共用）
-│     ├─ publish/                     # 发布文案事实源（双平台各一份，流程见 docs/publish-playbook.md）
-│     │  ├─ douyin-copy.md            # 抖音 14 支标题/正文/话题（30 字标题版）
-│     │  └─ xiaohongshu-copy.md       # 小红书 14 支标题/正文/话题（20 字标题版 + 小红书口吻）
-│     └─ analysis/                   # 教学文档侧的人工解析（与视频管线解耦）
-│        ├─ _source/<locale>.md      # dump_lesson_source.py 导出的可读源文本（原文/注音/翻译/⚑注记/舞台/创作注记）
-│        └─ <locale>.json × 14       # 逐句 {grammar, morph, culture} + 家族/书写/舞台三段（人工委派产出）
-├─ run.ps1                           # ★ 统一入口（-Scene <id> 选教学场景）
-├─ pyproject.toml / uv.lock / .venv # 包与依赖（usine-cards / usine-parse / usine-scene / usine-lesson / usine-dump-lesson / usine-validate）
-├─ src/usine/                        # ★ 全部代码（数据在仓库根，产物在 build/；`from usine import ROOT` 定位根，不依赖 cwd）
-│  ├─ intro_cards.py                 # ★ 管线一（tts/assets/render；face_geo/MOOD_FACE/SCENES/pose_for/POSE_CODES）
-│  ├─ data.py                        # ★ 数据入口唯一事实源（personas/cards_doc/scene_doc/unit_persona；只读缓存）
-│  ├─ media.py                       # ★ 媒体内核（compose_track/karaoke_points/frac_at/edge_window_h；两条管线共用）
-│  ├─ scene_schema.py                # ★ 场景数据前置校验（validate_scene；parse 写完即自检）
-│  ├─ qa_grid.py / qa_char.py / qa_all.py / qa_motion.py   # 验收四件套（§4）
-│  ├─ parse_scene.py                 # 场景线：lessons/<id>/scene.md → scene.json（通用解析器，只抽取不改写）
-│  ├─ scene_video.py                 # 场景线（M2，场景无关：tts/assets/render；选角/双人站位/token 装置/RTL 镜像）
-│  ├─ qa_scene.py                    # 场景线验收（§4.5，--scene <id>）
-│  ├─ dump_lesson_source.py          # lessons/<id>/scene.json → analysis/_source/<locale>.md（只排版不改写）
-│  ├─ scene_draft.py                 # P2-1：lessons/<id>/brief.json → scene.md 结构草稿（填结构不填内容）
-  ├─ ledger.py                      # P2-2：产物缓存账本 build/manifest.json（status 看谁过期了）
-  ├─ cli.py                         # P2-3：统一入口 usine <组> <命令> 路由表（旧入口全部保留为别名）
-  ├─ publish.py                     # P2-5：发布台账 publish/ledger.json + 指标回流分析（build/check/analyze）
-│  ├─ build_lesson.py                # 合并成 build/lesson/<id>/index.html（语系排序 9 组 + 逐句解析；视频走顶部 sticky 固定栏 + 语种 tab）
-│  ├─ cover.py                       # ★ 封面（全局约定 §6.13）：从 scene.json 派生 9:16 单片封面 + 1080 1080 合集封面（⬜ 待实现）
-│  └─ qa_cover.py                    # 封面门禁（存在性 / 主题精确 / 精致耐看 / 幂等）（⬜ 待实现）
-├─ languages/                          # ★ 语种目录（新增语种 = 新建目录；体例见该目录 README.md）
-│  ├─ README.md                        #    五个字段的约束 + 为什么国旗必须等于 ISO 区码
-│  └─ <locale>/manifest.json           #    label / flag / dir / fontCss（语种知识唯一事实源）
-├─ personas/
-│  ├─ personas.json                    # ★ 28 人档案（人设唯一事实源；语种属性已搬去 languages/）
-│  └─ intro-cards.json                 # ★ 28 卡种子（cast/lines/moods/gestures/entry_pose/scene/close；RTL 卡带 variants[] 女性观众版）
-├─ publish/                            # ★ 发布台账（P2-5；流程见 docs/publish-playbook.md）
-│  ├─ ledger.json                      #    机器可读台账（usine publish build 从 copy 源派生，属性全派生）
-│  └─ results.json                     #    人工层：平台结果 / 已发布凭据 / 效果指标（没数据留 null）
-├─ scripts/                            # 验收侧反向验证（verify_probes.py 统一入口 → shape/text/schema/lang/langmap/draft/ledger/cli/framehash/publish **十套**）＋ 发布侧（抖音/知乎）
-│  ├─ framehash.py                     # 成片逐帧像素基线（重构不许改画面；--locate 漂移定位；--selftest 15 条）
-│  ├─ verify_languages.py              # 语种目录门禁 85 项（--selftest 反向验证 9 条）
-│  ├─ verify_lang_migration.py         # 语种取值等价性（重构前后逐字节相同 + 缺目录必须报错）
-│  ├─ verify_scene_draft.py            # 草稿生成器（复现已验收的 numbers + 7 类坏 brief）
-│  ├─ verify_ledger.py                 # 缓存账本（它会不会在不该跳的时候跳）
-│  ├─ verify_cli.py                    # 统一 CLI（旧入口的每个子命令都还在吗；分母从行数派生）
-│  └─ verify_publish.py                # 发布台账（悬空路径/越界指标/裸「已发布」+ 分析侧样本量纪律，25 条）
-└─ build/                            # 产物（.gitignore）
-   ├─ intro/                         # 管线一产物
-   │  ├─ <id>.mp4                     # 32 × 10s（28 卡 + 4 个 <id>_f 女性观众版）
-   │  ├─ audio/                       # <key>.mp3+<key>.json 词表缓存 · <id>.m4a · <id>.timeline.json（变体独立键）
-   │  └─ text/                        # 文字层 PNG（band_<unit>_<i>_{base,hl}/badge_<id>/pill_<locale>/bubble，双 matte 抠像）
-   ├─ scene/                         # 管线二产物（多场景共存，文件名带 scene-<id> 前缀）
-   │  ├─ scene-<id>_<locale>.mp4      # 每场景每语种一支（40–60s）
-   │  ├─ audio/                       # scene-<id>_<locale>.m4a / .timeline.json（cast/token 点亮时刻/逐行词轴）+ 逐行 mp3 缓存
-   │  └─ text/                        # band_/bub_/pill_/tok_ 均带 scene-<id>_<locale> 前缀 · badge_<id>（人物名牌，跨场景共享）
-   └─ lesson/<id>/                    # 教学文档（build_lesson.py 产物，每课一目录）
-      ├─ index.html                   # 单文件 HTML（视频按 ../../scene/ 相对路径引用）
-      └─ poster_<locale>.jpg          # 封面帧（成片生成/复用）
-```
+工程目录与三层模块归属的**唯一事实源**是 [../AGENTS.md](../AGENTS.md)「目录与事实源」
+与 [../README.md](../README.md)「src/feuille 模块地图」（由 ownership.json + verify_skills.py
+双向机检）。本手册不另抄一份——画面侧实现集中在这些 library 模块：
+
+| 关注点 | 模块 |
+|---|---|
+| 人物绘制（几何 / 表情 / 姿态 / 挂件物理） | `feuille.rig` |
+| 背景场景原语（@scene 注册表 / 预渲 / 超采样） | `feuille.scenes` |
+| 装置外框样式注册表 | `feuille.devices` |
+| Edge headless 渲字（视口探测 / 双 matte 抠像） | `feuille.textlayer` |
+| 母版叠加合成 / 帧编码基座 | `feuille.compose` / `feuille.render` |
+| 行时间轴与词级进度轴 / 音轨合成 | `feuille.timeline` / `feuille.audio` |
+| 逐帧像素基线（按平台分桶，验收像素判据） | `feuille.framehash` |
+| 封面机制（平台规格 / 预裁底图 / 裁切模拟） | `feuille.covers` |
+
+数据在仓库根（`personas/` 28 人班底、`languages/` 14 语种注册表），产物落在内容项目的
+`build/`（gitignored，可再生）。反向验证在 `scripts/`（`uv run feuille verify` 一条命令全量跑）。

@@ -1,8 +1,6 @@
 # feuille —— 多语种视频生产与发布的可复用层
 
-"""从 videos / yiyezhiqiu / explorateur 三个项目蒸馏出的能力层。
-
-分层（对应工作流 ①–⑬，见 01-workflows.md）：
+"""分层能力（对应工作流 ①–⑬，见 docs/workflow.md）：
 
 - ②③ 场景与数据：scene 解析 / schema 校验、能力数据（班底 / 语种注册表）
 - ④ 审计：声称 vs 实测（格律计数，NO_CLAIM 留白合法）

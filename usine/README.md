@@ -13,13 +13,13 @@
 |---|---|
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + uv 统一）+ H3 铁律 |
 | [pyproject.toml](pyproject.toml) + `uv.lock` | uv 工程（Python 3.12；publish 组 = Playwright） |
-| `src/feuille/` | 终态代码：34 个归属模块 / 1.07 万行，按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
+| `src/feuille/` | 代码：33 个归属模块（约 1.03 万行），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
 | `scripts/` | 20 个反向验证脚本（19 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，330+ 项断言） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
 | `skills/` | 自建 SKILL 资产（8 个，总路由见 [skills/README.md](skills/README.md)），机器侧以软链挂到 `~/.agents/skills/`（只放软链，不存实体） |
-| `examples/yiyezhiqiu/` | 示例项目内容包（诗稿 / 文案 / 数据 / 设计稿 / H3 母版——母版不可再生） |
+| `examples/` | 内容项目产物示例（yiyezhiqiu 等：诗稿 / 文案 / 数据 / 设计稿 / H3 母版——母版不可再生） |
 
 ## src/feuille 模块地图（三层归属）
 
@@ -112,9 +112,9 @@ for s in usine/skills/*/; do ln -sfn "$PWD/$s" ~/.agents/skills/"$(basename "$s"
 |---|---|
 | [workflow.md](docs/workflow.md) | 工作流运行手册（①–⑬：内容创作→合集收录，每段输入/步骤/产物/检查） |
 | [toolchain.md](docs/toolchain.md) | 工具链：①–⑬ 每段用什么工具 + 工具明细 + 平台后台 |
-| [publish-lessons.md](docs/publish-lessons.md) | 发布踩坑与经验教训总账（270 行，按平台分节） |
-| [publish-playbook.md](docs/publish-playbook.md) | 多平台发布手册（881 行，32 条坑 + 三条元规则） |
-| [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册（409 行，20 条坑） |
-| [metrics-playbook.md](docs/metrics-playbook.md) | 数据取数手册（220 行） |
-| [render-handbook.md](docs/render-handbook.md) | 渲染工程手册（1301 行，踩坑实录 §5） |
+| [publish-lessons.md](docs/publish-lessons.md) | 发布踩坑与经验教训总账（按平台分节） |
+| [publish-playbook.md](docs/publish-playbook.md) | 多平台发布手册（分平台坑表 + 三条元规则） |
+| [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册 |
+| [metrics-playbook.md](docs/metrics-playbook.md) | 数据取数手册 |
+| [render-handbook.md](docs/render-handbook.md) | 渲染工程手册（含踩坑实录 §5） |
 | [lessons-learned.md](docs/lessons-learned.md) | 经验总纲（入口式，只写最终成立的结论） |

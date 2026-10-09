@@ -90,29 +90,21 @@ def sh(*args, timeout=None, **kw):
 
 
 def render_chrome(out, url, w, h):
-    """headless screenshot in a fresh, throwaway profile.
+    """headless screenshot — library 实测参数组（textlayer._shot_args 同源）。
 
-    浏览器走 library 的 `feuille.platform`（唯一事实源），参数与
-    `textlayer._shot_args` 对齐——那一组是实测过的。
-
-    每次运行用**全新的临时 --user-data-dir**：不带它时 Chromium 落到默认
-    profile，桌面浏览器若已开着，singleton 锁会把启动移交给现有进程、退出 0
-    且不写截图。实测 macOS + Edge 上挂住不退的是**持久化** profile（旧版
-    的 `_chrome_profile` 目录）；换空目录规避了它。就算在别的环境再挂，
-    timeout=180 也让它响亮地失败，而不是无限等。
+    浏览器走 library 的 `feuille.platform`（唯一事实源）。**不带
+    --user-data-dir、不带 --no-sandbox**：usine AGENTS.md 实测（macOS +
+    Edge 154）——带 user-data-dir 图能出但进程永不退出，180s 超时整个
+    build 挂死；不带它 1.7s 退出。（AGENTS.md「headless 浏览器隔离」行）
+    timeout=180 兜底，挂了响亮地失败而不是无限等。
     """
     browser = platform.browser_path()
     if not browser:
         sys.exit("找不到 Chromium 系浏览器；装 Chrome 或 Edge，或设 CHROME_BIN")
-    profile = tempfile.mkdtemp(prefix="karaoke-chrome-")
-    try:
-        sh(browser, "--headless=new", "--disable-gpu", "--no-sandbox",
-           "--virtual-time-budget=10000", f"--window-size={w},{h}",
-           "--force-device-scale-factor=1", "--hide-scrollbars",
-           f"--user-data-dir={profile}",
-           f"--screenshot={out}", url, timeout=180)
-    finally:
-        shutil.rmtree(profile, ignore_errors=True)
+    sh(browser, "--headless=new", "--disable-gpu",
+       "--virtual-time-budget=10000", f"--window-size={w},{h}",
+       "--force-device-scale-factor=1", "--hide-scrollbars",
+       f"--screenshot={out}", url, timeout=180)
     if not pathlib.Path(out).exists():
         sys.exit(f"浏览器退出 0 但没写出 {out}——大概率被已开着的桌面浏览器"
                  "抢占（singleton 移交）。关掉桌面浏览器后重试。\nURL was: {url}")

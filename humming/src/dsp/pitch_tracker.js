@@ -225,6 +225,14 @@ export class PitchTracker {
     });
   }
 
+  /**
+   * Viterbi 转移概率。
+   *
+   * 惩罚曲线按真实清唱旋律的音程统计设计：级进为主，三~七度跳进少见但真实，
+   * 八度跳进/次谐波错误需要强发射分支撑。
+   * 旧曲线对 5~7 半音跳进罚 exp(-3.5~-4.9)，导致「突然的高音」整段跟不上
+   * （实测《无名指》37 个跳进点 22 个停在了跳进前的旧音高，偏差恰为跳进音程）。
+   */
   transitionLogProb(fromCandidate, toCandidate) {
     if (fromCandidate.freq === 0 && toCandidate.freq === 0) {
       return Math.log(0.9);
@@ -236,13 +244,17 @@ export class PitchTracker {
     const semitoneDiff = Math.abs(12 * Math.log2(toCandidate.freq / fromCandidate.freq));
 
     if (semitoneDiff < 0.8) {
-      return Math.log(0.95);
-    } else if (semitoneDiff < 2.0) {
-      return Math.log(0.65);
+      return Math.log(0.95);  // 同音持续
+    } else if (semitoneDiff < 2.5) {
+      return Math.log(0.70);  // 级进（大二度内）
+    } else if (semitoneDiff < 5) {
+      return Math.log(0.35);  // 三度/四度跳进
+    } else if (semitoneDiff < 9) {
+      return Math.log(0.15);  // 五~七度跳进：少见但真实
     } else if (Math.abs(semitoneDiff - 12) < 1.0) {
-      return Math.log(0.2);
+      return Math.log(0.04);  // 八度：真八度跳或次谐波错误，靠发射分辨
     } else {
-      return Math.log(Math.max(1e-4, Math.exp(-semitoneDiff * 0.7)));
+      return Math.log(0.01);  // 超过八度：基本只可能是错误
     }
   }
 }

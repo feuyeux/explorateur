@@ -2,14 +2,10 @@
 # -*- coding: utf-8 -*-
 """parse_scene.py — 通用教学场景解析器：lessons/<id>/scene.md → lessons/<id>/scene.json
 
-搬运自 explorateur/src/usine/parse_scene.py（733 行）。适配点（仅此三处，坑注/准则注
-与函数体逐字节照搬）：
-- `from usine import ROOT` + 模块常量 LESSONS_DIR → `from .data import LESSONS_DIR` +
-  `_lessons(lessons_dir)`：scene_paths / find_scene_ids / analysis_dir / parse_scene
-  增加可选 lessons_dir 参数（缺省 = feuille 仓库根 lessons/，data.py 锚定）——
-  doctor 与内容项目要把 lessons 指到自己的目录；
-- 命令名 `usine-parse` → `uv run feuille scene parse`（feuille cli.py 路由表）；
-- main(argv=None)：feuille 统一入口以 `fn(argv)` 调用（源版无参、读 sys.argv）。
+lessons 目录参数化：scene_paths / find_scene_ids / analysis_dir / parse_scene 都带可选
+lessons_dir（缺省 = feuille 仓库根 lessons/，data.py 锚定）——doctor 与内容项目要把
+lessons 指到自己的目录。命令名 `uv run feuille scene parse`；入口 main(argv=None)
+（统一入口以 `fn(argv)` 调用）。
 
 使用契约：`parse_scene(scene_id, lessons_dir=None) -> (doc, out_path)`——解析 + 前置校验
 （scene_schema.validate_scene）通过才返回，不产出半成品 scene.json；main 落盘后跑
@@ -17,8 +13,7 @@ token 零遗漏零重复 / 轮次气泡齐备自检。
 
 剧本 md 是场景唯一事实源（台词 + 机器规格），本脚本只做**抽取**不做改写：§0 机读规格
 （sceneId / title / rtlLocales / 教学 token 表 / 舞台装置规格表）、§2 各语种台词、§5
-token 词表全部按体例取回，保证 md 与 JSON 两处同步（CLAUDE.md 不变量③——本脚本是该
-同步的构造性保证）。
+token 词表全部按体例取回，保证 md 与 JSON 两处同步（本脚本是该同步的构造性保证）。
 
 **场景无关**：新教学场景 = 在 `lessons/<id>/` 新建 `scene.md` 照抄体例，本脚本与渲染线零改动：
     uv run feuille scene parse [--scene colors] [--lessons DIR]   # lessons/colors/scene.md → lessons/colors/scene.json
@@ -681,7 +676,7 @@ def parse_scene(scene_id, lessons_dir=None):
         doc["stage"] = stage
         doc["dialogue"] = shared
 
-    # 前置校验（2026-10-04）：解析完立刻对账，不合规就地失败，不产出半成品 scene.json。
+    # 前置校验：解析完立刻对账，不合规就地失败，不产出半成品 scene.json。
     # 校验层本身经 scripts/verify_scene_schema.py 反向验证（12 种定向破坏必须被抓）。
     from .scene_schema import validate_scene
     errs = validate_scene(doc)

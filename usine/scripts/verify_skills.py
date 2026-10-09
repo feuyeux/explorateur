@@ -284,7 +284,7 @@ def _check_ownership(names: set[str]) -> list[tuple[bool, str]]:
 
     # ---- 8b. 存量必须消化完：unclaimed 为空 ----
     rows.append((not unclaimed,
-                 f"存量代码全部消化完（unclaimed 为空）"
+                 "存量代码全部消化完（unclaimed 为空）"
                  + (f"　**仍有 {len(unclaimed)} 个无主：{sorted(unclaimed)}**"
                     if unclaimed else "")))
 

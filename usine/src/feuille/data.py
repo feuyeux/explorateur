@@ -2,26 +2,15 @@
 # -*- coding: utf-8 -*-
 """data.py — 数据入口唯一事实源（personas / intro-cards / languages / scene.json）
 
-搬运自 explorateur/src/usine/data.py（142 行；函数体逐字节照搬，含全部坑注/准则注）。
+数据在哪、怎么读、读成什么形状，只在本模块定义一次——此前 personas.json
+被多处各自 json.load、路径各自手抄，改目录结构时必漏。
 
-**为什么需要**（源文件 2026-10-04 收债新增，动机照搬）：此前 `personas.json` 在 6 处被
-各自 `json.load` 打开，路径各自手抄——改目录结构时必漏。本模块把「数据在哪、怎么读、
-读成什么形状」收成一处。
+目录参数化：personas/ 与 languages/ 是**能力数据**（班底 + 语种注册表，
+渲染与校验共用），缺省 = feuille 仓库根下这份；lessons/ 是内容项目数据，
+内容项目把自己的目录指进来。`lru_cache` 按实参分键，不同目录互不串味。
 
-适配点（仅此四处，其余逐字节照搬）：
-- ROOT 锚定从 `usine/__init__.py`（pyproject 上溯）挪进本模块，feuille 包 `__init__.py`
-  不动；默认目录 = feuille 仓库根下 `personas/` `languages/` `lessons/`。
-- **目录路径参数化**：`personas_doc` / `language_manifests` / `cards_doc` / `scene_doc`
-  增加可选目录参数（缺省 None = feuille 默认）。personas/ 与 languages/ 是**能力数据**
-  （班底 + 语种注册表，渲染文字层与校验层共用），缺省就是 feuille 下的这份；lessons/
-  是内容项目数据，内容项目把自己的目录指进来。`lru_cache` 按实参分键，不同目录互不串味。
-- 只搬场景机制（②③）用到的入口；`persona()` / `locale_of()` / `unit_persona()`
-  服务于 explorateur 的亮相卡变体解析（intro-cards `variants[]`），feuille 未搬该管线，
-  随它走（不搬清单见 rig.py / scenes.py 同款终态说明）。
-- 错误提示里的命令名 `usine-parse` → `uv run feuille scene parse`。
-
-**不变量（源文件新增，照搬）**：经本模块取回的人设/卡片数据是**只读**的。进程内缓存返回
-同一对象，任何模块 mutate 它都会污染同进程内的其他读者（渲染线与探针线同进程时立刻串味）。
+不变量：经本模块取回的数据是**只读**的。进程内缓存返回同一对象，任何模块
+mutate 它都会污染同进程内的其他读者。
 
 使用契约：
     from feuille.data import personas, cards_doc, language_manifests, scene_doc
@@ -35,7 +24,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-# ROOT 由本文件位置向上定位仓库根（pyproject.toml 所在层）——usine 同款锚定法，
+# ROOT 由本文件位置向上定位仓库根（pyproject.toml 所在层），
 # 包内默认路径（personas/ languages/ lessons/）不依赖 cwd。
 ROOT = next(p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file())
 
@@ -65,8 +54,7 @@ def personas_doc(personas_dir=None):
 def language_manifests(languages_dir=None):
     """{locale: languages/<locale>/manifest.json}。语种目录——**语种知识的事实源**。
 
-    2026-10-04 收债新增（P1-4）。此前语种的东西散在三个地方：`intro_cards.FONT_CSS`（字体栈）、
-    `intro_cards.FLAG`（国旗 emoji）、`personas[].langLabel`（语种文字）。加一个语种要同时改
+    此前语种的东西散在三处：字体栈、国旗 emoji、`personas[].langLabel`。加一个语种要同时改
     三处，漏一处不报错，只是静静渲出一个「没有旗的语言牌」——这类洞只能靠目录化 + 门禁堵。
 
     语种目录收的是**语种自身的属性**（文字、旗、书写方向、字体栈），不是某一门课的剧本属性：
@@ -123,13 +111,3 @@ def scene_doc(scene_id, lessons_dir=None):
     if not js.exists():
         raise SystemExit(f"场景数据不存在：{js.name}（先跑 `uv run feuille scene parse --scene {scene_id}`）")
     return _read_json(js)
-
-
-def reload_all():
-    """清空进程内缓存（测试/长驻进程改数据后用）。"""
-    personas_doc.cache_clear()
-    personas.cache_clear()
-    cards_doc.cache_clear()
-    language_manifests.cache_clear()
-    fonts_css.cache_clear()
-    flags.cache_clear()

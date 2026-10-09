@@ -2,29 +2,19 @@
 # -*- coding: utf-8 -*-
 """lesson.py — 新课接入的两个动作：`new`（开坑）与 `doctor`（体检）
 
-搬运自 explorateur/src/usine/lesson.py（607 行；源文件全部内容就是这两个动作）。
-适配点（坑注/准则注与函数体逐字节照搬）：
-- **目录全部参数化**：lessons 经 `--lessons`（缺省 = feuille 仓库根 lessons/，
-  data.py 锚定）；personas / languages 经 `--personas` / `--languages`
-  （缺省 = feuille 能力数据目录）。项目根（build/ 产物、publish/ 台账、
-  build/baseline/ 基线所在层）= lessons 目录上推一层——与 explorateur 仓库布局同构；
-- 注册表改取 feuille 渲染线：`intro_cards.SCENES` → `scenes.SCENES`、
-  `scene_video.DEVICE_STYLES` → `devices.DEVICE_STYLES`、`MOOD_FACE` → `rig.MOOD_FACE`
-  （经 `scene_draft._registries()` 现取，不抄名单——名单必腐烂）；
-- 发布层判据接 feuille 事实源：平台文案名按 `manifest.PLATFORMS` 的 `{plat}-copy.md`
-  契约派生（copy 显式 None 的平台不走逐支模板）；台账路径 = `metrics.ledger_path(root)`；
-  逐帧基线 = `framehash.baseline_path(root)`（baseline_hits 搬运适配 + 按平台分桶）；
-- 「下一步」命令全部改写为 feuille 命名空间（cli.py 路由表）。其中场景渲染管线
-  （scene tts/assets/render）、教学文档（lesson build/dump）、发布台账构建、qa_scene
-  **未随本次蒸馏搬运**——这些命令是渲染线落位后的预留入口；检查本体（产物存在性 /
-  台账 / 基线覆盖）不依赖入口存在，现在就工作；
-- `--all` 在 lessons 目录尚不存在时回落到 find_scene_ids（源仓库 lessons/ 恒存在，
-  feuille 缺省没有——不守会 FileNotFoundError）；
-- cli.py 契约：`main_new` / `main_doctor` 包装（统一入口以 `fn(argv)` 调用）。
+目录全部参数化：lessons 经 `--lessons`（缺省 = feuille 仓库根 lessons/，data.py 锚定），
+personas / languages 经 `--personas` / `--languages`（缺省 = feuille 能力数据目录）。
+项目根（build/ 产物、publish/ 台账、build/baseline/ 基线所在层）= lessons 目录上推一层。
+判定用的注册表一律经 `scene_draft._registries()` 现取，不抄名单——名单必腐烂。
+发布层判据接 feuille 事实源：平台文案名按 `manifest.PLATFORMS` 的 `{plat}-copy.md` 派生
+（copy 显式 None 的平台不走逐支模板）；台账路径 = `metrics.ledger_path(root)`；
+逐帧基线 = `framehash.baseline_path(root)`（按平台分桶）。`--all` 在 lessons 目录尚不
+存在时回落到 find_scene_ids（否则 FileNotFoundError）。
 
 使用契约：`cmd_new(argv)` 开坑（拒覆盖已有 brief；空跑草稿生成证明这份 brief 渲得出来）；
 `cmd_doctor(argv)` 七层体检（①创意…⑦验收），每条未完成带下一条命令，返回码
 0 = 无 FAIL（--strict 时可选拘认 TODO 计失败）/ 1 = 有 FAIL / 2 = 用法错。
+cli.py 入口为 `main_new` / `main_doctor`（统一入口以 `fn(argv)` 调用）。
 
 **为什么要有这两个动作**：colors / numbers 两门课跑完之后，接入流程实际是 6 步——
 
@@ -72,7 +62,7 @@ def _lessons(lessons_dir=None):
     """lessons 目录参数 → Path（None / 空 = 缺省：feuille 仓库根 lessons/，data.py 锚定）。
 
     项目根（build/ 产物与 publish/ 台账所在层）由 lessons 目录上推一层得到：
-    内容项目把 --lessons 指进来，产物与台账就在它旁边——与 explorateur 布局同构。
+    内容项目把 --lessons 指进来，产物与台账就在它旁边。
     """
     return Path(lessons_dir) if lessons_dir else LESSONS_DIR
 
@@ -204,7 +194,7 @@ def scaffold_brief(sid: str, title: str, tokens: list[dict], locales: list[str],
         "title": title,
         "goal": goal or "TODO：一句话说清这课教什么",
         "structure": structure or f"开场提议 → {rounds} 轮一来一往 → 开心再会",
-        "description": f"TODO：一句话说明这课与既有课的可对照差异（colors 色片 / numbers 字牌）",
+        "description": "TODO：一句话说明这课与既有课的可对照差异（colors 色片 / numbers 字牌）",
         "form": "dialogue",
         "durationBudget": duration_budget,
         "noteFloor": note_floor,
@@ -312,8 +302,7 @@ def cmd_new(argv=None) -> int:
     n_lines = brief["lines"]
     # `relative_to(项目根)` 在 lessons 目录被指向仓库外时会抛 ValueError，
     # 而这里只是给人看的一行字——**显示代码不该有能力让命令失败**。
-    # （explorateur verify_new_lesson.py 正是把 LESSONS_DIR 指到临时目录，实测走到过
-    # 这条；feuille 的 --lessons 同样把它变成常态，所以照搬这条守则。）
+    # （--lessons 把 lessons 指到仓库外/临时目录是常态，这条守则因此是必需的。）
     def _shown(p: Path) -> str:
         try:
             return str(p.relative_to(_lessons(args.lessons).parent))
@@ -328,7 +317,7 @@ def cmd_new(argv=None) -> int:
     print("接下来（②生成结构草稿 → ③填台词 → ④全链路）：")
     print(f"  uv run feuille scene draft --brief lessons/{sid}/brief.json")
     print(f"  uv run python -m feuille.scene_draft --brief lessons/{sid}/brief.json --gaps   # 看还欠多少")
-    print(f"  # 填完所有 TODO 后：")
+    print("  # 填完所有 TODO 后：")
     print(f"  uv run feuille scene parse --scene {sid} && uv run feuille scene validate --scene {sid}")
     print(f"  uv run feuille lesson doctor --scene {sid}      # 体检：还差哪几项")
     print()
@@ -351,8 +340,7 @@ def baseline_hits(scene_id: str, locales: list[str], root,
                   path=None) -> tuple[int, int, Path]:
     """`(命中数, 应命中数, 基线文件路径)`。
 
-    搬运自 explorateur/src/usine/framehash_baseline.py `baseline_hits`（104–117 行），
-    适配两点：基线路径改经 `feuille.framehash.baseline_path`（**按平台分桶**——跨平台
+    基线路径经 `feuille.framehash.baseline_path`（**按平台分桶**——跨平台
     像素基线本来就不可比，见 framehash.py 头注），root 参数化（= lessons 目录上推一层）。
     **为什么按「应命中数」而不是「总数」**：一门课刚建时成片一支都没有，
     此时 `命中 0 / 应命中 0` 是「还没渲」，不是「漏了基线」——两者不能混报，
@@ -413,8 +401,7 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
     colors 有（numbers 只跑到成片就停了）——所以「必做」只有到成片那几层，
     文档层与发布层是**可选层**，未做记 todo 而不是 fail。
     """
-    # 项目根 = lessons 目录上推一层（build/ 产物、publish/ 台账、build/baseline/ 基线
-    # 都在这层；explorateur 里就是 ROOT，参数化后由 --lessons 推导，布局同构）。
+    # 项目根 = lessons 目录上推一层（build/ 产物、publish/ 台账、build/baseline/ 基线都在这层）。
     root = _lessons(lessons_dir).parent
     scene_out = root / "build" / "scene"
     rep = Report(sid)
@@ -535,7 +522,6 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         miss_txt = [lc for lc in locs if not (scene_out / "text").exists()
                     or not (scene_out / "text" / f"pill_scene-{sid}_{lc}.png").exists()]
         miss_mp4 = [lc for lc in locs if not (scene_out / f"scene-{sid}_{lc}.mp4").exists()]
-        pref = f"scene-{sid}"
         add("④成片", "语音", OK if not miss_tts else TODO,
             "全语种齐" if not miss_tts else f"缺 {len(miss_tts)} 语种：{', '.join(miss_tts[:6])}",
             "" if not miss_tts else f"uv run feuille scene tts --scene {sid}（渲染线预留）")
@@ -555,13 +541,13 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         html = root / "build" / "lesson" / sid / "index.html"
         add("⑤文档", "解析源文本", OK if not no_src else TODO,
             "全语种齐" if not no_src else f"缺 {len(no_src)} 语种",
-            "" if not no_src else f"uv run feuille lesson dump --scene {sid}（教学文档管线未蒸馏，预留）")
+            "" if not no_src else f"uv run feuille lesson dump --scene {sid}（教学文档管线尚未接入）")
         add("⑤文档", "逐句解析", OK if not no_ana else TODO,
             "全语种齐" if not no_ana else f"缺 {len(no_ana)} 语种（人工产出，无法自动生成）",
             "" if not no_ana else f"编辑 lessons/{sid}/analysis/{{locale}}.json")
         add("⑤文档", "教学文档 HTML", OK if html.exists() else TODO,
             str(html.relative_to(root)) if html.exists() else "还没合并",
-            "" if html.exists() else f"uv run feuille lesson build --scene {sid}（教学文档管线未蒸馏，预留）")
+            "" if html.exists() else f"uv run feuille lesson build --scene {sid}（教学文档管线尚未接入）")
 
     # ---- ⑥ 发布（可选层）----
     # 平台文案文件名按 `feuille.manifest` 的 parse_copy 契约（`{plat}-copy.md`）从平台表
@@ -583,21 +569,21 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         "" if not no_copy else f"写进 lessons/{sid}/publish/{{plat}}-copy.md")
     add("⑥发布", "发布台账", OK if ledger_n else TODO,
         f"{ledger_n} 条" if ledger_n else "台账里没有这课",
-        "" if ledger_n else "uv run feuille publish build（台账构建未蒸馏，预留）")
+        "" if ledger_n else "uv run feuille publish build（台账构建尚未接入）")
 
     # ---- ⑦ 验收 ----
-    # qa_scene（场景线逐项探针）未随蒸馏搬运：它逐帧读 mp4，依赖场景渲染管线（⑥）。
-    # 状态位照搬（没成片 = todo / 有 mp4 无成片可验 = skip / 有成片 = 该跑没跑），
+    # qa_scene（场景线逐项探针）尚未接入：它逐帧读 mp4，依赖场景渲染管线（⑥）。
+    # 状态位判定（没成片 = todo / 有 mp4 无成片可验 = skip / 有成片 = 该跑没跑），
     # 「下一步」如实说明判据暂由逐帧像素基线承担——**「没验」不许长得像「验过了」**。
     if not locs:
         add("⑦验收", "场景线验收", TODO, "等成片出来",
-            "qa_scene 未蒸馏（场景渲染线落位后随迁）；验收暂以下方像素基线为准")
+            "qa_scene 尚未接入（依赖场景渲染线）；验收暂以下方像素基线为准")
     elif not any((scene_out / f"scene-{sid}_{lc}.mp4").exists() for lc in locs):
         add("⑦验收", "场景线验收", SKIP, "没有成片可验（qa_scene 要逐帧读 mp4）",
-            f"uv run feuille scene render --scene {sid} 之后才有意义（渲染线预留）")
+            f"uv run feuille scene render --scene {sid} 之后才有意义（场景渲染线尚未接入）")
     else:
         add("⑦验收", "场景线验收", TODO, "跑一次确认没退化",
-            "qa_scene 未蒸馏（场景渲染线落位后随迁）；验收暂以下方像素基线为准")
+            "qa_scene 尚未接入（依赖场景渲染线）；验收暂以下方像素基线为准")
     # 逐帧像素基线是**零像素漂移**这条硬判据的载体。基线是一个
     # `{成片名: hash}` 表（build/baseline/framehash-<平台桶>.txt，见 framehash.baseline_path），
     # 所以这里直接查表，而不是报一句「记得跑」——「跑过了」和「覆盖到这课了」是两件事。
@@ -659,7 +645,7 @@ def cmd_doctor(argv=None) -> int:
         sorted(p.name for p in _lessons(args.lessons).iterdir() if p.is_dir())
         if args.all and _lessons(args.lessons).is_dir() else find_scene_ids(args.lessons))
     if not ids:
-        print(f"还没有课。`uv run feuille lesson new <id> --title \"…\" --tokens \"k:#RRGGBB\"` 开一门。")
+        print("还没有课。`uv run feuille lesson new <id> --title \"…\" --tokens \"k:#RRGGBB\"` 开一门。")
         return 0
     if args.scene and not (_lessons(args.lessons) / args.scene).is_dir():
         print(f"没有 lessons/{args.scene}/。开一门：uv run feuille lesson new {args.scene} ...")

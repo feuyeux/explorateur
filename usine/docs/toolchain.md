@@ -40,13 +40,12 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 | **uv** | 全阶段（工程基座） | Python 环境与依赖管理 | 一切 Python 调用走 `uv run`；`uv sync --group publish` / `--group music` 按需装可选组；锁文件自动同步 | Win / macOS / Linux 官方支持 | — |
 | **Python 3** | ②–⑬ | 脚本运行时 | 经 `uv run` 调用，不直接用系统 / homebrew python；过渡态例外见 AGENTS.md | 同上 | — |
 | **Microsoft Edge**（headless） | ⑥渲字 ⑦封面 | 文字层 / 封面截图渲染 | `raqm=False` 的唯一正确出路（阿/希/天城文必须走它）；`--window-size` ≠ 视口高，先探后补（`edge_window_h`）；与像素基线同源故 resolver 排首位 | 候选链 Edge → Chrome → Chromium；环境变量可临时覆盖 | `feuille.textlayer.viewport_deficit` |
-| **Google Chrome** | ⑨发布 ⑩合集收录 ⑪发布后核对 | Playwright 驱动 + 持久 profile | 用**系统 Chrome**（`executable_path`），不用 Playwright 自带浏览器——四平台 profile 各一、绑定登录态 | 写死的 `/Applications/...` 路径是已核实缺陷③，搬 M13 时改走 resolver | `feuille.publish` |
-| **Chromium** | 备选 | resolver 第三候选 | 找不到浏览器返回 None 并显式失败，绝不退化「系统默认」 | 三系统 | `usine.platform_tools` |
-| **ffmpeg** | ⑥合成 ⑬验收 | 基底叠加、混音（loudnorm −14 LUFS）、逐帧像素哈希 | `apad` 必须前置 `loudnorm`（EOF 冲刷竞态，10 连跑丢补尾 3 次）；时长控制 `-t` + 前置 apad/atrim，**禁 `-shortest`**；像素判据 `-map 0:v -f hash -hash md5`（少 `-map 0:v` 数字不同且不报错） | 三系统；经 resolver | `usine.media.compose_track`；`scripts/framehash.py` |
+| **Google Chrome** | ⑨发布 ⑩合集收录 ⑪发布后核对 | Playwright 驱动 + 持久 profile | 用**系统 Chrome**（`executable_path`），不用 Playwright 自带浏览器——四平台 profile 各一、绑定登录态 | 写死的 `/Applications/...` 路径是已核实缺陷，现已改走 resolver | `feuille.publish` |
+| **Chromium** | 备选 | resolver 第三候选 | 找不到浏览器返回 None 并显式失败，绝不退化「系统默认」 | 三系统 | `feuille.platform` |
+| **ffmpeg** | ⑥合成 ⑬验收 | 基底叠加、混音（loudnorm −14 LUFS）、逐帧像素哈希 | `apad` 必须前置 `loudnorm`（EOF 冲刷竞态，10 连跑丢补尾 3 次）；时长控制 `-t` + 前置 apad/atrim，**禁 `-shortest`**；像素判据 `-map 0:v -f hash -hash md5`（少 `-map 0:v` 数字不同且不报错） | 三系统；经 resolver | `feuille.audio.compose_track`；`feuille.framehash` |
 | **ffprobe** | ⑤时间轴 ⑬验收 | 时长 / 流 / 规格实测 | `file_dur` 以 ffprobe 实测为准（edge-tts 尾部垫 ~0.95s 静音） | 三系统；经 resolver | `feuille.timeline` |
 | **ImageMagick** `magick` | ⑦裁切安全 ⑪拼图 ⑬ | 按平台真实展示比例裁切封面、拼对照图 | 上传比例 ≠ 展示比例（小红书 3:4 上下各切 240、B站首页 4:3 左右各切 240） | 三系统；经 resolver | `feuille.covers` |
-| **PowerShell**（pwsh 7 / Win 5.1） | 统一入口（可选形态） | `run.ps1` 跨平台编排 | 失败判定一律看 `$LASTEXITCODE`（5.1 的 `$ErrorActionPreference="Stop"` 会把原生命令 stderr 判致命）；`./run.ps1` 三系统通用、反斜杠路径只在 Windows 可用 | 三系统 | — |
-| **bash** | 批量产线（历史参考） | 批量校验 / 实测时长 / 渲染脚本 | 只对传输层错误重试（`NoAudioReceived` 等），渲染/预算错误重试无意义；workers ≤5（10 并发压垮内存） | ⚠️ **Windows 无原生 bash——feuille 的批处理不沿用此形态**，统一入口走 `uv run` Python CLI 或 run.ps1 | — |
+| **bash** | 批量产线（历史参考） | 批量校验 / 实测时长 / 渲染脚本 | 只对传输层错误重试（`NoAudioReceived` 等），渲染/预算错误重试无意义；workers ≤5（10 并发压垮内存） | ⚠️ **Windows 无原生 bash——feuille 的批处理不沿用此形态**，统一入口走 `uv run feuille` | — |
 | **git** | 全程 | 版本控制 + 事故恢复 | `git show` 旧版文件逐字节回填；⚑ U+2691 易写成 ⚡ U+26A1 | 三系统 | — |
 | **mavis-trash** | 清理 / 删除 | 删除走回收站，不用 `rm -rf` | workspace 约定：`/Users/han/.minimax/bin/mavis-trash --` | ⚠️ macOS 本机工具；跨平台时需等价回收站方案 | workspace 约定 |
 | **H3**（mcode-tools） | ⑥ 基底（提示词出自 ③ 分镜；**仅内容项目**） | 文生视频母版 | **铁律：绝不自动调用**，逐次展示提示词/画幅/时长/分辨率/消耗并取得明确同意；一次生成、按画幅成对、生成后冻结，后续只叠加（见 AGENTS.md 铁律） | 网页 / API | `examples/yiyezhiqiu/masters/` |
@@ -71,10 +70,10 @@ updated: { by: dsh/fuyao-work, at: 2026-10-07 }
 
 | 平台 | 后台入口 | profile | 硬限制（实测） | 先例 |
 |---|---|---|---|---|
-| **抖音** | `creator.douyin.com/creator-micro/` | `~/.douyin_creator_profile` | 标题 ≤30 字；正文 ≤1000 字；**每作品最多修改 5 次**；封面槽实为 3:4；合集需先建 | `publish_douyin_yyzq.py` + `fix_all_douyin_covers.py`（两步：先发再补封面） |
-| **小红书** | `creator.xiaohongshu.com` | `~/.xhs_creator_profile` | 标题 ≤**20** 字⚠️（29 字抖音标题直接红字）；话题在正文末行；发布按钮 DOM 不可见（像素探测 #FF2442）；风控「Scan to verify」停下等人；**无合集管理页** | `publish_xhs_yyzq.py` + `verify_xhs_all.py` |
-| **B 站** | `member.bilibili.com/platform/` | `~/.bili_creator_profile` | 标题 ≤80 字；创作声明必填 6 值白名单（勾「自制」版权声明填不满必填框）；合集需权益 Lv2；「立即投稿」后有二次确认；成功词表须含「稿件**投递**成功」 | `publish_bilibili_yyzq.py` + `verify_bilibili_live.py` |
-| **知乎** | `zhuanlan.zhihu.com` | `~/.zhihu_creator_profile` | 长文唯一可自动化路径 =「导入文档」上传 .md（Draft.js 只在真实 paste 转换）；**一篇文章最多 10 个视频**（实测 12 支插到第 10 支卡住）；**阿拉伯语有违规风险**（宗教语境靠近红线，逐条风险表见 docs/publish-lessons.md §4.1b）；阿拉伯文区段 U+0600–06FF 存盘被剥（平台限制）；雪花 ID 精度 bug 致草稿删不掉；**无合集**（主文导览互链代替） | `zhihu-publish-playbook` + `build_zhihu.py` + docs/publish-lessons.md |
+| **抖音** | `creator.douyin.com/creator-micro/` | `~/.douyin_creator_profile` | 标题 ≤30 字；正文 ≤1000 字；**每作品最多修改 5 次**；封面槽实为 3:4；合集需先建 | `feuille.publish.douyin`（两步：先发再 `fix_covers` 补封面） |
+| **小红书** | `creator.xiaohongshu.com` | `~/.xhs_creator_profile` | 标题 ≤**20** 字⚠️（29 字抖音标题直接红字）；话题在正文末行；发布按钮 DOM 不可见（像素探测 #FF2442）；风控「Scan to verify」停下等人；**无合集管理页** | `feuille.publish.xhs` + `feuille.publish.veriflive` |
+| **B 站** | `member.bilibili.com/platform/` | `~/.bili_creator_profile` | 标题 ≤80 字；创作声明必填 6 值白名单（勾「自制」版权声明填不满必填框）；合集需权益 Lv2；「立即投稿」后有二次确认；成功词表须含「稿件**投递**成功」 | `feuille.publish.bilibili` + `feuille.publish.veriflive` |
+| **知乎** | `zhuanlan.zhihu.com` | `~/.zhihu_creator_profile` | 长文唯一可自动化路径 =「导入文档」上传 .md（Draft.js 只在真实 paste 转换）；**一篇文章最多 10 个视频**（实测 12 支插到第 10 支卡住）；**阿拉伯语有违规风险**（宗教语境靠近红线，逐条风险表见 docs/publish-lessons.md §4.1b）；阿拉伯文区段 U+0600–06FF 存盘被剥（平台限制）；雪花 ID 精度 bug 致草稿删不掉；**无合集**（主文导览互链代替） | `zhihu-publish-playbook`（人工导入 .md） + docs/publish-lessons.md |
 
 > 通用铁律（AGENTS.md 纪律 19–21 + 5）：宁可整条不发，也不带病发布；发布成功唯一权威判据 = 回列表核验到作品；发布后核对只读、截图取证；扫码 / 风控一律人工。
 

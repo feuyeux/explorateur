@@ -35,7 +35,7 @@ def make_copy(path, *, with_duration: bool, sections):
         head = f"### {no:02d} · {lang} `{locale}`"
         if with_duration:
             head += " · 00:52 · ✅ 已发布"
-        out += [head, f"**标题**（99 字）", "```", title, "```",
+        out += [head, "**标题**（99 字）", "```", title, "```",
                 "**正文**（99 / 1000）", "```", body, "```"]
         if topics is not None:
             out += ["**话题**", "```", topics, "```"]
@@ -61,7 +61,7 @@ def check():
                          and r["title_chars"] == len(r["title"]) for r in recs),
                      f"{fname}: 字段齐全，title_chars 派生自 len()"))
     probs = mf.check_copy(PUB / "douyin-copy.md", "douyin", expect=12)
-    rows.append((not probs, f"真实抖音文案过平台检查" + (f"　**{probs[:2]}**" if probs else "")))
+    rows.append((not probs, "真实抖音文案过平台检查" + (f"　**{probs[:2]}**" if probs else "")))
 
     # 小红书话题在正文末行：解析进 topics
     xhs = mf.parse_copy(PUB / "xiaohongshu-copy.md")

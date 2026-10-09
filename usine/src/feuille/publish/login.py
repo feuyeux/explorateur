@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
 """login.py — 逐平台扫码登录（⑨ 前置）：打开 + 等待 + 存盘，不碰任何发布按钮
 
-搬运自 yiyezhiqiu/scripts/login_helper.py（逐字节保留判定逻辑与坑注释；
-适配点：Chrome 写死路径 → base.resolve_chrome()（缺陷③）；SHOT 目录 → 参数）。
+逐个而不是一次全开：二维码有效期约 1–3 分钟，一次全开会有人过期。
+本模块的 wait_login 走 probe() 的三通道判据（可见文本 → URL 特征）；
+base.wait_login 是通用登录墙轮询（关键词表由调用方传），两者用途不同。
 
-**为什么逐个而不是一次开四个**：二维码有效期约 1–3 分钟，一次全开会有人过期。
-本模块只做「打开 + 等待 + 存盘」。
-
-**与 base.wait_login 的分工**：base.wait_login 是通用登录墙轮询（关键词表由调用方传）；
-本模块的 wait_login 走 probe() 的三通道判据（可见文本 → URL 特征），是 login_helper
-原版逻辑的搬运，供逐平台登录流程用。
-
-**使用契约**：认证一律人工（纪律 21）——脚本只等扫码，不代填任何凭据；
-profile 是各平台持久 user-data 目录（base.PROFILES 表），登录态存盘勿删。
+使用契约：认证一律人工（纪律 21）——脚本只等扫码，不代填任何凭据；
+profile 用 base.PROFILES 的持久 user-data 目录，登录态存盘勿删。
 
 用法：
     from feuille.publish import login
-    login.login(["douyin"])                    # 登录一个平台
-    login.login(["douyin", "xhs", "bilibili", "zhihu"])   # 按给定顺序逐个
-    login.login(wait=False)                   # 只查状态，不等待
+    login.login(["douyin"])                                # 登录一个平台
+    login.login(["douyin", "xhs", "bilibili", "zhihu"])    # 按给定顺序逐个
+    login.login(wait=False)                                # 只查状态，不等待
 """
 from __future__ import annotations
 
@@ -167,7 +161,7 @@ def do_one(name: str, wait: bool = True, *, shot_dir=None) -> bool:
         if ok:
             print("   ✅ 已是登录态，无需扫码")
         elif not wait:
-            print(f"   ⚠️  未登录。需你本人在弹出的 Chrome 窗口扫码/登录。")
+            print("   ⚠️  未登录。需你本人在弹出的 Chrome 窗口扫码/登录。")
         else:
             print("   👉 请在弹出的 Chrome 窗口中扫码登录（脚本会等，登录后自动继续）")
             ok = wait_login(ctx, name)

@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
 """metrics.py — 指标回流（⑫）：results 合并 / 发布侧检查 / 分组分析
 
-搬运自 explorateur/src/usine/publish.py 的 merge_results / check / analyze
-（终态视角重构：root 参数化；分析维度参数化——explorateur 的 device/chip 等
-维度是它的课程域字段，feuille 的默认维度取 manifest 派生属性）。
+root 与分析维度都参数化；默认维度取 manifest 派生属性。
 
 **没数据留 null 不填 0**：编出来的数据比没有数据更坏——它让后续每个「结论」
 都建立在虚构样本上。分析器对全 null 台账必须如实说「这不是效果为零，是不知道」。
 
 **部分回填是常态不是异常**：平台后台导出往往只给一部分指标（只有 likes 没有
 views）。筛选必须落在**这一项指标**上（`(e["metrics"] or {}).get(metric)`），
-不能按「有没有 metrics」筛——否则只回填 likes 时查 views 会在取值处 KeyError
-（explorateur 2026-10-05 修）。
+不能按「有没有 metrics」筛——否则只回填 likes 时查 views 会在取值处 KeyError。
 
 **样本不足不排名**（MIN_GROUP=5）：一条数据排出来的第一名是最容易骗人的结论形态。
 
 **已发布凭据两级分开判，别合成一个布尔**：合成后 `weak = verifiedBy and verifiedAt`
-在「有方式没日期」时为假，会掉进「无任何凭据」那句（措辞还是错的），
-而真正的「缺核验日期」分支永远走不到（explorateur 反向验证第 5 条抓出）。
+在「有方式没日期」时为假，会掉进「无任何凭据」分支，而真正的「缺核验日期」
+分支永远走不到。
 """
 from __future__ import annotations
 

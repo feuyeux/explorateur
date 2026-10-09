@@ -105,11 +105,11 @@
               <input type="file" id="audio-file-input" accept=".m4a,.aac,.wav,.mp3,.ogg,audio/*" class="file-upload-input" title="点击选择音频文件">
             </div>
 
-        <!-- 转谱算法引擎选择 (Spotify Basic Pitch / Magenta SPICE / pYIN) -->
+        <!-- 转谱算法引擎选择 (智能路由 / SPICE / pYIN) -->
         <div class="control-group">
           <span class="control-label">转谱引擎:</span>
           <select id="select-engine">
-            <option value="basic_pitch" selected>🧠 Spotify Basic Pitch 神经网络 (内置)</option>
+            <option value="basic_pitch" selected>🧠 智能识谱 (清唱自动 pYIN / 混音自动主旋律提取)</option>
             <option value="spice">🎵 Google Magenta SPICE 声学模型</option>
             <option value="pyin">🎙️ 经典自研 pYIN + Viterbi (本地极速)</option>
           </select>

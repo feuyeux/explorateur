@@ -2,31 +2,20 @@
 # -*- coding: utf-8 -*-
 """devices.py — 装置外框样式注册表（②③ 校验层的判据源 + ⑥ 渲染线的外框画法）
 
-搬运自 explorateur/src/usine/scene_video.py（函数体逐字节照搬，含全部坑注/准则注）：
-- 143：LAST_WELL_RGB（draw_device 铺下的井底实色——浅色 chip 判对比用）
-- 261–275：device_of / well_color / chip_color（§0.2 装置规格读取 + chip 两型契约）
-- 755–767：scene_pal（场景中性色 pal 约定，ink 为道具描边唯一色——不变量⑤）
-- 769–955：DEVICE_STYLES 注册表 + device_style 装饰器 + 15 种 dv_* 外框画法 +
-  GROUND_Y 地面线 + draw_device（装置是数据不是代码：加样式 = 加一个装饰函数）
+LAST_WELL_RGB（draw_device 铺下的井底实色，浅色 chip 判对比用）/
+device_of · well_color · chip_color（装置规格读取 + chip 两型契约）/
+scene_pal（场景中性色 pal 约定，ink 为道具描边唯一色）/
+DEVICE_STYLES 注册表 + device_style 装饰器 + dv_* 外框画法 + GROUND_Y 地面线 +
+draw_device——装置是数据不是代码：加样式 = 加一个装饰函数（现 16 样式）。
 
-适配点（仅两处，其余逐字节照搬）：
-- `mix` / `hexc` 改从 `feuille.rig` 取（源文件从 `usine.intro_cards` 取——同一函数，
-  rig 已先行搬运，单一事实源不破）；
-- `math` 顶层导入（dv_rangoli 用 math.pi，与源文件同款依赖）。
-- 本段在源文件内自洽（只吃 d / cells / box / pal 参数，井位几何由调用方算好传入），
-  无路径耦合，零其余适配。
-
-终态说明（丢了什么、为什么）：
-- 只搬「装置外框」，不搬「井内 token 逐帧填充层」：fill_cell / _cell_shape / cell_box /
-  ring_cell 属场景渲染管线（⑥），与 explorateur 的产物目录耦合，待渲染线落位时随迁；
-  LAST_WELL_RGB 的**读取方**（浅色 chip 加深边判据）在那层，本模块只负责写入。
-- 不搬：is_rtl（RTL 名单在剧本 §0 rtlLocales，由场景线持有）；DEV_X0 / DEV_CY 等
-  井位几何常量（随渲染线，井位由调用方按 §0.2 cellW/cellH 算好后经 cells 传入）。
+本模块只画外框与井底色；井内 token 的逐帧填充层属场景渲染管线。
+井位几何由调用方算好经 cells 传入，本模块不持井位常量；RTL 名单在剧本
+数据里，由场景线持有。
 
 使用契约：
 - **校验层只取键集**：scene_schema / scene_draft / lesson 判「装置 style 合法」的唯一
-  事实源是 `set(DEVICE_STYLES)`，不抄第二份名单（纪律 7：注册表会随渲染线长，
-  手抄必腐烂——腐烂的名单造出「声明合法但渲不出来」的坑）。
+  事实源是 `set(DEVICE_STYLES)`，不抄第二份名单（纪律 7：手抄名单必腐烂，
+  造出「声明合法但渲不出来」的坑）。
 - **chip 两型契约**：以 `#` 开头 = 色片（须 #RRGGBB，`chip_color()` 返回 RGB）；
   其余非空字符串 = 字牌（`chip_color()` 返回 None，走文字层贴图）。
   parse 落库后 `"1"` 与 `1` 不可区分——引号只是书写习惯，不是判据。
@@ -72,7 +61,7 @@ def scene_pal(ident_a, ident_b):
     }
 
 
-# 装置外框样式注册表（2026-10-04 原语化，与 intro_cards.SCENES 的 `@scene` 同构）。
+# 装置外框样式注册表（与 scenes.SCENES 的 `@scene` 同构）。
 # 此前是 `draw_device` 里一条 15 分支 if/elif 链 + 一个裸元组闭集：加一种装置样式必须
 # 改函数体，改名/漏改闭集则等到渲染时才报错。注册后「有哪些样式」由装饰器自己声明，
 # 装置是数据不是代码这条原则在场景线也成立。

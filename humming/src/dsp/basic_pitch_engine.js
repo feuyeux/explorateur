@@ -18,10 +18,44 @@
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+/** 模型要求的输入采样率（bundle 内只对 AudioBuffer 输入校验，Float32Array 会被静默跳过，
+ *  因此本适配器必须自己保证采样率正确 —— 否则 16kHz 数据被按 22050Hz 解释，
+ *  全部音高系统性偏高 12·log2(22050/16000) ≈ +5.56 半音，时间轴压缩 0.725×） */
+const MODEL_SAMPLE_RATE = 22050;
+
 function midiToNoteName(midi) {
   const name = NOTE_NAMES[((Math.round(midi) % 12) + 12) % 12];
   const octave = Math.floor(Math.round(midi) / 12) - 1;
   return `${name}${octave}`;
+}
+
+/** 三次 Hermite 重采样（与 AudioPreprocessor.resample 同算法，避免引擎间耦合） */
+function resample(input, fromRate, toRate) {
+  if (fromRate === toRate) return new Float32Array(input);
+
+  const ratio = fromRate / toRate;
+  const outputLength = Math.round(input.length / ratio);
+  const output = new Float32Array(outputLength);
+
+  for (let i = 0; i < outputLength; i++) {
+    const srcPos = i * ratio;
+    const idx = Math.floor(srcPos);
+    const frac = srcPos - idx;
+
+    const y0 = idx > 0 ? input[idx - 1] : input[idx];
+    const y1 = input[idx] || 0;
+    const y2 = idx + 1 < input.length ? input[idx + 1] : y1;
+    const y3 = idx + 2 < input.length ? input[idx + 2] : y2;
+
+    const c0 = y1;
+    const c1 = 0.5 * (y2 - y0);
+    const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
+    const c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+
+    output[i] = ((c3 * frac + c2) * frac + c1) * frac + c0;
+  }
+
+  return output;
 }
 
 export class BasicPitchEngine {
@@ -81,6 +115,9 @@ export class BasicPitchEngine {
     const onProgress = options.onProgress || null;
     const lib = await this.ensureLib();
 
+    // 模型按 22050Hz 训练：喂入前必须重采样（见 MODEL_SAMPLE_RATE 注释）
+    const modelSamples = resample(samples16k, 16000, MODEL_SAMPLE_RATE);
+
     const bp = new lib.BasicPitch(this.modelUrl());
     await bp.model; // 预加载 GraphModel
 
@@ -89,7 +126,7 @@ export class BasicPitchEngine {
     const contours = [];
 
     await bp.evaluateModel(
-      samples16k,
+      modelSamples,
       (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c); },
       (pct) => onProgress && onProgress(Math.round(pct * 100))
     );
@@ -98,9 +135,12 @@ export class BasicPitchEngine {
       lib.addPitchBendsToNoteEvents(contours, lib.outputToNotesPoly(frames, onsets, 0.25, 0.25, 5))
     );
 
-    // NoteEventTime[] → 应用通用音符结构
+    // NoteEventTime[] → 应用通用音符结构。
+    // 按开始时间排序（noteFramesToTime 的输出不保证时序，实测常为倒序，
+    // 上层编辑器与展示都假定时间序）；保留浮点 exactMidi 供单音精炼取中值。
     return (rawNotes || [])
       .filter((n) => n.durationSeconds > 0.05)
+      .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
       .map((n) => {
         const midi = Math.round(n.pitchMidi);
         return {
@@ -108,6 +148,7 @@ export class BasicPitchEngine {
           endTime: Math.round((n.startTimeSeconds + n.durationSeconds) * 1000) / 1000,
           duration: Math.round(n.durationSeconds * 1000) / 1000,
           midi,
+          exactMidi: n.pitchMidi,
           confidence: Math.round((n.amplitude || 0.8) * 100) / 100,
           noteName: midiToNoteName(midi)
         };

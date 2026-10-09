@@ -63,7 +63,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06 }
 同一套行数，在中文里刚好的时长，换个语种就顶穿 §0 的 `durationBudget`。
 
 **根因**：预算带是按中文定的，而渲染器在 TTS 阶段硬卡时长，超了直接不出片
-（`src/usine/scene_video.py:412`）——**不改文本就出不来片**。
+——**不改文本就出不来片**。
 
 **处方**：
 - **放宽 `durationBudget`，不要压台词。** 中文版每门都落在原上限的 77–98%，
@@ -88,8 +88,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06 }
 6. **不在 scene.md 里编造平台数据**——CES 分值、完播率、曝光倍数一律不写。
 
 机器可渲的完整契约（节写法、引号对、注音、手势、⚑ 注记、问号、RTL、装置注册表）
-在 [_格式契约.md](../thingking/final/_格式契约.md)，与 `parse_scene.py` / `qa_scene.py`
-的真实判据逐条对齐，**以代码为准**。
+以 `parse_scene.py` 的 md 体例注与 `scene_schema.py` 的判据为准，**以代码为准**。
 
 ---
 
