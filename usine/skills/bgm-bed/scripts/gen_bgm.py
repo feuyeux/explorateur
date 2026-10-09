@@ -16,14 +16,14 @@
 | 供应商 | key（环境变量） | 状态 |
 |---|---|---|
 | `lyria`（Google） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | 实测可用（免费层走实时端点） |
-| `minimax` | `MINIMAX_API_KEY`（国际区 api.minimax.io）/ `MINIMAX_CN_API_KEY`（中国区 api.minimaxi.com） | 官方 API，但 **2026-08-20 起免费层停用、付费层不收新用户**——只有存量账户能走 |
 
-Suno / Udio 官方都**没有**公开 API（key 无官方获取渠道，第三方转售无担保），
-两条死线已于 2026-10-09 删除——别再往回加。
+Suno / Udio 官方都**没有**公开 API（key 无官方获取渠道，第三方转售无担保）；
+MiniMax 音乐 API 自 **2026-08-20 起两区都不收新用户**（账户级 410/2153 闸门，
+换 key/主机/模型都绕不过，实测见 SKILL.md）。三条死线已于 2026-10-09 删除
+——别再往回加。
 
-两家全部是**纯器乐**请求（`is_instrumental`）——床要垫在
-旁白底下，人声床是配乐事故。时长只有 lyria 实时后端可控；minimax
-的时长模型说了算，**床长判据（≥ 成片时长）照常验收**，短了就报。
+请求一律**纯器乐**——床要垫在旁白底下，人声床是配乐事故。时长由 lyria
+实时后端的采集秒数控制，**床长判据（≥ 成片时长）照常验收**，短了就报。
 
 `--list-providers` 只做凭据探测不动网络，适合先看一眼哪条线通。
 
@@ -47,8 +47,8 @@ Suno / Udio 官方都**没有**公开 API（key 无官方获取渠道，第三�
 | `lyria-3.5` / `lyria-3-pro-preview` / `lyria-3-clip-preview` | `POST /v1beta/interactions` | 429「0 requests per day on Free Tier」 | $0.04–0.08 / 首 | 一次请求整首 |
 
 `lyria-realtime-exp` 按设计**不出人声**（模型卡：instrumental … with no vocals）。
-提示词走**加权短词**（`WeightedPrompt`）；minimax 吃把 `--prompt`
-拼起来的普通字符串（或直接 `--text`）。
+提示词走**加权短词**（`WeightedPrompt`），多个 `--prompt` 按序降权，或直接
+`--text` 给一段。
 
 ## 输出
 
@@ -93,9 +93,9 @@ RATE, CHANNELS, WIDTH = 48000, 2, 2
 # 唯一值得考虑的另一种解读：48 k ↔ 44.1 k。差 8.9%，是采样率读错时唯一能解释的量。
 RATE_RATIOS = (RATE / 44100, 44100 / RATE)
 
-# auto 模式的探测顺序：lyria 是唯一整链实测过的官方后端排最前；minimax 官方但
-# 已日落（存量账户除外）。suno/udio 无官方接入渠道，死线已删，别加回来。
-PROVIDERS = ("lyria", "minimax")
+# auto 模式的探测顺序。minimax/suno/udio 三条死线已于 2026-10-09 删除
+# （minimax 官方日落两区关死新用户、suno/udio 无官方 API），别加回来。
+PROVIDERS = ("lyria",)
 
 
 class ProviderError(RuntimeError):
@@ -155,23 +155,11 @@ def _lyria_key() -> str | None:
     return None
 
 
-def _minimax_creds() -> tuple[str, str] | None:
-    """(key, host)。国际区键在前：官方文档主站在 platform.minimax.io。"""
-    for env, host in (("MINIMAX_API_KEY", "https://api.minimax.io"),
-                      ("MINIMAX_CN_API_KEY", "https://api.minimaxi.com")):
-        key = os.environ.get(env, "").strip()
-        if key:
-            return key, host
-    return None
-
-
 def detect_providers() -> list[tuple[str, str]]:
     """[(供应商, 凭据来源描述)]，按 PROVIDERS 顺序。只看凭据在不在，不碰网络。"""
     rows = []
     if _lyria_key():
         rows.append(("lyria", "GEMINI_API_KEY / ~/.gemini_api_key"))
-    if _minimax_creds():
-        rows.append(("minimax", "MINIMAX_API_KEY / MINIMAX_CN_API_KEY"))
     return rows
 
 
@@ -352,73 +340,13 @@ def _gen_lyria(args) -> tuple[bytes, bool]:
     return _capture_http(key, args.model, args.text, args.prompt, None, args.duration), False
 
 
-# ---------------------------------------------------------------- minimax（官方，已日落）
-
-def _gen_minimax(args) -> tuple[bytes, bool]:
-    creds = _minimax_creds()
-    if not creds:
-        raise ProviderError("没有 MINIMAX_API_KEY / MINIMAX_CN_API_KEY")
-    key, host = creds
-    model = args.model or "music-2.6"
-    prompt = args.text or "，".join(args.prompt or [])
-    url = f"{host}/v1/music_generation"
-    headers = {"Authorization": f"Bearer {key}"}
-    payload = {"model": model, "prompt": prompt, "is_instrumental": True,
-               "output_format": "hex",
-               "audio_setting": {"sample_rate": 44100, "bitrate": 256000,
-                                 "format": "wav"}}
-    print(f"[minimax] {model} @ {host} 生成纯器乐（时长模型定，床长判据照常验收）")
-    print("  ⚠ 官方公告：2026-08-20 起音乐 API 免费层停用、付费层不收新用户"
-          "——只有存量账户能走通这条线")
-    try:
-        doc = _post_json(url, payload, headers)
-    except urllib.error.HTTPError as e:
-        raise _http_error(e, "minimax") from e
-    except OSError as e:
-        raise ProviderError(f"minimax 连不上 {host}：{e}") from e
-
-    data = doc.get("data") or {}
-    st = (doc.get("base_resp") or {}).get("status_code")
-    if st not in (0, None):
-        raise ProviderError(f"minimax 拒绝（status_code {st}："
-                            f"{(doc.get('base_resp') or {}).get('status_msg')}）")
-    # 非流式是异步任务：status 1=进行中 / 2=完成。轮询端点与字段文档没写全
-    # （查询路径按官方 v1 惯例推定 /v1/query/music_generation），这条通路
-    # 从未实测成功过——形状对不上就响亮失败，列出实际观察到的键。
-    t0 = time.monotonic()
-    while data.get("status") == 1:
-        tid = data.get("task_id") or data.get("taskId")
-        if not tid:
-            raise ProviderError(f"minimax 生成中但响应里没有 task_id"
-                                f"（data 键：{sorted(data)}）——轮询端点无从下手，"
-                                "这条通路从未实测过，请把上面的响应键报回来")
-        if time.monotonic() - t0 > 600:
-            raise ProviderError("minimax 10 分钟没出成品，放弃")
-        time.sleep(5)
-        try:
-            doc = _get_json(f"{host}/v1/query/music_generation",
-                            {**headers, "model": model, "task_id": tid})
-        except urllib.error.HTTPError as e:
-            raise _http_error(e, "minimax 查询") from e
-        data = doc.get("data") or {}
-    if data.get("status") not in (2, None) or not data.get("audio"):
-        raise ProviderError(f"minimax 没给音频（data 键：{sorted(data)}，"
-                            f"base_resp：{doc.get('base_resp')}）")
-    audio = data["audio"]
-    try:
-        return bytes.fromhex(audio), False
-    except ValueError:
-        # hex 解不开可能是 base64 的误标——两种都试不如大声失败，猜格式是纪律 19 的反例
-        raise ProviderError(f"minimax 音频不是合法 hex（前 40 字符：{audio[:40]}…）")
-
-
-GEN = {"lyria": _gen_lyria, "minimax": _gen_minimax}
+GEN = {"lyria": _gen_lyria}
 
 
 # ---------------------------------------------------------------- 解码与实测
 
 def _to_pcm(payload: bytes) -> bytes:
-    """自带容器的音频（lyria HTTP / minimax）不能当裸 PCM 用。
+    """自带容器的音频（lyria HTTP 后端）不能当裸 PCM 用。
 
     统一先用 _tool("ffmpeg") 解码到本脚本的约定格式；解不动说明响应形状与假设
     不符，该响亮失败而不是静默出废文件。
@@ -431,7 +359,7 @@ def _to_pcm(payload: bytes) -> bytes:
                             "-f", "s16le", "-ar", str(RATE), "-ac", str(CHANNELS),
                             "pipe:1"], capture_output=True, timeout=300)
     if d.returncode != 0 or not d.stdout:
-        sys.exit("供应商音频解码失败（端点形状与假设不符——minimax "
+        sys.exit("供应商音频解码失败（端点形状与假设不符——lyria HTTP "
                  "这几条通路从未实测过，请把上面的报错留存）：\n"
                  + d.stderr.decode(errors="replace")[:300])
     return d.stdout
@@ -612,9 +540,8 @@ def _list_providers(env_file: Path | None) -> int:
         print(f"  key 文件：{_key_file()}（不存在或没可解析行；"
               "样例见 skills/bgm-bed/references/keys.env.sample）")
     if not got:
-        print("\n两家供应商都没有凭据。可用的 key（任选其一）：\n"
+        print("\n没有可用的供应商凭据：\n"
               "  lyria    GEMINI_API_KEY（或 ~/.gemini_api_key）——实测过，免费层可用\n"
-              "  minimax  MINIMAX_API_KEY / MINIMAX_CN_API_KEY——2026-08-20 已日落\n"
               f"统一配置：把 key 写进 {_key_file()}（环境变量优先于该文件）")
         return 1
     print(f"\nauto 将按此顺序尝试：{' → '.join(n for n, _ in got)}")
@@ -631,9 +558,9 @@ def main() -> int:
                     help="提示词，可重复（lyria 实时后端当加权短词，权重 1.0 起每个递减 0.1，下限 0.1；其余后端拼接成字符串）")
     ap.add_argument("--text", help="整段提示词（lyria HTTP 后端必需；其余后端优先于 --prompt）")
     ap.add_argument("--model", default=None,
-                    help="供应商内选型：lyria 默认 lyria-realtime-exp；minimax 默认 music-2.6")
+                    help="供应商内选型：lyria 默认 lyria-realtime-exp")
     ap.add_argument("--duration", type=float, default=62.0,
-                    help="时长（秒）：lyria 实时=采集秒数、minimax 不受控（床长判据照常验收）")
+                    help="时长（秒）：lyria 实时=采集秒数（床长判据照常验收）")
     ap.add_argument("--bpm", type=int, default=72)
     ap.add_argument("--density", type=float, default=0.6, help="0–1，床要疏不要满（lyria 实时后端）")
     ap.add_argument("--brightness", type=float, default=0.4, help="lyria 实时后端")
@@ -667,7 +594,7 @@ def main() -> int:
         args.model = "lyria-realtime-exp"
 
     if not (args.prompt or args.text):
-        sys.exit("至少给一个 --prompt 或一段 --text——两家供应商都要提示词")
+        sys.exit("至少给一个 --prompt 或一段 --text——lyria 要提示词")
 
     if args.provider == "auto":
         order = [n for n, _ in detect_providers()]
@@ -680,6 +607,8 @@ def main() -> int:
     pcm = None
     provider = None
     for prov in order:
+        if prov == "lyria" and args.model is None:
+            args.model = "lyria-realtime-exp"
         try:
             audio, raw_pcm = GEN[prov](args)
             pcm = audio if raw_pcm else _to_pcm(audio)
@@ -718,8 +647,7 @@ def main() -> int:
         print(f"⚠ 成曲只有 {m['duration_s']}s < 请求 {args.duration:g}s——"
               f"挂床前先确认它 ≥ 成片时长，否则尾部会裸奔")
 
-    model = args.model or {"lyria": "lyria-realtime-exp",
-                           "minimax": "music-2.6"}[provider]
+    model = args.model or {"lyria": "lyria-realtime-exp"}[provider]
     rec = {"provider": provider, "model": model, "prompts": args.prompt or [],
            "text": args.text, "bpm_requested": args.bpm,
            "duration_requested_s": args.duration,

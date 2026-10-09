@@ -30,15 +30,14 @@
 
 ## 与全局同名能力的关系
 
-- **BGM / 配乐**：本工作区一律走 `usine/skills/bgm-bed`——多供应商底床生成
-  （Google Lyria / MiniMax，`--provider auto` 按凭据探测哪个能用用哪个；Suno/Udio
-  官方无公开 API，死线已删，别再接回）+ 采样率/频段自检 + 实测反推 `gain`。供应商
-  key 统一配在 `~/.config/feuille/bgm-bed.env`（样例见该 skill 的
+- **BGM / 配乐**：本工作区一律走 `usine/skills/bgm-bed`——底床生成（Google Lyria，
+  免费层实测线；MiniMax 音乐 API 官方 2026-08-20 日落、两区不收新用户，Suno/Udio
+  无官方 API，三条死线已删**别再接回**）+ 采样率/频段自检 + 实测反推 `gain`。key
+  统一配在 `~/.config/feuille/bgm-bed.env`（样例见该 skill 的
   `references/keys.env.sample`；环境变量优先于文件，文件在 $HOME 下永不进 git）。
   全局 `music-generation` skill（`~/.agents/skills/`，**非本仓库资产**）的封装
   能力**已并入 bgm-bed**：它不量频段、不反推床位、没有验收判据，在本工程里已被
-  取代，**不要再往它路由**。MiniMax 线注意官方日落：2026-08-20 起音乐 API
-  免费层停用、付费层不收新用户，只有存量账户走得通。
+  取代，**不要再往它路由**。
 - 同理：视频生成（Veo 等）一律按 usine/AGENTS.md 的 H3 铁律处理，与全局
   `video-generation` 等 skill 的关系先查 usine/AGENTS.md 再动手。
 

@@ -160,6 +160,34 @@ def check() -> list[tuple[bool, str]]:
     else:
         rows.append((False, "12 语种规范顺序只在 one-page-poster 定义"
                      f"　**重复定义于 {holders}**"))
+    # ---- 8. 完成定义：README 有「完整产线」段，四层齐全 ----
+    # 没有这张表，"完成"就退化为任务请求的字面边界——碎片任务会静默停在半路
+    # （luoye 曾经混完音就收工、缺发布词，就是没有完成定义的代价）。
+    if index.exists():
+        seg = idx.split("## 完整产线", 1)
+        layers = ("画面层", "音频层", "混后验收", "收尾层", "发布执行")
+        if len(seg) == 2:
+            table = seg[1].split("\n## ", 1)[0]
+            miss = [l for l in layers if l not in table]
+            rows.append((not miss,
+                         "README.md 完整产线段四层齐全（完成定义）"
+                         + (f"　**缺 {miss}**" if miss else "")))
+        else:
+            rows.append((False, "README.md 缺「完整产线」段——没有完成定义，流程会静默截断"))
+
+    # ---- 9. 两条成片线的边界必须转交音频层与收尾层 ----
+    # 边界段少了这两个转交，链路就断在成片：床和发布词都变成"没人认领的下一步"。
+    for name in ("karaoke-video", "multilingual-video-poetry"):
+        if name not in names:
+            continue
+        body = parsed[name][1]
+        seg = body.split("## 边界", 1)
+        tail = seg[1].split("\n## ", 1)[0] if len(seg) == 2 else ""
+        miss = [t for t in ("bgm-bed", "publish-copy") if t not in tail]
+        rows.append((not miss,
+                     f"{name} 边界段转交音频层（bgm-bed）与收尾层（publish-copy）"
+                     + (f"　**缺 {miss}**" if miss else "")))
+
     rows += _check_ownership(names)
     rows += _check_no_hardcoded_bins()
     rows += _check_shared_example_assets()

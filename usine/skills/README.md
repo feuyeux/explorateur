@@ -16,8 +16,8 @@
 │    multilingual-video-poetry                             │
 └──────────────────────────────────────────────────────────┘
 ┌─ 音频层（两条成片线共用）────────────────────────────────┐
-│  bgm-bed            底床生成（多供应商：Lyria/MiniMax，哪个      │
-│                     能用用哪个）+ 床位定标                        │
+│  bgm-bed            底床生成（Lyria 实测线；死线已删）+          │
+│                     床位定标                                      │
 └──────────────────────────────────────────────────────────┘
 ┌─ 收尾层───────────────────────────────────────────────┐
 │  publish-copy               写发布词（两条线共用）         │
@@ -42,6 +42,22 @@
 | 小红书/抖音/B站 发布词 | `publish-copy` | 成品 + 核验数字 | 实际点发布 |
 | 抖音/B站 批量发布、建合集、回列表核验 | `multilingual-video-publishing` | 成片 + 发布清单 | 写文案 |
 
+## 完整产线（完成定义）
+
+**一个内容项目只有下表四层全齐才算完成；缺任何一层都是半成品，不许静默收工。**
+任务往往以碎片进来（修一条供应商线、补一张床、改一版海报）——收工前必须拿这张表
+盘点项目现状：当场补齐缺口，或者明说缺哪层、为什么不做；只字不提就是流程截断。
+
+| 层 | Cluster A 海报驱动 | Cluster B 实拍驱动 | 完成判据 |
+|---|---|---|---|
+| 画面层 | `one-page-poster` → `karaoke-video` | `multilingual-video-poetry` | build 退出 0 + `verify_sync` 全过（A）/ 母版与字幕验收（B） |
+| 音频层 | `bgm-bed`（两线读同一条床，压法不同） | 同左 | `gen_bgm` 判据全绿，床长 ≥ 成片时长 |
+| 混后验收 | 床位 15–18 dB · 连续性 ≥ −45 dBFS · 平稳性 ≤ 12 dB · LUFS 配比 ≥ 8 dB | 同左（侧链压法） | 五项全过，数字记进项目文档 |
+| 收尾层 | `publish-copy`：竖屏 → 小红书/抖音，横屏 → B站 | 同左 | 每平台一份 `publish/*.md` + no-hard-wrap 自检 0 违规 |
+| 发布执行 | `multilingual-video-publishing` | 同左 | 需用户明确指令，agent 不自动碰；平台回列表核验通过 |
+
+细则各归各的 SKILL.md / field notes，本表只定「到哪才算完」。
+
 ## 三层归属模型
 
 | 层 | 是什么 | 落点 |
@@ -64,12 +80,12 @@
 | 12 语种规范顺序 | `one-page-poster` §Conventions | 其余 skill 引用，**不另抄一份** |
 | TTS / 音轨 | `library` 的 `tts`、`audio` | 不许任何 skill 私藏一份合成逻辑 |
 | 脸型 / 表情 / 装置规格注册表 | `library` 的 `rig`、`devices` | `persona.py` 与 `scene_schema.py` 取**同一份**，不抄名单（纪律 7） |
-| BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。全局 `music-generation` skill 的能力已并入 `bgm-bed`（Suno/Udio 官方无公开 API，死线已删，现存 Lyria/MiniMax）——本工程里它已被取代，见 `bgm-bed` 边界段 |
+| BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。全局 `music-generation` skill 的能力已并入 `bgm-bed`（MiniMax/Suno/Udio 三条死线已删，现存唯一实测线 Lyria）——本工程里它已被取代，见 `bgm-bed` 边界段 |
 | BGM 的**混音压法** | 看画面来源 | 海报驱动 → `karaoke-video` 的线性 `amix`；实拍驱动 → `multilingual-video-poetry` 的侧链压缩 |
 | 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `make_covers.py`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
 | 发布词 | `publish-copy` | 发布执行 → `multilingual-video-publishing` |
 
-## 六条歧义防线
+## 七条歧义防线
 
 1. **description 互斥**——每个 skill 都写明「本 skill 不管什么、该转哪个」。description 是 agent 的路由依据，排除语句比介绍语句更有用。
 2. **前置输入契约**——每个 SKILL.md 都有 `## 前置输入契约`，缺哪条先问哪条，不要拿占位值往下跑。
@@ -77,5 +93,6 @@
 4. **事实源唯一**——规范顺序只在 `one-page-poster`；注册表现取不抄；共享实现进 `library`。
 5. **代码归属唯一**——`ownership.json` + 每个 SKILL.md 的 `拥有模块：` 行，双向机检。
 6. **机检**——`usine/scripts/verify_skills.py` 机检上面全部，回归会被 `feuille verify` 抓到。
+7. **完成定义**——交付终点以「完整产线」表为准：四层不齐就是半成品。碎片任务收工前必须按表盘点，缺哪层要么补齐、要么明说，不许静默截断。
 
 **存量代码已全部消化完**：`unclaimed` 为空，每个模块都有家——归 skill、归 library 或归基础设施。

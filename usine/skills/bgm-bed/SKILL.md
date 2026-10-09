@@ -1,9 +1,9 @@
 ---
 name: bgm-bed
 description: >
-  Generate an instrumental BGM bed with whichever music backend is usable —
-  Google Lyria or MiniMax, auto-detected by credentials with fall-through —
-  measure it, and derive the exact `gain` to write back into the
+  Generate an instrumental BGM bed with the usable music backend (Google
+  Lyria, verified end-to-end on the free tier; dead backends MiniMax/Suno/Udio
+  are removed — see the provider table), measure it, and derive the exact `gain` to write back into the
   video config so the bed sits a measured distance under the narration — plus
   two self-checks that catch the two ways a generated bed silently fails (wrong
   sample-rate interpretation, and a bass drone masquerading as an arrangement).
@@ -33,19 +33,22 @@ description: >
 
 ## 供应商：能力已吸收，哪个能用用哪个
 
-本 skill 的生成脚本内置**两条供应商通路**（`--provider auto` 按序探测凭据、
-失败顺延；`--provider X` 显式指定不顺延）。全局 `music-generation` skill
-（`~/.agents/skills/`，非本仓库资产）的三家封装（Lyria/Suno/Udio）能力已并入后，
-**Suno / Udio 两条死线于 2026-10-09 删除**——两家官方都没有公开 API（key 无官方
-获取渠道，第三方转售无担保），接入是白搭功夫，别再往回加：
+本 skill 的生成脚本只留**一条实测通路**（`--provider auto` 探测凭据、失败顺延；
+`--provider X` 显式指定不顺延——框架留给未来新供应商）。全局 `music-generation`
+skill（`~/.agents/skills/`，非本仓库资产）的封装能力并入后，**MiniMax / Suno /
+Udio 三条死线于 2026-10-09 全部删除**，别再往回加：
 
 | 供应商 | key | 状态（2026-10） |
 |---|---|---|
 | `lyria`（Google） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | **唯一整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
-| `minimax` | `MINIMAX_API_KEY`（国际）/ `MINIMAX_CN_API_KEY`（中国） | 官方 API（`POST /v1/music_generation`，模型 `music-3.0`/`music-2.6`/`music-cover(-free)`）；**2026-08-20 起免费层停用、付费层不收新用户**——存量账户才走得通 |
 
-两家一律请求**纯器乐**（床要垫在旁白底下，人声床是配乐事故）。未实测的通路
-失败要响亮（报端点形状、退出码非 0），不许把超时当好曲；探测用
+| 死线 | 删除原因（均实测） |
+|---|---|
+| `minimax` | 官方 2026-08-20 日落：两区付费音乐 API 不收新用户、免费模型停服；账户级 410/2153 闸门，换 key/主机/模型都绕不过（实测留痕见下） |
+| `suno` / `udio` | 两家官方都没有公开 API，key 无官方获取渠道，第三方转售无担保 |
+
+请求一律**纯器乐**（床要垫在旁白底下，人声床是配乐事故）。失败要响亮
+（报端点形状、退出码非 0），不许把超时当好曲；探测用
 `--list-providers`，只看凭据不碰网络。
 
 **key 的统一配置**：`~/.config/feuille/bgm-bed.env`（样例与说明见
@@ -57,10 +60,10 @@ description: >
 
 | # | 必须明确 | 缺了会怎样 |
 |---|---|---|
-| 1 | **床要盖多长**（成片时长 + 余量） | 床短于成片 → 尾部裸奔，底床断在半路。注意：minimax 的**时长不受控**，床长判据照常验收，短了照样拦 |
+| 1 | **床要盖多长**（成片时长 + 余量） | 床短于成片 → 尾部裸奔，底床断在半路。床长判据照常验收，短了照样拦 |
 | 2 | **配器与情绪的加权短词** | Lyria 实时端点吃短词；给段落标签长指令会跑偏。其余供应商吃拼接后的普通字符串 |
 | 3 | **旁白实测电平**，或明确的「低 N dB」目标 | 没有它 `gain` 只能抄常数，而抄错没有任何东西会报错 |
-| 4 | **至少一家供应商的 key**（见上表；统一配置 `~/.config/feuille/bgm-bed.env`，`--list-providers` 先探） | 两家全空 → 无从生成，转告用户缺哪把 key |
+| 4 | **供应商的 key**（见上表；统一配置 `~/.config/feuille/bgm-bed.env`，`--list-providers` 先探） | 全空 → 无从生成，转告用户缺哪把 key |
 | 5 | **这床垫在谁底下**（线性固定偏移 / 侧链动态余量） | 两者的配比判据不同，用错判据会得出相反结论 |
 
 **先量旁白，再生成床。** `gain` 是床与旁白之比的产物；顺序反过来就只能靠猜。
@@ -68,8 +71,8 @@ description: >
 
 ## 边界
 
-**本 skill 是「底床生成 + 床位定标」的唯一事实源**：多供应商调用（Lyria /
-MiniMax）、采样率解读、频段与拍速自检、`gain` 反推。
+**本 skill 是「底床生成 + 床位定标」的唯一事实源**：供应商调用（Lyria）、
+采样率解读、频段与拍速自检、`gain` 反推。
 
 **不做 / 转交**：
 
@@ -86,7 +89,7 @@ MiniMax）、采样率解读、频段与拍速自检、`gain` 反推。
 
 拥有模块：（无）
 
-多供应商客户端（Lyria / MiniMax）与两项自检是本 skill 的持久脚本
+供应商客户端（Lyria）与两项自检是本 skill 的持久脚本
 `scripts/gen_bgm.py`。它没有进 library——它只服务「生成床」这一件事，成片两条线
 共用的是混音那半（`library.audio`），不是生成这半。事实源见 `usine/ownership.json`，
 由 `verify_skills.py` 与本段双向机检。
@@ -138,7 +141,7 @@ NARRATION_RMS_DB=-18.2 uv run --project usine python \
 | 步骤 | 判据 | 不达标怎么读 |
 |---|---|---|
 | 供应商探测 | `--list-providers` 至少一家 ✓ | 全 ✗ = 缺 key，转告用户缺哪把（退出码 1） |
-| 采集 | 成曲 **≥ 成片时长 + 余量** | 实测请求 80s 只拿到 78.0s，短 10% 是常态；minimax 时长不受控，更要量 |
+| 采集 | 成曲 **≥ 成片时长 + 余量** | 实测请求 80s 只拿到 78.0s，短 10% 是常态，更要量 |
 | 采样率 | 拍速反查 `ok`（仅 Lyria 实时后端） | `MISMATCH` = 采样率解读错了，文件不能用；其余供应商自带容器，n/a |
 | 配器 | 频段判据 `ok` | `太暗` = 拿到的是低音嗡鸣，不是配器 |
 | 床长 | 床 ≥ 成片时长 | 短了尾部裸奔 |
@@ -149,7 +152,7 @@ NARRATION_RMS_DB=-18.2 uv run --project usine python \
 
 ⚠️ **生成类命令默认不覆盖**已有文件（纪律 13），要覆盖显式 `--force`。
 ⚠️ **判据不通过要让退出码说话**：文件照样落盘供排查，但退出码非 0，上层不会误当成功。
-⚠️ **auto 顺延只在生成失败时发生**；两家全失败会汇总各自报错再退出 1。
+⚠️ **auto 顺延只在生成失败时发生**；全部失败会汇总各自报错再退出 1。
 
 ## 实测：Lyria 哪个模型能用（2026-10-09，免费层 key）
 
@@ -165,13 +168,15 @@ NARRATION_RMS_DB=-18.2 uv run --project usine python \
 `lyria-3.5` 返 429 配额错，唯独 `live.music` 直接 `User location is not supported`
 秒断。官方支持区里有日本 / 台湾 / 新加坡 / 美国，**没有香港**。换出口即可，$0 路线不变。
 
-MiniMax 实测（2026-10-09，中国区 key）：`POST /v1/music_generation` 直接
+MiniMax 实测留痕（2026-10-09，线已删）：`POST /v1/music_generation` 直接
 **HTTP 410 / status_code 2153**——「This Music API is no longer available to new
 users. Existing paying customers can continue to use the service.」本账户不在存量
 名单，官方指路 MiniMax Audio（minimax.io/audio）或开源模型 MiniMax-Music3
 （HuggingFace）。国际区（api.minimax.io）文档挂着**同一条日落公告**（2026-08-20
 起付费音乐 API 不收新用户、music-*-free 全部停用，定价表音乐行全标
 Discontinued）——**两区对新用户都是死的，别按文档残留的 music-3.0-free 再去试**。
+换新 key 在文档主机 api.minimax.cn 重测（music-2.6 / music-2.6-free /
+music-3.0-free 三个模型）：鉴权通过、依然 2153——**闸门在账户侧，不在 key/主机/模型**。
 整链判定：**存量账户之外这条路走不通**；脚本侧行为正确（日落警告在前、410
 响亮失败、退出码 1）——判据表是给所有供应商共用的，供应商栏的状态是各自的。
 
