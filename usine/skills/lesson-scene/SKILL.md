@@ -32,7 +32,8 @@ pipeline has been bypassed and the next `parse` will silently overwrite you.
 | 4 | 每个 unit 的角色与台词 | `scene draft` 的 `assign_lines` 无从分配 |
 | 5 | 角色是否在人设名册内 | `validate` 会在最后一步才拦 |
 
-人设契约见 `personas/schema.md`，机器判定在 `character-rig` skill 的 `persona.py`。
+人设契约见 `personas/schema.md`，机器判定在 library 的 `persona`（`uv run feuille
+persona validate` 可独立跑，不读本文件也行）。
 
 ## 边界
 
@@ -72,4 +73,5 @@ pipeline has been bypassed and the next `parse` will silently overwrite you.
 
 事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 本 skill **跨用**（不拥有）**library** 的 `data` / `devices` / `manifest` /
-`metrics` 与 `character-rig` 名下的 `rig`——跨用走它们的实现，不要另写一份。
+`metrics` / `rig` / `scenes` / `persona`——跨用走它们的实现，不要另写一份；
+skill 之间不横向伸手，校验判据与绘制规格同站一份注册表。

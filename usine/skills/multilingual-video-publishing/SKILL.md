@@ -1,19 +1,20 @@
 ---
 name: multilingual-video-publishing
 description: >
-  Publish one video batch to Douyin and Bilibili via the feuille Playwright
-  publishers, with a collection where the platform supports one and honest
-  fallbacks where it does not. Use when taking finished video deliverables live
-  — from either production line (karaoke-video or multilingual-video-poetry) —
-  when building a Douyin collection, when Bilibili collection or upload form
-  controls seem unreachable, when a publish batch reports success but the work
-  must be verified in the manage list, or when routing a publish run through
-  feuille's manifest and CLI layer. Also use when a publish script must not
-  guess asset filenames or platform limits. Not for writing the publishing copy
-  (that is publish-copy) and not for producing the video.
+  Publish one video batch to Douyin, Xiaohongshu (xhs) and Bilibili via the
+  feuille Playwright publishers, with a collection where the platform supports
+  one and honest fallbacks where it does not. Use when taking finished video
+  deliverables live — from either production line (karaoke-video or
+  multilingual-video-poetry) — when building a Douyin collection, when
+  Bilibili collection or upload form controls seem unreachable, when a publish
+  batch reports success but the work must be verified in the manage list, or
+  when routing a publish run through feuille's manifest and CLI layer. Also
+  use when a publish script must not guess asset filenames or platform
+  limits. Not for writing the publishing copy (that is publish-copy) and not
+  for producing the video.
 ---
 
-# 多语种成片发布（抖音 / B站）
+# 多语种成片发布（抖音 / 小红书 / B站）
 
 把已完成的成片批量投出去，并**如实报告哪些做得到、哪些做不到**。
 
@@ -71,12 +72,26 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 | | 作品发布 | 合集 | 备注 |
 |---|---|---|---|
 | 抖音 | ✅ | ✅ 全流程支持 | 标题 ≤30 字，正文末尾**必须留尾随空格** |
+| 小红书 | ✅（像素探测发布键 + 封面硬闸门 + 风控停等，随 yiyezhiqiu 实测整链搬运；`publish xhs` 有 CLI 叶子） | ❌ **未实现**（`collections.py` 只有抖音全流程；源项目的小红书只有逐条「选择合集」链路，未随蒸馏搬运） | 草稿箱计数**不是**判据（编辑即自动存草稿） |
 | B站 | ✅ | ❌ **需创作中心 Lv2** | 分区与创作声明是必填闸门，选不中就整条不发 |
 
 ⚠️ **B 站合集是账号等级门槛，不是配置问题。** 等级不够时编辑页的
 「加入合集」是灰字、**没有任何可点控件**，合集管理页 404 或重定向。
 遇到这种情况**不要绕、不要硬闯、不要假装能做**——如实告诉用户本批
 只裸投稿，合集等升到 Lv2 再补挂。这是本skill 最重要的一条。
+
+## 平台改版与选择器纪律
+
+抖音合集那次「挂不进去」的三层根因（[references/platform-capabilities.md](references/platform-capabilities.md) §2b）
+全是**写死的实测值**：绝对坐标常量、文本过滤词、把正常分页当故障。纪律沉淀：
+
+1. **探针只读不点，结论必须沉淀**（纪律 14）：重摸 DOM 的结论写进
+   `references/platform-capabilities.md`，带验证方式与日期——能复用的只有结论，不是探针代码。
+2. **几何量必须相对视口**：选择器里不许出现「x < 1500」这类绝对坐标，viewport 一换就全灭
+   （§2b 坑①）。非相对不可的量，注释里必须带「实测日期 + 视口条件」锚。
+3. **文本过滤词 = 静默漏挂源**（§2b 坑②）：面板候选一律「未添加的全返回」，数量核对交给
+   调用方——JS 里 `includes(项目词)` 会把不含关键词的条目静默吞掉。
+4. **跨项目复用前先用探针重摸**：上一项目实测的常量，在下一个项目一律当作未验证。
 
 ## 素材命名：让存在性校验替你抓错
 
@@ -141,6 +156,7 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 3. 抖音合集内作品数 == 12（**回合集详情页读「总集数」，不看脚本自报**）
 4. B 站：分区与创作声明是用户拍板的值，**没替用户勾任何对外声明**
 5. 说不清的部分**已经如实说明**，没有拿「大概可以」糊过去
+6. 本批用到的平台能力条目**没过保质期**：`references/platform-capabilities.md` 每条结论都带验证方式与日期——跨项目复用、或平台改版风声后，先用探针重摸再承诺（选择器纪律第 4 条）
 
 ## 手册与代码
 

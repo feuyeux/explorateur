@@ -30,6 +30,7 @@ SUITES = {
     "compose":   ("verify_compose.py",  "母版叠加合成（-shortest→-t）"),
     "rig":       ("verify_rig.py",      "人物 rig 几何探针（A1-E2 + 幂等）"),
     "personas":  ("verify_personas.py",  "persona 契约校验器（28 人班底）"),
+    "lesson":    ("verify_lesson.py",    "课件校验层（scene_schema 全注册表演习 + doctor 班底体检接线）"),
     "covers":    ("verify_covers.py",   "封面机制（规格/裁切/众数底色）"),
     "manifest":  ("verify_manifest.py",  "发布清单（parse_copy/check/build）"),
     "audit":     ("verify_audit.py",    "格律审计/节替换/打包"),
@@ -38,6 +39,8 @@ SUITES = {
     "publish":   ("verify_publish.py",  "发布器骨架（mock 页/三缺陷修复）"),
     "cli":       ("verify_cli.py",      "CLI 路由表可达性 + 聚合器一致性"),
     "skills":    ("verify_skills.py",   "skills 去歧义（前置契约/边界/转交/事实源唯一）"),
+    "skill_scripts": ("verify_skill_scripts.py",
+                      "skill 层脚本判据（publish-copy 指纹/溯源 + bgm 垫量/床长 + poetry gate）"),
 }
 
 SCRIPTS_DIR = ROOT / "scripts"

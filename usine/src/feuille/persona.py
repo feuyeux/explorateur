@@ -20,6 +20,7 @@ rig 统一实现）；`name.gloss`/`voice.timbre`/`relation`/`quirk` 是档案�
 from __future__ import annotations
 
 import re
+import sys
 
 from . import rig
 from . import tts
@@ -158,3 +159,51 @@ def validate_roster(personas: list) -> list[str]:
                 f"{loc}: 班底配对应为 一男一女 × 一活泼一沉稳（实得 gender={genders} "
                 f"energy={energies}，{len(ps)} 人）——活泼当 A / 沉稳当 B 的选角分工依赖它")
     return problems
+
+
+def main(argv=None) -> int:
+    """cli.py 路由入口：`uv run feuille persona validate`（无参可调用——
+    缺省体检 feuille/personas 班底）。
+
+    人设契约的**独立**体检入口：不经过任何 skill 文档或课件目录也能跑。
+    判定本体就是上面的 `validate_persona` / `validate_roster`（纯函数，
+    反向验证在 scripts/verify_personas.py）；这里只做取数与报告。
+    逐人走**原始清单**（`personas_doc()`）而不是 `{id: persona}` 索引——
+    索引会把重复 id 静默折叠成一个，班底级「id 唯一」就永远验不出来。
+    """
+    import argparse
+    # router 契约（cli.py）：`fn()` 裸调 = 剩余参数为空——None 必须当 [] 处理，
+    # 不能回落 sys.argv（那会把 router 已 pop 掉的组名/命令名又吃回去，
+    # `feuille lesson doctor` 裸调就是这么撞的 unrecognized arguments）。
+    # 模块直跑的参数由 __main__ 块显式传 sys.argv[1:]。
+    argv = list(argv) if argv is not None else []
+    ap = argparse.ArgumentParser(
+        prog="feuille persona validate",
+        description="人设契约体检：逐人 validate_persona + 班底不变量 validate_roster")
+    ap.add_argument("--personas", default=None,
+                    help="personas 目录（缺省 = feuille/personas 班底）")
+    args = ap.parse_args(argv)
+
+    from .data import personas_doc
+    plist = personas_doc(args.personas)["personas"]
+
+    problems: list[str] = []
+    for p in plist:
+        problems += validate_persona(p)
+    problems += validate_roster(plist)
+
+    print("=" * 66)
+    print(f"人设契约体检：{len(plist)} 人班底（validate_persona 逐人 + 班底不变量）")
+    print("=" * 66)
+    if not problems:
+        print("  PERSONA PASS：逐人零问题；班底不变量全过"
+              "（id 唯一 / 每语种一男一女 × 一活泼一沉稳）")
+        return 0
+    for e in problems:
+        print(f"  FAIL {e}")
+    print(f"\n{len(problems)} 项不合规")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

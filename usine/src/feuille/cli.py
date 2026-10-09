@@ -6,6 +6,7 @@
 
     uv run feuille scene  parse|validate|draft       场景数据
     uv run feuille lesson new|doctor                 新课开坑 / 就绪度体检
+    uv run feuille persona validate                  人设契约体检（逐人 + 班底不变量）
     uv run feuille cover  make|check                 封面（整页 HTML 截图 / 尺寸底色检查）
     uv run feuille publish login|douyin|xhs|bilibili 平台发布（Playwright）
     uv run feuille verify   [suite …]                反向验证聚合
@@ -49,6 +50,8 @@ COMMANDS: dict[tuple[str, str], tuple[str, str]] = {
     # ---- 新课（③）----
     ("lesson", "new"):    ("feuille.lesson", "main_new"),
     ("lesson", "doctor"): ("feuille.lesson", "main_doctor"),
+    # ---- 人设契约（②③ 共用的班底体检；实现 = library.persona）----
+    ("persona", "validate"): ("feuille.persona", "main"),
     # ---- 封面（⑦）----
     # make/check 本体是库函数（make(key, html, out_png) / check(png, key)），
     # 叶子挂 main_make/main_check 适配层——路由器以 fn()/fn(argv) 调用叶子，

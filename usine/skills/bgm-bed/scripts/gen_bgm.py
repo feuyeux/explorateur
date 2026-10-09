@@ -332,9 +332,11 @@ def _gen_lyria(args) -> tuple[bytes, bool]:
         cfg = dict(bpm=args.bpm, density=args.density, brightness=args.brightness,
                    mute_drums=True, scale=Scale.A_MAJOR_G_FLAT_MINOR,
                    music_generation_mode=MusicGenerationMode.QUALITY)
-        print(f"[lyria] {args.model} 采集 {args.duration:g}s · "
+        print(f"[lyria] {args.model} 目标 {args.duration:g}s · 请求 {pad_request(args.duration):g}s"
+              f"（已垫 {PAD_FACTOR:g}×——实时后端短约 10% 是实测规律） · "
               f"{' + '.join(f'{t}({w})' for t, w in prompts)}")
-        pcm = asyncio.run(_capture_realtime(key, args.model, prompts, cfg, args.duration))
+        pcm = asyncio.run(_capture_realtime(key, args.model, prompts, cfg,
+                                            pad_request(args.duration)))
         return pcm, True
     print(f"[lyria] {args.model} 一次性生成")
     return _capture_http(key, args.model, args.text, args.prompt, None, args.duration), False
@@ -481,6 +483,32 @@ def _is_realtime_pcm(provider: str, model: str | None) -> bool:
     return provider == "lyria" and model == "lyria-realtime-exp"
 
 
+# ---------------------------------------------------------------- 床长判据（纯函数，供反向验证）
+
+PAD_FACTOR = 1.15
+# 实时后端「请求 80s 实得 78.0s、请求 62s 实得 54.0s」——短约 10% 是实测规律
+# （SKILL.md 坑 1），不是偶发。请求端垫 15% 让「床 ≥ 目标」成为结构保证而非运气。
+
+
+def pad_request(target_s: float) -> float:
+    """实时后端的请求垫量：目标床长 → 实际请求秒数。纯函数，反向验证在
+    scripts/verify_skill_scripts.py（凿洞：目标 80 → 请求 92，不是 80）。"""
+    return round(float(target_s) * PAD_FACTOR, 3)
+
+
+def bed_len_verdict(measured_s: float, target_s: float) -> str:
+    """床长判据（SKILL.md 判据表「床 ≥ 成片时长」的机器形态）。
+
+    目标 = `--duration`（床要盖多长）；实测短于目标 − 1s 容差即 ⚠。
+    ⚠ 会进 blocked（退出码 2）——判据不通过要让退出码说话，打印警告却返回 0
+    就是假绿灯。反向验证同上（凿洞：实测 78 < 目标 80 → ⚠）。
+    """
+    if measured_s + 1.0 < target_s:
+        return (f"⚠ 成曲 {measured_s:g}s < 目标 {target_s:g}s（超出 1s 容差）——"
+                f"床短于成片，尾部会裸奔，不要挂床")
+    return f"ok（{measured_s:g}s ≥ 目标 {target_s:g}s）"
+
+
 # ---------------------------------------------------------------- 主流程
 
 def _recheck(out: Path, side: Path, narration_db: float | None,
@@ -510,6 +538,12 @@ def _recheck(out: Path, side: Path, narration_db: float | None,
     bands = band_share(out)
     rec["band_share_pct"] = bands
     rec["tonal_check"] = tonal_verdict(bands)
+    # 床长判据随判据演进重推：目标取边车（新边车 duration_target_s；旧边车只有
+    # duration_requested_s，退化取它——旧床未垫量，请求即目标）。
+    _target = rec.get("duration_target_s", rec.get("duration_requested_s"))
+    if _target is not None:
+        rec["bed_len_check"] = bed_len_verdict(rec["measured"]["duration_s"],
+                                               float(_target))
     if narration_db is not None:
         rec["suggested_gain"] = round(10 ** ((narration_db - target_db
                                              - rec["measured"]["rms_dbfs"]) / 20), 4)
@@ -520,9 +554,13 @@ def _recheck(out: Path, side: Path, narration_db: float | None,
           f"RMS {rec['measured']['rms_dbfs']} dBFS")
     print(f"  拍速反查：{rec['rate_check']}")
     print(f"  配器判据：{rec['tonal_check']}")
+    if "bed_len_check" in rec:
+        print(f"  床长判据：{rec['bed_len_check']}")
     if "suggested_gain" in rec:
         print(f"  → gain {rec['suggested_gain']}（{rec['gain_basis']}）")
-    blocked = str(rec["rate_check"]).startswith("MISMATCH") or "⚠" in rec["tonal_check"]
+    blocked = (str(rec["rate_check"]).startswith("MISMATCH")
+               or "⚠" in rec["tonal_check"]
+               or str(rec.get("bed_len_check", "")).startswith("⚠"))
     return 2 if blocked else 0
 
 
@@ -560,7 +598,9 @@ def main() -> int:
     ap.add_argument("--model", default=None,
                     help="供应商内选型：lyria 默认 lyria-realtime-exp")
     ap.add_argument("--duration", type=float, default=62.0,
-                    help="时长（秒）：lyria 实时=采集秒数（床长判据照常验收）")
+                    help="目标床长（秒）：床要盖多长（成片时长 + 余量）。"
+                         "实时后端请求端自动垫 1.15×（实测短约 10% 是规律）；"
+                         "床长判据按目标验收，短了退出码非 0")
     ap.add_argument("--bpm", type=int, default=72)
     ap.add_argument("--density", type=float, default=0.6, help="0–1，床要疏不要满（lyria 实时后端）")
     ap.add_argument("--brightness", type=float, default=0.4, help="lyria 实时后端")
@@ -643,17 +683,20 @@ def main() -> int:
                else "n/a（自带容器，采样率由音频头决定）")
     bands = band_share(out)
     tonal = tonal_verdict(bands)
-    if not realtime and m["duration_s"] + 1 < args.duration:
-        print(f"⚠ 成曲只有 {m['duration_s']}s < 请求 {args.duration:g}s——"
-              f"挂床前先确认它 ≥ 成片时长，否则尾部会裸奔")
+    bed_check = bed_len_verdict(m["duration_s"], args.duration)
+    print(f"  床长判据：{bed_check}")
 
     model = args.model or {"lyria": "lyria-realtime-exp"}[provider]
     rec = {"provider": provider, "model": model, "prompts": args.prompt or [],
            "text": args.text, "bpm_requested": args.bpm,
-           "duration_requested_s": args.duration,
+           "duration_target_s": args.duration,
+           "duration_requested_s": (pad_request(args.duration) if realtime
+                                    else args.duration),
+           "pad_factor": (PAD_FACTOR if realtime else None),
            "format": {"rate": RATE, "channels": CHANNELS, "bit_depth": WIDTH * 8},
            "measured": m, "bpm_detected": bpm_seen, "rate_check": verdict,
-           "band_share_pct": bands, "tonal_check": tonal}
+           "band_share_pct": bands, "tonal_check": tonal,
+           "bed_len_check": bed_check}
 
     if m["rms_dbfs"] is not None and args.narration_rms_db is not None:
         gain = 10 ** ((args.narration_rms_db - args.target_under_db - m["rms_dbfs"]) / 20)
@@ -668,16 +711,20 @@ def main() -> int:
     print(f"  拍速反查：{verdict}")
     print(f"  频段分布：{'  '.join(f'{k} {v}%' for k, v in bands.items()) or 'n/a'}")
     print(f"  配器判据：{tonal}")
+    print(f"  床长判据：{bed_check}")
     if "suggested_gain" in rec:
         print(f"  → video.json 写 \"gain\": {rec['suggested_gain']}"
               f"（{rec['gain_basis']}）")
     print(f"  边车：{side}")
     # 判据不通过要让**退出码**说话。文件照样落盘供排查，但「打印了警告却返回 0」
     # 就是纪律 12 说的那种假绿灯——上层脚本会把它当成功继续往下走。
-    blocked = verdict.startswith("MISMATCH") or tonal.startswith("⚠")
+    blocked = (verdict.startswith("MISMATCH") or tonal.startswith("⚠")
+               or bed_check.startswith("⚠"))
     if blocked:
-        print(f"\nFAIL：{'；'.join(x for x in (verdict, tonal) if '⚠' in x or x.startswith('MISMATCH'))}")
-        print("      文件已落盘供排查，但**不要**把它挂进 video.json。")
+        print(f"\nFAIL：{'；'.join(x for x in (verdict, tonal, bed_check)
+                                if '⚠' in x or x.startswith('MISMATCH'))}")
+        print("      文件已落盘供排查（改名利落归档进 rejected/，别删——阈值回溯要用），"
+              "但**不要**把它挂进 video.json。")
         return 2
     return 0
 

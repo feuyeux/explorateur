@@ -471,6 +471,27 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
             add("②剧本", "已定稿", OK, "无 draft 标记，重跑草稿不会覆盖")
 
     # ---- ③ 数据 ----
+    # 班底体检先于一切剧本检查：班底坏了（id 撞 / 配对破 / 字段缺），任何课都渲不出来
+    # ——报在「还能便宜地修」的那一层（纪律 11）。判定本体是 library.persona 的纯函数
+    # （反向验证在 scripts/verify_personas.py），这里只接线。逐人走**原始清单**
+    # （personas_doc）而不是 {id: persona} 索引——索引会把重复 id 静默折叠成一个，
+    # 班底级「id 唯一」就永远验不出来。
+    from . import persona as _persona
+    from .data import personas_doc
+    try:
+        _plist = personas_doc(personas_dir)["personas"]
+    except (OSError, ValueError, KeyError) as e:      # noqa: BLE001
+        _plist = []
+        add("③数据", "班底体检", FAIL, f"personas.json 读不了：{e}",
+            "修好班底文件再体检（契约见 personas/schema.md）")
+    else:
+        _bad = _persona.validate_roster(_plist)
+        _bad += [x for p_ in _plist for x in _persona.validate_persona(p_)]
+        if _bad:
+            add("③数据", "班底体检", FAIL, f"{len(_bad)} 项：{_bad[0]}",
+                "uv run feuille persona validate 看全量")
+        else:
+            add("③数据", "班底体检", OK, f"{len(_plist)} 人零问题（id 唯一 / 配对齐）")
     scene = None
     if not md_p.exists():
         add("③数据", "scene.json", TODO, "没有剧本可解析",
@@ -625,7 +646,11 @@ def cmd_doctor(argv=None) -> int:
     ap.add_argument("--json", action="store_true", help="机读输出（CI / 看板）")
     ap.add_argument("--strict", action="store_true",
                     help="把可选层（⑤文档/⑥发布）的未完成也算失败")
-    args = ap.parse_args(argv)
+    # router 契约（cli.py）：`fn()` 裸调 = 剩余参数为空——None 当 [] 处理，
+    # 不回落 sys.argv（否则 router 已 pop 掉的组名/命令名被吃回去，
+    # `feuille lesson doctor` 裸调撞 unrecognized arguments——本次修复的实发 bug）。
+    # 模块直跑走本文件 main() 的路由，参数永远显式传入。
+    args = ap.parse_args(list(argv) if argv is not None else [])
 
     from .parse_scene import find_scene_ids
     # --all 在 lessons 目录尚不存在时回落到 find_scene_ids（源仓库 lessons/ 恒存在，

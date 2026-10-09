@@ -18,6 +18,8 @@
 - `name:` 字段必须等于目录名——路由表与实现失配
 - 12 语种规范顺序只在 `one-page-poster` 定义——事实源唯一，不许各抄一份
 - 跨 skill 共享的 example 项目数据副本必须逐字节一致——手工同步要有机检兜底
+- README「模块地图」三个小节与 ownership.json 双向对账——手写地图承载账本没有的
+  「谁在用」列，但归属断言必须与账本一致，漂移当场 FAIL
 """
 from __future__ import annotations
 
@@ -189,6 +191,7 @@ def check() -> list[tuple[bool, str]]:
                      + (f"　**缺 {miss}**" if miss else "")))
 
     rows += _check_ownership(names)
+    rows += _check_readme_map()
     rows += _check_no_hardcoded_bins()
     rows += _check_shared_example_assets()
     return rows
@@ -406,6 +409,100 @@ def _owned_line(skill: str) -> str | None:
         if ln.strip().startswith("拥有模块："):
             return ln.strip()
     return None
+
+
+# ---------------------------------------------------------------- README 模块地图对账
+
+_MAP_TIERS = ("### library", "### infrastructure", "### skill 专属")
+
+
+def _readme_map_mismatches(readme_text: str, own: dict) -> list[str]:
+    """usine/README.md「模块地图」三个小节的模块清单 ↔ ownership.json 双向对账。
+
+    地图是**手写的**——它承载账本没有的「谁在用」列；手写副本必须有对账机检
+    兜底，这正是检查 12 对 SKILL.md「拥有模块」行做的事（同一事实写两处必然
+    漂移，而漂移的那份没人核对）。纯函数：吃文本与账本，反向验证可直接喂伪造
+    输入。只读**表格行**（| 开头）里的反引号标识符——散文与节引言不判，
+    带 . / - 的 token 天然不匹配。
+    """
+    tiers = {
+        "### library": set(own.get("library") or {}),
+        "### infrastructure": set(own.get("infrastructure") or {}),
+        "### skill 专属": {m for mods in (own.get("skills") or {}).values() for m in mods},
+    }
+
+    def home(m: str) -> str:
+        for tier in ("library", "infrastructure"):
+            if m in (own.get(tier) or {}):
+                return tier
+        for sk, mods in (own.get("skills") or {}).items():
+            if m in mods:
+                return f"skills.{sk}"
+        return "unclaimed（无主）"
+
+    tok_re = re.compile(r"`([a-z_][a-z0-9_]*)`")
+    cur: str | None = None
+    claimed: dict[str, set] = {t: set() for t in _MAP_TIERS}
+    for ln in readme_text.splitlines():
+        for head in _MAP_TIERS:
+            if ln.startswith(head):
+                cur = head
+        if ln.startswith("## ") and not ln.startswith("### "):
+            cur = None                      # 出了地图章节（下一个 H2）
+        if cur is not None and ln.lstrip().startswith("|"):
+            claimed[cur].update(tok_re.findall(ln))
+    out: list[str] = []
+    for head, want in tiers.items():
+        tier_name = head[4:]
+        for m in sorted(want - claimed[head]):
+            out.append(f"地图缺 {m}（账本记在 {tier_name}）——新入层/翻转的模块要同步画进地图")
+        for m in sorted(claimed[head] - want):
+            out.append(f"地图把 {m} 画在 {tier_name}，账本记在 {home(m)}——归属翻转了地图没跟上")
+    return out
+
+
+def _check_readme_map() -> list[tuple[bool, str]]:
+    """检查 14：README 模块地图三个小节与 ownership.json 双向一致 + 反向验证。
+
+    门禁自己崩溃比 FAIL 更糟（见 parse_skill 的说明）：README/账本读不了、
+    解析不了，都出 FAIL 行而不是 traceback。
+    """
+    readme_p = ROOT / "README.md"
+    opath = ROOT / "ownership.json"
+    if not readme_p.exists() or not opath.exists():
+        return [(False, "README.md 或 ownership.json 缺失——模块地图无从对账")]
+    try:
+        readme_text = readme_p.read_text("utf-8")
+        own = json.loads(opath.read_text("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return [(False, f"README/ownership.json 读不了：{e}")]
+    bad = _readme_map_mismatches(readme_text, own)
+    n_lib = len(own.get("library") or {})
+    n_infra = len(own.get("infrastructure") or {})
+    n_skill = sum(len(m) for m in (own.get("skills") or {}).values())
+    rows = [(not bad,
+             f"README 模块地图与账本双向一致（library {n_lib} / infrastructure "
+             f"{n_infra} / skill 专属 {n_skill}）"
+             + (f"　**{bad[:3]}**" if bad else ""))]
+
+    # ---- 反向验证（纪律 2：凿洞必被抓；喂伪造输入，不动真实文件）----
+    fake_own = {"library": {"tts": "x", "audio": "x"}, "infrastructure": {"cli": "x"},
+                "skills": {"s1": {"publish": "x"}}, "unclaimed": {}}
+    holed = _readme_map_mismatches(
+        "### library —— 1 个\n\n| `tts` | a |\n| `bogus` | b |\n\n"
+        "### infrastructure —— 1 个\n\n| `cli` | a |\n\n"
+        "### skill 专属 —— 1 个\n\n| `publish` | a |\n", fake_own)
+    rows.append((any("bogus 画在 library" in m for m in holed) and any("缺 audio" in m for m in holed),
+                 "地图对账凿洞：地图多画 bogus → 被抓；账本有 audio 地图没画 → 被抓"
+                 + ("" if any("bogus" in m for m in holed) else f"　**漏了！实得 {holed}**")))
+    flipped = _readme_map_mismatches(
+        "### library —— 1 个\n\n| `cli` | a |\n\n"
+        "### infrastructure —— 1 个\n\n| `tts` | a |\n\n"
+        "### skill 专属 —— 0 个\n\n（空）\n", fake_own)
+    rows.append((any("cli 画在 library" in m and "skills" not in m for m in flipped)
+                 and any("tts 画在 infrastructure" in m for m in flipped),
+                 "地图对账凿洞：模块画错层（cli 画进 library、tts 画进 infrastructure）→ 报出真实归属"))
+    return rows
 
 
 def main() -> int:

@@ -1,6 +1,6 @@
 {
   "_policy": "src/feuille 下每个模块必须且只能被声明一次：归某个 skill、归 library（多 skill 共用的业务实现）、或归 infrastructure（与业务无关的底座）。子模块随其包归属。**unclaimed 必须为空**——存量代码要么被 skill 拥有，要么进 library，不许悬着。由 verify_skills.py 机检。",
-  "_why_library": "skill 是说明书（怎么用 + 工作样例 + 诊断脚本），library 是实现（可复用代码）。tts/audio 要同时给 karaoke-video 与 multilingual-video-poetry 用，textlayer/covers 要同时给 one-page-poster 与 poetry 用，manifest/metrics 要同时给 publishing 与 lesson-scene 用——这些进 library。一个模块可以跨用 library，但不许被两个 skill 同时「拥有」。",
+  "_why_library": "skill 是说明书（怎么用 + 工作样例 + 诊断脚本），library 是实现（可复用代码）。tts/audio 要同时给 karaoke-video 与 multilingual-video-poetry 用，textlayer/covers 要同时给 one-page-poster 与 poetry 用，manifest/metrics 要同时给 publishing 与 lesson-scene 用；rig/scenes/persona 是同一形态的第三例——character-rig 是它们的说明书，而 lesson-scene 的校验层（scene_schema/scene_draft/doctor）要现取同一份注册表与契约判定，skill 之间不许横向伸手，只能共同站在 library 上。一个模块可以跨用 library，但不许被两个 skill 同时「拥有」。",
   "_tiers": {
     "skills": "专属实现，只被这一个 skill 用",
     "library": "被 ≥2 个 skill 用的业务实现，或跨产线共用的判定源",
@@ -19,7 +19,10 @@
     "metrics": "指标回流：results 合并 / 发布侧检查 / 分组分析。同上共用",
     "devices": "装置外框样式注册表。character-rig（画）与 lesson-scene（校验判据）共用",
     "data": "数据入口唯一事实源：personas / intro-cards / languages / scene.json。各 skill 共读",
-    "audit": "格律计数审计：计数器库 + 声称 vs 实测驱动。multilingual-video-poetry 与课件诗稿共用"
+    "audit": "格律计数审计：计数器库 + 声称 vs 实测驱动。multilingual-video-poetry 与课件诗稿共用",
+    "rig": "人物 rig 本体：色表 / 随机与物理 / 插值缓动 / FACE_SPECS / MOOD_FACE / POSE_CODES 等规格注册表。character-rig（选型与排障说明书）与 lesson-scene（scene_schema / scene_draft / lesson 的校验判据现取）共用；draw_character 的契约测试在 scripts/verify_rig.py",
+    "scenes": "背景场景原语：@scene 注册表 65 名 + prerender_bg + DrawScaled 超采样。character-rig（说明书）与 lesson-scene（doctor 的场景合法值现取）共用",
+    "persona": "人设契约校验器：validate_persona / validate_roster（personas/schema.md 的机器判定，纯函数）。character-rig（说明书）与 lesson-scene（doctor 班底体检）共用；CLI 叶子 `feuille persona validate` 直调"
   },
 
   "skills": {
@@ -38,11 +41,7 @@
       "scene_draft": "教学创意 → scene.md 草稿生成",
       "section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
     },
-    "character-rig": {
-      "rig": "人物 rig 本体：色表 / 随机与物理 / 插值缓动 / FACE_SPECS 等规格注册表",
-      "scenes": "背景场景原语：@scene 注册表 65 名 + prerender_bg + DrawScaled 超采样",
-      "persona": "人设契约校验器：validate_persona / validate_roster（纯函数，可喂坏数据）"
-    }
+    "character-rig": {}
   },
 
   "infrastructure": {

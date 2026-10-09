@@ -81,7 +81,7 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 |---|---|
 | 边界 | 逐帧取样拼图目视确认，不是凭印象 |
 | TTS | **每段实测时长 ≤ 该季窗口**，超窗就压词，不是超了就硬塞 |
-| 字幕 | 每季抽帧目视：文字在**该季的实际底色**上读得出吗 |
+| 字幕 | **先量后看**：`color_contrast.py --gate <标定阈值>` 逐季二值判据全 PASS（阈值在已目视验收的成片帧上标定），再抽帧目视复核 |
 | 混音 | 人声段 − 空档底床 ≥ 8 dB；底床全程无断点 |
 | 收尾 | 音频在**画面结束那一刻**归零，不是提前哑、也不是戛然而止 |
 | 成片 | 逐条 ffprobe 尺寸/时长/音轨规格 |
@@ -140,6 +140,18 @@ uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
 实测发现四季背景亮度相差 **3.6 倍**（冬季 p90=0.601，其余三季 0.168–0.328），
 这才是冬季配色要多压两档的可测原因。注意 **WCAG 对比度不适用于彩字压实拍**
 （会把已验收的成果误判为不达标）。
+
+**「可读」可以降级成二值判据**：`--gate <min_gap>` 给出后，脚本算每季
+`|字芯亮度 − 环带背景 p90|`，低于阈值的季 FAIL、退出码 1；未量到的季在 gate
+模式下也算 FAIL（SKIP 不是 PASS）。**阈值没有默认值**——在已目视验收的成片帧
+上实测后标定再给；拿四季归档数字或 WCAG 当普适阈值就是编数据。判据纯函数
+`gap_verdict` 的反向验证在 `usine/scripts/verify_skill_scripts.py`。
+
+```bash
+# 量 + 二值判据（阈值自标定）：CI / 验收官可抓退出码
+uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
+    --seasons 母版.mp4 --cards cards/横版 --gate 0.30 --gap-ref p90
+```
 
 详见 `references/typography-over-footage.md`。
 

@@ -17,9 +17,18 @@
 6. **no-hard-wrap 零违规** — 与 `~/.agents/skills/markdown-no-hard-wrap/SKILL.md`
    §自查的判定逻辑对齐（drift 风险：本脚本是上游 heredoc 的内联副本，
    上游改判据时这里要同步改——见 _no_hard_wrap_violations 上方注释）
+7. **AI 指纹零命中** — `check_ai_fingerprint`：只查**读者面**（标题 + 正文/文案/
+   简介），发布贴士是写给操作者的（允许提规则本身），不在扫描面内。
+   机检的是**可枚举签名**（字面词 / 句首「原来…」/ 连续感叹号 / 像 X 一样的 Y /
+   一行 emoji 滥用）；语感判不了的部分仍归编辑走查（SKILL.md 失败模式末条）
+8. **数字可溯源** — `check_fact_provenance`（`--facts facts.json` 给了才跑；
+   没给就 SKIP，SKIP 不是 PASS）：读者面文字里出现的**每个数字**都要能在
+   事实表里找到出处。「编造规格」是本 skill 最严重的失败模式——这一条把
+   「事实 vs 成品」从编辑走查降级成机检
 
 用法：
     python3 check_publish_copy.py <publish_dir>
+    python3 check_publish_copy.py <publish_dir> --facts facts.json
     python3 check_publish_copy.py <publish_dir> --strict
 """
 from __future__ import annotations
@@ -60,6 +69,22 @@ PLATFORM = {
 
 # 互动钩短语（多字，避免单字「敢」误伤「勇敢 / 不敢」等无关上下文）
 HOOK_PHRASES = ["报数", "点单", "跟读", "催更", "评论区", "弹幕", "敢不敢"]
+
+# AI 指纹（与 SKILL.md `## 失败模式` 末条同源；drift 风险同 HOOK_PHRASES——
+# 上游清单更新时这里要同步改）。「原来」只判**句首**形态：句中作叙事词的
+# 「原来」不少见，全量禁会误伤；AI 的指纹是「原来 + 揭秘句式」的开头用法。
+AI_FINGERPRINT_WORDS = ["yyds", "xswl", "绝绝子", "狠狠地", "藏了心机",
+                        "宝藏", "把世界上好听的话"]
+AI_REVEAL_RE = re.compile(r"(?:^|\n|(?<=[。！？!]))\s*原来")
+AI_EXCLAIM_RUN_RE = re.compile(r"[!！]{2,}")            # ！！连刷（单个 ！ 合法）
+AI_SIMILE_RE = re.compile(r"像[^，。！？\n“”\"']{1,12}一样的")   # 像 X 一样的 Y 模板句
+EMOJI_PER_LINE_MAX = 3      # 一行 >3 个 emoji = 滥用（SKILL.md：一句三四个）
+
+
+def _emoji_count(line: str) -> int:
+    """emoji 粗计（0x1F000 起的 emoji 平面 + 2600–27BF 杂项符号/装饰符号，
+    ✨ U+2728 在后者）。粗计够用：判的是「一行刷四五个」的滥用，不是精确字形学。"""
+    return sum(1 for ch in line if 0x1F000 <= ord(ch) or 0x2600 <= ord(ch) <= 0x27BF)
 
 
 # ============================================================
@@ -246,6 +271,97 @@ def check_no_hard_wrap(path: Path, platform: str) -> list[str]:
     return []
 
 
+# ============================================================
+#  读者面文字（AI 指纹与数字溯源的扫描面）
+# ============================================================
+
+def reader_text(path: Path, platform: str) -> str:
+    """读者会看到的文字：标题 + 正文/文案/简介。
+
+    **发布贴士不在扫描面**——它是写给操作者的内部说明，允许提规则本身
+    （「别用绝绝子」「标题 20 字内」这类话在贴士里合法，进了正文才是 AI 味）。
+    话题标签另查（尾随空格），不在这里重复。
+    """
+    spec = PLATFORM[platform]
+    text = path.read_text(encoding="utf-8")
+    sections = split_h2_sections(text)
+    if platform == "douyin":
+        # 抖音的标题与正文共用 `## 文案`（投稿表单只有一个输入框）
+        return section_text("文案", sections) or ""
+    title_h2 = "标题（20 字内）" if platform == "xiaohongshu" else "标题"
+    parts = [section_text(title_h2, sections) or "",
+             section_text(spec["body_section"], sections) or ""]
+    return "\n".join(parts)
+
+
+def check_ai_fingerprint(path: Path, platform: str) -> list[str]:
+    """7. AI 指纹零命中（机检部分——枚举得出的签名）。
+
+    语感（节奏 / 模板感 / 脊柱一致）判不了，仍归编辑走查；这里拦的是
+    能写成规则的硬签名。清单与 SKILL.md 失败模式末条同源。
+    """
+    raw = reader_text(path, platform)
+    low = raw.lower()
+    problems = []
+    for w in AI_FINGERPRINT_WORDS:
+        if w in low:
+            problems.append(f"AI 指纹「{w}」命中——读一遍全砍（见失败模式末条）")
+    if AI_REVEAL_RE.search(raw):
+        problems.append("句首「原来…」揭秘句式命中——AI 指纹，用自己的话说")
+    if AI_EXCLAIM_RUN_RE.search(raw):
+        problems.append("连续感叹号（！！+）命中——句末感叹号刷屏")
+    if AI_SIMILE_RE.search(raw):
+        problems.append("「像 X 一样的 Y」模板句命中")
+    for ln in raw.splitlines():
+        if _emoji_count(ln) > EMOJI_PER_LINE_MAX:
+            problems.append(f"一行内 emoji {_emoji_count(ln)} 个 > {EMOJI_PER_LINE_MAX}"
+                            "——emoji 滥用")
+            break
+    return problems
+
+
+def _fact_numbers(facts) -> set:
+    """事实表里全部可作数字出处的值（数值直接收；字符串能 parse 成数字的也收）。"""
+    out = set()
+    for v in (facts or {}).values():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            out.add(float(v))
+            continue
+        try:
+            out.add(float(str(v).strip()))
+        except ValueError:
+            pass
+    return out
+
+
+def check_fact_provenance(path: Path, platform: str, facts) -> list[str]:
+    """8. 数字可溯源：读者面文字里出现的每个数字都能在事实表里找到出处。
+
+    事实表 = `--facts facts.json`（键随便起，值是可核对的数：实测时长、
+    语种/条目数、bgm 边车的 gain_basis 数字等——数字从哪来见 SKILL.md
+    Workflow 第 4 步）。对账规则：声称值 n 匹配事实值 f
+    当且仅当 n == f 或 round(f) == n 或 round(f, 1) == n（「52 秒」对实测
+    52.4s 合法——四舍五入是写作，不是编造）。话题标签（#xxx）先剥掉——
+    标签不是数字载体。
+    """
+    raw = reader_text(path, platform)
+    raw = re.sub(r"#[^\s#]+", " ", raw)
+    claimed = sorted(set(re.findall(r"\d+(?:\.\d+)?", raw)))
+    if not claimed:
+        return []
+    nums = _fact_numbers(facts)
+    untraced = [c for c in claimed
+                if not any(float(c) == f or round(f) == float(c)
+                           or round(f, 1) == float(c) for f in nums)]
+    if untraced:
+        return [f"数字 {untraced} 在 --facts 事实表里找不到出处——"
+                "编造规格是本 skill 最严重的失败模式；要么删，"
+                "要么把真实数字写进事实表（实测时长 / 条目数 / 边车数字）"]
+    return []
+
+
 # 注册表：机检名 → check 函数（与 SKILL.md `## 验收判据` 表的实现列对齐）
 CHECKS: list[tuple[str, Callable[[Path, str], list[str]]]] = [
     ("必需 H2 段落齐全", check_required_sections),
@@ -254,6 +370,7 @@ CHECKS: list[tuple[str, Callable[[Path, str], list[str]]]] = [
     ("互动钩短语", check_hook_phrase),
     ("置顶话术", check_pinned_quote),
     ("no-hard-wrap 零违规", check_no_hard_wrap),
+    ("AI 指纹零命中", check_ai_fingerprint),
 ]
 
 
@@ -261,11 +378,12 @@ CHECKS: list[tuple[str, Callable[[Path, str], list[str]]]] = [
 #  Top-level orchestrator
 # ============================================================
 
-def check_publish_dir(publish_dir: Path) -> int:
+def check_publish_dir(publish_dir: Path, facts=None) -> int:
     """检查 publish_dir 下的所有平台文件。返回非零退出码当存在 FAIL。
 
     缺失的 `xiaohongshu.md` / `douyin.md` / `bilibili.md` 是真实投诉
     （写者没交齐），不是静默 SKIP。
+    facts：`--facts` 事实表（给了才跑数字溯源；没给 = SKIP，SKIP 不是 PASS）。
     """
     rc = 0
     any_file = False
@@ -287,6 +405,19 @@ def check_publish_dir(publish_dir: Path) -> int:
                     print(f"  ❌ {label}：{msg}")
             else:
                 print(f"  ✅ {label}")
+        # 数字溯源：--facts 给了才跑；没给 = SKIP（纪律 12：SKIP 与 PASS 分列，
+        # 把 SKIP 显示成 PASS 就是假绿灯）
+        if facts is None:
+            print("  ⏭️  数字溯源：SKIP（未给 --facts——没验，不是 PASS）")
+        else:
+            fails = check_fact_provenance(path, platform, facts)
+            if fails:
+                file_ok = False
+                rc = 1
+                for msg in fails:
+                    print(f"  ❌ 数字溯源：{msg}")
+            else:
+                print("  ✅ 数字溯源（读者面数字全部对上事实表）")
         # 副信息：标题字数实测
         text = path.read_text(encoding="utf-8")
         sections = split_h2_sections(text)
@@ -316,13 +447,21 @@ def check_publish_dir(publish_dir: Path) -> int:
 
 
 def main() -> int:
+    import json
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0]
                                             if __doc__ else "")
     ap.add_argument("publish_dir", help="publish/*.md 所在目录")
+    ap.add_argument("--facts", default=None,
+                    help="事实表 JSON（键随意、值是可核对数字：ffprobe 时长 / 语种数 / "
+                         "bgm 边车数字……）。给了才跑数字溯源；没给 = SKIP")
     ap.add_argument("--strict", action="store_true",
                     help="（预留）把 WARN 也升级为 FAIL")
     args = ap.parse_args()
-    return check_publish_dir(Path(args.publish_dir))
+    facts = None
+    if args.facts:
+        import pathlib as _pl
+        facts = json.loads(_pl.Path(args.facts).read_text("utf-8"))
+    return check_publish_dir(Path(args.publish_dir), facts)
 
 
 if __name__ == "__main__":
