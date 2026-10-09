@@ -27,11 +27,13 @@
 ```json
 {
   "fontCss": "...原样保留...",
-  "displayFontCss": "'Baskerville', 'Palatino', 'Charter', 'Georgia', <原 fontCss>, serif"
+  "displayFontCss": "'Baskerville', 'Palatino', 'Charter', 'Georgia', <原 fontCss>"
 }
 ```
 
-**末尾必须接回原 `fontCss` 兜底**——缺字或字体缺失时行为与从前完全一致。
+**末尾必须接回原 `fontCss` 兜底，且到此为止**——接回段之后不允许再排任何
+字体 token（`languages/README.md` 的约定：接回段后面的都是死 token，
+浏览器永远到不了 `serif`）。缺字或字体缺失时行为与从前完全一致。
 `data.py` 按键取值，其他项目不受影响。
 
 各语种按其**实际书体传统**选，不是一个 Latin 衬线了事：

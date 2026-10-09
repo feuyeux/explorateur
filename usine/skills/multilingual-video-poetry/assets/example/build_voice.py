@@ -44,7 +44,9 @@ def tts(lang: str, season: str, text: str, tries: int = 4) -> Path:
         r = subprocess.run(
             ["uv", "run", "edge-tts", "--voice", VOICES[lang],
              "--rate", "-8%", "--text", text, "--write-media", str(out)],
-            cwd=HERE.parent.parent, capture_output=True, text=True)
+            # 归档位置在 skills/<skill>/assets/example：parents[3] 才是 usine
+            # （uv run 要在 pyproject.toml 所在目录跑；原件里是 parent.parent）
+            cwd=HERE.parents[3], capture_output=True, text=True)
         if r.returncode == 0 and out.exists() and out.stat().st_size > 0:
             stamp.write_text(fingerprint, "utf-8")
             return out

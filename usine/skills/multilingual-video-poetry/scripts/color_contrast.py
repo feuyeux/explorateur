@@ -75,10 +75,17 @@ def _bin(name: str) -> str:
         _BIN[name] = got
     return _BIN[name]
 
-SEASON_SHOT = {"春": 2.6, "夏": 7.8, "秋": 11.9, "冬": 16.7}
+SEASON_SHOT = {"春": 2.6, "夏": 7.8, "秋": 11.9, "冬": 16.7}   # 只对四季节项目母版成立，别的母版用 --shots 给
 BANDS = {"top": (0.00, 0.22), "bottom": (0.50, 1.00)}
 GLYPH_HUE_TOL, GLYPH_V_MIN, GLYPH_S_MIN = 0.03, 0.5, 0.25
 RING_PX = 14
+
+
+def _load_json(text, flag):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        sys.exit(f"{flag} 不是合法 JSON：{e}")
 
 
 def srgb_to_lin(c):
@@ -118,11 +125,20 @@ def glyph_mask(reg, color):
     草地一并抓进来（占区域 68.5%）；0.03 + v>0.5 才精准命中字芯——此时字形亮度
     p75 与该色实算亮度一致（实测 0.635 vs 0.636）。"""
     hue_t = colorsys.rgb_to_hls(*(c / 255 for c in hex2rgb(color)))[0]
-    mx, mn = reg.max(axis=2), reg.min(axis=2)
-    v = mx / 255.0
-    s = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
-    flat = reg.reshape(-1, 3) / 255.0
-    hsv = np.array([colorsys.rgb_to_hsv(*p)[0] for p in flat]).reshape(reg.shape[:2])
+    mxf, mnf = reg.max(axis=2), reg.min(axis=2)
+    v = mxf / 255.0
+    s = np.where(mxf > 0, (mxf - mnf) / np.maximum(mxf, 1e-6), 0.0)
+    # 色相向量化算（逐像素 colorsys 要跑 ~20 万次，慢约两个量级）。
+    # 分支优先级 r>g>b 与 colorsys.rgb_to_hsv 一致（灰像素 r 分支给出 0，
+    # 两通道并列最大时结果也一致），标定注释里的实测数字不受影响。
+    r, g, b = (reg[..., i].reshape(-1) / 255.0 for i in range(3))
+    mx = np.maximum(np.maximum(r, g), b)
+    c = mx - np.minimum(np.minimum(r, g), b)
+    safe_c = np.where(c > 0, c, 1.0)
+    hue = np.where(mx == r, ((g - b) / safe_c) % 6.0,
+                   np.where(mx == g, (b - r) / safe_c + 2.0,
+                            (r - g) / safe_c + 4.0))
+    hsv = (hue / 6.0).reshape(reg.shape[:2])
     dh = np.minimum(np.abs(hsv - hue_t), 1 - np.abs(hsv - hue_t))
     return (dh < GLYPH_HUE_TOL) & (s > GLYPH_S_MIN) & (v > GLYPH_V_MIN)
 
@@ -178,6 +194,8 @@ def main() -> int:
     ap.add_argument("--seasons", help="母版 mp4：四季一次量完")
     ap.add_argument("--cards", help="字幕层目录，如 cards/横版")
     ap.add_argument("--colors", help='季色 JSON，如 {"春":["#F0568C","#C9889E"]}')
+    ap.add_argument("--shots", help='各季取帧秒点 JSON，如 {"春":2.6,"夏":7.8}；'
+                                    '默认值是四季节项目母版的标定值，别的母版必须给')
     ap.add_argument("--suggest", help="给一个色，返回保留色相的深浅几档")
     a = ap.parse_args()
 
@@ -186,13 +204,13 @@ def main() -> int:
         if not vid.exists():
             print(f"找不到 {vid}")
             return 2
-        colors = json.loads(a.colors) if a.colors else None
+        colors = _load_json(a.colors, "--colors") if a.colors else None
         if colors is None:
             # 季色默认值先取**入库的归档副本**（assets/example），再退到本机
             # 工作目录（examples/sijijie，不入库）——fresh clone 上只有前者。
             here = Path(__file__).resolve().parent
             for cand in (here.parent / "assets" / "example",
-                         here.parents[3] / "examples" / "sijijie"):
+                         here.parents[2] / "examples" / "sijijie"):
                 if not (cand / "季节与译文.py").exists():
                     continue
                 sys.path.insert(0, str(cand))
@@ -211,13 +229,15 @@ def main() -> int:
         print(f"{'季':<4}{'主色':>10}{'字芯':>8}{'环带p50':>10}{'环带p90':>10}"
               f"{'WCAG比值':>10}  备注")
         rows = []
+        shots = _load_json(a.shots, "--shots") if a.shots else SEASON_SHOT
         with tempfile.TemporaryDirectory() as td:
-            for s, sec in SEASON_SHOT.items():
+            for s, sec in shots.items():
                 if s not in colors:
                     continue
                 fr = Path(td) / f"{s}.png"
                 subprocess.run([_bin("ffmpeg"), "-y", "-v", "error", "-ss", str(sec),
-                                "-i", str(vid), "-frames:v", "1", str(fr)], check=True)
+                                "-i", str(vid), "-frames:v", "1", str(fr)],
+                               check=True, timeout=120)
                 card = None
                 if a.cards:
                     cands = sorted(Path(a.cards).glob(f"*.{s}.png"))
@@ -230,6 +250,13 @@ def main() -> int:
                 if card is None:
                     print(f"{s:<4}{main_c:>10}{'—':>8}{p50:>10.3f}{p90:>10.3f}{'—':>10}  未合成")
                     rows.append((s, p90))
+                    continue
+                if gl is None:
+                    # 字形没抓到：量出来的 p50/p90 是 NaN，硬印会 TypeError，
+                    # 进 rows 又会污染最亮/最暗季的排名——跳过并说原因
+                    print(f"{s:<4}{main_c:>10}{'—':>8}{'—':>10}{'—':>10}{'—':>10}  "
+                          f"字形命中不足（{npx}px）——查 --colors 是否对、卡片是否这季、"
+                          f"--band 区里有没有字")
                     continue
                 rows.append((s, p90))
                 print(f"{s:<4}{main_c:>10}{gl:>8.3f}{p50:>10.3f}{p90:>10.3f}"

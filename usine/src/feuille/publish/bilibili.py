@@ -817,18 +817,9 @@ def main(argv=None) -> int:
     manifest.json = plans 契约经 `feuille.manifest.build_manifest` 落盘的清单，
     本入口取其中的 "bilibili" 段作为 tasks。
     """
-    import argparse
-    import json
-    ap = argparse.ArgumentParser(prog="feuille publish bilibili")
-    ap.add_argument("manifest", help="build_manifest 落盘的清单 JSON")
-    ap.add_argument("--log-dir", required=True,
-                    help="每条的过程截图 / result JSON 落盘目录")
+    ap = base.manifest_argparser("feuille publish bilibili")
     ap.add_argument("--subs-dir", default=None, help="字幕目录（如有）")
-    ap.add_argument("--only", default=None, help="只发指定序号（如 1,7；续跑用）")
-    ap.add_argument("--frm", type=int, default=None, help="从指定序号起发")
-    ap.add_argument("--dry-run", type=int, default=0, help="只走前 N 条的干跑")
-    ap.add_argument("--headless", action="store_true")
     a = ap.parse_args(argv)
-    tasks = json.loads(Path(a.manifest).read_text("utf-8"))["bilibili"]
+    tasks = base.manifest_tasks(a.manifest, "bilibili")
     return publish(tasks, log_dir=a.log_dir, subs_dir=a.subs_dir, only=a.only,
                    frm=a.frm, dry_run=a.dry_run, headless=a.headless)

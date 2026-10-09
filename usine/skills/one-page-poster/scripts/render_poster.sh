@@ -33,16 +33,29 @@ if [[ -z "$BROWSER" ]]; then
 fi
 
 # 参数与 library 的 `textlayer._shot_args` 对齐（实测过的组合）。
-# ⚠️ **不要加 --user-data-dir**：实测在 macOS + Edge 上，带它截图能出图但
-# **进程永不退出**（脚本永久挂住）。原注释说它是防止桌面浏览器抢占启动——
-# 但 `--headless=new` 下不需要，textlayer 一直没有它。
+# 隔离：每次运行用**全新的临时 --user-data-dir**。不带它时 Chromium 落到
+# 默认 profile，桌面浏览器若已开着，singleton 锁会把启动移交给现有进程、
+# 退出 0 且不写截图。实测 macOS + Edge 上挂住不退的是**持久化** profile；
+# 空目录规避了它。就算在别的环境再挂，timeout 兜底让它响亮地失败。
 # 另：`--force-device-scale-factor` 保留本脚本自己的 $S（海报要 2x 出图），
 # textlayer 固定 1 是因为它要 png 尺寸严格等于窗口尺寸。
-"$BROWSER" --headless=new --disable-gpu --no-sandbox \
+PROFILE="$(mktemp -d)"
+trap 'rm -rf "$PROFILE"' EXIT
+BROWSER_CMD=("$BROWSER")
+if command -v timeout >/dev/null 2>&1; then
+  BROWSER_CMD=(timeout 120 "$BROWSER")
+fi
+"${BROWSER_CMD[@]}" --headless=new --disable-gpu --no-sandbox \
   --hide-scrollbars \
+  --user-data-dir="$PROFILE" \
   --virtual-time-budget=10000 \
   --window-size="${W},${H}" \
   --force-device-scale-factor="${S}" \
   --screenshot="${OUT}" \
   "file://$(realpath "${IN}")${QS}"
+if [[ ! -f "$OUT" ]]; then
+  echo "浏览器退出 0 但没有写出 ${OUT}——大概率被已开着的桌面浏览器抢占（singleton 移交）。" >&2
+  echo "关掉桌面浏览器后重试。" >&2
+  exit 1
+fi
 echo "wrote ${OUT} ($((W*S))x$((H*S)))"

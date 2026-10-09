@@ -16,6 +16,8 @@ dependencies = [
 feuille = "feuille.cli:main"                       # 统一入口：uv run feuille <组> <命令>
 
 [dependency-groups]
+# BGM 床生成（skills/bgm-bed 的 Lyria Live API 客户端）：
+# uv sync --group music 按需安装；主环境不装也能跑发布/渲染线。
 music = [
     "google-genai>=2.29",
 ]

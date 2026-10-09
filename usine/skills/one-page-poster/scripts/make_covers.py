@@ -4,12 +4,15 @@ portrait 1080x1920 3x4 grid) from poster_src.html — same cells, same fit JS,
 different page geometry. Never rotate: each orientation lays out natively so
 it fills the screen edge to edge (rotation/padding leaves dead bands).
 
-Usage: make_covers.py   (reads poster_src.html, writes cover_src.html)
+Usage: make_covers.py [poster_src.html [cover_src.html]]
+  缺省在脚本所在目录读写；跨项目跑时把两个路径都传进来
+  （原版把路径写死在 __file__ 旁，examples/ 项目目录里根本用不上）。
 """
 import pathlib, re
+import sys
 
-SRC = pathlib.Path(__file__).parent / "poster_src.html"
-OUT = pathlib.Path(__file__).parent / "cover_src.html"
+SRC = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else pathlib.Path(__file__).parent / "poster_src.html"
+OUT = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else SRC.parent / "cover_src.html"
 
 s = SRC.read_text()
 

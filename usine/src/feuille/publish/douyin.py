@@ -576,16 +576,7 @@ def main(argv=None) -> int:
     manifest.json = plans 契约经 `feuille.manifest.build_manifest` 落盘的清单，
     本入口取其中的 "douyin" 段作为 tasks。
     """
-    import argparse
-    ap = argparse.ArgumentParser(prog="feuille publish douyin")
-    ap.add_argument("manifest", help="build_manifest 落盘的清单 JSON")
-    ap.add_argument("--log-dir", required=True,
-                    help="每条的过程截图 / result JSON 落盘目录")
-    ap.add_argument("--only", default=None, help="只发指定序号（如 1,7；续跑用）")
-    ap.add_argument("--frm", type=int, default=None, help="从指定序号起发")
-    ap.add_argument("--dry-run", type=int, default=0, help="只走前 N 条的干跑")
-    ap.add_argument("--headless", action="store_true")
-    a = ap.parse_args(argv)
-    tasks = json.loads(Path(a.manifest).read_text("utf-8"))["douyin"]
+    a = base.manifest_argparser("feuille publish douyin").parse_args(argv)
+    tasks = base.manifest_tasks(a.manifest, "douyin")
     return publish(tasks, log_dir=a.log_dir, only=a.only, frm=a.frm,
                    dry_run=a.dry_run, headless=a.headless)

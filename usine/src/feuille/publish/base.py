@@ -335,3 +335,41 @@ def filter_tasks(tasks, only=None, frm=None):
             f"筛选后任务为空（only={only!r}, from={frm!r}）——"
             f"按纪律 12 当场报错，不静默跑 0 条。原始任务数 {len(tasks)}。")
     return out
+
+
+# ---------------------------------------------------------------- CLI 适配层
+def manifest_argparser(prog: str) -> "argparse.ArgumentParser":
+    """三个发布器 CLI 叶子的公共参数表（平台差异项由调用方再 add_argument）。
+
+    参数表长一个样是**约定**不是巧合（cli.py 路由叶子；`feuille.manifest.
+    build_manifest` 的清单格式三个平台同构），各抄一份只会漂移出三个
+    「文档说 a、代码收 b」的版本。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog=prog)
+    ap.add_argument("manifest", help="build_manifest 落盘的清单 JSON")
+    ap.add_argument("--log-dir", required=True,
+                    help="每条的过程截图 / result JSON 落盘目录")
+    ap.add_argument("--only", default=None, help="只发指定序号（如 1,7；续跑用）")
+    ap.add_argument("--frm", type=int, default=None, help="从指定序号起发")
+    ap.add_argument("--dry-run", type=int, default=0, help="只走前 N 条的干跑")
+    ap.add_argument("--headless", action="store_true")
+    return ap
+
+
+def manifest_tasks(manifest: str, platform_key: str) -> list:
+    """从 build_manifest 的产物里取平台段。
+
+    形状不对要说清缺哪段、现有哪些键，而不是抛一个裸 KeyError 让人猜
+    清单到底是谁生成的（FAIL 要能被修，门禁哲学同 filter_tasks）。
+    """
+    try:
+        doc = json.loads(Path(manifest).read_text("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise SystemExit(f"{manifest} 解析不了：{e}")
+    tasks = doc.get(platform_key) if isinstance(doc, dict) else None
+    if not isinstance(tasks, list):
+        got = sorted(doc) if isinstance(doc, dict) else type(doc).__name__
+        raise SystemExit(f"{manifest} 缺 {platform_key!r} 段——确认这是 "
+                         f"feuille.manifest.build_manifest 的产物（顶层键：{got}）")
+    return tasks

@@ -66,6 +66,18 @@ def check(man_path: Path, root: Path) -> int:
     problems: list[str] = []
     notes: list[str] = []
 
+    def _resolve(p_str: str) -> Path:
+        """素材路径解析：绝对路径原样；相对路径先在 --root、再在清单
+        所在目录找。两级都命不中也照原样返回——存在性检查会拿原路径
+        报「素材缺失」，而不是让用户看到一个被解析过程改写的陌生路径。"""
+        p = Path(p_str)
+        if p.is_absolute():
+            return p
+        for base in (root, man_path.parent):
+            if (base / p).exists():
+                return base / p
+        return p
+
     for plat, tasks in man.items():
         lim = TITLE_MAX.get(plat)
         print(f"\n=== {plat}（{len(tasks)} 条"
@@ -73,10 +85,12 @@ def check(man_path: Path, root: Path) -> int:
 
         # ---- 1 素材存在性 ----
         missing = [t for t in tasks
-                   if not Path(t["video"]).exists() or not Path(t["cover"]).exists()]
+                   if not _resolve(t["video"]).exists()
+                   or not _resolve(t["cover"]).exists()]
         for t in missing:
-            problems.append(f"{plat} [{t['no']}] 素材缺失："
-                            f"{t['video'] if not Path(t['video']).exists() else t['cover']}")
+            gone = (t["video"] if not _resolve(t["video"]).exists()
+                    else t["cover"])
+            problems.append(f"{plat} [{t['no']}] 素材缺失：{gone}")
         print(f"  素材在盘：{len(tasks) - len(missing)}/{len(tasks)}")
 
         # ---- 2 标题字数（实测，不信手标）----
@@ -87,12 +101,21 @@ def check(man_path: Path, root: Path) -> int:
             print(f"  标题合规：{len(tasks) - len(over)}/{len(tasks)}"
                   + (f"　最长 {max(len(t['title']) for t in tasks)} 字" if tasks else ""))
 
+        # ---- 5 修改额度 ----
+        # 上限只在动手改已发布作品时烧掉（补封面算 1 次）。清单本身看不出来
+        # 用户回头要不要补封面，所以这里只做提醒，不判 FAIL——但必须显式
+        # 提醒，不能让额度在不知情下被用光（补封面到第 6 次会被平台直接拒）。
+        budget = MOD_BUDGET.get(plat)
+        if budget:
+            notes.append(f"{plat} 每作品修改上限 {budget} 次（补封面算 1 次）——"
+                         f"本清单 {len(tasks)} 条，发布后若还要补封面，先数余额再动手")
+
         # ---- 4 封面比例 ----
         want = COVER_RATIO.get(plat)
         if want and tasks:
             try:
                 from PIL import Image
-                with Image.open(tasks[0]["cover"]) as im:
+                with Image.open(_resolve(tasks[0]["cover"])) as im:
                     w, h = im.size
                 got = w / h
                 # 允许 3% 偏差（不同平台对另一版式有裁切框，不能要求像素级相等）
@@ -111,13 +134,15 @@ def check(man_path: Path, root: Path) -> int:
     # ---- 3 横竖配对 ----
     if len(man) >= 2:
         sets = {p: {t["lang"] for t in ts} for p, ts in man.items()}
+        counts = {p: len(ts) for p, ts in man.items()}
         base_plat = list(sets)[0]
         for p, s in sets.items():
             if s != sets[base_plat]:
                 problems.append(f"{p} 与 {base_plat} 的语种集合不一致："
                                 f"多 {s - sets[base_plat]}，缺 {sets[base_plat] - s}")
-        if all(len(s) == len(ts) for s, ts in zip(sets.values(), man.values())):
-            print(f"\n✅ 横竖配对：{len(sets)} 平台语种集合一致（各 {len(sets[base_plat])} 语种）")
+        if all(c == counts[base_plat] for c in counts.values()):
+            print(f"\n✅ 横竖配对：{len(sets)} 平台语种集合一致"
+                  f"（各 {len(sets[base_plat])} 语种 / {counts[base_plat]} 条）")
 
     # ---- 6 上限表对照（feuille 可导入时；导不进 = 零依赖模式跳过）----
     problems.extend(_limit_drift())
@@ -138,7 +163,8 @@ def check(man_path: Path, root: Path) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("manifest")
-    ap.add_argument("--root", default=".", help="素材根目录（仅用于提示）")
+    ap.add_argument("--root", default=".",
+                   help="素材根目录（相对路径素材先在这里找，再退到清单所在目录）")
     args = ap.parse_args()
     return check(Path(args.manifest), Path(args.root))
 

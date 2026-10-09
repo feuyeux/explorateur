@@ -2,7 +2,7 @@
 
 > feuille 是多语种视频生产与发布的**可复用层**：机制（代码）、体例（文档/数据格式）、纪律（规则）。本文件是**活规则**——在 feuille 里工作、或把 feuille 资产用于任何内容项目时，先读这里。
 >
-> 与其他文件的关系：[docs/workflow.md](docs/workflow.md) 是工作流运行手册（①–⑬：内容创作（人工）→ 设计 → 音频 / 视频 / 封面 → 四平台发布 → 合集收录，每段：输入 / 步骤 / 产物 / 检查）；[docs/toolchain.md](docs/toolchain.md) 是工具清单；[docs/](docs/) 是全部文档（playbook 系列）。**纪律条文的权威文本在本文件**，冲突时以本文件为准。本文件自带完整约定——H3 确认流程、交付位置等均在下方规定，不依赖其它文件补充；本工作区（`explorateur`，含 `humming/` 与 `reading/` 两个独立应用项目）没有更上层的 `AGENTS.md`。
+> 与其他文件的关系：[docs/workflow.md](docs/workflow.md) 是工作流运行手册（①–⑬：内容创作（人工）→ 设计 → 音频 / 视频 / 封面 → 四平台发布 → 合集收录，每段：输入 / 步骤 / 产物 / 检查）；[docs/toolchain.md](docs/toolchain.md) 是工具清单；[docs/](docs/) 是全部文档（playbook 系列）。**纪律条文的权威文本在本文件**，冲突时以本文件为准。本文件自带完整约定——H3 确认流程、交付位置等均在下方规定，不依赖其它文件补充；工作区根有 [AGENTS.md](../AGENTS.md)（工作区级约束：技能库位置、复用入口与全局同名能力的分工），但 feuille 的纪律与工程约定以本文件为准。
 >
 > **工程基线**：本工程**支持跨平台开发**（Windows / macOS / Linux 三系统都要能跑）+ **统一使用 uv**（Python 一律 `uv run`，不写死任何解释器路径）。
 
@@ -66,6 +66,7 @@
 - feuille 是 **uv 工程**：`pyproject.toml` + `uv.lock` + src 布局。依赖精确锁版，对齐基线 `edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`；**Pillow 是像素基线锚点，升级前必须重验逐帧基线**。
 - 一切 Python 调用走 **`uv run`**：`uv run python …` / `uv run python -m …` / `uv run <entry>`。**不写死 venv 路径，不用系统 / homebrew python，不 `sys.path` 借用他项目源码**（借来的代码改不动）。
 - 发布类依赖（Playwright）走**可选依赖组**：`uv sync --group publish` 按需安装后照常 `uv run`。
+- 音乐类依赖（Lyria 客户端，`skills/bgm-bed` 用）同走可选组：`uv sync --group music`。
 
 ### 跨平台三条硬约定（全部实测过）
 

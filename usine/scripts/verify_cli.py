@@ -94,12 +94,16 @@ def check():
     # 这条曾缺失：原文档列了 cover/framehash/audit/metrics/ledger 共 8 个
     # 子命令，COMMANDS 里一个都没有，`feuille cover make` 静默返回
     # 「未知命令」——而当时的机检只查「已登记的叶子可达」，查不出这个方向。
+    # 管道写法 `a|b|c` 每个 alternative 都算一条宣称（只认第一个会漏掉
+    # `cover make|bogus` 这种谎）；组名与命令之间必须是空白（`\s*` 会把
+    # 散文里挨着的两个词误认成入口）。
     doc = cli.__doc__ or ""
     claimed = set()
     for line in doc.splitlines():
-        m = re.search(r"feuille\s+(\w+)\s*(\w*)", line)
+        m = re.search(r"feuille\s+(\w+)\s+([\w|]+)", line)
         if m:
-            claimed.add((m.group(1), m.group(2)))
+            for leaf in m.group(2).split("|"):
+                claimed.add((m.group(1), leaf))
     undeclared = sorted(claimed - set(cli.COMMANDS))
     rows.append((not undeclared,
                  f"docstring 宣称的 {len(claimed)} 个入口全部已登记"

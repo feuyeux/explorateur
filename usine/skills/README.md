@@ -16,7 +16,8 @@
 │    multilingual-video-poetry                             │
 └──────────────────────────────────────────────────────────┘
 ┌─ 音频层（两条成片线共用）────────────────────────────────┐
-│  bgm-bed            底床生成（Lyria）+ 床位定标           │
+│  bgm-bed            底床生成（多供应商：Lyria/MiniMax，哪个      │
+│                     能用用哪个）+ 床位定标                        │
 └──────────────────────────────────────────────────────────┘
 ┌─ 收尾层───────────────────────────────────────────────┐
 │  publish-copy               写发布词（两条线共用）         │
@@ -35,7 +36,7 @@
 | 一页纸海报 / 12 语种排版 / 逐字着色 | `one-page-poster` | 内容清单 + 网格规格 + 配色 | 成片视频 |
 | 海报/卡片 → 旁白视频（逐词高亮） | `karaoke-video` | 已有海报 + 各语种文案 + 音色 | 实拍画面 |
 | **实拍母版** → 配文视频（压字幕 + 侧链混音） | `multilingual-video-poetry` | **一条实拍母版视频** + 配文 | 海报/卡片画面 |
-| 生成 BGM 床 / 定床位（两条成片线共用） | `bgm-bed` | 成片时长 + 配器短词 + 旁白实测电平 | 把床混进成片 |
+| 生成 BGM 床 / 定床位（两条成片线共用） | `bgm-bed` | 成片时长 + 配器短词 + 旁白实测电平 + 至少一家供应商 key | 把床混进成片 |
 | 新课开坑 / 课件解析 / 场景校验 / 草稿 | `lesson-scene` | 课 id + 场景骨架 + 语种范围 | 画人物与背景 |
 | 画人物 / 背景场景 / 装置外框 / 校验人设 | `character-rig` | 人设字段 + 场景名（取注册表真键） | 写课件 |
 | 小红书/抖音/B站 发布词 | `publish-copy` | 成品 + 核验数字 | 实际点发布 |
@@ -63,7 +64,7 @@
 | 12 语种规范顺序 | `one-page-poster` §Conventions | 其余 skill 引用，**不另抄一份** |
 | TTS / 音轨 | `library` 的 `tts`、`audio` | 不许任何 skill 私藏一份合成逻辑 |
 | 脸型 / 表情 / 装置规格注册表 | `library` 的 `rig`、`devices` | `persona.py` 与 `scene_schema.py` 取**同一份**，不抄名单（纪律 7） |
-| BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份 Lyria 调用或 `gain` 反推 |
+| BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。全局 `music-generation` skill 的能力已并入 `bgm-bed`（Suno/Udio 官方无公开 API，死线已删，现存 Lyria/MiniMax）——本工程里它已被取代，见 `bgm-bed` 边界段 |
 | BGM 的**混音压法** | 看画面来源 | 海报驱动 → `karaoke-video` 的线性 `amix`；实拍驱动 → `multilingual-video-poetry` 的侧链压缩 |
 | 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `make_covers.py`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
 | 发布词 | `publish-copy` | 发布执行 → `multilingual-video-publishing` |

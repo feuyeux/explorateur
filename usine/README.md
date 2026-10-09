@@ -14,7 +14,7 @@
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + uv 统一）+ H3 铁律 |
 | [pyproject.toml](pyproject.toml) + `uv.lock` | uv 工程（Python 3.12；publish 组 = Playwright） |
 | `src/feuille/` | 终态代码：35 模块 / 10,369 行，按工作流①–⑬全覆盖 |
-| `scripts/` | 17 个反向验证脚本（`uv run feuille verify` 一条命令全量跑，250 项断言） |
+| `scripts/` | 18 个反向验证脚本（17 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，250+ 项断言） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
@@ -27,14 +27,15 @@
 cd feuille
 uv sync                     # 安装主依赖
 uv sync --group publish    # 加装 Playwright（发布器用）
-uv run feuille verify       # 全量反向验证（16 套 250 项断言）
+uv sync --group music      # 加装 Lyria 客户端（bgm-bed 生成 BGM 床用）
+uv run feuille verify       # 全量反向验证（17 套 250+ 项断言）
 uv run feuille verify --list       # 列出所有验证套件
 uv run feuille verify --only rig   # 单跑一套
 ```
 
 ## skills/ 跨机器复用
 
-三个自建 skill 自足在仓库内，不含任何绝对路径或本机解释器绑定；换机器 clone 后只需三步：
+自建 skill 自足在仓库内，不含任何绝对路径或本机解释器绑定；换机器 clone 后只需三步：
 
 ```bash
 cd explorateur && uv sync --project usine   # ① Python 依赖（edge-tts / pillow / numpy 由 usine/pyproject.toml 锁定）

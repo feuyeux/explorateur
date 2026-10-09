@@ -20,7 +20,9 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-USINE = HERE.parent.parent
+# 归档位置在 skills/<skill>/assets/example：HERE.parents[3] 才是 usine
+# （examples/sijijie 原件里是 parent.parent）。uv run 下本行可省，留作无 uv 环境的引导。
+USINE = HERE.parents[3]
 sys.path.insert(0, str(USINE / "src"))
 sys.path.insert(0, str(HERE))
 

@@ -81,7 +81,7 @@ def main(argv=None) -> int:
         rc, out = run_suite(name)
         n_pass = out.count("[PASS]") + out.count("✅ PASS")
         n_fail = out.count("[FAIL]")
-        n_skip = out.count("[SKIP]") + out.count("SKIP]")
+        n_skip = out.count("[SKIP]")        # "SKIP]" 是 "[SKIP]" 的子串，加一遍会双计
         skips_total += n_skip
         tag = "PASS" if rc == 0 else "FAIL"
         print(f"  [{tag}] {name:<12} {n_pass} PASS / {n_fail} FAIL / {n_skip} SKIP  {desc}")

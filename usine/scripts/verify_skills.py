@@ -17,6 +17,7 @@
 - 每个 skill 至少被**另一个 skill 的边界段**引用——不许有孤岛
 - `name:` 字段必须等于目录名——路由表与实现失配
 - 12 语种规范顺序只在 `one-page-poster` 定义——事实源唯一，不许各抄一份
+- 跨 skill 共享的 example 项目数据副本必须逐字节一致——手工同步要有机检兜底
 """
 from __future__ import annotations
 
@@ -47,6 +48,19 @@ def parse_skill(path: pathlib.Path) -> tuple[dict, str]:
     dm = re.search(r"description:\s*>?\s*\n?(.*?)(?=\n[a-z_]+:|\Z)", head, re.S | re.M)
     return ({"name": name.group(1) if name else "",
              "description": (dm.group(1) if dm else "").strip()}, body)
+
+
+def _lev(a: str, b: str) -> int:
+    """Levenshtein 距离（拼写比对用，两个短字符串，不讲究性能）。"""
+    if len(a) < len(b):
+        a, b = b, a
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
 
 
 def check() -> list[tuple[bool, str]]:
@@ -92,21 +106,28 @@ def check() -> list[tuple[bool, str]]:
                      + ("" if has else "　**缺排除语句，agent 无从排除**")))
 
     # ---- 4. 边界里转交的 skill 必须真实存在 ----
+    # 只筛 `-video`/`-poster` 等后缀会漏掉 `bgm-bed`、`lesson-scene` 这类
+    # 名字的拼错（后缀不在白名单里就静默放行）。改成：反引号里任何
+    # 「长得像 skill 名」的 token，与真实名只差 ≤2 个字符就是幽灵。
     for name in sorted(names):
         body = parsed[name][1]
         seg = body.split("## 边界", 1)
-        refs = set()
+        ghosts = []
         if len(seg) == 2:
             tail = seg[1].split("\n## ", 1)[0]
-            refs = {r for r in names | set(re.findall(r"`([a-z][a-z0-9-]{3,})`", tail))
-                    if r.endswith(("-video", "-poster", "-copy", "-publishing"))}
-            refs = {r for r in refs if r != name}
-        ghosts = sorted(r for r in refs if r not in names)
+            for tok in set(re.findall(r"`([a-z][a-z0-9-]{3,})`", tail)):
+                if tok == name or tok in names:
+                    continue
+                if any(_lev(tok, n) <= 2 for n in names):
+                    ghosts.append(tok)
+        ghosts = sorted(set(ghosts))
         rows.append((not ghosts,
-                     f"{name} 转交的目标都存在"
-                     + (f"　**幽灵 {ghosts}**" if ghosts else "")))
+                     f"{name} 边界段里转交的 skill 名没有拼错"
+                     + (f"　**疑似幽灵 {ghosts}（真实名里没有它们）**" if ghosts else "")))
 
-    # ---- 5. 没有孤岛：每个 skill 都被另一个 skill 的边界引用 ----
+    # ---- 5. 没有孤岛：每个 skill 都被另一个 skill 的边界段引用 ----
+    # 方向必须是「被引用」：只做单向计数。双向对称会把「只提别人、
+    # 从没人往它转交」的 skill 也算成有关联——孤岛就测不出来了。
     referenced: dict[str, set[str]] = {n: set() for n in names}
     for src in names:
         body = parsed[src][1]
@@ -115,12 +136,11 @@ def check() -> list[tuple[bool, str]]:
         tail = body.split("## 边界", 1)[1].split("\n## ", 1)[0]
         for tgt in names:
             if tgt != src and tgt in tail:
-                referenced[src].add(tgt)
                 referenced[tgt].add(src)
     for name in sorted(names):
         ok = bool(referenced[name])
-        rows.append((ok, f"{name} 至少被一个 skill 双向关联"
-                     + ("" if ok else "　**孤岛：谁都不指向它**")))
+        rows.append((ok, f"{name} 至少被一个 skill 的边界段引用（来自 {sorted(referenced[name])}）"
+                     + ("" if ok else "　**孤岛：谁都不往它转交**")))
 
     # ---- 6. name 必须等于目录名 ----
     for name in sorted(names):
@@ -133,13 +153,42 @@ def check() -> list[tuple[bool, str]]:
     canon = "中 zh"
     holders = sorted(n for n in names
                      if canon in (SKILLS / n / "SKILL.md").read_text("utf-8"))
-    rows.append((holders == ["one-page-poster"],
-                 "12 语种规范顺序只在 one-page-poster 定义"
-                 + ("" if holders == ["one-page-poster"]
-                    else f"　**重复定义于 {holders}**")))
+    if holders == ["one-page-poster"]:
+        rows.append((True, "12 语种规范顺序只在 one-page-poster 定义"))
+    elif not holders:
+        rows.append((False, "12 语种规范顺序的事实源丢了（one-page-poster 里也没了）"))
+    else:
+        rows.append((False, "12 语种规范顺序只在 one-page-poster 定义"
+                     f"　**重复定义于 {holders}**"))
     rows += _check_ownership(names)
     rows += _check_no_hardcoded_bins()
+    rows += _check_shared_example_assets()
     return rows
+
+
+def _check_shared_example_assets() -> list[tuple[bool, str]]:
+    """跨 skill 共享的 example 项目数据副本必须逐字节一致。
+
+    `multilingual-video-poetry` 与 `multilingual-video-publishing` 的
+    `assets/example/` 各入库了一份同一项目数据（`配文.py`、`小红书文案.md`），
+    README 只写了「改一侧就同步另一侧」——手工约定没有机检兜底，改了漏了
+    不会被发现，就成了「同一事实写在两处各自漂移」。README.md 豁免：
+    各 skill 的 example 目录各说各的事，本来就不该一致。
+    """
+    by_name: dict[str, list[pathlib.Path]] = {}
+    for ex in sorted(SKILLS.glob("*/assets/example")):
+        for f in sorted(ex.iterdir()):
+            if f.is_file() and f.name != "README.md":
+                by_name.setdefault(f.name, []).append(f)
+    shared = {n: ps for n, ps in by_name.items() if len(ps) > 1}
+    drifted = []
+    for fname, paths in sorted(shared.items()):
+        first = paths[0].read_bytes()
+        drifted += [f"{fname}: {p.relative_to(SKILLS)} 与 {paths[0].relative_to(SKILLS)} 不一致"
+                    for p in paths[1:] if p.read_bytes() != first]
+    return [(not drifted,
+             f"跨 skill 共享的 example 副本逐字节一致（{len(shared)} 组共享文件）"
+             + (f"　**漂移 {drifted}**" if drifted else ""))]
 
 
 def _check_no_hardcoded_bins() -> list[tuple[bool, str]]:
@@ -185,8 +234,12 @@ def _check_ownership(names: set[str]) -> list[tuple[bool, str]]:
     opath = ROOT / "ownership.json"
     if not opath.exists():
         return [(False, "ownership.json 缺失——模块归属无事实源，等于没声明")]
-
-    own = json.loads(opath.read_text("utf-8"))
+    try:
+        own = json.loads(opath.read_text("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        # 门禁自己崩溃比 FAIL 更糟（见 parse_skill 的说明）——坏 JSON 也要
+        # 出 FAIL 行，而不是把 traceback 当「环境坏了」跳过
+        return [(False, f"ownership.json 无法解析：{e}")]
     skill_map: dict[str, dict] = own.get("skills", {})
     library: dict = own.get("library", {})
     infra: dict = own.get("infrastructure", {})
@@ -250,8 +303,13 @@ def _check_ownership(names: set[str]) -> list[tuple[bool, str]]:
         if line is None:
             mism.append((sk, "没有「拥有模块：」行"))
             continue
-        listed = set() if "（无）" in line else {
-            x.strip() for x in line.split("：", 1)[1].split(",") if x.strip()}
+        # 「（无）」必须是整行载荷；「（无）, audio」这种混写要报格式错，
+        # 不能当成「空清单」静默放行
+        payload = line.split("：", 1)[1].strip() if "：" in line else ""
+        if payload == "（无）":
+            listed = set()
+        else:
+            listed = {x.strip() for x in payload.split(",") if x.strip()}
         listed = {x.strip("` ") for x in listed}
         # 畸形行必须当场报错，而不是和清单对出困惑的 diff
         bad = sorted(x for x in listed

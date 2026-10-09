@@ -48,18 +48,23 @@ MANAGE = "https://creator.douyin.com/creator-micro/content/manage?tab=collection
 # ② 行文本必须包含 search_kw（"四季"）：12 条里只有 3 条标题含它，
 #    其余 9 条静默漏挂。现改为「未添加的一律返回」，数量核对交给调用方。
 # 教训：**几何选择器里出现绝对坐标，等于把 viewport 宽度写死了。**
-# （search_kw 不再进本 JS——「未添加的一律返回」后 want 形参已删，数量核对
+#（search_kw 不再进本 JS——「未添加的一律返回」后 want 形参已删，数量核对
 #  交给调用方。）
-JS_PLUS = """() => {
-  const cands = [];
+#
+# 几何判据只允许有一份实现：JS_PLUS（找候选）与滚入视口的 scroller
+# （点前重取坐标）共用 _JS_GEOM。2026-10-08 之前两处各写一份，漂移后
+# scroller 找不到元素 → 滚动没发生 → 拿旧坐标连点同一条希伯来语行 3 次。
+_JS_GEOM = """
   const vw = window.innerWidth || 1600;
-  const rightEdge = vw - 26;              // 「+」中心线在面板右缘内侧约 26px
+  const inPanel = (r) => r.x + 24 >= vw * 0.62     // 在右侧抽屉面板内
+                       && r.x <= vw - 26 + 12      // 且贴近面板右缘（内约 26px）
+                       && r.y >= 140;             // 排除右上角关闭/清空图标
+"""
+JS_PLUS = """() => {""" + _JS_GEOM + """  const cands = [];
   document.querySelectorAll('svg').forEach(e => {
     const r = e.getBoundingClientRect();
     if (Math.abs(r.width - 24) > 3 || Math.abs(r.height - 24) > 3) return;
-    if (r.x + 24 < vw * 0.62) return;             // 必须在右侧抽屉面板内
-    if (r.x > rightEdge + 12) return;             // 且贴近右缘（排除面板外图标）
-    if (r.y < 140) return;                       // 排除右上角关闭/清空图标
+    if (!inPanel(r)) return;
     let p = e, row = null;
     for (let i = 0; i < 9 && p; i++) {
       p = p.parentElement;
@@ -211,18 +216,15 @@ def _add_loop(page, *, want, search_kw, before, out_dir):
             print("    重搜失败，停止")
             break
         c = cands[0]                        # 永远取最上面那支未添加的
-        # 滚动进视口中心再取新鲜坐标
-        # ⚠️ 2026-10-08：这里曾**另有一份** `r.x > 1500` 硬编码（JS_PLUS 之外）。
-        # viewport=1700 时它找不到元素 → 滚动没发生 → 拿旧坐标点击 →
-        # 轮10/11/12 三次都点在同一条希伯来语行上（实际只加进 9 支）。
-        # 几何判据**只允许有一份实现**，两处各写一遍必然漂移。
-        page.evaluate("""(y) => {
-            const vw = window.innerWidth || 1600;
-            const els = [...document.querySelectorAll('svg')];
-            const el = els.find(e => { const r = e.getBoundingClientRect();
+        # 滚动进视口中心再取新鲜坐标。几何判据**不再另写一份**——直接拼
+        # _JS_GEOM（2026-10-08 之前这里曾另有 `r.x > 1500` 硬编码，两份
+        # 漂移后 viewport=1700 找不到元素 → 滚动没发生 → 拿旧坐标点击 →
+        # 轮10/11/12 三次都点在同一条希伯来语行上（12 次点击只加进 9 支））。
+        page.evaluate("""(y) => {""" + _JS_GEOM + """
+            const el = [...document.querySelectorAll('svg')].find(e => {
+                const r = e.getBoundingClientRect();
                 return Math.abs(r.width-24)<3 && Math.abs(r.height-24)<3
-                       && r.x + 24 >= vw * 0.62 && r.x <= vw - 14
-                       && Math.abs(Math.round(r.y)-y) < 30; });
+                       && inPanel(r) && Math.abs(Math.round(r.y)-y) < 30; });
             if (el) el.scrollIntoView({block: 'center'});
         }""", c["y"])
         time.sleep(1.0)

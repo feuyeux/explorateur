@@ -30,7 +30,7 @@ next token's start | last word holds to audio end + tail | done frame.
 Every duration is snapped to the 30fps grid and encoded as an exact frame
 count (see references/av-sync.md for why).
 """
-import json, math, pathlib, subprocess, sys
+import json, math, pathlib, shutil, subprocess, sys, tempfile
 
 FPS = 30
 
@@ -74,31 +74,48 @@ if not FFMPEG or not FFPROBE:
     sys.exit("找不到 ffmpeg / ffprobe（feuille.platform 解析；请安装后重跑）")
 
 
-def sh(*args, **kw):
-    r = subprocess.run(args, capture_output=True, text=True, **kw)
+def sh(*args, timeout=None, **kw):
+    try:
+        r = subprocess.run(args, capture_output=True, text=True,
+                           timeout=timeout, **kw)
+    except subprocess.TimeoutExpired as e:
+        # text=True 下 TimeoutExpired.stderr 在部分 Python 版本仍是 bytes
+        err = e.stderr or ""
+        if isinstance(err, bytes):
+            err = err.decode(errors="replace")
+        sys.exit(f"TIMEOUT ({timeout}s): {' '.join(map(str, args))}\n{err[-2000:]}")
     if r.returncode != 0:
         sys.exit(f"FAILED: {' '.join(map(str, args))}\n{r.stderr[-2000:]}")
     return r
 
 
 def render_chrome(out, url, w, h):
-    """headless screenshot.
+    """headless screenshot in a fresh, throwaway profile.
 
     浏览器走 library 的 `feuille.platform`（唯一事实源），参数与
     `textlayer._shot_args` 对齐——那一组是实测过的。
 
-    ⚠️ **不要加 --user-data-dir**。原注释说它防桌面 Chrome 抢占启动（旧
-    `--headless` 下的真问题），但实测在 macOS + Edge 上：带它图能出来，
-    **进程永不退出**，整个 build 挂死。而 `--headless=new` 不会附着到已开着的
-    浏览器，抢占问题本就不存在。--headless=new 下实测 1.8s 正常退出。
+    每次运行用**全新的临时 --user-data-dir**：不带它时 Chromium 落到默认
+    profile，桌面浏览器若已开着，singleton 锁会把启动移交给现有进程、退出 0
+    且不写截图。实测 macOS + Edge 上挂住不退的是**持久化** profile（旧版
+    的 `_chrome_profile` 目录）；换空目录规避了它。就算在别的环境再挂，
+    timeout=180 也让它响亮地失败，而不是无限等。
     """
     browser = platform.browser_path()
     if not browser:
         sys.exit("找不到 Chromium 系浏览器；装 Chrome 或 Edge，或设 CHROME_BIN")
-    sh(browser, "--headless=new", "--disable-gpu", "--no-sandbox",
-       "--virtual-time-budget=10000", f"--window-size={w},{h}",
-       "--force-device-scale-factor=1", "--hide-scrollbars",
-       f"--screenshot={out}", url)
+    profile = tempfile.mkdtemp(prefix="karaoke-chrome-")
+    try:
+        sh(browser, "--headless=new", "--disable-gpu", "--no-sandbox",
+           "--virtual-time-budget=10000", f"--window-size={w},{h}",
+           "--force-device-scale-factor=1", "--hide-scrollbars",
+           f"--user-data-dir={profile}",
+           f"--screenshot={out}", url, timeout=180)
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
+    if not pathlib.Path(out).exists():
+        sys.exit(f"浏览器退出 0 但没写出 {out}——大概率被已开着的桌面浏览器"
+                 "抢占（singleton 移交）。关掉桌面浏览器后重试。\nURL was: {url}")
     # blank-page sentinel: >90% near-pure-white means the page never loaded
     from PIL import Image
     im = Image.open(out).convert("RGB").resize((64, 36))

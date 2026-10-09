@@ -44,7 +44,7 @@ cd humming && npm install && npm test
 # reading —— 119 个 Rust 测试：单元 + command 调度 + 前后端契约 + 全链路冒烟
 cd reading/src-tauri && cargo test
 
-# usine —— 16 套 250 项反向验证
+# usine —— 17 套 250+ 项反向验证
 cd usine && uv sync && uv run feuille verify
 ```
 
