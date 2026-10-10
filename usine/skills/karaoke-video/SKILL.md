@@ -46,10 +46,7 @@ worked three-file source (all 12 scene markups, voices, config) lives in
 
 **本 skill 是「海报/卡片驱动的成片」的唯一事实源**：edge-tts 词级时间轴 → 逐词高亮状态帧 → 帧精确合片 → 像素级验收。画面是渲染出来的（海报/卡片帧），**不是实拍**。
 
-BGM 在这里是**线性增益 `amix … normalize=0`**（底床垫在旁白下 ~15–18 dB RMS）。需要旁白把底床**动态压住**的侧链方案在 `multilingual-video-poetry`，不要在这里实现第二份。
-
-**床从哪来不在这里**：底床的生成与床位定标（Lyria 调用、采样率解读、频段自检、
-`gain` 反推）统一走 `bgm-bed`，本 skill 只负责把它裁到画面网格、两端淡出、定增益混进来。
+BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15–18 dB RMS）；需要旁白把底床**动态压住**的侧链方案在 `multilingual-video-poetry`，不要在这里实现第二份。床的生成与床位定标（Lyria 调用、采样率解读、频段自检、`gain` 反推）统一走 `bgm-bed`，本 skill 只负责把它裁到画面网格、两端淡出、定增益混进来。
 
 **不做 / 转交**：
 
@@ -76,12 +73,11 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（底床垫在旁白下 
   `feuille.platform.browser_path()` 解析（`build_video.py` 现走这一个事实源，
   不再写死可执行名；`$CHROME_BIN` 可显式覆盖）；
 - network access for edge-tts (Microsoft neural voices);
-- OPTIONAL, BGM only: a bed + its `gain`. Generate them with the `bgm-bed`
-  skill (`uv sync --group music` + a Gemini API key; its Live music endpoint
-  is region-gated — see that skill's reference). `bgm.file` itself accepts
-  any instrumental wav — with no such capability either drop the `bgm` block
-  or point it at an existing track. Bed level target ~15–18 dB RMS under the
-  narration.
+- OPTIONAL, BGM only: a bed + its `gain`, produced beforehand with the
+  `bgm-bed` skill (`uv sync --group music` + a Gemini API key; its Live
+  music endpoint is region-gated — see that skill). `bgm.file` accepts any
+  instrumental wav — with no such capability either drop the `bgm` block or
+  point it at an existing track.
 
 ## Conventions
 
@@ -100,12 +96,9 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（底床垫在旁白下 
   `{"file": "bgm_raw.wav", "gain": 0.1, "fade_in": 1.5, "fade_out": 3.0}`
   — mixes an instrumental bed under the narration: trimmed to the video
   grid, faded at both ends, fixed linear gain, `amix … normalize=0` so the
-  voice level is untouched. The bed itself is produced by `bgm-bed`
-  (`scripts/gen_bgm.py` over there) — **its level is derived, never copied**:
-  that skill prints the `gain` to write here from the measured narration and
-  the measured bed. Aim the music ~15–18 dB RMS below the narration, then
-  verify the number rather than trusting the constant (the two archived
-  projects landed on 0.10 and 0.13 from two different beds).
+  voice level is untouched. **gain 是派生值，不是抄来的常数**——`bgm-bed`
+  从实测旁白与实测床算出该写多少（两条已归档项目的床各落在 0.10 与
+  0.13），目标床位 ~15–18 dB RMS 低于旁白，写进来之后照数字核，别信常数。
 
 **不要在本 skill 里重建 Lyria 那套知识**（可用模型 / 免费层配额 / 出口地区判区 /
 采样率反查 / 频段自检的阈值）——全部在 `bgm-bed`
@@ -144,9 +137,9 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（底床垫在旁白下 
 5. **Build**: `scripts/build_video.py video.json` (add `--only landscape`
    to iterate on one format first). Renders all state frames, assembles
    audio, mixes the optional `bgm` bed, and writes the mp4 per format.
-   The bed is a **separate asset produced before this step** (skill
-   `bgm-bed`) — this script only cuts it to the video grid, fades both ends
-   and applies the fixed `gain`; it never invents music.
+   The bed is a **separate asset produced before this step** by `bgm-bed`;
+   this script only cuts, fades and applies the fixed `gain` — it never
+   invents music.
 6. **Verify** (the model cannot watch the video — the gate is programmatic;
    run after every revision):
    - `ffprobe` both streams: durations within ~1 ms;

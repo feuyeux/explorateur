@@ -1,38 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""gen_bgm.py — 生成成片用的纯器乐 BGM 床（多供应商：哪个能用用哪个）
+"""gen_bgm.py — 生成成片用的纯器乐 BGM 床（Google Lyria）
 
 成片里的 BGM 是一条**独立资产**：先用这个脚本生成并实测，再把 `bgm` 块写进
 `video.json`（`build_video.py` 只做「裁到画面网格 + 两端淡 + 定增益 + `amix`」，
 不会凭空变出音乐来）。床的电平是**反推**出来的，不是抄模板常数：本脚本量出床的
 实际电平，配合 `--narration-rms-db` 直接给出该写进 `video.json` 的 `gain`。
 
-## 供应商（能力已并入本脚本；全局 music-generation skill 不再是本工程的通路）
+## 出床线（本脚本只管 Lyria）
 
-`--provider auto`（默认）按下列顺序探测凭据，哪个能用用哪个；某一供应商生成
-失败（配额 / 围栏 / 端点形状不符）就顺延到下一个。`--provider X` 显式指定时不
-顺延——失败就是失败。
+| key（环境变量） | 状态 |
+|---|---|
+| `GEMINI_API_KEY` 或 `~/.gemini_api_key` | 实测可用（免费层走实时端点） |
 
-| 供应商 | key（环境变量） | 状态 |
-|---|---|---|
-| `lyria`（Google） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | 实测可用（免费层走实时端点） |
-
-Suno / Udio 官方都**没有**公开 API（key 无官方获取渠道，第三方转售无担保）；
-MiniMax 音乐 API 自 **2026-08-20 起两区都不收新用户**（账户级 410/2153 闸门，
-换 key/主机/模型都绕不过，实测见 SKILL.md）。三条死线已于 2026-10-09 删除
-——别再往回加。
+MCode 内置音乐（`matrix`，经 `mcode-tools`）是另一条**成品床来源**：无 key、
+入参无时长、计费不公开，且 `mcode-tools` 只在 MCode 运行时的 PATH 上——它不是
+本脚本的通路，用法见 SKILL.md「`matrix`：成品床来源」。
 
 请求一律**纯器乐**——床要垫在旁白底下，人声床是配乐事故。时长由 lyria
 实时后端的采集秒数控制，**床长判据（≥ 成片时长）照常验收**，短了就报。
 
-`--list-providers` 只做凭据探测不动网络，适合先看一眼哪条线通。
+`--list-providers` 只做凭据探测不动网络，适合先看一眼 Lyria 的 key 在不在。
 
 ## 用法
 
     uv run --project usine --group music python \
         skills/bgm-bed/scripts/gen_bgm.py \
         --out examples/pencil/video/bgm_raw.wav \
-        --provider auto \
         --prompt "soft felt piano" --prompt "gentle pizzicato strings" \
         --duration 62 --bpm 72 --narration-rms-db -21.4
 
@@ -93,13 +87,9 @@ RATE, CHANNELS, WIDTH = 48000, 2, 2
 # 唯一值得考虑的另一种解读：48 k ↔ 44.1 k。差 8.9%，是采样率读错时唯一能解释的量。
 RATE_RATIOS = (RATE / 44100, 44100 / RATE)
 
-# auto 模式的探测顺序。minimax/suno/udio 三条死线已于 2026-10-09 删除
-# （minimax 官方日落两区关死新用户、suno/udio 无官方 API），别加回来。
-PROVIDERS = ("lyria",)
-
 
 class ProviderError(RuntimeError):
-    """单个供应商生成失败。auto 模式捕获后顺延到下一个；显式指定则上抛。"""
+    """Lyria 生成失败（配额 / 围栏 / 端点形状不符）。主流程捕获后以退出码 1 结束。"""
 
 
 def _tool(name: str) -> str:
@@ -156,7 +146,7 @@ def _lyria_key() -> str | None:
 
 
 def detect_providers() -> list[tuple[str, str]]:
-    """[(供应商, 凭据来源描述)]，按 PROVIDERS 顺序。只看凭据在不在，不碰网络。"""
+    """[(供应商, 凭据来源描述)]。只看凭据在不在，不碰网络。"""
     rows = []
     if _lyria_key():
         rows.append(("lyria", "GEMINI_API_KEY / ~/.gemini_api_key"))
@@ -168,47 +158,6 @@ def _load_lyria_key() -> str:
     if not key:
         sys.exit("找不到 Lyria key：设 GEMINI_API_KEY 或写 ~/.gemini_api_key")
     return key
-
-
-# ---------------------------------------------------------------- HTTP 小件
-
-# 走 CDN 的官方端点可能按 UA 拦脚本（2026-10 实测 api.sunoapi.org 裸 urllib
-# UA 被 1010 直接拦，带浏览器 UA 才放行）；统一带浏览器 UA 无害。
-_HTTP_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 60) -> dict:
-    req = urllib.request.Request(
-        url, data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json",
-                 "User-Agent": _HTTP_UA, **headers})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
-
-
-def _get_json(url: str, headers: dict, timeout: int = 60) -> dict:
-    req = urllib.request.Request(
-        url, headers={"User-Agent": _HTTP_UA, **headers})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
-
-
-def _download(url: str, timeout: int = 300) -> bytes:
-    with urllib.request.urlopen(
-            urllib.request.Request(url, headers={"User-Agent": _HTTP_UA}),
-            timeout=timeout) as r:
-        return r.read()
-
-
-def _http_error(e: urllib.error.HTTPError, provider: str) -> ProviderError:
-    body = b""
-    if e.fp:
-        try:
-            body = e.read()
-        except Exception:
-            pass
-    return ProviderError(f"{provider} HTTP {e.code}：{body.decode(errors='replace')[:300]}")
 
 
 # ---------------------------------------------------------------- lyria（实测过）
@@ -340,9 +289,6 @@ def _gen_lyria(args) -> tuple[bytes, bool]:
         return pcm, True
     print(f"[lyria] {args.model} 一次性生成")
     return _capture_http(key, args.model, args.text, args.prompt, None, args.duration), False
-
-
-GEN = {"lyria": _gen_lyria}
 
 
 # ---------------------------------------------------------------- 解码与实测
@@ -478,9 +424,9 @@ def tonal_verdict(bands: dict) -> str:
     return f"ok（400 Hz–3 kHz 共 {body:.1f}%，>3 kHz {bands['>3k']}%）"
 
 
-def _is_realtime_pcm(provider: str, model: str | None) -> bool:
-    """只有 Lyria 实时后端回裸 PCM；其余自带容器。"""
-    return provider == "lyria" and model == "lyria-realtime-exp"
+def _is_realtime_pcm(model: str | None) -> bool:
+    """只有 Lyria 实时后端回裸 PCM；HTTP 后端自带容器。"""
+    return model == "lyria-realtime-exp"
 
 
 # ---------------------------------------------------------------- 床长判据（纯函数，供反向验证）
@@ -533,7 +479,7 @@ def _recheck(out: Path, side: Path, narration_db: float | None,
         pcm = w.readframes(w.getnframes())
     rec["bpm_detected"] = est_bpm(pcm, RATE)
     rec["rate_check"] = (_verify_rate(rec["bpm_detected"], rec["bpm_requested"])
-                         if _is_realtime_pcm(rec.get("provider", "lyria"), rec["model"])
+                         if _is_realtime_pcm(rec["model"])
                          else "n/a（自带容器，采样率由音频头决定）")
     bands = band_share(out)
     rec["band_share_pct"] = bands
@@ -565,41 +511,37 @@ def _recheck(out: Path, side: Path, narration_db: float | None,
 
 
 def _list_providers(env_file: Path | None) -> int:
-    """只做凭据探测，不动网络——auto 之前先看一眼哪条线通。"""
+    """只做凭据探测，不动网络——生成前先看一眼 Lyria 的 key 在不在。"""
     got = detect_providers()
-    print("供应商凭据探测（探测顺序 = auto 顺延顺序）：")
-    for p in PROVIDERS:
-        hit = next((src for name, src in got if name == p), None)
-        state = f"✓ {hit}" if hit else "✗ 无凭据"
-        print(f"  {p:8s} {state}")
+    for name, src in got:
+        print(f"  {name:8s} ✓ {src}")
     if env_file:
         print(f"  key 文件已加载：{env_file}")
     else:
         print(f"  key 文件：{_key_file()}（不存在或没可解析行；"
               "样例见 skills/bgm-bed/references/keys.env.sample）")
     if not got:
-        print("\n没有可用的供应商凭据：\n"
+        print("\nLyria 没有可用凭据：\n"
               "  lyria    GEMINI_API_KEY（或 ~/.gemini_api_key）——实测过，免费层可用\n"
-              f"统一配置：把 key 写进 {_key_file()}（环境变量优先于该文件）")
+              f"统一配置：把 key 写进 {_key_file()}（环境变量优先于该文件）\n"
+              "（MCode 内置音乐线无需 key，不经本脚本，见 SKILL.md）")
         return 1
-    print(f"\nauto 将按此顺序尝试：{' → '.join(n for n, _ in got)}")
+    print("\nLyria 线凭据就绪，可以生成。")
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="生成成片用的纯器乐 BGM 床（多供应商）")
+    ap = argparse.ArgumentParser(description="生成成片用的纯器乐 BGM 床（Google Lyria）")
     ap.add_argument("--out", type=Path, default=None,
                     help="输出 wav（<out>.json 同名边车；--list-providers 时可省）")
-    ap.add_argument("--provider", choices=("auto", *PROVIDERS), default="auto",
-                    help="auto=按凭据探测顺序哪个能用用哪个，失败顺延（默认）")
     ap.add_argument("--prompt", action="append", default=None,
-                    help="提示词，可重复（lyria 实时后端当加权短词，权重 1.0 起每个递减 0.1，下限 0.1；其余后端拼接成字符串）")
-    ap.add_argument("--text", help="整段提示词（lyria HTTP 后端必需；其余后端优先于 --prompt）")
-    ap.add_argument("--model", default=None,
-                    help="供应商内选型：lyria 默认 lyria-realtime-exp")
+                    help="提示词，可重复（实时后端当加权短词，权重 1.0 起每个递减 0.1，下限 0.1）")
+    ap.add_argument("--text", help="整段提示词（lyria-3.x HTTP 后端必需，优先于 --prompt）")
+    ap.add_argument("--model", default="lyria-realtime-exp",
+                    help="Lyria 选型（默认 lyria-realtime-exp，免费层 $0）")
     ap.add_argument("--duration", type=float, default=62.0,
                     help="目标床长（秒）：床要盖多长（成片时长 + 余量）。"
-                         "实时后端请求端自动垫 1.15×（实测短约 10% 是规律）；"
+                         "实时后端请求端自动垫 1.15×（实测短约 10%% 是规律）；"
                          "床长判据按目标验收，短了退出码非 0")
     ap.add_argument("--bpm", type=int, default=72)
     ap.add_argument("--density", type=float, default=0.6, help="0–1，床要疏不要满（lyria 实时后端）")
@@ -629,43 +571,15 @@ def main() -> int:
         if p.exists() and not args.force:
             sys.exit(f"{p} 已存在；生成类命令默认不覆盖（纪律 13）。确要覆盖加 --force")
 
-    # lyria 的实时后端是免费层唯一通路，其缺省选型不能因为供应商重构漂移
-    if args.provider == "lyria" and args.model is None:
-        args.model = "lyria-realtime-exp"
-
     if not (args.prompt or args.text):
         sys.exit("至少给一个 --prompt 或一段 --text——lyria 要提示词")
 
-    if args.provider == "auto":
-        order = [n for n, _ in detect_providers()]
-        if not order:
-            sys.exit("auto 模式没有任何可用凭据。跑 --list-providers 看各供应商需要哪把 key")
-    else:
-        order = [args.provider]
-
-    failures = []
-    pcm = None
-    provider = None
-    for prov in order:
-        if prov == "lyria" and args.model is None:
-            args.model = "lyria-realtime-exp"
-        try:
-            audio, raw_pcm = GEN[prov](args)
-            pcm = audio if raw_pcm else _to_pcm(audio)
-            provider = prov
-            break
-        except ProviderError as e:
-            failures.append((prov, str(e)))
-            if args.provider == "auto":
-                print(f"  [{prov}] 失败 → 顺延下一个供应商")
-            else:
-                print(f"FAIL：[{prov}] {e}")
-                return 1
-    if provider is None:
-        print("\nFAIL：所有供应商都没出床：")
-        for prov, msg in failures:
-            print(f"  [{prov}] {msg}")
+    try:
+        audio, raw_pcm = _gen_lyria(args)
+    except ProviderError as e:
+        print(f"FAIL：[lyria] {e}")
         return 1
+    pcm = audio if raw_pcm else _to_pcm(audio)
 
     if len(pcm) < rate_guard_bytes():
         sys.exit(f"收到的音频只有 {len(pcm)} 字节（不足 2 秒），不成曲——"
@@ -678,7 +592,7 @@ def main() -> int:
 
     m = measure(out)
     bpm_seen = est_bpm(pcm, RATE)
-    realtime = _is_realtime_pcm(provider, args.model)
+    realtime = _is_realtime_pcm(args.model)
     verdict = (_verify_rate(bpm_seen, args.bpm) if realtime
                else "n/a（自带容器，采样率由音频头决定）")
     bands = band_share(out)
@@ -686,8 +600,8 @@ def main() -> int:
     bed_check = bed_len_verdict(m["duration_s"], args.duration)
     print(f"  床长判据：{bed_check}")
 
-    model = args.model or {"lyria": "lyria-realtime-exp"}[provider]
-    rec = {"provider": provider, "model": model, "prompts": args.prompt or [],
+    model = args.model
+    rec = {"provider": "lyria", "model": model, "prompts": args.prompt or [],
            "text": args.text, "bpm_requested": args.bpm,
            "duration_target_s": args.duration,
            "duration_requested_s": (pad_request(args.duration) if realtime
@@ -706,7 +620,7 @@ def main() -> int:
 
     side.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", "utf-8")
 
-    print(f"\n  {out.name}  [{provider}]  {m['duration_s']}s  RMS {m['rms_dbfs']} dBFS  "
+    print(f"\n  {out.name}  [lyria]  {m['duration_s']}s  RMS {m['rms_dbfs']} dBFS  "
           f"峰值 {m['peak_dbfs']} dBFS")
     print(f"  拍速反查：{verdict}")
     print(f"  频段分布：{'  '.join(f'{k} {v}%' for k, v in bands.items()) or 'n/a'}")

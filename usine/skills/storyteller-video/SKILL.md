@@ -2,11 +2,15 @@
 name: storyteller-video
 description: >
   Produce a pingshu-style (评书) character-profile video from a character
-  dossier: a storyteller persona narrates in chaptered acts, each act on its
-  own drawn background scene (rig scenes registry) with a camera move
-  (push-in / pull-out / pan), cross-dissolve transitions between acts, a
-  gavel (醒木) accent at act open, and the narrator figure staged in the
-  frame. Word-level karaoke timing rides on edge-tts word boundaries; acts
+  dossier: a storyteller persona narrates in chaptered acts, each act staged
+  as ONE coherent teahouse storyteller stage — wall with scene-registry
+  props, a chapter plaque, the narrator in a bust close-up (the person fills
+  over half the frame) behind a desk, and the narration text as word-level
+  karaoke on a paper scroll lying open on the desk (gavel + folded fan
+  beside it) — with a
+  camera move (push-in / pull-out / pan) applied to the whole composite,
+  cross-dissolve transitions between acts, and a gavel (醒木) accent at act
+  open. Word-level karaoke timing rides on edge-tts word boundaries; acts
   are Pillow/Edge-headless rendered frames assembled frame-exact by ffmpeg.
   Use when the user asks for a 人物小传 / 评书风 video, a narrated
   chaptered story video with scene changes and camera moves, or to upgrade a
@@ -19,9 +23,10 @@ description: >
 # Storyteller Video（评书人物小传）
 
 海报/卡片驱动成片的**评书化升级线**：一位说书人（编外专班 persona）以第三
-人称娓娓道来，每幕一景（rig 背景注册表）、一镜（推/拉/摇）、一转场（叠化），
-幕开口一声醒木。底层时间轴与合片**复用 karaoke-video 的全部机制**——本
-skill 只新增「舞台导演层」（幕 → 景/镜/转场），不另写时间轴。
+人称娓娓道来，每幕一个连贯的书场舞台（幕匾 + 说书人半身近景 + 台口一案、
+案上摊开的唱词书卷）、一镜（推/拉/摇）、一转场（叠化），幕开口一声醒木。
+底层时间轴与合片**复用 karaoke-video 的全部机制**——本 skill 只新增
+「舞台导演层」（幕 → 景/镜/转场），不另写时间轴。
 
 ## 前置输入契约
 
@@ -39,9 +44,9 @@ skill 只新增「舞台导演层」（幕 → 景/镜/转场），不另写时�
 ## 边界
 
 **本 skill 是「多幕评书成片」的唯一事实源**：幕表 schema（景/镜/转场/醒木）、
-镜头运动参数、叠化转场的实现与验收。单幕的词级时间轴、状态帧合片、像素级
-验收**全部借用 `karaoke-video` 的脚本**（gen_tts / build_video /
-verify_sync / scan_blank），本 skill 不复制它们——改它们要回那个 skill。
+镜头运动参数、叠化转场的实现与验收。词级时间轴与像素级验收**借用
+`karaoke-video` 的脚本**（gen_tts / verify_sync / scan_blank），合片走本 skill 的
+`assemble_storyteller.py`（叠化 + 醒木）——借用脚本不复制，改它们要回那个 skill。
 
 **不做 / 转交**：
 
@@ -76,6 +81,18 @@ ACTS = [
 ]
 ```
 
+**舞台合成（单一空间，不是图层拼贴）**：墙（prerender_bg 渐变 + 幕 scene
+道具；低处道具由台口护墙板遮挡）→ 挂幕匾（chapter/subtitle）→ 说书人
+**半身近景**立绘（可见身高 ≈53%，是画面主角；站位常量在
+render_act_frames.py 模块头，双手搭案沿）→ 案沿窄条（醒木与折扇摆条上）
++ 案身 → **案上摊开的唱词书卷**（卷尾两根立柱、卷面唱词 .tok/.pun、
+卷尾 quote 小字；卷在人物身前，近景下手势展开 ±370 原生像素也扫不到侧挂
+文字）→ 镜头变换**最后作用于整幅合成**（文字长在卷面上，随画面一起动，
+不浮在镜头外）。字卡页（匾文 + 卷面 .tok/.pun）由 render_act_frames.py
+从 TTS meta 的 text/tokens + 幕表章回**自生成**——黑底纯文字层走 Edge
+headless 截图，字体用系统楷体（Kaiti SC）；dim 态用实色暗字而不用 opacity
+（黑底会把半透明墨字压暗，matte 分不清"深色"与"半透明"）。
+
 **镜头（shot）**：`kind ∈ {push, pull, pan_l, pan_r, static}`；`start/end`
 是画布缩放系数（1.0 = 原尺寸；push 0.92→1.10 缓推，pan 配 xoff 位移）。
 渲染层按帧内插值—— Ken Burns 式，逐帧确定性（同参数两渲逐字节一致，
@@ -104,10 +121,10 @@ alpha 混合若干中间帧（ffmpeg `xfade` 或预渲混合帧皆可；默认�
 
 ```
 acts.py（唯一事实源）
-  → derive：voices.json + scenes HTML .tok/.pun + fonts.json   （派生脚本）
+  → derive：voices.json + fonts   （派生脚本；字卡页已由 render 自生成，不再消费派生 HTML）
   → gen_tts.py            （karaoke-video 的，逐幕 TTS + 词级时间轴）
-  → render_act_frames.py  （本 skill：背景 + 人物 + 字卡逐帧，镜头内插值）
-  → build_video.py        （karaoke-video 的，帧精确合片 + 醒木混音）
+  → render_act_frames.py  （本 skill：书场舞台逐帧 + 自生成字卡页，镜头最后作用于整帧）
+  → assemble_storyteller.py （本 skill：叠化转场 + 醒木对齐幕开口，帧精确合片）
   → scan_blank / verify_sync（karaoke-video 的，逐幕探针 + 白页哨兵）
 ```
 

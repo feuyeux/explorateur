@@ -22,11 +22,10 @@ subset-embedded (base64) so the file is offline-portable and printable,
 then rendered to PNG with headless Chrome and verified **programmatically**
 (grid detection, per-cell color stats, layer registration).
 
-Proven end-to-end on 12-language posters ("one book", then "a cup of tea") with
-per-glyph vowel/consonant coloring across 12 scripts. A complete worked
-12-language source (every cell's markup for every script family) lives in
-`assets/example/` — do NOT go hunting past projects for worked markup; that
-is what the example is for.
+Proven end-to-end on 12-language posters ("one book", then "a cup of tea").
+A complete worked 12-language source (every script family's cell markup)
+lives in `assets/example/` — scaffold from it, not from past project
+directories.
 
 ## 前置输入契约
 
@@ -72,8 +71,7 @@ is what the example is for.
 - **任意 Chromium 系浏览器**——`google-chrome` 或 Edge 都行。渲染器经
   `scripts/render_poster.sh` 解析，走 library 的 `feuille.platform.browser_path()`
   这一个事实源；`$CHROME_BIN` 可显式覆盖。用 `uv run --project usine python -c
-  "from feuille import platform; print(platform.describe())"` 自查缺什么
-  （原版在此硬编码 `google-chrome`，在只有 Edge 的机器上直接失败）；
+  "from feuille import platform; print(platform.describe())"` 自查缺什么；
 - network access for `fetch_fonts.py` (Google Fonts css2 subsetting)。
 
 ## Conventions
@@ -101,12 +99,12 @@ is what the example is for.
 
 ## Workflow
 
-1. **Confirm the spec.** Get from the user: page size (default 1240×1754),
-   grid (rows × cols), the exact content set (e.g. which languages — never
-   invent or drop entries; if a registry exists, e.g. a `languages/`
-   directory of manifests, treat it as the source of truth), palette, and
-   what gets highlighted how. Two-color schemes are the norm: warm red vs
-   cool blue, neutral gray for tones/silent marks.
+1. **Confirm the spec.** The 前置输入契约 items, from the user: page size,
+   grid, the exact content set (never invent or drop entries; a registry
+   such as a `languages/` directory of manifests is the source of truth),
+   palette, and what gets highlighted how — plus whether it doubles as a
+   video cover. Two-color schemes are the norm: warm red vs cool blue,
+   neutral gray for tones/silent marks.
 2. **Scaffold a project dir** from the template:
    copy `assets/template/poster_src.html` and `assets/template/fonts.json`,
    then fill in title, legend, grid dims, and one cell per item. For each
@@ -151,20 +149,19 @@ verify the embedded subset actually loaded before trusting any em value). Quick 
 
 - simple scripts (Latin/Cyrillic/Greek): colored spans directly;
 - mark scripts (Arabic/Hebrew/Devanagari): `.stack` two-layer overlay;
-- Korean: `.ksyl` inline-block + measured background patches — the patch
+- Korean: `.ksyl` inline-block + measured background patches — patch
   geometry is GLYPH-SPECIFIC, so measure the project's own syllables with
   `scripts/measure_korean.py <syllables> --family … --css fonts.css`
-  (it renders the real subset font, labels each ink component from the
+  (renders the real subset font, labels each ink component from the
   syllable's NFD jamo decomposition — medial geometry decides vowel vs
-  consonant, covering multi-component vowels like ㅝ and short verticals
-  like the ㅣ in 일, and multi-component initials like ㅎ's arc+ring —
-  covers the vowel ink with margin-safe rectangles, and self-verifies by
-  re-rendering the emitted CSS in headless Chrome: it exits nonzero unless
-  every ink pixel matches). Two things it cannot do: split a syllable whose
-  vowel ink TOUCHES consonant ink (어 국 in OBS KR render as one component —
-  it fails loudly; choose wording that avoids merged syllables), and judge
-  the labels themselves (verify is against the printed component table —
-  sanity-check it against the jamo line, and override with --vowel-comp if
+  consonant, covering multi-component vowels like ㅝ, short verticals like
+  the ㅣ in 일, and multi-component initials like ㅎ's arc+ring — and
+  self-verifies by re-rendering the emitted CSS in headless Chrome,
+  exiting nonzero unless every ink pixel matches). It cannot split a
+  syllable whose vowel ink TOUCHES consonant ink (어 국 render as one
+  component in OBS KR — it fails loudly; choose wording that avoids merged
+  syllables), and cannot judge the labels themselves (sanity-check the
+  component table against the jamo line; override with --vowel-comp if
   wrong). Never copy patch fractions from another theme — they do not
   transfer;
 - per-character readings (hanzi+zhuyin, kanji+furigana): `.zi` columns —
