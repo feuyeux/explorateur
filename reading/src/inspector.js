@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { speak as ttsSpeak, voiceStatus, VOICE_INSTALL_HINT } from './tts.js';
 
 export class InspectorDrawer {
   constructor(drawerElement, readerContainer, showToast, onSentenceUpdated) {
@@ -7,6 +8,8 @@ export class InspectorDrawer {
     this.showToast = showToast;
     this.onSentenceUpdated = onSentenceUpdated;
     this.currentSentence = null;
+    // Set by main.js from the loaded document; drives TTS voice picking.
+    this.language = 'en-US';
 
     this.contentEl = this.drawer.querySelector('.drawer-content');
     this.closeBtn = this.drawer.querySelector('.btn-close-drawer');
@@ -184,7 +187,7 @@ export class InspectorDrawer {
     const speakBtn = this.contentEl.querySelector('.btn-speak-sentence');
     if (speakBtn) {
       speakBtn.addEventListener('click', () => {
-        this.speakText(orig);
+        this.speakText(speakBtn, orig);
       });
     }
 
@@ -211,16 +214,21 @@ export class InspectorDrawer {
     });
   }
 
-  speakText(text) {
-    if (!('speechSynthesis' in window)) {
+  // Reads `text` in the document's language through tts.js: ranked voice
+  // picking instead of trusting the default voice, playback heartbeat against
+  // the Chromium pause bug, and the same click doubling as the stop button.
+  // A missing local voice is worth a hint — the user hears the wrong accent
+  // otherwise and has no way to know why.
+  speakText(btn, text) {
+    const status = ttsSpeak(btn, text, this.language);
+    if (status === 'unsupported') {
       this.showToast('当前浏览器不支持语音发音', 'error');
       return;
     }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
+    const vs = voiceStatus(this.language);
+    if (status !== 'stopped' && vs.ready && !vs.voice) {
+      this.showToast(`本机未安装「${this.language}」的语音，朗读将由其他声线代替。${VOICE_INSTALL_HINT}`, 'info');
+    }
   }
 
   escapeHtml(str) {

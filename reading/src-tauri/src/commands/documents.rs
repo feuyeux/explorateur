@@ -19,6 +19,7 @@ pub struct DocumentMeta {
     pub file_type: String,
     pub total_paragraphs: i64,
     pub total_sentences: i64,
+    pub language: String,
     pub created_at: String,
 }
 
@@ -54,6 +55,35 @@ pub fn validate_extension(file_ext: &str) -> Result<(), String> {
     }
 }
 
+/// Normalizes the document's BCP-47 language tag, defaulting to `en-US`.
+///
+/// The tag drives TTS voice selection, so a malformed one fails loudly at
+/// upload instead of silently picking the wrong voice family. The check is
+/// shape-only (2–3 letter primary subtag, then alphanumeric subtags of 2–8)
+/// rather than a closed list: `ja-JP`, `zh-HK` and whatever the user's
+/// platform spells next must all pass.
+pub fn normalize_language(input: &str) -> Result<String, String> {
+    let tag = input.trim();
+    if tag.is_empty() {
+        return Ok("en-US".to_string());
+    }
+    let valid = tag.split('-').enumerate().all(|(i, sub)| {
+        let len = sub.chars().count();
+        if i == 0 {
+            (2..=3).contains(&len) && sub.chars().all(|c| c.is_ascii_alphabetic())
+        } else {
+            (2..=8).contains(&len) && sub.chars().all(|c| c.is_ascii_alphanumeric())
+        }
+    });
+    if valid {
+        Ok(tag.to_string())
+    } else {
+        Err(format!(
+            "无法识别的语言代码「{tag}」：请使用 BCP-47 标签，如 en-US、ja-JP、zh-HK。"
+        ))
+    }
+}
+
 fn now_str() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
@@ -71,13 +101,22 @@ pub fn ingest_text(
     author: &str,
     file_type: &str,
     raw_content: &str,
+    language: &str,
 ) -> Result<usize, String> {
     let paras = split_paragraphs_and_sentences(&strip_markdown(raw_content));
 
     conn.execute(
-        "INSERT INTO documents (id, title, author, file_type, raw_content, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![doc_id, title, author, file_type, raw_content, now_str()],
+        "INSERT INTO documents (id, title, author, file_type, raw_content, language, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![
+            doc_id,
+            title,
+            author,
+            file_type,
+            raw_content,
+            language,
+            now_str()
+        ],
     )
     .map_err(|e| e.to_string())?;
 
@@ -112,7 +151,7 @@ pub fn list_documents_from(conn: &Connection) -> Result<Vec<DocumentMeta>, Strin
             "SELECT d.id, d.title, d.author, d.file_type,
                     (SELECT COUNT(*) FROM paragraphs p WHERE p.doc_id = d.id) AS total_paragraphs,
                     (SELECT COUNT(*) FROM sentences  s WHERE s.doc_id  = d.id) AS total_sentences,
-                    d.created_at
+                    d.language, d.created_at
              FROM documents d
              ORDER BY d.created_at DESC",
         )
@@ -126,7 +165,8 @@ pub fn list_documents_from(conn: &Connection) -> Result<Vec<DocumentMeta>, Strin
                 file_type: r.get(3)?,
                 total_paragraphs: r.get(4)?,
                 total_sentences: r.get(5)?,
-                created_at: r.get(6)?,
+                language: r.get(6)?,
+                created_at: r.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -134,14 +174,23 @@ pub fn list_documents_from(conn: &Connection) -> Result<Vec<DocumentMeta>, Strin
 }
 
 pub fn get_document_from(conn: &Connection, doc_id: &str) -> Result<serde_json::Value, String> {
-    let doc: Option<(String, String, String, String, String)> = conn
+    let doc: Option<(String, String, String, String, String, String)> = conn
         .query_row(
-            "SELECT id, title, author, file_type, created_at FROM documents WHERE id = ?1",
+            "SELECT id, title, author, file_type, language, created_at FROM documents WHERE id = ?1",
             [doc_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            },
         )
         .ok();
-    let (id, title, author, file_type, created_at) = doc.ok_or("文档未找到")?;
+    let (id, title, author, file_type, language, created_at) = doc.ok_or("文档未找到")?;
 
     let mut p_stmt = conn
         .prepare("SELECT id, order_index, raw_text FROM paragraphs WHERE doc_id = ?1 ORDER BY order_index ASC")
@@ -191,6 +240,7 @@ pub fn get_document_from(conn: &Connection, doc_id: &str) -> Result<serde_json::
         "title": title,
         "author": author,
         "file_type": file_type,
+        "language": language,
         "created_at": created_at,
         "glossary": glossary::get_document_glossary(conn, doc_id)?,
         "paragraphs": paragraphs_res,
@@ -276,7 +326,7 @@ fn load_sample_conn(conn: &Connection, sample_name: &str) -> Result<serde_json::
         }));
     }
 
-    let total = ingest_text(conn, &doc_id, title, author, "md", raw_text)?;
+    let total = ingest_text(conn, &doc_id, title, author, "md", raw_text, "en-US")?;
     seed_sample_glossary(conn, name)?;
 
     Ok(serde_json::json!({
@@ -303,16 +353,27 @@ fn ingest_upload_conn(
     title: &str,
     content: &str,
     file_ext: &str,
+    language: &str,
 ) -> Result<serde_json::Value, String> {
     validate_extension(file_ext)?;
     validate_upload(content)?;
+    let language = normalize_language(language)?;
     let doc_id = new_doc_id();
-    let total = ingest_text(conn, &doc_id, title, "未知作者", file_ext, content)?;
+    let total = ingest_text(
+        conn,
+        &doc_id,
+        title,
+        "未知作者",
+        file_ext,
+        content,
+        &language,
+    )?;
     Ok(serde_json::json!({
         "status": "success",
         "doc_id": doc_id,
         "title": title,
         "total_paragraphs": total,
+        "language": language,
     }))
 }
 
@@ -337,9 +398,16 @@ pub fn upload_document(
     title: String,
     content: String,
     file_ext: String,
+    language: Option<String>,
 ) -> Result<serde_json::Value, String> {
     db::with_conn(&app, |conn| {
-        ingest_upload_conn(conn, &title, &content, &file_ext)
+        ingest_upload_conn(
+            conn,
+            &title,
+            &content,
+            &file_ext,
+            language.as_deref().unwrap_or(""),
+        )
     })
 }
 
@@ -416,6 +484,55 @@ mod tests {
     }
 
     #[test]
+    fn test_normalize_language_defaults_and_validates() {
+        assert_eq!(normalize_language("").unwrap(), "en-US");
+        assert_eq!(normalize_language("  ").unwrap(), "en-US");
+        for ok in [
+            "en-US", "ja-JP", "zh-HK", "de-DE", "fr", "ar-001", "yue-HK", "pt-BR",
+        ] {
+            assert!(normalize_language(ok).is_ok(), "{ok} should be accepted");
+        }
+        for bad in ["e", "english", "ja_JP", "ja--JP", "-ja", "ja-", "x", "1234"] {
+            assert!(normalize_language(bad).is_err(), "{bad} must be rejected");
+        }
+    }
+
+    #[test]
+    fn test_upload_persists_the_language_and_get_document_returns_it() {
+        let conn = mem_db();
+        let out = ingest_upload_conn(
+            &conn,
+            "雪国",
+            "国境の長いトンネルを抜けると雪国であった。",
+            "txt",
+            "ja-JP",
+        )
+        .unwrap();
+        assert_eq!(out["language"], "ja-JP");
+        let v = get_document_from(&conn, out["doc_id"].as_str().unwrap()).unwrap();
+        assert_eq!(v["language"], "ja-JP");
+
+        let listed = list_documents_from(&conn).unwrap();
+        assert_eq!(listed[0].language, "ja-JP");
+    }
+
+    #[test]
+    fn test_upload_rejects_a_malformed_language_without_writing_a_row() {
+        let conn = mem_db();
+        let err =
+            ingest_upload_conn(&conn, "T", "Call me Ishmael.", "md", "not-a-tag").unwrap_err();
+        assert!(err.contains("BCP-47"), "got: {err}");
+        assert_documents_empty(&conn, "malformed language");
+    }
+
+    #[test]
+    fn test_upload_without_a_language_defaults_to_en_us() {
+        let conn = mem_db();
+        let out = ingest_upload_conn(&conn, "T", "Call me Ishmael.", "md", "").unwrap();
+        assert_eq!(out["language"], "en-US");
+    }
+
+    #[test]
     fn test_validate_upload_rejects_garbled_utf8() {
         // Review Focus #1: GBK bytes mis-decoded by FileReader -> U+FFFD soup.
         let garbled = "\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}一些乱码\u{FFFD}";
@@ -443,6 +560,7 @@ mod tests {
             "Author",
             "md",
             "Call me Ishmael.\n\nSome years ago, I went to sea.",
+            "en-US",
         )
         .unwrap();
         assert_eq!(total, 2);
@@ -465,7 +583,7 @@ mod tests {
     #[test]
     fn test_get_document_shape() {
         let conn = mem_db();
-        ingest_text(&conn, "doc_x", "T", "A", "md", "Call me Ishmael.").unwrap();
+        ingest_text(&conn, "doc_x", "T", "A", "md", "Call me Ishmael.", "en-US").unwrap();
         let v = get_document_from(&conn, "doc_x").unwrap();
         assert_eq!(v["id"], "doc_x");
         assert_eq!(v["title"], "T");
@@ -524,7 +642,7 @@ mod tests {
     #[test]
     fn test_upload_rejects_empty_without_writing_a_row() {
         let conn = mem_db();
-        assert!(ingest_upload_conn(&conn, "T", "   \n ", "md").is_err());
+        assert!(ingest_upload_conn(&conn, "T", "   \n ", "md", "").is_err());
         assert_documents_empty(&conn, "empty upload");
     }
 
@@ -535,7 +653,7 @@ mod tests {
         // Reordering those two lines would still pass every other test here.
         let conn = mem_db();
         let garbled = "\u{FFFD}\u{FFFD}\u{FFFD}无法解码\u{FFFD}\u{FFFD}";
-        assert!(ingest_upload_conn(&conn, "老舍", garbled, "txt").is_err());
+        assert!(ingest_upload_conn(&conn, "老舍", garbled, "txt", "").is_err());
         assert_documents_empty(&conn, "misencoded upload");
     }
 
@@ -559,7 +677,8 @@ mod tests {
     #[test]
     fn test_upload_rejects_an_unsupported_extension_without_writing_a_row() {
         let conn = mem_db();
-        let err = ingest_upload_conn(&conn, "book", "Call me Ishmael.", "pdf").unwrap_err();
+        let err =
+            ingest_upload_conn(&conn, "book", "Call me Ishmael.", "pdf", "ja-JP").unwrap_err();
         assert!(err.contains("pdf"), "got {err}");
         assert_documents_empty(&conn, "unsupported extension");
     }

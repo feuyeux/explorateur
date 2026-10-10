@@ -105,11 +105,39 @@ pub fn demote_shallow_deep_analysis(conn: &Connection) -> Result<usize, String> 
     Ok(shallow.len())
 }
 
+/// Adds `documents.language` to databases written before the column existed.
+///
+/// `CREATE TABLE IF NOT EXISTS` cannot evolve an existing table, and BCP-47
+/// metadata for TTS voice selection arrived after the first shipped build, so
+/// every older database is missing the column. Checked via `PRAGMA
+/// table_info` because SQLite has no `ADD COLUMN IF NOT EXISTS`. Idempotent,
+/// so it runs on every launch alongside the other healing passes; the default
+/// matches what every pre-language build assumed (Western, en-US).
+pub fn ensure_documents_language_column(conn: &Connection) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(documents)")
+        .map_err(|e| e.to_string())?;
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .map_err(|e| e.to_string())?
+        .filter_map(|c| c.ok())
+        .collect();
+    if !cols.iter().any(|c| c == "language") {
+        conn.execute(
+            "ALTER TABLE documents ADD COLUMN language TEXT NOT NULL DEFAULT 'en-US'",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Creates the six-table schema, the three indexes, and the default settings
 /// seed. Split out of `init_db` so it can be tested against an in-memory db.
 pub fn init_conn(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(include_str!("schema_minimal.sql"))
         .map_err(|e| e.to_string())?;
+    ensure_documents_language_column(conn)?;
 
     // Seed default settings (mirrors backend/app/database.py).
     let count: i64 = conn
@@ -226,6 +254,35 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM settings", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 6);
+    }
+
+    #[test]
+    fn language_column_backfills_older_databases_with_en_us() {
+        // A pre-language build wrote documents without the column; the launch
+        // healing pass must add it with the value every such build assumed.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE documents (
+                id TEXT PRIMARY KEY, title TEXT NOT NULL, author TEXT,
+                file_type TEXT NOT NULL, raw_content TEXT, created_at TEXT NOT NULL)",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO documents VALUES ('d1','T','A','md','c','2020')",
+            [],
+        )
+        .unwrap();
+
+        init_conn(&conn).unwrap(); // heals the old shape
+
+        let lang: String = conn
+            .query_row("SELECT language FROM documents WHERE id='d1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(lang, "en-US");
+        // Idempotent: a second launch must not ALTER again (would error).
+        init_conn(&conn).unwrap();
     }
 
     #[test]
@@ -422,7 +479,7 @@ mod tests {
         init_conn(&conn).unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         conn.execute(
-            "INSERT INTO documents VALUES ('d1','T','A','md','c','x')",
+            "INSERT INTO documents VALUES ('d1','T','A','md','c','en-US','x')",
             [],
         )
         .unwrap();

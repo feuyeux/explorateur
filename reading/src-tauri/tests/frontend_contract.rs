@@ -177,6 +177,51 @@ fn the_inspector_is_never_handed_a_raw_sentence_id() {
 }
 
 #[test]
+fn tts_ranking_sorts_but_never_filters() {
+    // voiceRank is a ranking, never a filter: a language whose only installed
+    // voice is a penalised one (macOS novelty, Eloquence robot, super-compact)
+    // must still speak. A `.filter(` inside the rank would silently mute those
+    // languages, and no amount of unit tests in the app would catch it.
+    let tts = std::fs::read_to_string(frontend_js_dir().join("tts.js")).expect("tts.js exists");
+    let rank = tts
+        .split("export function voiceRank(v) {")
+        .nth(1)
+        .expect("voiceRank is defined in tts.js")
+        .split("\n}")
+        .next()
+        .expect("voiceRank body has an end");
+    assert!(
+        !rank.contains(".filter("),
+        "voiceRank must sort, never filter — a penalised voice is still a \
+         speakable voice:\n{rank}"
+    );
+}
+
+#[test]
+fn tts_keeps_its_chromium_defenses() {
+    // Three runtime invariants ported from the kb corpus pipeline, kept as
+    // source-level asserts because the webview has no JS test harness:
+    // 1. cancel() wedges Chromium's queue unless a settle tick precedes speak()
+    // 2. long utterances get silently paused without a heartbeat
+    // 3. engines reuse the previous utterance's rate/pitch unless pinned
+    let tts = std::fs::read_to_string(frontend_js_dir().join("tts.js")).expect("tts.js exists");
+    assert!(
+        tts.contains("const CANCEL_SETTLE_MS = 60;"),
+        "tts.js lost CANCEL_SETTLE_MS: a speak() issued in the same tick as a \
+         cancel() is silently swallowed on Chromium"
+    );
+    assert!(
+        tts.contains("const KEEPALIVE_MS = 10000;"),
+        "tts.js lost KEEPALIVE_MS: Chromium pauses long utterances on its own"
+    );
+    assert!(
+        tts.contains("u.rate = 1.0;") && tts.contains("u.pitch = 1.0;"),
+        "every utterance must pin rate/pitch, or engines replay the previous \
+         utterance's parameters"
+    );
+}
+
+#[test]
 fn window_label_in_config_is_covered_by_the_capability() {
     let conf: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(manifest_dir().join("tauri.conf.json")).expect("tauri.conf.json"),

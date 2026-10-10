@@ -140,6 +140,24 @@
           <div class="dropzone-hint">支持 .md / .markdown / .txt 纯文本原著</div>
           <input type="file" id="file_input" accept=".md,.markdown,.txt" style="display:none;" />
         </div>
+        <div style="margin-top: 20px;">
+          <label class="form-label" for="upload_language">原著语言（用于朗读发音的声线选择）</label>
+          <select id="upload_language" class="form-select" style="max-width: 280px;">
+            <option value="en-US" selected>英语 (en-US)</option>
+            <option value="de-DE">德语 (de-DE)</option>
+            <option value="fr-FR">法语 (fr-FR)</option>
+            <option value="es-ES">西班牙语 (es-ES)</option>
+            <option value="it-IT">意大利语 (it-IT)</option>
+            <option value="ru-RU">俄语 (ru-RU)</option>
+            <option value="el-GR">希腊语 (el-GR)</option>
+            <option value="ja-JP">日语 (ja-JP)</option>
+            <option value="ko-KR">韩语 (ko-KR)</option>
+            <option value="hi-IN">印地语 (hi-IN)</option>
+            <option value="ar-SA">阿拉伯语 (ar-SA) · 从右到左</option>
+            <option value="he-IL">希伯来语 (he-IL) · 从右到左</option>
+            <option value="zh-HK">粤语 (zh-HK)</option>
+          </select>
+        </div>
         <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted); line-height: 1.6;">
           <strong>解析管线特性：</strong>
           <ul style="padding-left: 20px; margin-top: 6px;">

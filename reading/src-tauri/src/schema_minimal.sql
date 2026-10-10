@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS documents (
             author TEXT DEFAULT '未知作者',
             file_type TEXT NOT NULL,
             raw_content TEXT,
+            language TEXT NOT NULL DEFAULT 'en-US',
             created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS paragraphs (

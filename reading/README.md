@@ -64,9 +64,10 @@ src-tauri/target/release/bundle/dmg/Ready Reader_<版本>_<架构>.dmg
 4. **生词本 & Anki 导出**：一键收藏生词，导出 Anki 可直接导入的 TSV 牌组
 5. **译文与解析导出 Markdown**：把整本书导出成双语对照 + 语法解析的 `.md`，含 YAML front matter 与解析进度；只读缓存，不消耗额度
 6. **全文翻译与解析**：一次跑完整本书——逐段翻译 + 逐句深度解析，3 并发、可中断、可续跑，带进度弹窗
-7. **离线演示引擎**：未配置 API Key 时使用内置启发式解析 + 经典段落预置精译，零配置开箱即用
-8. **两级缓存**：段落整段解析与单句深度分析分别缓存，重复阅读零重复调用
-9. **本地持久化**：SQLite 存储，API Key 与全部数据都留在本机
+7. **多语朗读**：导入时选文档语言（13 种 BCP-47 标签），逐句 🔊 发音走加权选音的 Web Speech 内核（排序永不过滤，Chromium 长句坑有防御）；阿拉伯语/希伯来语原文自动 RTL 排版
+8. **离线演示引擎**：未配置 API Key 时使用内置启发式解析 + 经典段落预置精译，零配置开箱即用
+9. **两级缓存**：段落整段解析与单句深度分析分别缓存，重复阅读零重复调用
+10. **本地持久化**：SQLite 存储，API Key 与全部数据都留在本机
 
 操作步骤详见 [docs/使用指南.md](docs/使用指南.md)。
 
@@ -84,11 +85,12 @@ reading/
 │   ├── inspector.js          # 语法透视镜
 │   ├── settings.js           # 模型与解析引擎设置
 │   ├── vocabulary.js         # 生词本与 Anki 导出
+│   ├── tts.js                # Web Speech 朗读内核（加权选音 / Chromium 防御）
 │   └── css/                  # main.css + components.css
 ├── src-tauri/                # Tauri 2 + Rust 后端（进程内 command，无端口）
 │   ├── src/
 │   │   ├── main.rs           # 入口
-│   │   ├── lib.rs            # run() + 17 个 command 注册 + run_blocking
+│   │   ├── lib.rs            # run() + 18 个 command 注册 + run_blocking
 │   │   ├── db.rs             # SQLite（bundled）schema、迁移、默认配置
 │   │   ├── splitter.rs       # 精准断句器（缩写 / 引语 / 小数保护）
 │   │   ├── markdown.rs       # Markdown 清洗
@@ -98,6 +100,7 @@ reading/
 │   │   ├── export.rs         # 译文与解析的 Markdown 导出
 │   │   ├── glossary.rs       # 全书术语表
 │   │   ├── vocab.rs          # 生词本 + Anki TSV 导出
+│   │   ├── translit.rs       # 转写分段检查器（注音粘连拉丁 token）
 │   │   ├── commands/         # documents / analysis / vocabulary / settings
 │   │   └── schema_minimal.sql
 │   ├── assets/               # 内置样例原著与图标源 (icon_source.svg)
@@ -110,7 +113,8 @@ reading/
     ├── 使用指南.md            # 日常操作、常见问题、开发者备忘
     ├── 设计/
     │   ├── 架构.md            # 内部结构与关键技术决策（长期维护）
-    │   └── 2026-10-07-tauri-跨平台重构-design.md
+    │   ├── 2026-10-07-tauri-跨平台重构-design.md
+    │   └── 2026-10-10-多语朗读与转写分段-design.md
     └── 计划/
         ├── 2026-10-07-工程标准化.md
         └── 2026-10-07-tauri-跨平台重构.md
@@ -118,7 +122,7 @@ reading/
 
 数据流：导入 → Markdown 清洗 → 段落/句子切分（带 `paragraph_id` / `sentence_id`）→ LLM 结构化解析（严格 JSON）→ SQLite 缓存 → 双栏渲染 → 透视镜 → 生词本 / Anki。
 
-> 📐 模块职责、17 个 command 的边界与关键技术决策，详见 **[docs/设计/架构.md](docs/设计/架构.md)**。
+> 📐 模块职责、18 个 command 的边界与关键技术决策，详见 **[docs/设计/架构.md](docs/设计/架构.md)**。
 
 ---
 

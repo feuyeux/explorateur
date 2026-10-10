@@ -7,6 +7,7 @@ pub mod llm;
 pub mod markdown;
 pub mod prompts;
 pub mod splitter;
+pub mod translit;
 pub mod vocab;
 
 /// Runs a blocking job on the blocking pool and awaits its result.
@@ -53,6 +54,7 @@ pub fn run() {
             commands::vocabulary::export_anki_to,
             commands::settings::get_settings,
             commands::settings::update_settings,
+            translit::check_transliterations,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

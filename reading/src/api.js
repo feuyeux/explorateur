@@ -19,7 +19,7 @@ export const api = {
     return call('get_document', { docId });
   },
 
-  async uploadDocument(file) {
+  async uploadDocument(file, language) {
     // The webview reads the file as text; Rust receives the decoded string, so
     // there is no multipart encoding anywhere in the app. The extension goes
     // along too: the picker's filter and `accept=` are cosmetic, and a
@@ -28,7 +28,12 @@ export const api = {
     const text = await file.text();
     const stem = file.name.replace(/\.[^.]+$/, '');
     const fileExt = (file.name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase();
-    return call('upload_document', { title: stem, content: text, fileExt });
+    return call('upload_document', {
+      title: stem,
+      content: text,
+      fileExt,
+      language: language || ''
+    });
   },
 
   async loadSample(sampleName = 'moby_dick') {
@@ -103,5 +108,11 @@ export const api = {
       temperature: payload.temperature,
       mockMode: !!payload.mock_mode
     });
+  },
+
+  async checkTransliterations(text) {
+    // Lints `（*...*）` reading-aid glosses for glued Latin transliterations
+    // (segmented convention: hwan-nyeong-ham-ni-da). Pure check, no writes.
+    return call('check_transliterations', { text });
   }
 };

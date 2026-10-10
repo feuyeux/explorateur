@@ -214,6 +214,9 @@ class ReadyApp {
     try {
       const docData = await api.getDocument(docId);
       this.reader.loadDocument(docData);
+      // The tag drives TTS voice picking in both the reader panes and the
+      // inspector drawer.
+      this.inspector.language = docData.language || 'en-US';
       document.getElementById('current_doc_title').textContent = docData.title;
       document.getElementById('current_doc_author').textContent = `[${docData.file_type.toUpperCase()}] ${docData.author}`;
     } catch (err) {
@@ -234,11 +237,14 @@ class ReadyApp {
   }
 
   async handleFileUpload(file) {
+    // The language pick drives TTS voice selection; it must be read before the
+    // modal closes, because closing is what hides the select.
+    const language = document.getElementById('upload_language')?.value || '';
     this.uploadModal.classList.remove('open');
     this.showToast(`正在解析上传的 ${file.name}...`, 'info');
 
     try {
-      const res = await api.uploadDocument(file);
+      const res = await api.uploadDocument(file, language);
       this.showToast(`文档《${res.title}》解析完成，共 ${res.total_paragraphs} 段！`, 'success');
       await this.refreshDocList();
       await this.loadDocById(res.doc_id);

@@ -13,6 +13,7 @@ desktop.ini
 # ── 编辑器 / IDE ──────────────────────────────────────────
 .idea/
 .vscode/
+.zcode/
 *.swp
 *.swo
 *~

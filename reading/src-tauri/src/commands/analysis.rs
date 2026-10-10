@@ -491,6 +491,7 @@ mod tests {
             "A",
             "md",
             "Call me Ishmael.\n\nSome years ago, I went to sea.",
+            "en-US",
         )
         .unwrap();
         conn

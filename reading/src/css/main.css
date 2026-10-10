@@ -406,6 +406,32 @@ body {
   margin-left: 2px;
 }
 
+/* Per-sentence read-aloud button: hidden until its sentence is hovered, kept
+   visible while tts.js has the .speaking class on it. */
+.btn-speak-sent {
+  opacity: 0;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 13px;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sentence-item:hover + .btn-speak-sent,
+.btn-speak-sent:hover,
+.btn-speak-sent:focus-visible,
+.btn-speak-sent.speaking {
+  opacity: 1;
+}
+
+/* Right-to-left originals (Arabic, Hebrew): the dir attribute carries the
+   text direction; align the paragraphs so they read from the right edge. */
+.source-pane .para-content[dir="rtl"] {
+  text-align: right;
+}
+
 /* Empty State */
 .empty-state {
   display: flex;

@@ -30,6 +30,7 @@ fn seeded_doc() -> (std::path::PathBuf, Connection, String) {
         "Herman Melville",
         "md",
         SAMPLE_MOBY_DICK,
+        "en-US",
     )
     .unwrap();
     let para_id: String = conn
@@ -63,6 +64,7 @@ fn block_on_inside_a_spawned_task_panics_which_is_why_commands_use_run_blocking(
                 "Herman Melville",
                 "md",
                 SAMPLE_MOBY_DICK,
+                "en-US",
             )
             .unwrap();
             let para_id: String = conn

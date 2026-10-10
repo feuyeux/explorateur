@@ -30,6 +30,7 @@ fn full_pipeline_mock_mode() {
         "Herman Melville",
         "md",
         SAMPLE_MOBY_DICK,
+        "en-US",
     )
     .unwrap();
     // 2 title lines + the prose paragraphs; the same shape the TXT produced.

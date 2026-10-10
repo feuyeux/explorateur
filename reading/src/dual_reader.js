@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { speak as ttsSpeak, voiceStatus, VOICE_INSTALL_HINT } from './tts.js';
 
 export class DualReader {
   constructor(sourceContainer, transContainer, onSentenceSelected, showToast) {
@@ -44,6 +45,10 @@ export class DualReader {
     let sourceHtml = '';
     let transHtml = '';
 
+    // The document's BCP-47 tag drives both voice picking and RTL layout.
+    const lang = this.currentDoc.language || 'en-US';
+    const rtl = /^(ar|he)(-|$)/i.test(lang) ? ' dir="rtl"' : '';
+
     this.currentDoc.paragraphs.forEach((p, pIndex) => {
       const pId = p.paragraph_id;
       const pNumber = p.order_index || (pIndex + 1);
@@ -56,6 +61,7 @@ export class DualReader {
       p.sentences.forEach(s => {
         const hasAnalysisClass = s.has_deep_analysis ? 'has-analysis' : '';
         pSourceSentences += `<span class="sentence-item source-sentence ${hasAnalysisClass}" data-sentence-id="${s.sentence_id}">${this.escapeHtml(s.original)} </span>`;
+        pSourceSentences += `<button class="btn-speak-sent" data-sentence-id="${s.sentence_id}" title="朗读本句">🔊</button>`;
       });
 
       sourceHtml += `
@@ -68,7 +74,7 @@ export class DualReader {
               </button>
             </div>
           </div>
-          <div class="para-content">${pSourceSentences}</div>
+          <div class="para-content"${rtl}>${pSourceSentences}</div>
         </div>
       `;
 
@@ -118,7 +124,27 @@ export class DualReader {
       });
     });
 
-    // 2. Paragraph batch parse buttons
+    // 2. Per-sentence read-aloud buttons (tts.js: the same click stops it)
+    const speakButtons = document.querySelectorAll('.btn-speak-sent');
+    speakButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sent = this.findSentence(btn.dataset.sentenceId);
+        if (!sent) return;
+        const lang = this.currentDoc.language || 'en-US';
+        const status = ttsSpeak(btn, sent.original, lang);
+        if (status === 'unsupported') {
+          this.showToast('当前浏览器不支持语音发音', 'error');
+          return;
+        }
+        const vs = voiceStatus(lang);
+        if (status !== 'stopped' && vs.ready && !vs.voice) {
+          this.showToast(`本机未安装「${lang}」的语音，朗读将由其他声线代替。${VOICE_INSTALL_HINT}`, 'info');
+        }
+      });
+    });
+
+    // 3. Paragraph batch parse buttons
     const parseButtons = document.querySelectorAll('.btn-parse-para');
     parseButtons.forEach(btn => {
       btn.addEventListener('click', async (e) => {
