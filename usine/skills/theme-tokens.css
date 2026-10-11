@@ -1,0 +1,166 @@
+/* ==========================================================================
+   feuille frontend styles: theme tokens
+   Theme Variables & Color Coding System for Multi-Theme Support
+   5 Teaching Video Thematic Palettes:
+     1. warm-paper    : 人文国学 / 经典启蒙 / 诗词书法 (古典宣纸/暖黄墨香)
+     2. clean-paper   : 现代语言 / 通识精读 / 词汇语法 (极简素雅/高清晰度)
+     3. dark-ink      : 深度研读 / 哲学考据 / 夜读典籍 (沉浸墨玉/深色护眼)
+     4. desert-sand   : 丝路中东 / 历史地理 / 异域文明 (阿拉伯金沙/赭石风貌)
+     5. botanical-tea : 自然博物 / 茶道生活 / 节气美学 (竹青苍翠/自然淡雅)
+   ========================================================================== */
+
+/* 1. 【人文国学 / 经典启蒙 / 诗词书法】Classic Warm Paper Theme */
+:root,
+[data-theme="warm-paper"] {
+  --theme-name: "warm-paper";
+
+  /* Surfaces & canvas */
+  --paper: #f7f2e6;       /* 古典宣纸 / 暖米黄底 */
+  --card:  #fcfaf5;       /* 板块容器表面 */
+  --desk:  #e8e2d4;       /* 视口/工作台外衬色 */
+  --rule:  #d9cdb7;       /* 细分隔线 */
+  --line:  #d9cdb7;       /* 表格与网格线 */
+
+  /* Text & Inks */
+  --ink:   #2c2620;       /* 浓墨正文 */
+  --sub:   #8a7e6c;       /* 次要说明/转写 */
+  --mute:  #8a8172;       /* 标注/时间/静音 */
+  --mut:   #a2967f;       /* 音调/修饰符号 */
+
+  /* Accent & Semantic Highlight */
+  --gold:  #b8860b;       /* 典雅赤金 (标题/核心正词) */
+  --vowel: #c9403a;       /* 朱砂红 (元音/关键点) */
+  --cons:  #2f5d9e;       /* 靛青蓝 (辅音/辅助结构) */
+  --ok:    #4a7a46;       /* 竹绿 (正确/通过) */
+  --bad:   #b3352c;       /* 赭红 (错误/警示) */
+
+  /* Interactive & Karaoke states */
+  --lit-bg: rgba(154, 111, 24, 0.16);  /* 诵读高亮背景色 */
+  --cur-bg: rgba(44, 38, 32, 0.09);     /* 当前 token 选中色 */
+  --dim-opacity: 0.18;                  /* 未读 token 透明度 */
+  --mute-opacity: 0.34;                 /* 弱化 token 透明度 */
+}
+
+/* 2. 【现代语言 / 通识精读 / 词汇语法】Clean Academic Paper Theme */
+[data-theme="clean-paper"] {
+  --theme-name: "clean-paper";
+
+  /* Surfaces & canvas */
+  --paper: #fbfbf9;       /* 现代书本白 / 护眼微暖 */
+  --card:  #ffffff;       /* 纯白卡片 */
+  --desk:  #eeebe4;       /* 浅灰外框 */
+  --rule:  #e0dcd3;       /* 精细规线 */
+  --line:  #e0dcd3;       /* 网格线 */
+
+  /* Text & Inks */
+  --ink:   #1f2328;       /* 印刷深炭黑 */
+  --sub:   #656d76;       /* 次级说明 */
+  --mute:  #8c959f;       /* 标注微字 */
+  --mut:   #8c959f;       /* 语标辅助 */
+
+  /* Accent & Semantic Highlight */
+  --gold:  #0969da;       /* 睿智学术蓝 (标题/焦点) */
+  --vowel: #cf222e;       /* 语法关键红 */
+  --cons:  #0969da;       /* 语法搭配蓝 */
+  --ok:    #1a7f37;       /* 校验通过绿 */
+  --bad:   #d1242f;       /* 语法错误红 */
+
+  /* Interactive & Karaoke states */
+  --lit-bg: rgba(9, 105, 218, 0.14);   /* 聚焦蓝调微亮 */
+  --cur-bg: rgba(31, 35, 40, 0.08);
+  --dim-opacity: 0.20;
+  --mute-opacity: 0.35;
+}
+
+/* 3. 【深度研读 / 哲学考据 / 夜读典籍】Dark Ink Scholar Theme */
+[data-theme="dark-ink"] {
+  --theme-name: "dark-ink";
+
+  /* Surfaces & canvas */
+  --paper: #1c1b18;       /* 玄墨黑底 */
+  --card:  #252320;       /* 墨玉卡片 */
+  --desk:  #131210;       /* 深漆视口 */
+  --rule:  #3a362f;       /* 暗金色边线 */
+  --line:  #3a362f;
+
+  /* Text & Inks */
+  --ink:   #ece5d8;       /* 牙白文字 */
+  --sub:   #b0a694;       /* 浅灰黄释义 */
+  --mute:  #877e70;       /* 灰泥注记 */
+  --mut:   #756d60;       /* 暗标文字 */
+
+  /* Accent & Semantic Highlight */
+  --gold:  #d4af37;       /* 亮金流光 (暗夜提神) */
+  --vowel: #e8645a;       /* 珊瑚朱红 (暗色辨识度高) */
+  --cons:  #5c9ced;       /* 亮天青蓝 */
+  --ok:    #66bb6a;       /* 苍翠绿 */
+  --bad:   #ef5350;       /* 荧赤红 */
+
+  /* Interactive & Karaoke states */
+  --lit-bg: rgba(212, 175, 55, 0.24);  /* 金箔光辉衬底 */
+  --cur-bg: rgba(236, 229, 216, 0.12);
+  --dim-opacity: 0.22;
+  --mute-opacity: 0.38;
+}
+
+/* 4. 【丝路中东 / 历史地理 / 异域文明】Desert Sand / Silk Road Theme */
+[data-theme="desert-sand"] {
+  --theme-name: "desert-sand";
+
+  /* Surfaces & canvas */
+  --paper: #faf5eb;       /* 戈壁细沙淡黄 */
+  --card:  #fffdf7;       /* 沙漠宫殿白 */
+  --desk:  #ebe2cf;       /* 旷野沙褐 */
+  --rule:  #dfd2b5;       /* 陶土褐线 */
+  --line:  #dfd2b5;
+
+  /* Text & Inks */
+  --ink:   #2e2216;       /* 焦茶深墨 */
+  --sub:   #7c6850;       /* 驼色次要 */
+  --mute:  #968267;       /* 细沙泥灰 */
+  --mut:   #a89578;       /* 戈壁土灰 */
+
+  /* Accent & Semantic Highlight */
+  --gold:  #a67012;       /* 琥珀金棕 (阿语偏正等首选) */
+  --vowel: #c4402a;       /* 绿洲石榴红 */
+  --cons:  #2563a6;       /* 穹顶波斯蓝 */
+  --ok:    #3e8446;       /* 枣椰绿 */
+  --bad:   #bd3222;       /* 烈日朱 */
+
+  /* Interactive & Karaoke states */
+  --lit-bg: rgba(166, 112, 18, 0.18);  /* 琥珀柔光 */
+  --cur-bg: rgba(46, 34, 22, 0.08);
+  --dim-opacity: 0.18;
+  --mute-opacity: 0.34;
+}
+
+/* 5. 【自然博物 / 茶道生活 / 节气美学】Botanical Tea / Spring Garden Theme */
+[data-theme="botanical-tea"] {
+  --theme-name: "botanical-tea";
+
+  /* Surfaces & canvas */
+  --paper: #f4f7f2;       /* 嫩竹淡青 / 浅绿茶宣 */
+  --card:  #fbfdf9;       /* 浅芽白 */
+  --desk:  #e4ebe0;       /* 远山淡黛青 */
+  --rule:  #cfdbc8;       /* 竹节柔线 */
+  --line:  #cfdbc8;
+
+  /* Text & Inks */
+  --ink:   #1e2920;       /* 松烟茶褐墨 */
+  --sub:   #5b7060;       /* 黛绿副色 */
+  --mute:  #7d9182;       /* 草木灰绿 */
+  --mut:   #8fa194;       /* 细芽绿灰 */
+
+  /* Accent & Semantic Highlight */
+  --gold:  #367850;       /* 龙井竹青翠 (标题焦点) */
+  --vowel: #c24b38;       /* 枫柿暖赭 */
+  --cons:  #2d6a9f;       /* 溪泉碧蓝 */
+  --ok:    #2e7d32;       /* 苍松碧绿 */
+  --bad:   #c62828;       /* 槿红警示 */
+
+  /* Interactive & Karaoke states */
+  --lit-bg: rgba(54, 120, 80, 0.16);   /* 青翠茶气微亮 */
+  --cur-bg: rgba(30, 41, 32, 0.08);
+  --dim-opacity: 0.18;
+  --mute-opacity: 0.35;
+}

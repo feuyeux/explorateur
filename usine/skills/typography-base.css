@@ -1,0 +1,163 @@
+/* ==========================================================================
+   feuille frontend styles: typography, complex scripts & layout components
+   Reusable rules extracted from poster & karaoke skills
+   ========================================================================== */
+
+/* ---------- 1. Common Utility & Phonetic Coloring ---------- */
+.v  { color: var(--vowel); }
+.c  { color: var(--cons); }
+.n  { color: var(--mut); }
+.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.t  { color: transparent; }
+
+/* Dot Legend Indicator */
+.dot { width: 15px; height: 15px; border-radius: 50%; flex: none; }
+.dot.v  { background: var(--vowel); }
+.dot.c  { background: var(--cons); }
+.dot.n  { background: var(--mut); }
+.dot.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  border-radius: 3px;
+}
+.dot.ink{ background: var(--ink); border-radius: 3px; }
+
+/* ---------- 2. Script Families (Subsets first) ---------- */
+.f-sc   { font-family: "OBS SC", "Noto Serif SC", serif; }
+.f-jp   { font-family: "OBS JP", "Noto Sans JP", sans-serif; }
+.f-kr   { font-family: "OBS KR", "Noto Sans KR", sans-serif; }
+.f-ar   { font-family: "OBS Arabic", "Noto Sans Arabic", sans-serif; }
+.f-he   { font-family: "OBS Hebrew", "Noto Sans Hebrew", sans-serif; }
+.f-deva { font-family: "OBS Deva", "Noto Sans Devanagari", sans-serif; }
+
+/* ---------- 3. Complex Script Layering & Patch Rules ---------- */
+
+/* Two-layer overlay for mark scripts (Arabic, Hebrew, Devanagari):
+   Must be inline-grid, grid-area: 1 / 1 so both share origin */
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+.stack .lay { color: var(--vowel); }
+
+/* Devanagari cluster spacer */
+.sp { padding-left: .2691em; }
+
+/* Korean in-glyph patch syllables:
+   hard-edge linear gradients + background-clip: text */
+.ksyl {
+  display: inline-block;
+  line-height: 1.28;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  background-repeat: no-repeat;
+}
+.fallback .ksyl { color: var(--ink); }
+
+/* Chinese / Japanese per-character column alignment (隔断) */
+.zi {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0.03em;
+  vertical-align: top;
+}
+.hz { display: block; }
+.annot {
+  display: block;
+  margin-top: 0.14em;
+  font-family: "OBS SC", "Noto Serif SC", serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-left: 0.08em;
+}
+.jpat {
+  font-family: inherit;
+  font-weight: 500;
+  margin-bottom: 0.2em;
+  margin-left: 0.08em;
+}
+.wjp .zi { vertical-align: bottom; }
+
+/* ---------- 4. Karaoke Highlight States ---------- */
+.tok { border-radius: 0.14em; }
+.tok.dim  { opacity: var(--dim-opacity, 0.18); }
+.tok.sung { opacity: 1; }
+.tok.cur  { opacity: 1; background: var(--cur-bg, rgba(44, 38, 32, 0.09)); }
+
+/* Bidirectional & Stage Highlight States */
+[data-say] { border-radius: 0.12em; }
+[data-say].lit  { background: var(--lit-bg, rgba(154, 111, 24, 0.16)); }
+[data-say].mute { opacity: var(--mute-opacity, 0.34); }
+
+/* ---------- 5. Compound Teaching & Comparison Components ---------- */
+/* RTL-guaranteed container avoiding label/term misalignments */
+.compound {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin: 0.1em 0;
+}
+.cell-comp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.03em;
+}
+.lab-comp {
+  font-size: 0.28em;
+  color: var(--mute);
+  white-space: nowrap;
+}
+.lab-comp.ar {
+  font-size: 0.33em;
+  color: var(--gold);
+  opacity: 0.9;
+  line-height: 1.2;
+}
+
+/* Head (positive/primary) & Tail (modifying/secondary) */
+.m-head, .head { color: var(--gold); }
+.m-tail, .tail {
+  color: var(--ink);
+  border-bottom: 0.035em solid var(--rule);
+  padding: 0 0.16em;
+}
+.tail.hot {
+  background: var(--lit-bg, rgba(154, 111, 24, 0.14));
+  border-bottom: 0.07em solid var(--gold);
+  color: var(--gold);
+}
+
+/* Gloss & translation colors follow their target terms */
+.gloss.gold { color: var(--gold); }
+.gloss.ink  { color: var(--ink); }
+.gloss.bad  { color: var(--bad); }
+
+/* Verification & comparison rows */
+.verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+  padding: 0.08em 0;
+}
+.verdict .mark {
+  font-size: 0.57em;
+  font-weight: 700;
+  line-height: 1.5;
+  flex: 0 0 0.7em;
+  text-align: center;
+}
+.verdict.ok .mark   { color: var(--ok); }
+.verdict.bad .mark  { color: var(--bad); }
+.verdict.ok .why    { color: var(--ok); }
+.verdict.bad .why   { color: var(--bad); }
+.bad-tail {
+  border-bottom: 0.07em solid var(--bad);
+  color: var(--bad);
+}

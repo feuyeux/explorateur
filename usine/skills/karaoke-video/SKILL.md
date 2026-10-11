@@ -140,13 +140,12 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
    The bed is a **separate asset produced before this step** by `bgm-bed`;
    this script only cuts, fades and applies the fixed `gain` — it never
    invents music.
-6. **Verify** (the model cannot watch the video — the gate is programmatic;
-   run after every revision):
+6. **Verify** — 两件事，缺一不可。**门禁全绿 ≠ 做对了**（见下）。
+   - **A. 程序化验收**（机器能判的部分，每次改完都跑）：
    - `ffprobe` both streams: durations within ~1 ms;
-   - `scripts/scan_blank.py out.mp4 …` — whole-video white-page scan,
-     the ONLY check independent of the state frames (a malformed `file://`
-     URL makes headless Chrome capture the Google page; white-vs-white
-     passes every self-consistent check — see references §5–6);
+   - `scripts/scan_blank.py out.mp4 …` — whole-video white-page scan;
+     ⚠ 它**只判「接近纯白」**：抓得住 `file://` URL 写错导致 Chrome 落 Google 页，
+     **抓不出内容缩成一个点**。它是唯一独立于状态帧的检查，但视野很窄；
    - `scripts/verify_sync.py --video out.mp4 --frames frames/ --tts tts/ \
      --locales <comma list in video order>` — grabs frames at computed
      times and pixel-diffs against the state frames;
@@ -156,6 +155,16 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
    [references/av-sync.md](references/av-sync.md) — READ IT before touching
    the timeline (concat duration drift, 30fps snapping, preroll in the
    audio segment, done-frame grab timing, the Google-page incident).
+   - **B. 亲手看**（机器判不了的部分，**不可省**）：用 ffmpeg 从成片里抽帧
+     （每一镜一帧 + 每个该点亮的时刻 + 首帧/尾帧），再用 `read` 把图看进眼里。
+
+   > ⚠ **A 全绿只证明"我检查的那件事成立"，不证明"画面是对的"。**
+   > 本流程上一版这里写着 *"the model cannot watch the video — the gate is
+   > programmatic"*，那句话直接导致连续 4 轮返工：封面塌成一个点、中文注解颜色
+   > 不对、台词没删干净、"卡拉OK"做成了台词条——**每一次都发生在全绿之后**。
+   > 完整根因、模糊指令的处理规则（取最小字面解释是最贵的默认）、
+   > 逐项交付前清单和本轮踩到的具体陷阱，见
+   > [references/delivery-check.md](references/delivery-check.md)。
 7. Iterate on feedback, re-run the verify suite, and clean intermediates
    (`_sil*.wav`, `_vseg*.mp4`, seg wavs are all regenerable).
 
@@ -170,6 +179,9 @@ pipeline.
 
 ## Resources
 
+- `theme-tokens.css` (in `skills/`) — extracted global multi-theme CSS variables supporting 5 teaching video domain palettes (`warm-paper` 国学古文, `clean-paper` 现代外语, `dark-ink` 哲学考据, `desert-sand` 丝路阿语, `botanical-tea` 自然博物)
+- `match_theme.py` (in `skills/`) — automatic theme matcher based on content topic keywords and language
+- `typography-base.css` (in `skills/`) — shared multilingual typography & karaoke state rules (`.tok`, `[data-say]`, `.compound`, `.verdict`)
 - `assets/template/` — `scenes.html` (karaoke CSS/JS + portrait variant +
   token recipes; ONE worked scene), `voices.json`, `video.json` (two-format
   example)
@@ -181,3 +193,7 @@ pipeline.
   `scan_blank.py`（底床生成在 `bgm-bed/scripts/gen_bgm.py`，不在这里）
 - `references/av-sync.md` — edge-tts WordBoundary semantics, concat drift
   and the exact-frame-count fix, fps snapping, verification methodology
+- `references/delivery-check.md` — **交付前自检**：为什么门禁全绿仍然要返工、
+  歧义指令的处理规则、必须亲手看的时刻清单、封面 `vw` / `scan_blank` 盲区 /
+  `preroll` 下限 / 一镜一场景 / 拼接前裁尾、已确认的画面语义约定
+
