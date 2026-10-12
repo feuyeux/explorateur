@@ -41,7 +41,7 @@ export class InspectorDrawer {
     this.contentEl.innerHTML = `
       <div class="inspector-hero">
         <div class="hero-sentence-id">
-          <span>${sentenceObj.sentence_id}</span>
+          <span>${this.escapeHtml(sentenceObj.sentence_id)}</span>
           <span>⏳ 正在进行语法透视拆解...</span>
         </div>
         <div class="hero-orig">${this.escapeHtml(sentenceObj.original)}</div>
@@ -61,9 +61,12 @@ export class InspectorDrawer {
       }
     } catch (err) {
       console.error(err);
+      // The message can carry anything the model or the backend produced, and
+      // this lands in innerHTML — escape it like every other interpolated
+      // value in this file.
       this.contentEl.innerHTML += `
         <div style="margin-top: 16px; padding: 12px; background: #fee2e2; color: #dc2626; border-radius: 8px; font-size: 13px;">
-          解析失败: ${err.message}
+          解析失败: ${this.escapeHtml(err.message)}
         </div>
       `;
     }

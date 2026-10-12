@@ -2,9 +2,9 @@
 // Ported from backend/app/routers/documents.py.
 use crate::db;
 use crate::glossary;
-use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 use crate::markdown::strip_markdown;
 use crate::splitter::split_paragraphs_and_sentences;
+use crate::util::{now_str, placeholder_like_pattern, real_translation_filter};
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -84,16 +84,16 @@ pub fn normalize_language(input: &str) -> Result<String, String> {
     }
 }
 
-fn now_str() -> String {
-    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
 pub fn new_doc_id() -> String {
     format!("doc_{}", &uuid::Uuid::new_v4().simple().to_string()[..8])
 }
 
 /// Writes the document, its paragraphs and its sentences. Returns the number
 /// of paragraphs, which is what the frontend reports back to the user.
+///
+/// The whole write is one transaction: a book is hundreds of INSERTs, and a
+/// disk-full or a constraint failure halfway through used to leave half a
+/// book behind — one that lists, loads and re-bills as if it were whole.
 pub fn ingest_text(
     conn: &Connection,
     doc_id: &str,
@@ -105,7 +105,10 @@ pub fn ingest_text(
 ) -> Result<usize, String> {
     let paras = split_paragraphs_and_sentences(&strip_markdown(raw_content));
 
-    conn.execute(
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    tx.execute(
         "INSERT INTO documents (id, title, author, file_type, raw_content, language, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         rusqlite::params![
@@ -122,7 +125,7 @@ pub fn ingest_text(
 
     for p in &paras {
         let p_id = format!("{doc_id}_{}", p.paragraph_id);
-        conn.execute(
+        tx.execute(
             "INSERT INTO paragraphs (id, doc_id, chapter_id, order_index, raw_text)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             rusqlite::params![p_id, doc_id, "ch_1", p.order_index, p.raw_text],
@@ -130,7 +133,7 @@ pub fn ingest_text(
         .map_err(|e| e.to_string())?;
         for s in &p.sentences {
             let s_id = format!("{doc_id}_{}", s.sentence_id);
-            conn.execute(
+            tx.execute(
                 "INSERT INTO sentences
                    (id, doc_id, paragraph_id, order_index, original, translation, deep_analysis_json)
                  VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL)",
@@ -139,6 +142,7 @@ pub fn ingest_text(
             .map_err(|e| e.to_string())?;
         }
     }
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(paras.len())
 }
 
@@ -338,13 +342,18 @@ fn load_sample_conn(conn: &Connection, sample_name: &str) -> Result<serde_json::
 }
 
 fn delete_document_conn(conn: &Connection, doc_id: &str) -> Result<serde_json::Value, String> {
-    // `documents` is keyed by id; the three child tables carry doc_id.
-    conn.execute("DELETE FROM documents WHERE id = ?1", [doc_id])
+    // `documents` is keyed by id; the three child tables carry doc_id. One
+    // transaction, so a failure cannot leave an orphaned half-deleted book.
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM documents WHERE id = ?1", [doc_id])
         .map_err(|e| e.to_string())?;
     for table in ["paragraphs", "sentences", "glossary"] {
-        conn.execute(&format!("DELETE FROM {table} WHERE doc_id = ?1"), [doc_id])
+        tx.execute(&format!("DELETE FROM {table} WHERE doc_id = ?1"), [doc_id])
             .map_err(|e| e.to_string())?;
     }
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({"status": "deleted", "doc_id": doc_id}))
 }
 
@@ -377,46 +386,65 @@ fn ingest_upload_conn(
     }))
 }
 
+// The commands below that touch whole-document tables (list, get, ingest,
+// delete, export) are `async fn` + `run_blocking`: Tauri runs a sync command on
+// the main thread, where a whole-book query_map visibly freezes the UI. See
+// `run_blocking` for why the body must not call `block_on` itself.
+
 #[tauri::command]
-pub fn list_documents(app: tauri::AppHandle) -> Result<Vec<DocumentMeta>, String> {
-    db::with_conn(&app, list_documents_from)
+pub async fn list_documents(app: tauri::AppHandle) -> Result<Vec<DocumentMeta>, String> {
+    crate::run_blocking(move || db::with_conn(&app, list_documents_from)).await
 }
 
 #[tauri::command]
-pub fn get_document(app: tauri::AppHandle, doc_id: String) -> Result<serde_json::Value, String> {
-    db::with_conn(&app, |conn| get_document_from(conn, &doc_id))
+pub async fn get_document(
+    app: tauri::AppHandle,
+    doc_id: String,
+) -> Result<serde_json::Value, String> {
+    // The heaviest read in the app: every paragraph plus a per-paragraph
+    // sentence query_map, over a table that holds the whole book.
+    crate::run_blocking(move || db::with_conn(&app, |conn| get_document_from(conn, &doc_id)))
+        .await
 }
 
 #[tauri::command]
-pub fn delete_document(app: tauri::AppHandle, doc_id: String) -> Result<serde_json::Value, String> {
-    db::with_conn(&app, |conn| delete_document_conn(conn, &doc_id))
+pub async fn delete_document(
+    app: tauri::AppHandle,
+    doc_id: String,
+) -> Result<serde_json::Value, String> {
+    crate::run_blocking(move || db::with_conn(&app, |conn| delete_document_conn(conn, &doc_id)))
+        .await
 }
 
 #[tauri::command]
-pub fn upload_document(
+pub async fn upload_document(
     app: tauri::AppHandle,
     title: String,
     content: String,
     file_ext: String,
     language: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    db::with_conn(&app, |conn| {
-        ingest_upload_conn(
-            conn,
-            &title,
-            &content,
-            &file_ext,
-            language.as_deref().unwrap_or(""),
-        )
+    crate::run_blocking(move || {
+        db::with_conn(&app, |conn| {
+            ingest_upload_conn(
+                conn,
+                &title,
+                &content,
+                &file_ext,
+                language.as_deref().unwrap_or(""),
+            )
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn load_sample(
+pub async fn load_sample(
     app: tauri::AppHandle,
     sample_name: String,
 ) -> Result<serde_json::Value, String> {
-    db::with_conn(&app, |conn| load_sample_conn(conn, &sample_name))
+    crate::run_blocking(move || db::with_conn(&app, |conn| load_sample_conn(conn, &sample_name)))
+        .await
 }
 
 /// Writes a document's translations and sentence analyses to `path` as Markdown.
@@ -425,39 +453,49 @@ pub fn load_sample(
 /// chosen path, so this command never opens UI of its own. Reads cached rows
 /// only — exporting never spends a model call.
 #[tauri::command]
-pub fn export_markdown_to(
-    app: tauri::AppHandle,
+pub async fn export_markdown_to(
+    _app: tauri::AppHandle,
     doc_id: String,
     path: String,
 ) -> Result<serde_json::Value, String> {
     let path_for_result = path.clone();
-    let bytes = db::with_conn(&app, |conn| {
-        crate::export::write_document_markdown_to(conn, &doc_id, &path)
-    })?;
-    let (title, sentences): (String, i64) = db::with_conn(&app, |conn| {
-        let title: String = conn
-            .query_row(
-                "SELECT title FROM documents WHERE id = ?1",
-                [&doc_id],
-                |r| r.get(0),
-            )
-            .unwrap_or_default();
-        let n: i64 = conn
-            .query_row(
-                // Same placeholder rule as the export itself: the offline demo
-                // engine's `【译文】` echo must not count as a translated
-                // sentence in the "N 句译文" report.
-                &format!(
-                    "SELECT COUNT(*) FROM sentences
-                     WHERE doc_id = ?1 AND translation IS NOT NULL AND TRIM(translation) <> ''
-                       AND translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
-                ),
-                [&doc_id],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        Ok((title, n))
-    })?;
+    let job_app = _app.clone();
+    let job_doc_id = doc_id.clone();
+    let bytes = crate::run_blocking(move || {
+        db::with_conn(&job_app, |conn| {
+            crate::export::write_document_markdown_to(conn, &job_doc_id, &path)
+        })
+    })
+    .await?;
+    let stats_app = _app.clone();
+    let stats_doc_id = doc_id.clone();
+    let (title, sentences): (String, i64) = crate::run_blocking(move || {
+        db::with_conn(&stats_app, |conn| {
+            let title: String = conn
+                .query_row(
+                    "SELECT title FROM documents WHERE id = ?1",
+                    [&stats_doc_id],
+                    |r| r.get(0),
+                )
+                .unwrap_or_default();
+            let n: i64 = conn
+                .query_row(
+                    // Same placeholder rule as the export itself: the offline demo
+                    // engine's `【译文】` echo must not count as a translated
+                    // sentence in the "N 句译文" report.
+                    &format!(
+                        "SELECT COUNT(*) FROM sentences
+                         WHERE doc_id = ?1 AND {}",
+                        real_translation_filter("translation")
+                    ),
+                    rusqlite::params![stats_doc_id, placeholder_like_pattern()],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            Ok((title, n))
+        })
+    })
+    .await?;
     Ok(serde_json::json!({
         "status": "written",
         "path": path_for_result,

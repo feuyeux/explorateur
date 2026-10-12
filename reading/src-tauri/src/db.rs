@@ -1,14 +1,16 @@
 // Database layer.
-use crate::llm::{is_deep_analysis, PLACEHOLDER_TRANSLATION_PREFIX};
+use crate::llm::is_deep_analysis;
+use crate::util::placeholder_like_pattern;
 use rusqlite::Connection;
 use std::path::PathBuf;
+use std::time::Duration;
 use tauri::Manager;
 
-pub fn db_path(app: &tauri::AppHandle) -> PathBuf {
+pub fn db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
-        .expect("no app data dir")
-        .join("ready_reader.db")
+        .map_err(|e| format!("无法定位应用数据目录: {e}"))
+        .map(|dir| dir.join("ready_reader.db"))
 }
 
 // Legacy project-local db, migrated on first launch (spec §3/§4) so the existing
@@ -49,14 +51,12 @@ fn legacy_db_path() -> Option<PathBuf> {
 /// written by older builds. Idempotent, so it is safe to run on every launch.
 pub fn purge_placeholder_translations(conn: &Connection) -> Result<usize, String> {
     conn.execute(
-        &format!(
-            "UPDATE sentences
-                SET translation = NULL,
-                    deep_analysis_json = NULL,
-                    updated_at = datetime('now', 'localtime')
-              WHERE translation LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
-        ),
-        [],
+        "UPDATE sentences
+            SET translation = NULL,
+                deep_analysis_json = NULL,
+                updated_at = datetime('now', 'localtime')
+          WHERE translation LIKE ?",
+        [placeholder_like_pattern()],
     )
     .map_err(|e| e.to_string())
 }
@@ -163,16 +163,24 @@ pub fn init_conn(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn init_db(app: &tauri::AppHandle) -> Result<(), String> {
-    let path = db_path(app);
+    let path = db_path(app)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
 
-    // One-time migration from the legacy project-local db.
+    // One-time migration from the legacy project-local db. A failed copy must
+    // be said out loud: silently falling through opens a fresh empty db, and
+    // the user's existing notebook and analyses look "lost" with no hint why.
     if !path.exists() {
         if let Some(legacy) = legacy_db_path() {
-            if std::fs::copy(&legacy, &path).is_ok() {
-                eprintln!("migrated legacy db from {}", legacy.display());
+            match std::fs::copy(&legacy, &path) {
+                Ok(_) => eprintln!("migrated legacy db from {}", legacy.display()),
+                Err(e) => eprintln!(
+                    "老库迁移失败：无法把 {} 复制到 {}（{}），将以全新空库启动",
+                    legacy.display(),
+                    path.display(),
+                    e
+                ),
             }
         }
     }
@@ -188,7 +196,12 @@ pub fn with_conn<T>(
     app: &tauri::AppHandle,
     f: impl FnOnce(&Connection) -> Result<T, String>,
 ) -> Result<T, String> {
-    let conn = Connection::open(db_path(app)).map_err(|e| e.to_string())?;
+    let conn = Connection::open(db_path(app)?).map_err(|e| e.to_string())?;
+    // The batch runs three workers, each with its own connection, all writing
+    // to the same file. Without a busy timeout SQLite fails a colliding write
+    // instantly with "database is locked"; a short wait absorbs it.
+    conn.busy_timeout(Duration::from_secs(5))
+        .map_err(|e| e.to_string())?;
     conn.pragma_update(None, "foreign_keys", "ON").ok();
     f(&conn)
 }
@@ -196,6 +209,7 @@ pub fn with_conn<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 
     #[test]
     fn init_conn_creates_all_six_tables() {

@@ -15,7 +15,8 @@ use crate::commands::analysis::{
     analyze_paragraph_conn, get_sentence_analysis_conn, load_provider_cfg,
 };
 use crate::db;
-use crate::llm::{is_mock, PLACEHOLDER_TRANSLATION_PREFIX};
+use crate::llm::is_mock;
+use crate::util::{placeholder_like_pattern, real_translation_filter};
 use rusqlite::Connection;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -29,6 +30,9 @@ pub const DEFAULT_CONCURRENCY: usize = 3;
 #[derive(Debug, Default, Clone)]
 pub struct BatchState {
     pub running: bool,
+    /// Monotonic run generation. [`RunGuard`] compares against it on drop so a
+    /// stale guard can never release a newer run's slot.
+    pub run_id: u64,
     pub doc_id: String,
     /// "paragraphs" | "sentences" | "idle"
     pub phase: String,
@@ -47,6 +51,37 @@ fn state() -> MutexGuard<'static, BatchState> {
         .get_or_init(|| Mutex::new(BatchState::default()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Common tail of every run exit: hand the slot back and clear transient
+/// fields. The cancel flag must not outlive the run it cancelled: leaving it
+/// set made every later run die on its first item, with "cancelling" stuck
+/// true in the progress panel.
+fn release_slot() {
+    let mut st = state();
+    st.running = false;
+    st.cancel = false;
+    st.phase = "idle".into();
+    st.current.clear();
+}
+
+/// Releases the run's slot if the orchestrator task never reaches its normal
+/// tail (a panic unwinds through here). The id check keeps a stale guard from
+/// releasing a newer run's slot.
+struct RunGuard {
+    run_id: u64,
+}
+
+impl Drop for RunGuard {
+    fn drop(&mut self) {
+        let mut st = state();
+        if st.running && st.run_id == self.run_id {
+            st.running = false;
+            st.cancel = false;
+            st.phase = "idle".into();
+            st.current.clear();
+        }
+    }
 }
 
 /// The work a run still has to do.
@@ -81,14 +116,16 @@ pub fn plan_batch(conn: &Connection, doc_id: &str) -> Result<Plan, String> {
                    AND NOT EXISTS (
                      SELECT 1 FROM sentences s
                      WHERE s.paragraph_id = p.id
-                       AND s.translation IS NOT NULL AND TRIM(s.translation) <> ''
-                        AND s.translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'
+                       AND {}
                    )
                  ORDER BY p.order_index",
+                real_translation_filter("s.translation")
             ))
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map([doc_id], |r| r.get::<_, String>(0))
+            .query_map(rusqlite::params![doc_id, placeholder_like_pattern()], |r| {
+                r.get::<_, String>(0)
+            })
             .map_err(|e| e.to_string())?;
         for row in rows {
             paragraphs.push(row.map_err(|e| e.to_string())?);
@@ -148,7 +185,7 @@ fn cancelled() -> bool {
 /// minutes "working" and then leave hundreds of placeholder rows in the cache,
 /// which look exactly like real translations in every later read and export.
 pub fn guard_against_offline(conn: &Connection) -> Result<(), String> {
-    let cfg = load_provider_cfg(conn);
+    let cfg = load_provider_cfg(conn)?;
     if is_mock(&cfg) {
         return Err(
             "当前是内置离线演示模式，批量跑只会把「【译文】+原文」占位符写满全书缓存。\
@@ -176,8 +213,14 @@ fn bump_done(label: &str, ok: bool, err: Option<String>) {
 ///
 /// Workers pull from an atomic counter instead of taking a semaphore: the
 /// queue is already in order, so a work-stealing runtime buys nothing here and
-/// an atomic keeps the worker bodies trivial.
-async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, concurrency: usize) {
+/// an atomic keeps the worker bodies trivial. The queue itself is shared
+/// behind an `Arc` — the workers only ever read it.
+async fn run_phase(
+    app: &AppHandle,
+    items: std::sync::Arc<Vec<String>>,
+    sentence_mode: bool,
+    concurrency: usize,
+) {
     let total = items.len();
     if total == 0 {
         return;
@@ -211,12 +254,7 @@ async fn run_phase(app: &AppHandle, items: Vec<String>, sentence_mode: bool, con
                 }
                 let id = items[i].clone();
                 let label = if sentence_mode {
-                    format!(
-                        "{} · 句子 {}/{}",
-                        if items.is_empty() { "" } else { "深度解析" },
-                        i + 1,
-                        total
-                    )
+                    format!("深度解析 · 句子 {}/{}", i + 1, total)
                 } else {
                     format!("翻译段落 {}/{}", i + 1, total)
                 };
@@ -277,19 +315,35 @@ pub fn start(
     doc_id: String,
     concurrency: Option<usize>,
 ) -> Result<serde_json::Value, String> {
-    {
-        let st = state();
+    // Occupy the slot inside the same lock that checked it. The plan scan
+    // below reads the whole book and can take seconds; checking `running`
+    // in one critical section and setting it in another let a second
+    // click slip through the guard while the first was still planning,
+    // and two runs then raced over the same state machine.
+    let run_id = {
+        let mut st = state();
         if st.running {
             return Err("已有一个全文翻译任务在运行中".to_string());
         }
-    }
+        st.running = true;
+        st.run_id += 1;
+        st.run_id
+    };
 
-    let plan = db::with_conn(&app, |conn| {
+    // From here on, the slot is ours: every early exit must hand it back.
+    let plan = match db::with_conn(&app, |conn| {
         guard_against_offline(conn)?;
         plan_batch(conn, &doc_id)
-    })?;
+    }) {
+        Ok(p) => p,
+        Err(e) => {
+            state().running = false;
+            return Err(e);
+        }
+    };
 
     if plan.is_empty() {
+        state().running = false;
         return Ok(serde_json::json!({
             "started": false,
             "reason": "nothing_to_do",
@@ -304,6 +358,7 @@ pub fn start(
         let mut st = state();
         *st = BatchState {
             running: true,
+            run_id,
             doc_id: doc_id.clone(),
             phase: "paragraphs".into(),
             done: 0,
@@ -320,17 +375,30 @@ pub fn start(
     // together would have a worker analyse a sentence whose paragraph
     // translation has not landed yet.
     let conc = concurrency.unwrap_or(DEFAULT_CONCURRENCY).clamp(1, 8);
-    let paragraphs = plan.paragraphs.clone();
-    let sentences = plan.sentences.clone();
-    tauri::async_runtime::spawn(async move {
-        run_phase(&app, paragraphs, false, conc).await;
-        if !cancelled() {
-            run_phase(&app, sentences, true, conc).await;
+    let paragraphs = std::sync::Arc::new(plan.paragraphs);
+    let sentences = std::sync::Arc::new(plan.sentences);
+    let handle = tauri::async_runtime::spawn({
+        let app = app.clone();
+        async move {
+            // If the orchestrator panics mid-run, the unwind drops the guard,
+            // which releases the slot — without it `running` stayed stuck true
+            // and every later start() was rejected until app restart.
+            let _guard = RunGuard { run_id };
+            run_phase(&app, paragraphs, false, conc).await;
+            if !cancelled() {
+                run_phase(&app, sentences, true, conc).await;
+            }
+            release_slot();
+            // Guard no-ops here: running is already false and run_id moved on
+            // only when a *new* run started, which the id check filters out.
         }
-        let mut st = state();
-        st.running = false;
-        st.phase = "idle".into();
-        st.current.clear();
+    });
+    // Fire-and-forget spawn loses panics silently; watch the join result so a
+    // crash at least reaches the log instead of vanishing.
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = handle.await {
+            eprintln!("[batch] 全文翻译后台任务异常退出: {e}");
+        }
     });
 
     Ok(serde_json::json!({
@@ -369,6 +437,7 @@ pub fn progress() -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 
     fn mem_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();

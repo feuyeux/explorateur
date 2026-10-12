@@ -5,27 +5,30 @@ use crate::db;
 use crate::glossary::format_glossary_for_prompt;
 use crate::llm::{
     analyze_paragraph_structured, analyze_single_sentence_deep, is_deep_analysis,
-    is_placeholder_translation, ProviderCfg, PLACEHOLDER_TRANSLATION_PREFIX,
+    is_placeholder_translation, ProviderCfg,
 };
-use chrono::Local;
+use crate::util::{now_str, placeholder_like_pattern, real_translation_filter};
 use rusqlite::Connection;
 use std::collections::HashMap;
 
-fn now_str() -> String {
-    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
-pub fn load_provider_cfg(conn: &Connection) -> ProviderCfg {
+/// Loads the provider settings. Returns `Result` because the settings table
+/// query runs at request time on the user's database, not at build time:
+/// a panic here is a whole-app abort under `panic = "abort"` (release builds),
+/// while an Err is one failed analysis the user can retry after fixing the db.
+pub fn load_provider_cfg(conn: &Connection) -> Result<ProviderCfg, String> {
     let mut stmt = conn
         .prepare("SELECT key, value FROM settings")
-        .expect("settings table exists");
-    let rows: HashMap<String, String> = stmt
+        .map_err(|e| e.to_string())?;
+    let mut rows: HashMap<String, String> = HashMap::new();
+    let mapped = stmt
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-        .expect("settings query")
-        .map(|r| r.expect("settings row"))
-        .collect();
+        .map_err(|e| e.to_string())?;
+    for row in mapped {
+        let (k, v) = row.map_err(|e| e.to_string())?;
+        rows.insert(k, v);
+    }
     let get = |k: &str| rows.get(k).cloned().unwrap_or_default();
-    ProviderCfg {
+    Ok(ProviderCfg {
         provider: {
             let p = get("provider");
             if p.is_empty() {
@@ -42,7 +45,7 @@ pub fn load_provider_cfg(conn: &Connection) -> ProviderCfg {
         model_name: get("model_name"),
         temperature: get("temperature").parse::<f64>().unwrap_or(0.2),
         mock_mode: get("mock_mode") == "true",
-    }
+    })
 }
 
 type SentRow = (String, String, Option<String>, Option<String>);
@@ -96,11 +99,7 @@ fn cache_sentence(
                     deep_analysis_json = NULL,
                     updated_at = ?2
               WHERE id = ?1 AND translation LIKE ?3",
-            rusqlite::params![
-                sentence_id,
-                now_str(),
-                format!("{PLACEHOLDER_TRANSLATION_PREFIX}%")
-            ],
+            rusqlite::params![sentence_id, now_str(), placeholder_like_pattern()],
         )
         .map_err(|e| e.to_string())?;
         return Ok(());
@@ -185,7 +184,7 @@ pub async fn analyze_paragraph_conn(
         }));
     }
 
-    let cfg = load_provider_cfg(conn);
+    let cfg = load_provider_cfg(conn)?;
     let glossary_context = format_glossary_for_prompt(conn, &doc_id)?;
     let meta: Vec<(String, String)> = s_rows
         .iter()
@@ -302,7 +301,7 @@ pub async fn get_sentence_analysis_conn(
         None => (original.clone(), doc_id_fallback),
     };
 
-    let cfg = load_provider_cfg(conn);
+    let cfg = load_provider_cfg(conn)?;
     let glossary_context = format_glossary_for_prompt(conn, &doc_id)?;
     let (result, provenance) =
         analyze_single_sentence_deep(&cfg, sentence_id, &original, &para_text, &glossary_context)
@@ -347,12 +346,10 @@ pub async fn prefetch_next_paragraph(app: tauri::AppHandle, doc_id: String, next
             .query_row(
                 &format!(
                     "SELECT COUNT(*) FROM sentences
-                      WHERE paragraph_id = ?1
-                        AND translation IS NOT NULL
-                        AND TRIM(translation) <> ''
-                        AND translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'"
+                      WHERE paragraph_id = ?1 AND {}",
+                    real_translation_filter("translation")
                 ),
-                [&p_id],
+                rusqlite::params![p_id, placeholder_like_pattern()],
                 |r| r.get(0),
             )
             .map_err(|e| e.to_string())?;
@@ -368,7 +365,7 @@ pub async fn prefetch_next_paragraph(app: tauri::AppHandle, doc_id: String, next
 
     let result = db::with_conn(&app, |conn| {
         let s_rows = load_sentences(conn, &p_id)?;
-        let cfg = load_provider_cfg(conn);
+        let cfg = load_provider_cfg(conn)?;
         let glossary_context = format_glossary_for_prompt(conn, &doc_id)?;
         let meta: Vec<(String, String)> = s_rows
             .iter()
@@ -382,15 +379,18 @@ pub async fn prefetch_next_paragraph(app: tauri::AppHandle, doc_id: String, next
 
     let (analyzed, _provenance) =
         analyze_paragraph_structured(&cfg, &p_id, &raw_text, &meta, &glossary_context).await;
-    let _ = db::with_conn(&app, |conn| {
+    // Still best-effort — a failed warm-up only costs the user a repeat of
+    // the analysis — but no longer silent: a cache that keeps failing to
+    // write looks exactly like one that is working, from the UI.
+    if let Err(e) = db::with_conn(&app, |conn| {
         for a in analyzed {
-            let value = serde_json::to_value(&a).map_err(|e| e.to_string())?;
             let deep_str = serde_json::to_string(&a).map_err(|e| e.to_string())?;
             cache_sentence(conn, &a.sentence_id, &a.translation, &deep_str)?;
-            let _ = value;
         }
         Ok(())
-    });
+    }) {
+        eprintln!("prefetch: 预热缓存写入失败: {e}");
+    }
 }
 
 #[tauri::command]
@@ -446,14 +446,15 @@ pub async fn get_sentence_analysis(
 ///
 /// Returns as soon as the job is queued; the frontend polls
 /// [`batch_progress`] for counters. Refuses to start in the offline demo mode —
-/// see [`crate::batch::guard_against_offline`].
+/// see [`crate::batch::guard_against_offline`]. The planning pass scans the
+/// whole book, so it runs on the blocking pool rather than the main thread.
 #[tauri::command]
-pub fn start_batch_analysis(
+pub async fn start_batch_analysis(
     app: tauri::AppHandle,
     doc_id: String,
     concurrency: Option<usize>,
 ) -> Result<serde_json::Value, String> {
-    crate::batch::start(app, doc_id, concurrency)
+    crate::run_blocking(move || crate::batch::start(app, doc_id, concurrency)).await
 }
 
 #[tauri::command]
@@ -470,6 +471,7 @@ pub fn cancel_batch_analysis() -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::commands::documents::ingest_text;
+    use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
     use rusqlite::Connection;
 
     fn block_on<F: std::future::Future>(f: F) -> F::Output {
@@ -500,7 +502,7 @@ mod tests {
     #[test]
     fn test_load_provider_cfg_reads_settings() {
         let conn = mem_db();
-        let cfg = load_provider_cfg(&conn);
+        let cfg = load_provider_cfg(&conn).unwrap();
         assert_eq!(cfg.provider, "mock");
         assert_eq!(cfg.model_name, "gpt-4o-mini");
         assert!((cfg.temperature - 0.2).abs() < f64::EPSILON);
@@ -520,7 +522,7 @@ mod tests {
             [],
         )
         .unwrap();
-        let cfg = load_provider_cfg(&conn);
+        let cfg = load_provider_cfg(&conn).unwrap();
         assert!((cfg.temperature - 0.9).abs() < 1e-9);
         assert!(!cfg.mock_mode);
     }
@@ -533,7 +535,7 @@ mod tests {
             [],
         )
         .unwrap();
-        let cfg = load_provider_cfg(&conn);
+        let cfg = load_provider_cfg(&conn).unwrap();
         assert!((cfg.temperature - 0.2).abs() < f64::EPSILON);
     }
 
@@ -636,7 +638,7 @@ mod tests {
             conn.execute("UPDATE settings SET value='' WHERE key='model_name'", [])
                 .unwrap();
 
-            let cfg = load_provider_cfg(&conn);
+            let cfg = load_provider_cfg(&conn).unwrap();
             assert_eq!(
                 cfg.model_name, "",
                 "{provider}: the setting must stay empty"
@@ -660,7 +662,7 @@ mod tests {
             [],
         )
         .unwrap();
-        let cfg = load_provider_cfg(&conn);
+        let cfg = load_provider_cfg(&conn).unwrap();
         let (_, model, _) = crate::llm::resolve_endpoint(&cfg);
         assert_eq!(model, "claude-3-7-sonnet");
     }

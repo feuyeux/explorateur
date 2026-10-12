@@ -8,6 +8,7 @@ pub mod markdown;
 pub mod prompts;
 pub mod splitter;
 pub mod translit;
+pub mod util;
 pub mod vocab;
 
 /// Runs a blocking job on the blocking pool and awaits its result.

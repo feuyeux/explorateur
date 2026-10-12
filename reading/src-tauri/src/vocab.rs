@@ -1,6 +1,6 @@
 // Vocabulary notebook storage and Anki TSV export, ported from
 // backend/app/services/vocab_service.py.
-use chrono::Local;
+use crate::util::now_str;
 use regex::Regex;
 use rusqlite::Connection;
 use serde::Serialize;
@@ -37,7 +37,7 @@ pub fn add_vocabulary_item(
             sentence_context,
             sentence_id,
             cultural_background,
-            Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            now_str(),
         ],
     )
     .map_err(|e| e.to_string())?;

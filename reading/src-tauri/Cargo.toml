@@ -25,6 +25,9 @@ regex = "1"
 fancy-regex = "0.14"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
+# Only for tokio::time::sleep in the LLM retry backoff; tauri already pulls
+# the tokio runtime in.
+tokio = { version = "1", features = ["time"] }
 
 [profile.release]
 codegen-units = 1

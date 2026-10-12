@@ -220,7 +220,14 @@ fn curated(sentence_id: &str, original: &str) -> Option<SentenceAnalysis> {
         _ => return None,
     };
 
-    let mut out: SentenceAnalysis = serde_json::from_value(data).expect("curated entry is valid");
+    // A malformed curated entry is skipped, not fatal: `expect` here is a
+    // build-time invariant expressed at runtime, and a panic aborts the whole
+    // app under `panic = "abort"`. Skipping costs one heuristic fallback for
+    // the affected sentence.
+    let Some(mut out) = serde_json::from_value::<SentenceAnalysis>(data).ok() else {
+        eprintln!("curated entry for {original:?} failed to parse; skipping");
+        return None;
+    };
     out.sentence_id = sentence_id.to_string();
     out.original = original.to_string();
     Some(out)
@@ -414,17 +421,84 @@ pub fn resolve_endpoint(cfg: &ProviderCfg) -> (String, String, bool) {
     }
 }
 
+/// A failed live call, keeping the HTTP status code so the retry loop can
+/// tell a transient error (429 / 5xx) from a permanent one.
+struct CallFailure {
+    status: Option<u16>,
+    message: String,
+}
+
+/// Backoff between retries, in seconds: 1s after the first failure, 3s after
+/// the second. Two retries on top of the original attempt, no more — a
+/// persistently rate-limited provider must surface to the user (as a batch
+/// failure), not spin for minutes.
+const RETRY_BACKOFF_SECS: [u64; 2] = [1, 3];
+
 async fn call_llm(
     cfg: &ProviderCfg,
     system_prompt: &str,
     user_prompt: &str,
     json_mode: bool,
 ) -> Result<String, String> {
-    let (base, model, is_anthropic) = resolve_endpoint(cfg);
+    // Timeout scales with the request: a fixed 60s was tuned for a single
+    // sentence, while a whole-paragraph prompt with a glossary block can be
+    // several thousand tokens. Estimate ~4 chars per token and allow 2.5s per
+    // 100 estimated tokens on top of the 60s floor — short requests are
+    // unaffected, long ones get room to finish instead of timing out into the
+    // offline fallback.
+    let est_tokens =
+        (system_prompt.chars().count() + user_prompt.chars().count()) as u64 / 4;
+    let timeout = Duration::from_secs(60 + est_tokens / 40);
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
+        .timeout(timeout)
         .build()
         .map_err(|e| e.to_string())?;
+
+    // One attempt per backoff slot, then a final attempt with no retries
+    // left behind it: a persistently rate-limited provider must surface to
+    // the user (as a batch failure), not spin for minutes.
+    for (attempt, &delay) in RETRY_BACKOFF_SECS.iter().enumerate() {
+        match call_llm_once(&client, cfg, system_prompt, user_prompt, json_mode).await {
+            Ok(text) => return Ok(text),
+            Err(e) if is_retryable(&e) => {
+                eprintln!(
+                    "LLM call failed with status {:?}; retry {}/{} in {delay}s: {}",
+                    e.status,
+                    attempt + 1,
+                    RETRY_BACKOFF_SECS.len(),
+                    e.message
+                );
+                tokio::time::sleep(Duration::from_secs(delay)).await;
+            }
+            // Only 429 and 5xx are worth retrying: the provider itself says
+            // "again in a moment". Everything else (401, 404, a network
+            // error) fails the same way a second time.
+            Err(e) => return Err(e.message),
+        }
+    }
+    match call_llm_once(&client, cfg, system_prompt, user_prompt, json_mode).await {
+        Ok(text) => Ok(text),
+        Err(e) => Err(e.message),
+    }
+}
+
+/// True when the provider indicated a transient failure worth retrying.
+fn is_retryable(e: &CallFailure) -> bool {
+    e.status.is_some_and(|s| s == 429 || (500..600).contains(&s))
+}
+
+async fn call_llm_once(
+    client: &reqwest::Client,
+    cfg: &ProviderCfg,
+    system_prompt: &str,
+    user_prompt: &str,
+    json_mode: bool,
+) -> Result<String, CallFailure> {
+    let (base, model, is_anthropic) = resolve_endpoint(cfg);
+    let net_err = |e: reqwest::Error| CallFailure {
+        status: e.status().map(|s| s.as_u16()),
+        message: e.to_string(),
+    };
 
     // Anthropic has its own message shape: system is a top-level field, auth
     // is a header rather than a bearer token, and the reply is a content array.
@@ -447,23 +521,30 @@ async fn call_llm(
             .json(&payload)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(net_err)?;
         if !resp.status().is_success() {
             // Surface the body, not just the status: MiniMax answers
             // `insufficient_balance_error` and Claude answers a model-not-found
             // with the actionable text, while the bare code says neither.
             let status = resp.status();
+            let code = status.as_u16();
             let detail = resp.text().await.unwrap_or_default();
-            return Err(format!("anthropic api error {status}: {detail}"));
+            return Err(CallFailure {
+                status: Some(code),
+                message: format!("anthropic api error {status}: {detail}"),
+            });
         }
-        let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+        let data: serde_json::Value = resp.json().await.map_err(net_err)?;
         return data
             .get("content")
             .and_then(|c| c.get(0))
             .and_then(|c| c.get("text"))
             .and_then(|t| t.as_str())
             .map(|s| s.to_string())
-            .ok_or_else(|| "anthropic response had no content[0].text".to_string());
+            .ok_or_else(|| CallFailure {
+                status: None,
+                message: "anthropic response had no content[0].text".to_string(),
+            });
     }
 
     let url = format!("{base}/chat/completions");
@@ -484,18 +565,31 @@ async fn call_llm(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(net_err)?;
     if !resp.status().is_success() {
-        return Err(format!("llm api error: {}", resp.status()));
+        // Same as the Anthropic branch: the body carries the actionable text
+        // (a quota message, a model-name typo) that a bare status code does
+        // not, and it is what makes the difference between a fixable
+        // configuration and a silent drop into the offline engine.
+        let status = resp.status();
+        let code = status.as_u16();
+        let detail = resp.text().await.unwrap_or_default();
+        return Err(CallFailure {
+            status: Some(code),
+            message: format!("llm api error {status}: {detail}"),
+        });
     }
-    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let data: serde_json::Value = resp.json().await.map_err(net_err)?;
     data.get("choices")
         .and_then(|c| c.get(0))
         .and_then(|c| c.get("message"))
         .and_then(|m| m.get("content"))
         .and_then(|c| c.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| "llm response had no choices[0].message.content".to_string())
+        .ok_or_else(|| CallFailure {
+            status: None,
+            message: "llm response had no choices[0].message.content".to_string(),
+        })
 }
 
 pub async fn analyze_paragraph_structured(

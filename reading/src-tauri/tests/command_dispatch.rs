@@ -74,7 +74,7 @@ fn block_on_inside_a_spawned_task_panics_which_is_why_commands_use_run_blocking(
                     |r| r.get(0),
                 )
                 .unwrap();
-            let cfg = ready_reader_lib::commands::analysis::load_provider_cfg(&conn);
+            let cfg = ready_reader_lib::commands::analysis::load_provider_cfg(&conn).unwrap();
             let meta = vec![("p_s1".to_string(), "Call me Ishmael.".to_string())];
             let out = tauri::async_runtime::block_on(analyze_paragraph_structured(
                 &cfg,
@@ -105,7 +105,7 @@ fn run_blocking_carries_a_real_analysis_through_that_same_dispatch_shape() {
     let task = tauri::async_runtime::spawn(async move {
         run_blocking(move || -> Result<usize, String> {
             let conn = Connection::open(&file).map_err(|e| e.to_string())?;
-            let cfg = ready_reader_lib::commands::analysis::load_provider_cfg(&conn);
+            let cfg = ready_reader_lib::commands::analysis::load_provider_cfg(&conn).unwrap();
             let meta = vec![("p_s1".to_string(), "Call me Ishmael.".to_string())];
             let out = tauri::async_runtime::block_on(analyze_paragraph_structured(
                 &cfg,

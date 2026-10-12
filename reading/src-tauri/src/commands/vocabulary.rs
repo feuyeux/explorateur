@@ -1,5 +1,6 @@
 // Vocabulary notebook commands.
 use crate::db;
+use crate::util::validate_save_path;
 use crate::vocab::{
     add_vocabulary_item, delete_vocabulary_item, export_vocabulary_anki_tsv, list_vocabulary_items,
     VocabRecord,
@@ -62,10 +63,11 @@ pub fn delete_vocabulary_conn(
 /// dialog. The write happens in Rust rather than through the fs plugin because
 /// no fs scope can cover an arbitrary user-chosen path, and a capability that
 /// tried would be far broader than this one call needs.
+///
+/// The path is expected to come from the native save dialog; only obviously
+/// broken input is rejected here (see [`validate_save_path`]).
 pub fn write_anki_deck_to(conn: &Connection, path: &str) -> Result<usize, String> {
-    if path.trim().is_empty() {
-        return Err("未选择保存路径。".to_string());
-    }
+    validate_save_path(path)?;
     let tsv = export_vocabulary_anki_tsv(conn)?;
     std::fs::write(path, tsv.as_bytes()).map_err(|e| format!("写入 {path} 失败：{e}"))?;
     Ok(tsv.len())
@@ -109,9 +111,17 @@ pub fn delete_vocabulary(
 }
 
 #[tauri::command]
-pub fn export_anki_to(app: tauri::AppHandle, path: String) -> Result<serde_json::Value, String> {
+pub async fn export_anki_to(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<serde_json::Value, String> {
+    // Renders the whole notebook and writes a file: same blocking-pool
+    // treatment as the document export.
     let path_for_result = path.clone();
-    let written = db::with_conn(&app, |conn| write_anki_deck_to(conn, &path))?;
+    let written = crate::run_blocking(move || {
+        db::with_conn(&app, |conn| write_anki_deck_to(conn, &path))
+    })
+    .await?;
     Ok(serde_json::json!({
         "status": "written",
         "path": path_for_result,

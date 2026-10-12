@@ -63,7 +63,7 @@ fn full_pipeline_mock_mode() {
         .collect();
     assert!(!sents_meta.is_empty());
 
-    let cfg = load_provider_cfg(&conn);
+    let cfg = load_provider_cfg(&conn).unwrap();
     let (analysed, provenance) = tauri::async_runtime::block_on(analyze_paragraph_structured(
         &cfg,
         &p0_id,

@@ -3,13 +3,12 @@
 // This is the reading-oriented counterpart to the Anki deck in `vocab.rs`: the
 // deck is a flashcard format, this is a document a person re-reads. Both read
 // the same cached rows, so an export never triggers a model call.
-use crate::llm::{SentenceAnalysis, PLACEHOLDER_TRANSLATION_PREFIX};
+use crate::llm::SentenceAnalysis;
+use crate::util::{
+    now_str, placeholder_like_pattern, real_translation_filter, validate_save_path,
+};
 use rusqlite::Connection;
 use std::fmt::Write as _;
-
-fn now_str() -> String {
-    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-}
 
 /// Escapes only what would change the *block* structure of the output.
 ///
@@ -148,9 +147,9 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
              FROM paragraphs p
              JOIN sentences s ON s.paragraph_id = p.id
              WHERE p.doc_id = ?1
-               AND s.translation IS NOT NULL AND TRIM(s.translation) <> ''
-               AND s.translation NOT LIKE '{PLACEHOLDER_TRANSLATION_PREFIX}%'
-             ORDER BY p.order_index, s.order_index"
+               AND {}
+             ORDER BY p.order_index, s.order_index",
+            real_translation_filter("s.translation")
         ))
         .map_err(|e| e.to_string())?;
 
@@ -159,7 +158,7 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
     let mut paragraphs: Vec<ExportedParagraph> = Vec::new();
     let mut sentences_exported = 0usize;
     let rows = stmt
-        .query_map([doc_id], |r| {
+        .query_map(rusqlite::params![doc_id, placeholder_like_pattern()], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, i64>(1)?,
@@ -227,11 +226,15 @@ pub fn export_document_markdown(conn: &Connection, doc_id: &str) -> Result<Strin
 }
 
 /// Writes the rendered Markdown to `path`, returning the byte count.
+///
+/// The path is expected to come from the native save dialog; only obviously
+/// broken input is rejected here (see [`validate_save_path`]).
 pub fn write_document_markdown_to(
     conn: &Connection,
     doc_id: &str,
     path: &str,
 ) -> Result<usize, String> {
+    validate_save_path(path)?;
     let md = export_document_markdown(conn, doc_id)?;
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
@@ -245,6 +248,7 @@ pub fn write_document_markdown_to(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::PLACEHOLDER_TRANSLATION_PREFIX;
 
     fn mem_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
