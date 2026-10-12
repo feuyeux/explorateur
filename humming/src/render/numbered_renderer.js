@@ -145,13 +145,17 @@ export class NumberedRenderer {
       core.appendChild(dot);
     }
 
-    // 增时线
-    if (note.durationBeats >= 3.5) {
-      core.innerHTML += ' <span class="jianpu-dash">- - -</span>';
-    } else if (note.durationBeats >= 2.5) {
-      core.innerHTML += ' <span class="jianpu-dash">- -</span>';
-    } else if (note.durationBeats >= 1.75) {
-      core.innerHTML += ' <span class="jianpu-dash">-</span>';
+    // 增时线（createElement + appendChild：innerHTML += 会把已 append 的
+    // 升降号/数字/附点子节点整体销毁重建，丢失引用与监听）
+    const dashText = note.durationBeats >= 3.5 ? '- - -'
+      : note.durationBeats >= 2.5 ? '- -'
+      : note.durationBeats >= 1.75 ? '-' : null;
+    if (dashText !== null) {
+      core.appendChild(document.createTextNode(' '));
+      const dash = document.createElement('span');
+      dash.className = 'jianpu-dash';
+      dash.textContent = dashText;
+      core.appendChild(dash);
     }
 
     wrap.appendChild(core);

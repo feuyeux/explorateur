@@ -59,6 +59,9 @@ export class NoteSegmenter {
     // 3. 初始切分：基于音高跳变、能量起始点 (Onset) 与发声断点
     const initialSegments = [];
     let currentSegment = null;
+    // currentSegment.midis 的增量和（与 midis 同步维护）：切分循环内
+    // 求均值改为 O(1) 增量更新，避免每帧对整段 reduce 造成 O(n²)
+    let currentMidiSum = 0;
 
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
@@ -81,8 +84,11 @@ export class NoteSegmenter {
           midis: [midi],
           confidences: [frame.confidence]
         };
+        currentMidiSum = midi;
       } else {
-        const avgMidi = currentSegment.midis.reduce((a, b) => a + b, 0) / currentSegment.midis.length;
+        // 与 reduce((a,b)=>a+b, 0)/length 完全等价：加法顺序一致
+        // （0 + m0 === m0），浮点结果逐位相同
+        const avgMidi = currentMidiSum / currentSegment.midis.length;
         const diff = Math.abs(midi - avgMidi);
 
         // 如果音高出现显著阶跃，或者检测到新的起音/同音重唱，切为新音符
@@ -97,9 +103,11 @@ export class NoteSegmenter {
             midis: [midi],
             confidences: [frame.confidence]
           };
+          currentMidiSum = midi;
         } else {
           currentSegment.endTime = frame.time;
           currentSegment.midis.push(midi);
+          currentMidiSum += midi;
           currentSegment.confidences.push(frame.confidence);
         }
       }

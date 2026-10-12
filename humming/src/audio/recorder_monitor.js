@@ -98,12 +98,19 @@ export class AudioRecorderMonitor {
     const minPeriod = Math.floor(sampleRate / 800);
     const maxPeriod = Math.ceil(sampleRate / 80);
 
+    // 自相关窗长按最低检测频率 (80Hz) 的一个完整周期取值 (~12.5ms)：
+    // 此前固定 512 样本在 44.1/48kHz 下短于 80Hz 周期 (551/600 样本)，
+    // 低音区无法形成完整周期对比。窗长按样本数计：48kHz 下窗长 600，
+    // r 是未归一化的求和，窗变长约 17%，0.42 阈值实际比旧实现略灵敏。
+    const windowLen = Math.min(buf.length - maxPeriod, maxPeriod);
+    if (windowLen <= 0) return null; // 采样率 ≥163.84kHz 时窗装不下 80Hz 周期
+
     let bestR = 0;
     let bestPeriod = -1;
 
     for (let tau = minPeriod; tau < maxPeriod; tau++) {
       let r = 0;
-      for (let i = 0; i < 512; i++) {
+      for (let i = 0; i < windowLen; i++) {
         r += buf[i] * buf[i + tau];
       }
       if (r > bestR) {

@@ -17,6 +17,11 @@
  *   2. 结束从这些临时卷中运行的进程（否则卷无法卸载）
  *   3. 删除遗留在源目录中的 rw.*.dmg 临时镜像
  *
+ * 进程清理采用「探测与执行分离」：pgrep -f 按命令行模糊匹配，可能误伤
+ * 恰好引用该路径的无关进程（编辑器、终端等）。默认只**打印候选进程
+ * 清单**不执行 kill；确信无误后加 `--do` 才真正终止。
+ * （tauri.conf.json 的 beforeDev/beforeBuild 以 `--do` 调用，保持打包流水线行为不变。）
+ *
  * 幂等：状态干净时不做任何事。
  */
 import { execFileSync } from 'child_process';
@@ -26,6 +31,9 @@ import path from 'path';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const BUNDLE_MACOS = path.join(ROOT, 'src-tauri', 'target', 'release', 'bundle', 'macos');
+
+// 默认只探测打印；显式 --do 才真正 kill（防 pgrep -f 误杀无关进程）
+const DO_KILL = process.argv.includes('--do');
 
 const sh = (cmd, args, { allowFail = true } = {}) => {
   try {
@@ -50,12 +58,21 @@ if (volumes.length) {
   try {
     const pids = sh('pgrep', ['-f', `/Volumes/dmg\\.`]).trim();
     if (pids) {
-      for (const pid of pids.split(/\s+/).filter(Boolean)) {
-        sh('kill', [pid]);
-        cleaned++;
+      const pidList = pids.split(/\s+/).filter(Boolean);
+      if (DO_KILL) {
+        for (const pid of pidList) {
+          sh('kill', [pid]);
+          cleaned++;
+        }
+        // 给进程一点时间退出，否则 detach 仍会失败
+        sh('sleep', ['1']);
+      } else {
+        console.log('[cleanup] 探测到占用临时卷的候选进程（默认仅列出、不终止；确认无误后加 --do 才真正 kill）:');
+        for (const pid of pidList) {
+          const cmdline = sh('ps', ['-p', pid, '-o', 'command=']).trim();
+          console.log(`  - PID ${pid}: ${cmdline || '(命令行不可读)'}`);
+        }
       }
-      // 给进程一点时间退出，否则 detach 仍会失败
-      sh('sleep', ['1']);
     }
   } catch { /* 忽略 */ }
 

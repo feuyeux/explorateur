@@ -29,7 +29,7 @@ export class Metronome {
     this.beatsPerMeasure = beats;
   }
 
-  start(countIn = false, onCountInFinished = null) {
+  start() {
     if (this.isPlaying) return;
 
     if (this.ctx.state === 'suspended') {
@@ -39,21 +39,6 @@ export class Metronome {
     this.isPlaying = true;
     this.currentBeat = 0;
     this.nextNoteTime = this.ctx.currentTime + 0.05;
-
-    if (countIn) {
-      let count = 0;
-      const countInBeats = this.beatsPerMeasure;
-      const originalOnBeat = this.onBeat;
-
-      this.onBeat = (beat, time) => {
-        count++;
-        if (originalOnBeat) originalOnBeat(beat, time, true, count);
-        if (count >= countInBeats) {
-          this.onBeat = originalOnBeat;
-          if (onCountInFinished) onCountInFinished();
-        }
-      };
-    }
 
     this.scheduler();
   }

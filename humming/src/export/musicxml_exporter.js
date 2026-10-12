@@ -84,7 +84,7 @@ export class MusicXMLExporter {
       }
 
       // 遍历小节内的音符与休止符
-      measure.items.forEach((item, itemIdx) => {
+      measure.items.forEach((item) => {
         const itemBeats = item.spanBeats || item.durationBeats || 1;
         const dur = Math.max(1, Math.round(itemBeats * divisions));
         const xmlType = MusicXMLExporter.beatsToXmlType(itemBeats);
@@ -102,11 +102,25 @@ export class MusicXMLExporter {
         } else {
           const stepInfo = MusicXMLExporter.midiToXmlStep(item.midi);
           // 跨小节音符被小节划分器切成了两个片段 (isTieContinuation)：接上延音线，
-          // 否则导出的乐谱会把延音重新断开成两次发声
-          const tieStart = itemIdx < measure.items.length - 1 &&
-            measure.items[itemIdx + 1].midi === item.midi &&
-            !measure.items[itemIdx + 1].isRest;
-          const tieStop = item.isTieContinuation;
+          // 否则导出的乐谱会把延音重新断开成两次发声。
+          // 判定必须看「本片段是否真的排满到小节末尾」+「下一小节首个 item 是否为
+          // 同音高的 isTieContinuation 续段」——只看同小节内相邻同音高会把小节内
+          // 重新咬字的重唱（如《小星星》小节内「1 1」两个 C4）误标成延音线，
+          // 产生无配对的 <tie type="start"/>（非法 MusicXML）。
+          // 续段总是下一小节的第一个 item（划分器跨界时在边界 break，续段
+          // startBeat == 下一小节 startBeat，前面不会插休止符）。
+          const BEAT_EPS = 0.05;
+          const fragmentEndBeat = item.startBeat + (item.spanBeats || item.durationBeats || 1);
+          const reachesMeasureEnd = mIdx < measures.length - 1 &&
+            fragmentEndBeat >= measure.endBeat - BEAT_EPS;
+          const nextMeasure = mIdx < measures.length - 1 ? measures[mIdx + 1] : null;
+          const nextFirstItem = nextMeasure && nextMeasure.items[0];
+          const tieStart = reachesMeasureEnd &&
+            !!nextFirstItem &&
+            !nextFirstItem.isRest &&
+            nextFirstItem.isTieContinuation === true &&
+            nextFirstItem.midi === item.midi;
+          const tieStop = item.isTieContinuation === true;
           xml += `      <note>
         <pitch>
           <step>${stepInfo.step}</step>

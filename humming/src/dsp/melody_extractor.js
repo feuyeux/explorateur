@@ -50,8 +50,8 @@ export class MelodyExtractor {
    * @param {number} [options.unvoicedEmission=0.25] - 非发声态发射分
    *        （与响度+先验竞争：弱事件让位于静默，强事件维持旋律线）
    * @param {number} [options.unvoicedSwitchCost=-0.12] - 发声↔非发声切换惩罚
-   * @param {number} [options.minSegmentSec=0.06] - 压回音符段的最短时长
-   * @param {number} [options.gapBridgeSec=0.07] - 同音间隙桥接上限
+   * @param {number} [options.minSegmentSec=0.12] - 压回音符段的最短时长
+   * @param {number} [options.gapBridgeSec=0.12] - 同音间隙桥接上限
    */
   constructor(options = {}) {
     this.hopSec = options.hopSec || 0.01;

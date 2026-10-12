@@ -58,7 +58,9 @@ const server = http.createServer((req, res) => {
 
   const filePath = path.join(BASE_DIR, safePath);
 
-  if (!filePath.startsWith(BASE_DIR)) {
+  // 前缀校验必须带上路径分隔符：裸 startsWith(BASE_DIR) 会把
+  // BASE_DIR 的兄弟目录（如 /x/src-evil）也误判为合法路径
+  if (filePath !== BASE_DIR && !filePath.startsWith(BASE_DIR + path.sep)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('403 Forbidden');
     return;

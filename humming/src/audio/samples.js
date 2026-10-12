@@ -84,7 +84,7 @@ export class SampleAudioFactory {
       const item = melody[noteIdx];
       const targetFreq = 440 * Math.pow(2, (item.midi - 69) / 12);
       const noteDuration = item.beats * secondsPerBeat;
-      // 发声时长 (85% 发声, 15% 换气停顿)
+      // 发声时长 (88% 发声, 12% 换气停顿)——与下方 0.88/0.12 实现值一致
       const voiceDuration = noteDuration * 0.88;
       const restDuration = noteDuration * 0.12;
 

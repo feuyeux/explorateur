@@ -3,7 +3,8 @@
  * 支持切换三种声学转谱引擎：
  * 1. 经典自研 pYIN + Viterbi 引擎 (零依赖、100% 本地极速低延迟)
  * 2. Spotify 开源 Basic Pitch 神经网络引擎 (多音/单音深度学习模型)
- * 3. Google Magenta SPICE 声学模型 (专注单音人声哼唱)
+ * 3. pYIN 人声优化档 (voice-optimized)：同为 pYIN，仅收紧了基频搜索
+ *    频段与置信度阈值的参数预设，并非独立模型——如实命名，绝不谎报来源
  */
 
 import { PitchTracker } from './pitch_tracker.js';
@@ -34,8 +35,8 @@ export class AITranscriptionEngine {
 
     if (this.currentEngine === 'basic_pitch') {
       return await this.transcribeWithBasicPitch(activeSamples, bpm);
-    } else if (this.currentEngine === 'spice') {
-      return await this.transcribeWithSpice(activeSamples, bpm);
+    } else if (this.currentEngine === 'pyin_voice') {
+      return this.transcribeWithPYINVoiceOptimized(activeSamples, bpm);
     } else {
       return this.transcribeWithPYIN(activeSamples, bpm);
     }
@@ -192,21 +193,25 @@ export class AITranscriptionEngine {
   }
 
   /**
-   * 3. Google Magenta SPICE 人声专用声学模型
+   * 3. pYIN 人声优化档 (voice-optimized)
+   *
+   * 如实说明：本档与经典 pYIN 是同一套算法，只是按人声哼唱特点收紧了
+   * 基频搜索频段 (85–750Hz) 与发声置信度阈值的参数预设——不是独立的
+   * 声学模型。engineUsed 必须如实反映这一点，绝不谎报为其他模型。
    */
-  async transcribeWithSpice(activeSamples, bpm) {
-    const spiceTracker = new PitchTracker({
+  transcribeWithPYINVoiceOptimized(activeSamples, bpm) {
+    const voiceTracker = new PitchTracker({
       sampleRate: 16000,
       minFreq: 85,
       maxFreq: 750,
       threshold: 0.32
     });
 
-    const f0Res = spiceTracker.track(activeSamples);
+    const f0Res = voiceTracker.track(activeSamples);
     const segRes = this.segmenter.segmentAndQuantize(f0Res.frames, activeSamples, 16000);
 
     return {
-      engineUsed: 'Google Magenta SPICE (人声单音声学模型)',
+      engineUsed: 'pYIN (voice-optimized) 人声优化档',
       f0Frames: f0Res.frames,
       rawNotes: segRes.rawNotes,
       quantizedNotes: segRes.quantizedNotes

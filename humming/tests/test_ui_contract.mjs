@@ -154,8 +154,9 @@ check('同一时刻的叠音固定取第一个（高亮不来回闪）',
 check('重新量化后作废时间索引（BPM 改动不指向错位音符）',
   /reQuantizeAndRender\(\)\s*\{[\s\S]{0,300}?this\._originalTimeIndex = null/.test(appJs));
 // 三个视图必须一起复位，否则停止后 pianoRoll 的播放线会残留在最后一个音符上
+// （pianoRollRenderer 为条件创建，调用处带 ?. 判空——契约允许可选链语法）
 check('停止时三个渲染视图游标一并清除',
-  /clearScorePlayhead\(\)\s*\{[\s\S]{0,400}?staffRenderer\.clearPlayhead\(\)[\s\S]{0,200}?numberedRenderer\.clearPlayhead\(\)[\s\S]{0,200}?pianoRollRenderer\.clearPlayhead\(\)/.test(appJs));
+  /clearScorePlayhead\(\)\s*\{[\s\S]{0,400}?staffRenderer\.clearPlayhead\(\)[\s\S]{0,200}?numberedRenderer\.clearPlayhead\(\)[\s\S]{0,200}?pianoRollRenderer\??\.clearPlayhead\(\)/.test(appJs));
 check('乐谱试听结束也走同一套游标复位（原先漏了 pianoRoll）',
   /synth\.onPlaybackEnd = \(reason\) => \{[\s\S]{0,200}?clearScorePlayhead\(\)/.test(appJs));
 

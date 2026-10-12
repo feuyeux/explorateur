@@ -1,6 +1,6 @@
 /**
  * Humming-to-Score Studio (哼唱识谱工作站)
- * 主应用控制器：调度 5 大处理阶段、实时录音声音检测监控屏、m4a 录制文件载入与播放识谱、Spotify Basic Pitch / SPICE 神经转谱
+ * 主应用控制器：调度 5 大处理阶段、实时录音声音检测监控屏、m4a 录制文件载入与播放识谱、Spotify Basic Pitch / pYIN 神经转谱
  */
 
 import { AudioPreprocessor } from './dsp/preprocessor.js';
@@ -24,7 +24,6 @@ const BPM_MAX = 180;
 
 export class App {
   constructor() {
-    this.audioCtx = null;
     this.preprocessor = new AudioPreprocessor({ targetSampleRate: 16000, lowCutoff: 80, highCutoff: 2000 });
     this.segmenter = new NoteSegmenter({ bpm: 100, minNoteDurationMs: 120, quantizeGrid: 0.5 });
     this.theoryEngine = new MusicTheoryEngine();
@@ -118,7 +117,7 @@ export class App {
     this.synth.onNotePlay = (noteIdx, note) => {
       this.staffRenderer.setPlayhead(noteIdx);
       this.numberedRenderer.setPlayhead(noteIdx);
-      this.pianoRollRenderer.setPlayhead(noteIdx, note.startTime);
+      this.pianoRollRenderer?.setPlayhead(noteIdx, note.startTime);
     };
 
     this.synth.onPlaybackEnd = (reason) => {
@@ -173,7 +172,7 @@ export class App {
     // 录音相关
     document.getElementById('btn-record')?.addEventListener('click', () => this.toggleRecording());
 
-    // 转谱引擎切换 (Basic Pitch / SPICE / pYIN)
+    // 转谱引擎切换 (Basic Pitch / pYIN 人声优化档 / pYIN)
     document.getElementById('select-engine')?.addEventListener('change', (e) => {
       this.aiEngine.setEngine(e.target.value);
       this.setStatus(`已将阶段二神经转谱引擎设为: ${e.target.options[e.target.selectedIndex].text}`);
@@ -464,6 +463,9 @@ export class App {
       }
       this.setStatus('正在录音与实时声音检测中... 请跟随节拍器并观察声波');
 
+      // 录音前记录节拍器原始状态：录音引导节拍器是本方法临时开启的，
+      // 停止录音时只停掉这部分，不把用户自己开着的节拍器一并停掉
+      this._metronomeWasPlayingBeforeRecord = this.metronome?.isPlaying || false;
       if (this.metronome && !this.metronome.isPlaying) {
         this.metronome.start();
         document.getElementById('btn-metronome')?.classList.add('active');
@@ -508,8 +510,12 @@ export class App {
       btn.innerHTML = '<span class="rec-dot"></span><span>开始哼唱录音</span>';
     }
 
-    this.metronome?.stop();
-    document.getElementById('btn-metronome')?.classList.remove('active');
+    // 只停「为录音临时开启」的节拍器；录音前就在播放的保持原状态
+    if (!this._metronomeWasPlayingBeforeRecord) {
+      this.metronome?.stop();
+      document.getElementById('btn-metronome')?.classList.remove('active');
+    }
+    this._metronomeWasPlayingBeforeRecord = false;
     this.setStatus('录音完毕，正在执行五阶段转谱流水线...');
   }
 
@@ -523,7 +529,13 @@ export class App {
     this.setStatus(`正在读取并解码音频文件: ${file.name} (${Math.round(file.size / 1024)} KB)...`);
 
     try {
-      const ext = file.name.split('.').pop().toLowerCase();
+      // 无扩展名文件不能把整个文件名当扩展名（'song' → ext='song'）；
+      // 此处给明确提示，解码交给 decodeAudioData 按内容自动识别
+      const dotIdx = file.name.lastIndexOf('.');
+      const ext = dotIdx >= 0 ? file.name.slice(dotIdx + 1).toLowerCase() : '';
+      if (!ext) {
+        this.setStatus(`文件「${file.name}」没有扩展名，将按通用音频尝试解码；如失败请确认其为标准 .m4a / .wav / .mp3 文件`);
+      }
       const arrayBuf = await file.arrayBuffer();
 
       let decodedBuffer;
@@ -536,7 +548,7 @@ export class App {
       }
 
       this.setLoadedAudio(decodedBuffer, file.name, file.size, ext);
-      this.setStatus(`已成功载入 ${ext.toUpperCase()} 音频文件: ${file.name}，可点击「▶」试听，或点击「🎼 开始识谱」生成乐谱！`);
+      this.setStatus(`已成功载入 ${ext ? ext.toUpperCase() : '未知格式'}音频文件: ${file.name}，可点击「▶」试听，或点击「🎼 开始识谱」生成乐谱！`);
     } catch (err) {
       console.error('解码音频失败:', err);
       this.setStatus(`解码音频失败: ${err.message || '未知错误'}，请确认该音频为标准 .m4a / .wav / .mp3 文件`);
@@ -570,18 +582,23 @@ export class App {
 
     const badge = document.getElementById('file-format-badge');
     if (badge) {
-      badge.textContent = `.${ext.toUpperCase()}`;
-      badge.className = `format-badge ${ext}`;
+      badge.textContent = ext ? `.${ext.toUpperCase()}` : '无扩展名';
+      badge.className = ext ? `format-badge ${ext}` : 'format-badge';
     }
 
     const nameEl = document.getElementById('file-name-text');
     if (nameEl) nameEl.textContent = fileName;
 
     const durSec = audioBuffer.duration;
-    document.getElementById('spec-duration').textContent = `${durSec.toFixed(2)}s`;
-    document.getElementById('spec-samplerate').textContent = `${audioBuffer.sampleRate.toLocaleString()} Hz`;
-    document.getElementById('spec-channels').textContent = audioBuffer.numberOfChannels === 1 ? '单声道 (Mono)' : '双声道 (Stereo)';
-    document.getElementById('spec-size').textContent = `${Math.round(fileSize / 1024)} KB`;
+    // 规格 chip 任一 id 缺失（DOM 变更/桩环境）时跳过该项显示，不中断载入流程
+    const setSpec = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    setSpec('spec-duration', `${durSec.toFixed(2)}s`);
+    setSpec('spec-samplerate', `${audioBuffer.sampleRate.toLocaleString()} Hz`);
+    setSpec('spec-channels', audioBuffer.numberOfChannels === 1 ? '单声道 (Mono)' : '双声道 (Stereo)');
+    setSpec('spec-size', `${Math.round(fileSize / 1024)} KB`);
 
     // 重置进度条
     const slider = document.getElementById('file-progress-slider');
@@ -589,9 +606,9 @@ export class App {
       slider.value = 0;
       slider.max = durSec;
     }
-    document.getElementById('file-current-time').textContent = '00:00';
-    document.getElementById('file-total-time').textContent = this.formatTime(durSec);
-    document.getElementById('file-play-icon').textContent = '▶';
+    setSpec('file-current-time', '00:00');
+    setSpec('file-total-time', this.formatTime(durSec));
+    setSpec('file-play-icon', '▶');
   }
 
   togglePlayLoadedAudio() {
@@ -620,14 +637,17 @@ export class App {
     this.fileAudioSource.start(0, this.fileAudioPauseOffset);
     this.isFilePlaying = true;
 
-    document.getElementById('file-play-icon').textContent = '⏸';
+    const playIcon = document.getElementById('file-play-icon');
+    if (playIcon) playIcon.textContent = '⏸';
 
     this.fileAudioSource.onended = () => {
       if (this.isFilePlaying && this.audioCtx.currentTime - this.fileAudioStartTime >= this.loadedAudioBuffer.duration - 0.05) {
         this.pauseLoadedAudio();
         this.fileAudioPauseOffset = 0;
-        document.getElementById('file-progress-slider').value = 0;
-        document.getElementById('file-current-time').textContent = '00:00';
+        const slider = document.getElementById('file-progress-slider');
+        if (slider) slider.value = 0;
+        const timeEl = document.getElementById('file-current-time');
+        if (timeEl) timeEl.textContent = '00:00';
       }
     };
 
@@ -638,7 +658,8 @@ export class App {
       const current = Math.min(this.loadedAudioBuffer.duration, this.audioCtx.currentTime - this.fileAudioStartTime);
       const slider = document.getElementById('file-progress-slider');
       if (slider) slider.value = current;
-      document.getElementById('file-current-time').textContent = this.formatTime(current);
+      const timeEl = document.getElementById('file-current-time');
+      if (timeEl) timeEl.textContent = this.formatTime(current);
     }, 50);
   }
 
@@ -660,7 +681,8 @@ export class App {
 
   onFileSeek(targetSeconds) {
     this.fileAudioPauseOffset = targetSeconds;
-    document.getElementById('file-current-time').textContent = this.formatTime(targetSeconds);
+    const timeEl = document.getElementById('file-current-time');
+    if (timeEl) timeEl.textContent = this.formatTime(targetSeconds);
     if (this.isFilePlaying) {
       // 直接停掉当前源并保留 seek 目标偏移；不能用 pauseLoadedAudio()，
       // 否则它会用旧播放位置覆盖 fileAudioPauseOffset，导致拖动进度条被打回原位
@@ -744,7 +766,7 @@ export class App {
   /**
    * ==========================================
    * 核心 5 阶段完整处理流水线 (End-to-End Pipeline)
-   * 阶段二为 Spotify Basic Pitch / SPICE 神经推理核心
+   * 阶段二为 Spotify Basic Pitch / pYIN 神经推理核心
    * ==========================================
    */
   async executePipeline(audioBuffer) {
@@ -760,17 +782,31 @@ export class App {
     this.updateStageStatus(1, 'running', '执行峰值增益规整、重采样(16kHz)、80-2000Hz带通滤波及自适应 VAD...');
     await this.tickUI();
 
-    const rawData = audioBuffer.getChannelData(0);
+    // 双声道输入显式下混为单声道（左右声道平均）；单声道照旧直取。
+    // 此前只取左声道，右声道信息被静默丢弃。
+    let rawData = audioBuffer.getChannelData(0);
+    if (audioBuffer.numberOfChannels >= 2) {
+      const ch0 = rawData;
+      const ch1 = audioBuffer.getChannelData(1);
+      const downmixed = new Float32Array(ch0.length);
+      for (let i = 0; i < ch0.length; i++) {
+        downmixed[i] = (ch0[i] + ch1[i]) * 0.5;
+      }
+      rawData = downmixed;
+    }
     this.processedData = this.preprocessor.process(rawData, audioBuffer.sampleRate);
 
     this.updateStageStatus(1, 'completed', `预处理完成: 过滤保留 ${(this.processedData.activeSamples.length / 16000).toFixed(2)}s 人声，切除底噪与空白`);
     this.displayStage1Metrics(this.processedData);
 
-    // 阶段二：Spotify Basic Pitch / Magenta SPICE 神经转谱推理 (核心环节)
+    // 阶段二：Spotify Basic Pitch / pYIN 神经转谱推理 (核心环节)
     this.updateStageStatus(2, 'running', `调度神经网络 [${this.aiEngine.currentEngine}] 提取 Pitch Contour 与 Onset 概率矩阵...`);
     await this.tickUI();
 
     const transcription = await this.aiEngine.transcribe(this.processedData.activeSamples, this.segmenter.bpm);
+    // 转谱一返回就点亮阶段二徽章：原先拖到阶段三/四之后才点亮，
+    // 与流水线面板的真实进度不符
+    this.updateStageStatus(2, 'completed', `引擎: ${transcription.engineUsed}`);
     this.f0Result = { frames: transcription.f0Frames || [] };
     // 服务端神经引擎 (Basic Pitch) 不产生 f0 帧序列，保存其原始音符供后续 BPM/网格变化时重新量化，
     // 否则 reQuantizeAndRender 会基于空 frames 把整份乐谱清空
@@ -782,21 +818,8 @@ export class App {
 
     let finalQuantized = transcription.quantizedNotes || [];
 
-    if (finalQuantized.length === 0 && this.processedData.activeSamples.length > 800) {
-      const fallbackNote = {
-        startTime: 0,
-        endTime: 1.0,
-        startBeat: 0,
-        durationBeats: 1.0,
-        duration: 1.0,
-        midi: 60,
-        noteName: 'C4',
-        noteType: 'quarter',
-        typeLabel: '四分音符',
-        confidence: 0.8
-      };
-      finalQuantized = [fallbackNote];
-    }
+    // 空结果如实按空处理：绝不再伪造占位 C4 音符（下游 detectKey/
+    // partitionMeasures/渲染器均有空数组防护，空谱渲染为「暂无乐谱数据」提示）
 
     // 自动测速校准：用户哼唱速度常与 BPM 滑杆不一致，网格量化会把节奏全部
     // 错位。用原始音符（时间域，与预设 BPM 无关）估计真实速度。
@@ -835,7 +858,6 @@ export class App {
 
     this.quantizedNotes = finalQuantized;
 
-    this.updateStageStatus(2, 'completed', `引擎: ${transcription.engineUsed}`);
     this.updateStageStatus(3, 'completed',
       (bpmCalibrationNote ? `${bpmCalibrationNote}；` : '') +
       `切分量化出 ${this.quantizedNotes.length} 个结构化离散音符 (已消解滑音与碎音)`);
@@ -864,6 +886,12 @@ export class App {
     // 流水线面板右上角汇总耗时
     const elapsedEl = document.getElementById('pipeline-elapsed');
     if (elapsedEl) elapsedEl.textContent = `全链路耗时 ${elapsed} ms`;
+    // 空结果如实上报，绝不伪造音符；编辑入口一并收回（否则残留上一次的选中态）
+    if (this.quantizedNotes.length === 0) {
+      this.hideNoteEditingUI();
+      this.setStatus('未识别到音符：本段音频未检出可用的音高轮廓，请尝试更清晰的人声输入或更换转谱引擎');
+      return;
+    }
     this.setStatus(`识谱完成！推断调性为 ${this.keyInfo.bestKey}，共识别出 ${this.quantizedNotes.length} 个音符。`);
 
     // 默认高亮选择第 1 个音符，激活编辑工具栏与音符时间轴
@@ -906,15 +934,21 @@ export class App {
     this.renderAllScores();
 
     if (this.quantizedNotes.length === 0) {
-      this.selectedNoteIndex = null;
-      document.getElementById('note-editor-toolbar')?.classList.add('hidden');
-      document.getElementById('note-timeline-container')?.classList.add('hidden');
+      this.hideNoteEditingUI();
     } else {
       if (this.selectedNoteIndex === null || this.selectedNoteIndex >= this.quantizedNotes.length) {
         this.selectedNoteIndex = 0;
       }
       this.selectNote(this.selectedNoteIndex, false);
     }
+  }
+
+  hideNoteEditingUI() {
+    // 音符清空后编辑入口必须一并收回：工具栏/时间轴对空乐谱没有可编辑对象，
+    // 残留的选中态会让下一次转谱前界面停留在失效的编辑上下文里
+    this.selectedNoteIndex = null;
+    document.getElementById('note-editor-toolbar')?.classList.add('hidden');
+    document.getElementById('note-timeline-container')?.classList.add('hidden');
   }
 
   /**
@@ -946,7 +980,7 @@ export class App {
     this.numberedRenderer.render(scoreData);
 
     const totalSeconds = this.processedData ? (this.processedData.activeSamples.length / 16000) : 5;
-    this.pianoRollRenderer.render(this.f0Result ? this.f0Result.frames : [], this.quantizedNotes, totalSeconds);
+    this.pianoRollRenderer?.render(this.f0Result ? this.f0Result.frames : [], this.quantizedNotes, totalSeconds);
   }
 
   switchScoreView(view) {
@@ -967,7 +1001,7 @@ export class App {
       staffPanel?.classList.add('hidden');
       jianpuPanel?.classList.add('hidden');
       rollPanel?.classList.remove('hidden');
-      this.pianoRollRenderer.draw();
+      this.pianoRollRenderer?.draw();
     } else {
       staffPanel?.classList.remove('hidden');
       jianpuPanel?.classList.remove('hidden');
@@ -1260,9 +1294,6 @@ export class App {
     this.realignTimelineFrom(this.selectedNoteIndex);
 
     if (this.quantizedNotes.length === 0) {
-      this.selectedNoteIndex = null;
-      document.getElementById('note-editor-toolbar')?.classList.add('hidden');
-      document.getElementById('note-timeline-container')?.classList.add('hidden');
       this.recalculateScore();
     } else {
       if (this.selectedNoteIndex >= this.quantizedNotes.length) {
@@ -1532,7 +1563,7 @@ export class App {
     const note = notes[idx];
     this.staffRenderer.setPlayhead(idx);
     this.numberedRenderer.setPlayhead(idx);
-    this.pianoRollRenderer.setPlayhead(idx, note.startTime);
+    this.pianoRollRenderer?.setPlayhead(idx, note.startTime);
   }
 
   /**
@@ -1541,7 +1572,7 @@ export class App {
   clearScorePlayhead() {
     this.staffRenderer.clearPlayhead();
     this.numberedRenderer.clearPlayhead();
-    this.pianoRollRenderer.clearPlayhead();
+    this.pianoRollRenderer?.clearPlayhead();
   }
 
   exportMidiFile() {

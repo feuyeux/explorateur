@@ -21,7 +21,11 @@ export class AudioPreprocessor {
   }
 
   /**
-   * 将输入的 AudioBuffer 或 Float32Array 预处理为规整化的 16kHz 带通滤波人声音频
+   * 将输入的音频数据预处理为规整化的 16kHz 带通滤波人声音频
+   *
+   * 输入契约：主流路径由调用方 (main.js executePipeline) 传入已下混的
+   * 单声道 Float32Array；也兼容 Float32Array[]（按声道数组，缺第二
+   * 声道时按单声道处理，绝不让 ch1 缺省产出 NaN）。
    * @param {Float32Array|Float32Array[]} audioData
    * @param {number} originalSampleRate
    * @returns {Object}
@@ -29,15 +33,25 @@ export class AudioPreprocessor {
   process(audioData, originalSampleRate) {
     // 1. 转为单声道 Float32Array
     let monoData;
-    if (Array.isArray(audioData) || (audioData.numberOfChannels && audioData.numberOfChannels > 1)) {
-      const ch0 = audioData[0] || audioData.getChannelData(0);
-      const ch1 = audioData[1] || audioData.getChannelData(1);
+    if (Array.isArray(audioData)) {
+      const ch0 = audioData[0];
+      const ch1 = audioData[1] || ch0; // 单元素数组按单声道处理
       monoData = new Float32Array(ch0.length);
       for (let i = 0; i < ch0.length; i++) {
         monoData[i] = (ch0[i] + ch1[i]) * 0.5;
       }
     } else if (audioData.getChannelData) {
-      monoData = new Float32Array(audioData.getChannelData(0));
+      // AudioBuffer：多声道取左右平均，单声道直取
+      if (audioData.numberOfChannels > 1) {
+        const ch0 = audioData.getChannelData(0);
+        const ch1 = audioData.getChannelData(1);
+        monoData = new Float32Array(ch0.length);
+        for (let i = 0; i < ch0.length; i++) {
+          monoData[i] = (ch0[i] + ch1[i]) * 0.5;
+        }
+      } else {
+        monoData = new Float32Array(audioData.getChannelData(0));
+      }
     } else {
       monoData = new Float32Array(audioData);
     }

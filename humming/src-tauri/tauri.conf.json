@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "identifier": "com.hummingscore.studio",
   "build": {
-    "beforeDevCommand": "node scripts/clean_bundle_state.mjs && node scripts/build_vendor.mjs",
-    "beforeBuildCommand": "node scripts/clean_bundle_state.mjs && node scripts/build_vendor.mjs",
+    "beforeDevCommand": "node scripts/clean_bundle_state.mjs --do && node scripts/build_vendor.mjs",
+    "beforeBuildCommand": "node scripts/clean_bundle_state.mjs --do && node scripts/build_vendor.mjs",
     "frontendDist": "../src"
   },
   "app": {
@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' data: blob:; worker-src 'self' blob:"
+      "csp": "default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' data: blob:; worker-src 'self' blob:"
     }
   },
   "bundle": {

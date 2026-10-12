@@ -60,7 +60,7 @@ npm run serve        # 本地静态服务，访问 http://127.0.0.1:3000
 1. **现场哼唱录音**：点击「开始哼唱录音」，监控屏实时显示示波器波形、音高调音计（音名 + Hz + 音分偏差）与 VU 电平表；停止后自动转谱并渲染乐谱
 2. **导入音频文件识谱**：支持 `.m4a`（iPhone 语音备忘录默认格式）、`.wav`、`.mp3`、`.aac`、`.ogg`；可选文件、拖拽到窗口任意位置，或用内置示例
 3. **对照原声播放**：识别完成后可先「▶ 播放原声」试听并拖拽进度条，再决定是否修改
-4. **三引擎可切换**：Spotify Basic Pitch（默认，tfjs 神经网络）/ Magenta SPICE / pYIN + Viterbi；不可用时自动回退 pYIN，状态栏**如实显示**实际使用的引擎
+4. **双引擎可切换**：Spotify Basic Pitch（默认，tfjs 神经网络，清唱输入会智能路由到 pYIN 单音线）/ pYIN + Viterbi；不可用时自动回退 pYIN，状态栏**如实显示**实际使用的引擎
 5. **三种乐谱视图**：顶部 Tabs 切换五线谱 / 简谱 / 钢琴卷帘；钢琴卷帘中青色曲线为连续 F0 轨迹，绿色方块为量化后的音符
 6. **标准文件导出**：MIDI（`.mid`，导入任意 DAW）与 MusicXML 3.1（`.musicxml`，导入 MuseScore / Sibelius）
 7. **音符微调**：点击音符或用快捷键改音高、改时值、划分小节、增删音符；节拍器、BPM、拍号与量化网格的调整会**实时重算**并重新渲染
@@ -155,7 +155,7 @@ npm run build:vendor       # 需要时单独重建 vendor
 | `package.json` | 存在 | 有前端构建链（vendor 打包），需要 esbuild / tfjs 依赖 |
 | `scripts/` 目录 | 存在 | `build_vendor.mjs`（构建链）+ `serve.mjs`（浏览器调试静态服务） |
 | `tests/`（项目根级） | 存在 | 前端逻辑与 UI 契约测试用 Node 跑 |
-| `beforeDevCommand` / `beforeBuildCommand` | 均指向 `node scripts/clean_bundle_state.mjs && node scripts/build_vendor.mjs` | vendor bundle 是 gitignored 构建产物，必须先于 `cargo tauri dev/build` 生成 |
+| `beforeDevCommand` / `beforeBuildCommand` | 均指向 `node scripts/clean_bundle_state.mjs --do && node scripts/build_vendor.mjs` | vendor bundle 是 gitignored 构建产物，必须先于 `cargo tauri dev/build` 生成；`--do` 实际执行清理（缺省 dry-run） |
 | `app.withGlobalTauri` | `false` | 前端不调用任何 Tauri IPC，无需注入全局对象 |
 | `src-tauri/tests/` | 不存在 | Rust 侧只有窗口与 WebView，无业务逻辑可测；前端测试全在 `tests/` |
 | `src-tauri/Info.plist` | 存在 | macOS 麦克风权限声明（`NSMicrophoneUsageDescription`），录哼唱必需 |
