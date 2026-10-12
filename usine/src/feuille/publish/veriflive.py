@@ -82,11 +82,10 @@ JS_COLLECT_TITLES = """(kw) => [...document.querySelectorAll('*')]
   .filter(t => t.startsWith('「'+kw+'」') && t.length < 200)"""
 
 
-def _search_rows(page, plat: str, keyword: str, out_dir: Path) -> tuple[list, list[str]]:
+def _search_rows(page, plat: str, keyword: str, out_dir: Path) -> list[str]:
     """douyin/bilibili 共用：搜索 → full-page 截图 → 逐条裁剪行截图（只读）。
 
-    返回 (标题 locator 的快照迭代所需参数, 截图文件名列表)——这里直接返回
-    (titles_locator, pngs)。
+    返回已落盘的截图文件名列表（含整页 list-all.png 与逐条 row-XX.png）。
     """
     cfg = PLATFORMS[plat]
     page.goto(cfg["manage"], wait_until="domcontentloaded", timeout=60000)

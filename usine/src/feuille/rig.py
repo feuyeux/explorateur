@@ -11,8 +11,9 @@ tts / assets / render 的产物目录与缓存账本由 feuille 其他层负责�
 - 表情与头身几何：MOOD_FACE / EYE_MOOD / FACE_SPECS / JAW / HAIR_CHEEK_KEEP /
   JAW_BELOW / BEARD_LEGACY / jaw_point / face_profile / sleeve_color /
   SUNGLASS_HEAD / sunglasses_head_geo / face_geo
-- 绘制主体：draw_character（图层序纪律见函数内注释——衣不遮嘴）
-- 姿态库：POSE_CODES / pose_for；口型：openness_at（词级时间轴驱动）
+- 绘制主体：draw_character（按图层序编排 _draw_* 阶段函数，共享状态显式化成
+  _CharCtx——图层序纪律：衣不遮嘴）
+- 姿态库：POSE_CODES / pose_for（@_pose 注册表，与 scenes.SCENES 同构）；口型：openness_at（词级时间轴驱动）
 
 ctx 契约：draw_character(img, d, p, t, ctx) 的输入全部由调用方注入
 （p = personas.json 人设 dict）。ctx 键：scale / squash / xoff / yoff /
@@ -341,90 +342,103 @@ def face_geo(face):
     )
 
 
-def draw_character(img, d, p, t, ctx):
-    """多邻国风格角色：无描边纯平涂、头身规格见 face_geo()、大眼白+瞳孔双高光、
-    胶囊眉、粗短四肢、圆润有机发型（双色高光）、耳朵/衣领/袖口细节。"""
-    pal = p["palette"]
-    hair_c, hl_c = hexc(pal["hair"]), hexc(pal["hairHighlight"])
-    skin = hexc(pal["skin"])
-    top, bottom = hexc(pal["outfitTop"]), hexc(pal["outfitBottom"])
-    ident = hexc(p["identity"])
-    face = p["movement"]["face"]
-    female = p["gender"] == "female"
-    seed = p["id"]  # 一切随机走人设 id 命名空间（不变量⑦；qa 探针同源可复算）
-    skin_sh = hexc(pal["skinShade"])
-    sk = p.get("skin", {})  # 皮肤层叠加槽（做旧/补丁，不改基型配色）
-    # ---- 头身规格（face_geo 单一事实源；cx/ground 永不手抄——不变量①）----
-    G = face_geo(face)
-    cx, ground = G["cx"], G["ground"]
-    sc = ctx["scale"]
-    q = ctx["squash"]
-    sx, sy = sc * (1 + q * 0.6) * ctx.get("xscale", 1.0), sc * (1 - q)
-    bx, by = ctx["xoff"], ctx["yoff"]
-    hdx, hdy = ctx["head_dx"], ctx["head_dy"]
-    pose = ctx["pose"]
-    acc = {a["code"]: a for a in p.get("accessories", [])}
-    has = lambda c: c in acc
-    ss = ctx.get("ss", 1.0)
-    out = p.get("outfit", {})  # 服装轮廓槽（bottom=skirt 长裙装 / kind=tunic|pinafore|vest；缺省=长裤）
-    skirt = out.get("bottom") == "skirt"
-    tunic = out.get("kind") == "tunic"
-    pinafore = out.get("kind") == "pinafore"
-    vest = out.get("kind") == "vest"
+class _CharCtx:
+    """draw_character 的绘制上下文：把原闭包捕获的局部变量显式化成实例属性，
+    供各绘制阶段（_draw_* 模块级函数）共享；绘制原语 T/TB/E/RR/LN/CAP/ARC/PIE
+    与几何辅助 body_edge/side_curtain/pfy/u/has 随之为方法。属性在构建期一次
+    算好，阶段函数只读不改——全部数值与拆分前的闭包逐字相同（像素基线零漂移）。"""
 
-    def pfy(code, kind):
+    def __init__(self, img, d, p, t, ctx):
+        pal = p["palette"]
+        self.hair_c, self.hl_c = hexc(pal["hair"]), hexc(pal["hairHighlight"])
+        self.skin = hexc(pal["skin"])
+        self.top, self.bottom = hexc(pal["outfitTop"]), hexc(pal["outfitBottom"])
+        self.ident = hexc(p["identity"])
+        self.face = p["movement"]["face"]
+        self.female = p["gender"] == "female"
+        self.seed = p["id"]  # 一切随机走人设 id 命名空间（不变量⑦；qa 探针同源可复算）
+        self.skin_sh = hexc(pal["skinShade"])
+        self.sk = p.get("skin", {})  # 皮肤层叠加槽（做旧/补丁，不改基型配色）
+        # ---- 头身规格（face_geo 单一事实源；cx/ground 永不手抄——不变量①）----
+        self.G = face_geo(self.face)
+        self.cx, self.ground = self.G["cx"], self.G["ground"]
+        self.sc = ctx["scale"]
+        self.q = ctx["squash"]
+        self.sx = self.sc * (1 + self.q * 0.6) * ctx.get("xscale", 1.0)
+        self.sy = self.sc * (1 - self.q)
+        self.bx, self.by = ctx["xoff"], ctx["yoff"]
+        self.hdx, self.hdy = ctx["head_dx"], ctx["head_dy"]
+        self.pose = ctx["pose"]
+        self.acc = {a["code"]: a for a in p.get("accessories", [])}
+        self.ss = ctx.get("ss", 1.0)
+        self.out = p.get("outfit", {})  # 服装轮廓槽（bottom=skirt 长裙装 / kind=tunic|pinafore|vest；缺省=长裤）
+        self.skirt = self.out.get("bottom") == "skirt"
+        self.tunic = self.out.get("kind") == "tunic"
+        self.pinafore = self.out.get("kind") == "pinafore"
+        self.vest = self.out.get("kind") == "vest"
+        self.rx, self.ry = self.G["rx"], self.G["ry"]
+        self.hx, self.hy = self.cx + self.hdx, self.G["hy"] + self.hdy
+        self.eye_y = self.G["eye_y"] + self.hdy
+        self.brow_y0 = self.G["brow_y"] + self.hdy
+        self.mouth_y = self.G["mouth_y"] + self.hdy
+        self.blush_y = self.G["blush_y"] + self.hdy
+        self.eye_dx = self.G["eye_dx"]
+        self.scl_rx, self.scl_ry, self.pup_r = self.G["scl_rx"], self.G["scl_ry"], self.G["pup_r"]
+        self.torso_top = self.G["torso_top"]
+        # 长衫：下摆过臀（outfit.kind=tunic）
+        self.torso_bot = self.torso_top + self.G["torso_h"] * (1.30 if self.tunic else 1.0)
+        self.torso_hw = self.G["torso_hw"]
+        self.sh_y = self.torso_top + self.G["sh_dy"]
+        self.sh_x, self.sh_out, self.neck_hw = self.G["sh_x"], self.G["sh_out"], self.G["neck_hw"]
+        self.leg_cx, self.leg_w = self.G["leg_cx"], self.G["leg_w"]
+        self.foot_cy, self.foot_l, self.foot_h = self.G["foot_cy"], self.G["foot_l"], self.G["foot_h"]
+        self.up_len, self.lo_len = self.G["up_len"], self.G["lo_len"]
+        self.arm_w, self.hand_r = self.G["arm_w"], self.G["hand_r"]
+        self.style = p["hairStyle"]
+        self.img, self.d, self.p, self.t, self.ctx = img, d, p, t, ctx
+
+    def u(self, f):
+        return f * self.G["H"]
+
+    def has(self, code):
+        return code in self.acc
+
+    def pfy(self, code, kind):
         """挂件物理偏移：数据声明了对应 physics 才生效（accessories.physics）"""
-        return phys(seed, code, kind, t) if has(code) and acc[code].get("physics") == kind else (0.0, 0.0)
+        return phys(self.seed, code, kind, self.t) if self.has(code) and self.acc[code].get("physics") == kind else (0.0, 0.0)
 
-    u = lambda f: f * G["H"]
-    rx, ry = G["rx"], G["ry"]
-    hx, hy = cx + hdx, G["hy"] + hdy
-    eye_y = G["eye_y"] + hdy
-    brow_y0 = G["brow_y"] + hdy
-    mouth_y = G["mouth_y"] + hdy
-    blush_y = G["blush_y"] + hdy
-    eye_dx, scl_rx, scl_ry, pup_r = G["eye_dx"], G["scl_rx"], G["scl_ry"], G["pup_r"]
-    torso_top = G["torso_top"]
-    torso_bot = torso_top + G["torso_h"] * (1.30 if tunic else 1.0)  # 长衫：下摆过臀（outfit.kind=tunic）
-    torso_hw = G["torso_hw"]
-    sh_y = torso_top + G["sh_dy"]
-    sh_x, sh_out, neck_hw = G["sh_x"], G["sh_out"], G["neck_hw"]
-    leg_cx, leg_w = G["leg_cx"], G["leg_w"]
-    foot_cy, foot_l, foot_h = G["foot_cy"], G["foot_l"], G["foot_h"]
-    up_len, lo_len, arm_w, hand_r = G["up_len"], G["lo_len"], G["arm_w"], G["hand_r"]
-    style = p["hairStyle"]
-
-    def T(pt):
+    def T(self, pt):
         x, y = pt
-        return ((cx + bx + sx * (x - cx)) * ss, (ground + by + sy * (y - ground)) * ss)
+        return ((self.cx + self.bx + self.sx * (x - self.cx)) * self.ss,
+                (self.ground + self.by + self.sy * (y - self.ground)) * self.ss)
 
-    def TB(x0, y0, x1, y1):
-        a, b = T((x0, y0))
-        c, dd = T((x1, y1))
+    def TB(self, x0, y0, x1, y1):
+        a, b = self.T((x0, y0))
+        c, dd = self.T((x1, y1))
         return [a, b, c, dd]
 
-    def E(x0, y0, x1, y1, **kw):
-        d.ellipse(TB(x0, y0, x1, y1), **kw)
+    def E(self, x0, y0, x1, y1, **kw):
+        self.d.ellipse(self.TB(x0, y0, x1, y1), **kw)
 
-    def RR(x0, y0, x1, y1, rad, **kw):
-        d.rounded_rectangle(TB(x0, y0, x1, y1), max(2, rad * sc * ss), **kw)
+    def RR(self, x0, y0, x1, y1, rad, **kw):
+        self.d.rounded_rectangle(self.TB(x0, y0, x1, y1), max(2, rad * self.sc * self.ss), **kw)
 
-    def LN(pts, width, **kw):
-        d.line([T(pt) for pt in pts], width=max(1, int(width * sc * ss)), joint="curve", **kw)
+    def LN(self, pts, width, **kw):
+        self.d.line([self.T(pt) for pt in pts], width=max(1, int(width * self.sc * self.ss)), joint="curve", **kw)
 
-    def CAP(p0, p1, width, **kw):  # 胶囊：粗线 + 两端圆头
-        LN([p0, p1], width, **kw)
+    def CAP(self, p0, p1, width, **kw):  # 胶囊：粗线 + 两端圆头
+        self.LN([p0, p1], width, **kw)
         r = width / 2
-        E(p0[0] - r, p0[1] - r, p0[0] + r, p0[1] + r, **kw)
-        E(p1[0] - r, p1[1] - r, p1[0] + r, p1[1] + r, **kw)
+        self.E(p0[0] - r, p0[1] - r, p0[0] + r, p0[1] + r, **kw)
+        self.E(p1[0] - r, p1[1] - r, p1[0] + r, p1[1] + r, **kw)
 
-    def ARC(x0, y0, x1, y1, a0, a1, width, **kw):
-        d.arc(TB(x0, y0, x1, y1), a0, a1, width=max(1, int(width * sc * ss)), **kw)
+    def ARC(self, x0, y0, x1, y1, a0, a1, width, **kw):
+        self.d.arc(self.TB(x0, y0, x1, y1), a0, a1, width=max(1, int(width * self.sc * self.ss)), **kw)
 
-    def PIE(x0, y0, x1, y1, a0, a1, **kw):
-        d.pieslice(TB(x0, y0, x1, y1), a0, a1, **kw)
+    def PIE(self, x0, y0, x1, y1, a0, a1, **kw):
+        self.d.pieslice(self.TB(x0, y0, x1, y1), a0, a1, **kw)
 
-    def body_edge(s, y):
+    def body_edge(self, s, y):
         """人物剪影在高度 y、方向 s（−1 左 / +1 右）的边缘 x（带符号）。
 
         头发里凡是「挂在身上」的部件（辫子、低马尾、长发帘）都靠它定位：
@@ -433,12 +447,12 @@ def draw_character(img, d, p, t, ctx):
         直接返回 sh_out，切换点上有 ~90px 跳变（圆脸实测：颏线上方头半宽 58px、
         下方直接 148px），发帘外缘在那里折出一个台阶（坑㉓）。
         """
-        t = (y - hy) / ry
-        w = rx * math.sqrt(max(0.0, 1.0 - t * t)) if abs(t) <= 1.0 else 0.0
-        k = min(1.0, max(0.0, (y - G["chin"]) / u(JAW_BELOW)))
-        return cx + s * (w + (sh_out - w) * k * k * (3 - 2 * k))   # smoothstep，两端一阶导为 0
+        t = (y - self.hy) / self.ry
+        w = self.rx * math.sqrt(max(0.0, 1.0 - t * t)) if abs(t) <= 1.0 else 0.0
+        k = min(1.0, max(0.0, (y - self.G["chin"]) / self.u(JAW_BELOW)))
+        return self.cx + s * (w + (self.sh_out - w) * k * k * (3 - 2 * k))   # smoothstep，两端一阶导为 0
 
-    def side_curtain(s, y0, y1, out_w=46.0, in_w=16.0, n=18, col=None):
+    def side_curtain(self, s, y0, y1, out_w=46.0, in_w=16.0, n=18, col=None):
         """侧发帘：内缘压在头/身上 in_w、外缘外挂 out_w，轮廓跟随剪影。
 
         旧实现是两个固定位置的圆/圆角矩形（内缘钉在 hx±rx−30），到颏线附近
@@ -452,17 +466,25 @@ def draw_character(img, d, p, t, ctx):
         （头发挂在脸两侧不压下颌），颏线以下再平滑收到颈半宽 `neck_hw`
         （长发本来就该落在脖子两边，而不是端在身体两侧形成两条直板）。
         """
-        chin = G["chin"]
-        keep_hi = rx * HAIR_CHEEK_KEEP
+        chin = self.G["chin"]
+        keep_hi = self.rx * HAIR_CHEEK_KEEP
         pts_o, pts_i = [], []
         for k in range(n + 1):
             yy = y0 + (y1 - y0) * k / n
-            e = body_edge(s, yy)
-            fk = min(1.0, max(0.0, (yy - chin) / u(JAW_BELOW)))
-            keep = keep_hi + (neck_hw - keep_hi) * fk * fk * (3 - 2 * fk)
+            e = self.body_edge(s, yy)
+            fk = min(1.0, max(0.0, (yy - chin) / self.u(JAW_BELOW)))
+            keep = keep_hi + (self.neck_hw - keep_hi) * fk * fk * (3 - 2 * fk)
             pts_o.append((e + s * out_w, yy))
-            pts_i.append((cx + s * max(abs(e - cx) - in_w, keep), yy))
-        d.polygon([T(p) for p in (pts_o + pts_i[::-1])], fill=col or hair_c)
+            pts_i.append((self.cx + s * max(abs(e - self.cx) - in_w, keep), yy))
+        self.d.polygon([self.T(p) for p in (pts_o + pts_i[::-1])], fill=col or self.hair_c)
+
+
+def _draw_back_hair(c):
+    """背发层（头后体积）——最底层，先画。依赖经 _CharCtx 显式注入。"""
+    style, E = c.style, c.E
+    hx, rx, hy, ry = c.hx, c.rx, c.hy, c.ry
+    hair_c, seed, t = c.hair_c, c.seed, c.t
+    body_edge, side_curtain = c.body_edge, c.side_curtain
 
     # ================= 背发层（头后体积） =================
     if style in ("ponytail_high", "curly_ponytail"):
@@ -501,6 +523,18 @@ def draw_character(img, d, p, t, ctx):
                     E(body_edge(sgn, yy) + sgn * 38 - 26, yy, body_edge(sgn, yy) + sgn * 38 + 26,
                       yy + 52, fill=hair_c)
 
+
+
+def _draw_legs_feet(c):
+    """腿与脚（含胯块）+ 脚下道具（滑板/篮球）：躯干/胯块压在腿根上，剪影连续。"""
+    pose, cx, G = c.pose, c.cx, c.G
+    torso_bot, u = c.torso_bot, c.u
+    foot_cy, foot_l, foot_h = c.foot_cy, c.foot_l, c.foot_h
+    leg_cx, leg_w = c.leg_cx, c.leg_w
+    skirt, sk = c.skirt, c.sk
+    skin, bottom, ident = c.skin, c.bottom, c.ident
+    has, acc, pfy = c.has, c.acc, c.pfy
+    RR, E, LN, ARC = c.RR, c.E, c.LN, c.ARC
     # ================= 腿与脚 =================
     legL_ang, legR_ang = pose.get("legL", 0), pose.get("legR", 0)
     leg_top = torso_bot - u(0.10)
@@ -549,6 +583,18 @@ def draw_character(img, d, p, t, ctx):
         E(540 + 196 + bax, 1618 + bay, 540 + 302 + bax, 1724 + bay, fill=THEME["ball"])
         ARC(540 + 196 + bax, 1618 + bay, 540 + 302 + bax, 1724 + bay, 100, 250, 4, fill=THEME["ball_line"])
 
+
+
+def _draw_torso(c):
+    """躯干与背带/挂件：躯干压在腿上，服装轮廓（裙/背带裙/马甲）与胸前挂件逐层叠上。"""
+    d, T, u, G = c.d, c.T, c.u, c.G
+    cx, torso_top, torso_bot, torso_hw = c.cx, c.torso_top, c.torso_bot, c.torso_hw
+    sh_out, sh_y, neck_hw = c.sh_out, c.sh_y, c.neck_hw
+    top, bottom, ident = c.top, c.bottom, c.ident
+    skirt, pinafore, vest, out = c.skirt, c.pinafore, c.vest, c.out
+    has, acc, pose, pfy = c.has, c.acc, c.pose, c.pfy
+    seed, t = c.seed, c.t
+    CAP, E, RR, ARC, LN = c.CAP, c.E, c.RR, c.ARC, c.LN
     # ================= 躯干与背带/挂件 =================
     RR(cx - torso_hw, torso_top, cx + torso_hw, torso_bot, torso_hw * 0.62, fill=top)
     # 肩部体块（坑⑱ 重设计）：从**颈缘**起坡，经斜方肌到肩峰，与臂根胶囊连续。
@@ -707,6 +753,16 @@ def draw_character(img, d, p, t, ctx):
         RR(540 + 144 + bx_g, torso_top + 100 + by_g * 0.5, 540 + 182 + bx_g, torso_top + 180 + by_g * 0.5, 16,
            fill=THEME["bottle_green"])
 
+
+
+def _draw_arms(c):
+    """手臂（胶囊袖 + 圆手 + 袖口）与腕上配饰、手中道具光效。"""
+    u, cx = c.u, c.cx
+    sh_x, sh_y = c.sh_x, c.sh_y
+    up_len, lo_len, arm_w, hand_r = c.up_len, c.lo_len, c.arm_w, c.hand_r
+    skin, top, ident = c.skin, c.top, c.ident
+    G, pose, t, has = c.G, c.pose, c.t, c.has
+    CAP, E, RR = c.CAP, c.E, c.RR
     # ================= 手臂（胶囊袖 + 圆手 + 袖口） =================
     # 画在躯干之后、颈与头之前：袖子是「衣服层」，抬臂姿态（wave/thumbs_up/hand_shoot…）
     # 会把袖子胶囊扫过人脸——衣层在脸前会遮嘴，故脸/嘴永远画在手臂之上；
@@ -772,6 +828,14 @@ def draw_character(img, d, p, t, ctx):
     if pose.get("hand_prop") == "flash":
         E(ha_pos[0] - u(0.18), ha_pos[1] - u(0.18), ha_pos[0] + u(0.18), ha_pos[1] + u(0.18), fill=(255, 250, 214))
 
+
+
+def _draw_neck_head(c):
+    """颈与头：颈部受光少压深一层、头形（纯椭圆 / 超椭圆下颌）、耳朵。"""
+    cx, neck_hw, u, G = c.cx, c.neck_hw, c.u, c.G
+    skin, skin_sh, face = c.skin, c.skin_sh, c.face
+    hx, rx, hy, ry, eye_y = c.hx, c.rx, c.hy, c.ry, c.eye_y
+    RR, PIE, TB, T, d, E = c.RR, c.PIE, c.TB, c.T, c.d, c.E
     # ================= 颈与头 =================
     neck_c = mix(skin, skin_sh, NECK_SHADE_F)  # 颈部受光少：skinShade 压深（qa_char 探针同源）
     RR(cx - neck_hw, G["neck_top"], cx + neck_hw, G["neck_bot"], u(0.05), fill=neck_c)
@@ -797,6 +861,15 @@ def draw_character(img, d, p, t, ctx):
         E(eax + s * u(0.005) - u(0.022), eye_y - u(0.058), eax + s * u(0.005) + u(0.022), eye_y - u(0.010),
           fill=mix(skin, skin_sh, 0.30))  # 耳窝影走 skinShade（不再写死）
 
+
+
+def _draw_front_hair(c):
+    """前发（有机圆润 + 高光）与发型件：压在脸/耳朵之上、表情之下。"""
+    hx, rx, hy, ry = c.hx, c.rx, c.hy, c.ry
+    hair_c, hl_c, ident, style, skin = c.hair_c, c.hl_c, c.ident, c.style, c.skin
+    has, seed, t, u = c.has, c.seed, c.t, c.u
+    side_curtain = c.side_curtain
+    PIE, ARC, E, CAP, RR = c.PIE, c.ARC, c.E, c.CAP, c.RR
     # ================= 前发（有机圆润 + 高光） =================
     cap_lo = hy + ry * 0.45
     PIE(hx - rx - 10, hy - ry - 10, hx + rx + 10, cap_lo, 182, 358, fill=hair_c)
@@ -853,6 +926,14 @@ def draw_character(img, d, p, t, ctx):
         fy_end = -0.02 + n2 * (0.52 if style == "braid" else 0.40)
         E(hx - rx * 1.00 - 18, hy + ry * fy_end - 14, hx - rx * 1.00 + 18, hy + ry * fy_end + 16, fill=ident)
 
+
+
+def _draw_beard(c):
+    """胡须：表情之前画（嘴要盖在胡子上面）；BEARD_LEGACY 分支只给反向验证用。"""
+    has, face = c.has, c.face
+    hair_c, skin = c.hair_c, c.skin
+    hx, rx, hy, ry, mouth_y = c.hx, c.rx, c.hy, c.ry, c.mouth_y
+    T, d, E, PIE = c.T, c.d, c.E, c.PIE
     if has("beard") and not BEARD_LEGACY:  # 表情之前画：嘴要盖在胡子上面
         # 旧实现是一个 PIE（顶边 0.82·ry 的水平直弦、底边伸到 1.30·ry），整张脸从嘴以下
         # 糊成一条围兜一直糊到脖子上——「嘴像长在脖子上」（坑㉓）。
@@ -863,16 +944,16 @@ def draw_character(img, d, p, t, ctx):
         v_side, v_top = 0.48, 0.60           # 鬓角起点 / 络腮上缘（自然贴合下颌轮廓）
         w_side = face_profile(face, v_side)
         w_top = face_profile(face, v_top) * 0.90
-        top = [(hx - w_side * rx, hy + ry * v_side), (hx - w_top * rx, hy + ry * v_top),
-               (hx, hy + ry * v_top),
-               (hx + w_top * rx, hy + ry * v_top), (hx + w_side * rx, hy + ry * v_side)]
+        jaw_top = [(hx - w_side * rx, hy + ry * v_side), (hx - w_top * rx, hy + ry * v_top),
+                   (hx, hy + ry * v_top),
+                   (hx + w_top * rx, hy + ry * v_top), (hx + w_side * rx, hy + ry * v_side)]
         nb = 26
         lower = []                            # 右鬓角 → 下巴 → 左鬓角，严格沿脸廓
         for k in range(2 * nb + 1):
             uu = k / (2 * nb)
             v = v_side + (1.0 - v_side) * (1 - abs(2 * uu - 1))
             lower.append((hx + face_profile(face, min(v, 1.0)) * rx * (2 * uu - 1), hy + v * ry))
-        d.polygon([T(p) for p in (top + lower[::-1])], fill=bc)
+        d.polygon([T(p) for p in (jaw_top + lower[::-1])], fill=bc)
         E(hx - rx * 0.18, hy + ry * 0.93, hx + rx * 0.18, hy + ry * 1.03, fill=bc)   # 圆胡尖
         # 八字胡：贴上唇一小片，两端挑到胡须线以上（这就是「八字」的形状来源）
         d.polygon([T(p) for p in (
@@ -885,6 +966,16 @@ def draw_character(img, d, p, t, ctx):
         PIE(hx - rx * 0.70, hy + ry * 0.34, hx + rx * 0.70, hy + ry * 1.30, 25, 155,
             fill=mix(hair_c, skin, 0.25))
 
+
+
+def _draw_face(c):
+    """表情：眼（眨眼弧 / 瞳孔双高光 / 视线跟随镜头）、眉、嘴（openness 驱动）、腮红。"""
+    ctx, seed, t = c.ctx, c.seed, c.t
+    hx, eye_dx, eye_y = c.hx, c.eye_dx, c.eye_y
+    scl_rx, scl_ry, pup_r = c.scl_rx, c.scl_ry, c.pup_r
+    brow_y0, mouth_y, blush_y = c.brow_y0, c.mouth_y, c.blush_y
+    female, u, G, p = c.female, c.u, c.G, c.p
+    E, ARC, CAP, PIE, RR = c.E, c.ARC, c.CAP, c.PIE, c.RR
     # ================= 表情 =================
     mood = MOOD_FACE[ctx["mood"]]
     lift = mood["lift"] + ctx.get("brow_lift_extra", 0)
@@ -954,6 +1045,18 @@ def draw_character(img, d, p, t, ctx):
             RR(bx_c - u(0.038), blush_y - u(0.016), bx_c + u(0.038), blush_y + u(0.016),
                8, fill=THEME["blush"])
 
+
+
+def _draw_head_gear(c):
+    """头部配饰（眼镜/顶戴墨镜/帽子/发夹/耳饰/耳机）+ face_cam 道具相机（最后画）。"""
+    has, acc, ident = c.has, c.acc, c.ident
+    seed, t, u = c.seed, c.t, c.u
+    hx, hy, rx, ry = c.hx, c.hy, c.rx, c.ry
+    eye_y, eye_dx, scl_rx, scl_ry = c.eye_y, c.eye_dx, c.scl_rx, c.scl_ry
+    G, hdx, hdy, pose = c.G, c.hdx, c.hdy, c.pose
+    d, TB, T = c.d, c.TB, c.T
+    E, RR, CAP, ARC, PIE = c.E, c.RR, c.CAP, c.ARC, c.PIE
+    sc, ss, pfy = c.sc, c.ss, c.pfy
     # ================= 头部配饰 =================
     for code in ("glasses_round", "glasses_thin", "glasses_square", "glasses_plastic"):
         if has(code):
@@ -1003,12 +1106,12 @@ def draw_character(img, d, p, t, ctx):
         sy0 = sg["sy0"]
         ggx_h = pfy("sunglasses_head", "reflect")[0]
         for s in (-1, 1):
-            c = hx + s * S["dx"]
-            RR(c - S["out_rx"], sy0 - S["out_up"], c + S["out_rx"], sy0 + S["out_dn"],
+            lcx = hx + s * S["dx"]
+            RR(lcx - S["out_rx"], sy0 - S["out_up"], lcx + S["out_rx"], sy0 + S["out_dn"],
                S["rad"], fill=THEME["metal_dark"])
-            E(c - S["lens_rx"], sy0 - S["lens_up"], c + S["lens_rx"], sy0 + S["lens_dn"],
+            E(lcx - S["lens_rx"], sy0 - S["lens_up"], lcx + S["lens_rx"], sy0 + S["lens_dn"],
               fill=THEME["lens"])
-            E(c - 20 + ggx_h, sy0 - 14, c - 4 + ggx_h, sy0 - 4, fill=THEME["glint_blue"])
+            E(lcx - 20 + ggx_h, sy0 - 14, lcx - 4 + ggx_h, sy0 - 4, fill=THEME["glint_blue"])
         CAP((hx - 28, sy0 - 14), (hx + 28, sy0 - 18), 7, fill=THEME["metal_dark"])
     hbdy = pfy("knit_hat", "bounce")[1]  # 帽子随步伐/点头轻弹（挂件物理；分镜 卡11）
     cbdy = pfy("cap_backward", "bounce")[1]
@@ -1027,9 +1130,9 @@ def draw_character(img, d, p, t, ctx):
     if has("headband_red"):  # 红发带＋意大利三色旗 wink（分镜 卡23：红发带飘起）
         gbdy = pfy("headband_red", "bounce")[1]
         ARC(hx - rx, hy - ry * 0.68 + gbdy, hx + rx, hy - ry * 0.14 + gbdy, 195, 345, 16, fill=THEME["headband_red"])
-        for i, c in enumerate(THEME["it_flag"]):  # 右鬓角三色小条（绿白红；qa_char 探针）
+        for i, flag_c in enumerate(THEME["it_flag"]):  # 右鬓角三色小条（绿白红；qa_char 探针）
             RR(hx + rx * 0.86 + i * 9, hy - ry * 0.52 + gbdy, hx + rx * 0.86 + i * 9 + 7, hy - ry * 0.24 + gbdy,
-               2, fill=c)
+               2, fill=flag_c)
     if has("hairpin"):
         CAP((hx + rx * 0.36, hy - ry * 0.80), (hx + rx * 0.64, hy - ry * 0.58), 12, fill=ident)
     if has("hairpin_clear"):
@@ -1071,188 +1174,402 @@ def draw_character(img, d, p, t, ctx):
         RR(hx - u(0.20), hy - u(0.11), hx + u(0.20), hy + u(0.11), u(0.05), fill=THEME["camera_body"])
         E(hx - u(0.062), hy - u(0.056), hx + u(0.062), hy + u(0.056), fill=THEME["lens_blue"])
 
+
+def draw_character(img, d, p, t, ctx):
+    """多邻国风格角色：无描边纯平涂、头身规格见 face_geo()、大眼白+瞳孔双高光、
+    胶囊眉、粗短四肢、圆润有机发型（双色高光）、耳朵/衣领/袖口细节。
+
+    按图层序拆成 _draw_* 阶段函数（共享状态显式化成 _CharCtx，见其类注释），
+    阶段顺序 = 绘制顺序：背发 → 腿脚 → 躯干/挂件 → 手臂 → 颈/头/耳 → 前发 →
+    胡须 → 表情 → 头部配饰 → face_cam。图层序纪律（衣不遮嘴）不变——袖子是
+    「衣服层」，抬臂姿态会把袖子胶囊扫过人脸，故脸/嘴永远画在手臂之上。"""
+    c = _CharCtx(img, d, p, t, ctx)
+    _draw_back_hair(c)
+    _draw_legs_feet(c)
+    _draw_torso(c)
+    _draw_arms(c)
+    _draw_neck_head(c)
+    _draw_front_hair(c)
+    _draw_beard(c)
+    _draw_face(c)
+    _draw_head_gear(c)
+
 # ---- 姿态库 ----
 
-# pose_for 已实现的姿态码全集（场景线据此校验剧本标注，勿与 pose_for 实现脱节）
-POSE_CODES = frozenset({
-    "wave", "ciao_wave", "thumbs_up", "palm_open", "point", "nod", "shrug", "mini_jump",
-    "jump_celebrate", "run_out", "turn_freeze", "come_along", "kick", "snap", "camera_snap",
-    "chest_pat", "index_wait", "finger_count", "both_hands", "beads_ponder", "cap_tap",
-    "scratch_head", "hand_shoot", "brow_raise", "head_tilt", "breath", "planner_snap",
-    "clap", "fist", "bottle_raise", "deadpan_nod", "twirl", "lean_in", "pocket_sway",
-    "head_tilt_smile", "thumbs_run", "shoot_run",
-})
+# 姿态实现注册表（姿势码 → 参数/分支函数），与 scenes.SCENES 同构的单一事实源：
+# POSE_CODES 从本表现取派生（不另抄——纪律 7，注册表与实现永不脱节）。
+# 分支函数签名 (u, t, p) → P（姿态参数 dict）；映射值与旧 elif 链逐字相同。
+_POSES = {}
 
 
-def pose_for(code, u, t, p):
-    """返回姿态参数：armL/armR=(a1,a2,hand), legL/legR, head_dx/dy, squash, yoff, extras"""
+def _pose(name):
+    def deco(fn):
+        _POSES[name] = fn
+        return fn
+    return deco
+
+
+@_pose("wave")
+def _pose_wave(u, t, p):
     P = {}
-    if code == "wave" or code == "ciao_wave":
-        a1 = 138 if code == "wave" else 146
-        P["armR"] = (a1, 26 + 26 * math.sin(t * 11), "open")
-    elif code == "thumbs_up":
+    P["armR"] = (138, 26 + 26 * math.sin(t * 11), "open")
+    return P
+
+
+@_pose("ciao_wave")  # 原与 wave 同支：仅肩角差一档（旧 a1 = 138 if code == "wave" else 146）
+def _pose_ciao_wave(u, t, p):
+    P = {}
+    P["armR"] = (146, 26 + 26 * math.sin(t * 11), "open")
+    return P
+
+
+@_pose("thumbs_up")
+def _pose_thumbs_up(u, t, p):
+    P = {}
+    P["armR"] = (150, 18, "thumb")
+    return P
+
+
+@_pose("palm_open")
+def _pose_palm_open(u, t, p):
+    P = {}
+    P["armR"] = (78, 28, "open")
+    return P
+
+
+@_pose("point")
+def _pose_point(u, t, p):
+    P = {}
+    P["armR"] = (96, 6, "index")
+    return P
+
+
+@_pose("nod")
+def _pose_nod(u, t, p):
+    P = {}
+    P["head_dy"] = 8 * math.sin(min(u, 1) * math.pi * 2) * (1 - min(u, 1))
+    return P
+
+
+@_pose("shrug")
+def _pose_shrug(u, t, p):
+    P = {}
+    P["armL"] = (52, 66, "open")
+    P["armR"] = (52, 66, "open")
+    P["yoff"] = -6
+    P["head_dy"] = -3
+    return P
+
+
+@_pose("mini_jump")
+def _pose_mini_jump(u, t, p):
+    P = {}
+    # 顺滑单次起跳抛物线：0..0.15 蓄力下沉，0.15..0.85 滞空抛物线，0.85..1.0 落地缓冲
+    if u < 0.15:
+        c = math.sin(u / 0.15 * math.pi)
+        P["yoff"] = 5.0 * c
+        P["squash"] = 0.03 * c
+    elif u < 0.85:
+        ju = (u - 0.15) / 0.70
+        arc = math.sin(ju * math.pi)
+        P["yoff"] = -arc * jump_height(p) * 0.85
+        P["squash"] = -0.04 * math.sin(ju * math.pi * 2)
+    else:
+        c = math.sin((u - 0.85) / 0.15 * math.pi)
+        P["yoff"] = 4.0 * c
+        P["squash"] = 0.02 * c
+    P["armL"] = (92, 28, "open")
+    P["armR"] = (92, 28, "open")
+    return P
+
+
+@_pose("jump_celebrate")  # 欢跃庆祝：蓄力舒展升空与柔和落地（告别一蹦一蹦）
+def _pose_jump_celebrate(u, t, p):
+    P = {}
+    if u < 0.15:
+        c = math.sin(u / 0.15 * math.pi)
+        P["yoff"] = 6.0 * c
+        P["squash"] = 0.04 * c
+        P["armL"] = (90, 20, "open")
+        P["armR"] = (90, 20, "open")
+    elif u < 0.85:
+        ju = (u - 0.15) / 0.70
+        air = math.sin(ju * math.pi)
+        P["yoff"] = -air * jump_height(p) * 1.05
+        P["squash"] = -0.05 * math.sin(ju * math.pi * 2)
+        P["armL"] = (148 - 10 * air, 18, "open")
+        P["armR"] = (148 - 10 * air, 18, "open")
+        P["head_dy"] = -4 * air
+    else:
+        c = math.sin((u - 0.85) / 0.15 * math.pi)
+        P["yoff"] = 5.0 * c
+        P["squash"] = 0.03 * c
+        P["armL"] = (110, 20, "open")
+        P["armR"] = (110, 20, "open")
+    return P
+
+
+@_pose("run_out")
+def _pose_run_out(u, t, p):
+    P = {}
+    P["xoff"] = 1500 * ease_out_cubic(u)
+    P["legL"] = 28 * math.sin(t * 16)
+    P["legR"] = -28 * math.sin(t * 16)
+    P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
+    P["armR"] = (40 - 20 * math.sin(t * 16), 40, "open")
+    P["yoff"] = -4.0 * (1 - math.cos(t * 16))
+    return P
+
+
+@_pose("turn_freeze")
+def _pose_turn_freeze(u, t, p):
+    P = {}
+    P["xoff"] = -34 * u
+    P["head_dx"] = -12 * u
+    P["armR"] = (58, 122, "open")
+    return P
+
+
+@_pose("come_along")
+def _pose_come_along(u, t, p):
+    P = {}
+    P["armR"] = (86, 24 + 14 * math.sin(t * 7), "open")
+    P["head_dx"] = 4
+    return P
+
+
+@_pose("kick")
+def _pose_kick(u, t, p):
+    P = {}
+    P["legR"] = 38 * math.sin(min(u * 1.4, 1) * math.pi)
+    P["skate_kick"] = math.sin(min(u * 1.4, 1) * math.pi)
+    P["armL"] = (120, 30, "open")
+    return P
+
+
+@_pose("snap")
+def _pose_snap(u, t, p):
+    P = {}
+    P["armR"] = (42, 112, "fist")
+    if 0.3 < u < 0.75:
+        P["hand_prop"] = "sparkle"
+    return P
+
+
+@_pose("camera_snap")
+def _pose_camera_snap(u, t, p):
+    P = {}
+    P["armL"] = (118, 62, "open")
+    P["armR"] = (118, 62, "open")
+    P["face_cam"] = True
+    if 0.35 < u < 0.7:
+        P["hand_prop"] = "flash"
+    return P
+
+
+@_pose("chest_pat")
+def _pose_chest_pat(u, t, p):
+    P = {}
+    P["armR"] = (32, 116 + 14 * math.sin(t * 8), "open")
+    return P
+
+
+@_pose("index_wait")
+def _pose_index_wait(u, t, p):
+    P = {}
+    P["armR"] = (142, 22, "index")
+    return P
+
+
+@_pose("finger_count")
+def _pose_finger_count(u, t, p):
+    P = {}
+    P["armR"] = (122, 32, "index")
+    return P
+
+
+@_pose("both_hands")
+def _pose_both_hands(u, t, p):
+    P = {}
+    P["armL"] = (104, 18, "open")
+    P["armR"] = (104, 18, "open")
+    return P
+
+
+@_pose("beads_ponder")
+def _pose_beads_ponder(u, t, p):
+    P = {}
+    P["armR"] = (46, 100, "open", "beads")
+    P["hand_prop"] = None
+    P["head_dx"] = 7
+    P["head_dy"] = 4
+    return P
+
+
+@_pose("cap_tap")
+def _pose_cap_tap(u, t, p):
+    P = {}
+    P["armR"] = (148, 40 + 12 * math.sin(t * 10), "open")
+    return P
+
+
+@_pose("scratch_head")
+def _pose_scratch_head(u, t, p):
+    P = {}
+    P["armR"] = (132, 74 + 12 * math.sin(t * 9), "open")
+    return P
+
+
+@_pose("hand_shoot")
+def _pose_hand_shoot(u, t, p):
+    P = {}
+    P["armR"] = (176, 2, "open")
+    return P
+
+
+@_pose("brow_raise")
+def _pose_brow_raise(u, t, p):
+    P = {}
+    P["brow_lift_extra"] = 10 * math.sin(min(u, 1) * math.pi)
+    return P
+
+
+@_pose("head_tilt")
+def _pose_head_tilt(u, t, p):
+    P = {}
+    P["head_dx"] = 8
+    return P
+
+
+@_pose("breath")
+def _pose_breath(u, t, p):
+    P = {}
+    P["squash"] = 0.035 * math.sin(min(u, 1) * math.pi)
+    P["yoff"] = -8 * math.sin(min(u, 1) * math.pi)
+    P["armL"] = (24, 14, "open")
+    P["armR"] = (24, 14, "open")
+    return P
+
+
+@_pose("planner_snap")
+def _pose_planner_snap(u, t, p):
+    P = {}
+    P["armL"] = (36, 108, "open")
+    P["armR"] = (36, 108, "open")
+    if 0.25 < u < 0.6:
+        P["hand_prop"] = "sparkle"
+    return P
+
+
+@_pose("clap")
+def _pose_clap(u, t, p):
+    P = {}
+    P["armL"] = (44, 96, "open")
+    P["armR"] = (44, 96, "open")
+    return P
+
+
+@_pose("fist")
+def _pose_fist(u, t, p):
+    P = {}
+    P["armR"] = (46, 114, "fist")
+    return P
+
+
+@_pose("bottle_raise")
+def _pose_bottle_raise(u, t, p):
+    P = {}
+    P["armR"] = (64, 92, "open", "bottle")
+    return P
+
+
+@_pose("deadpan_nod")  # 卡20：面无表情点头（数据触发两次＝分镜"只两次"）
+def _pose_deadpan_nod(u, t, p):
+    P = {}
+    P["head_dy"] = 10 * math.sin(min(u, 1) * math.pi * 2) * (1 - 0.4 * min(u, 1))
+    return P
+
+
+@_pose("twirl")  # 卡05/09 入场旋转：水平压缩翻转读作转身
+def _pose_twirl(u, t, p):
+    P = {}
+    P["xscale"] = 0.16 + 0.84 * abs(math.cos(min(u, 1) * math.pi * 2))
+    P["yoff"] = -14 * abs(math.sin(min(u, 1) * math.pi * 2))
+    P["armL"] = (96, 26, "open")
+    P["armR"] = (96, 26, "open")
+    return P
+
+
+@_pose("lean_in")  # 卡25：探身取景
+def _pose_lean_in(u, t, p):
+    P = {}
+    P["head_dx"] = 8
+    P["head_dy"] = 5
+    P["armR"] = (104, 38, "open")
+    return P
+
+
+@_pose("pocket_sway")  # 卡24：插兜晃身
+def _pose_pocket_sway(u, t, p):
+    P = {}
+    P["armL"] = (14, 10, "open")
+    P["armR"] = (14, 10, "open")
+    P["head_dx"] = 6 * math.sin(min(u, 1) * math.pi * 2)
+    return P
+
+
+@_pose("head_tilt_smile")  # 卡27：侧头一笑定格
+def _pose_head_tilt_smile(u, t, p):
+    P = {}
+    P["head_dx"] = 13
+    P["head_dy"] = 2
+    P["armR"] = (58, 30, "open")
+    return P
+
+
+@_pose("thumbs_run")  # 卡28：thumbs-up 后招手小跑出画
+def _pose_thumbs_run(u, t, p):
+    P = {}
+    if u < 0.45:
         P["armR"] = (150, 18, "thumb")
-    elif code == "palm_open":
-        P["armR"] = (78, 28, "open")
-    elif code == "point":
-        P["armR"] = (96, 6, "index")
-    elif code == "nod":
-        P["head_dy"] = 8 * math.sin(min(u, 1) * math.pi * 2) * (1 - min(u, 1))
-    elif code == "shrug":
-        P["armL"] = (52, 66, "open")
-        P["armR"] = (52, 66, "open")
-        P["yoff"] = -6
-        P["head_dy"] = -3
-    elif code == "mini_jump":
-        # 顺滑单次起跳抛物线：0..0.15 蓄力下沉，0.15..0.85 滞空抛物线，0.85..1.0 落地缓冲
-        if u < 0.15:
-            c = math.sin(u / 0.15 * math.pi)
-            P["yoff"] = 5.0 * c
-            P["squash"] = 0.03 * c
-        elif u < 0.85:
-            ju = (u - 0.15) / 0.70
-            arc = math.sin(ju * math.pi)
-            P["yoff"] = -arc * jump_height(p) * 0.85
-            P["squash"] = -0.04 * math.sin(ju * math.pi * 2)
-        else:
-            c = math.sin((u - 0.85) / 0.15 * math.pi)
-            P["yoff"] = 4.0 * c
-            P["squash"] = 0.02 * c
-        P["armL"] = (92, 28, "open")
-        P["armR"] = (92, 28, "open")
-    elif code == "jump_celebrate":  # 欢跃庆祝：蓄力舒展升空与柔和落地（告别一蹦一蹦）
-        if u < 0.15:
-            c = math.sin(u / 0.15 * math.pi)
-            P["yoff"] = 6.0 * c
-            P["squash"] = 0.04 * c
-            P["armL"] = (90, 20, "open")
-            P["armR"] = (90, 20, "open")
-        elif u < 0.85:
-            ju = (u - 0.15) / 0.70
-            air = math.sin(ju * math.pi)
-            P["yoff"] = -air * jump_height(p) * 1.05
-            P["squash"] = -0.05 * math.sin(ju * math.pi * 2)
-            P["armL"] = (148 - 10 * air, 18, "open")
-            P["armR"] = (148 - 10 * air, 18, "open")
-            P["head_dy"] = -4 * air
-        else:
-            c = math.sin((u - 0.85) / 0.15 * math.pi)
-            P["yoff"] = 5.0 * c
-            P["squash"] = 0.03 * c
-            P["armL"] = (110, 20, "open")
-            P["armR"] = (110, 20, "open")
-    elif code == "run_out":
-        P["xoff"] = 1500 * ease_out_cubic(u)
+        P["armL"] = (60, 30, "open")
+    else:
+        P["xoff"] = 1500 * ease_out_cubic((u - 0.45) / 0.55)
+        P["legL"] = 28 * math.sin(t * 16)
+        P["legR"] = -28 * math.sin(t * 16)
+        P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
+        P["armR"] = (140, 26 + 26 * math.sin(t * 11), "open")
+        P["yoff"] = -6 * abs(math.sin(t * 16))
+    return P
+
+
+@_pose("shoot_run")  # 卡22：投篮手势后追球跑出画
+def _pose_shoot_run(u, t, p):
+    P = {}
+    if u < 0.5:
+        P["armL"] = (128, 60, "open")
+        P["armR"] = (128, 60, "open")
+        P["squash"] = 0.04 * math.sin(min(u / 0.5, 1) * math.pi)
+    else:
+        P["xoff"] = 1500 * ease_out_cubic((u - 0.5) / 0.5)
         P["legL"] = 28 * math.sin(t * 16)
         P["legR"] = -28 * math.sin(t * 16)
         P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
         P["armR"] = (40 - 20 * math.sin(t * 16), 40, "open")
-        P["yoff"] = -4.0 * (1 - math.cos(t * 16))
-    elif code == "turn_freeze":
-        P["xoff"] = -34 * u
-        P["head_dx"] = -12 * u
-        P["armR"] = (58, 122, "open")
-    elif code == "come_along":
-        P["armR"] = (86, 24 + 14 * math.sin(t * 7), "open")
-        P["head_dx"] = 4
-    elif code == "kick":
-        P["legR"] = 38 * math.sin(min(u * 1.4, 1) * math.pi)
-        P["skate_kick"] = math.sin(min(u * 1.4, 1) * math.pi)
-        P["armL"] = (120, 30, "open")
-    elif code == "snap":
-        P["armR"] = (42, 112, "fist")
-        if 0.3 < u < 0.75:
-            P["hand_prop"] = "sparkle"
-    elif code == "camera_snap":
-        P["armL"] = (118, 62, "open")
-        P["armR"] = (118, 62, "open")
-        P["face_cam"] = True
-        if 0.35 < u < 0.7:
-            P["hand_prop"] = "flash"
-    elif code == "chest_pat":
-        P["armR"] = (32, 116 + 14 * math.sin(t * 8), "open")
-    elif code == "index_wait":
-        P["armR"] = (142, 22, "index")
-    elif code == "finger_count":
-        P["armR"] = (122, 32, "index")
-    elif code == "both_hands":
-        P["armL"] = (104, 18, "open")
-        P["armR"] = (104, 18, "open")
-    elif code == "beads_ponder":
-        P["armR"] = (46, 100, "open", "beads")
-        P["hand_prop"] = None
-        P["head_dx"] = 7
-        P["head_dy"] = 4
-    elif code == "cap_tap":
-        P["armR"] = (148, 40 + 12 * math.sin(t * 10), "open")
-    elif code == "scratch_head":
-        P["armR"] = (132, 74 + 12 * math.sin(t * 9), "open")
-    elif code == "hand_shoot":
-        P["armR"] = (176, 2, "open")
-    elif code == "brow_raise":
-        P["brow_lift_extra"] = 10 * math.sin(min(u, 1) * math.pi)
-    elif code == "head_tilt":
-        P["head_dx"] = 8
-    elif code == "breath":
-        P["squash"] = 0.035 * math.sin(min(u, 1) * math.pi)
-        P["yoff"] = -8 * math.sin(min(u, 1) * math.pi)
-        P["armL"] = (24, 14, "open")
-        P["armR"] = (24, 14, "open")
-    elif code == "planner_snap":
-        P["armL"] = (36, 108, "open")
-        P["armR"] = (36, 108, "open")
-        if 0.25 < u < 0.6:
-            P["hand_prop"] = "sparkle"
-    elif code == "clap":
-        P["armL"] = (44, 96, "open")
-        P["armR"] = (44, 96, "open")
-    elif code == "fist":
-        P["armR"] = (46, 114, "fist")
-    elif code == "bottle_raise":
-        P["armR"] = (64, 92, "open", "bottle")
-    elif code == "deadpan_nod":  # 卡20：面无表情点头（数据触发两次＝分镜"只两次"）
-        P["head_dy"] = 10 * math.sin(min(u, 1) * math.pi * 2) * (1 - 0.4 * min(u, 1))
-    elif code == "twirl":  # 卡05/09 入场旋转：水平压缩翻转读作转身
-        P["xscale"] = 0.16 + 0.84 * abs(math.cos(min(u, 1) * math.pi * 2))
-        P["yoff"] = -14 * abs(math.sin(min(u, 1) * math.pi * 2))
-        P["armL"] = (96, 26, "open")
-        P["armR"] = (96, 26, "open")
-    elif code == "lean_in":  # 卡25：探身取景
-        P["head_dx"] = 8
-        P["head_dy"] = 5
-        P["armR"] = (104, 38, "open")
-    elif code == "pocket_sway":  # 卡24：插兜晃身
-        P["armL"] = (14, 10, "open")
-        P["armR"] = (14, 10, "open")
-        P["head_dx"] = 6 * math.sin(min(u, 1) * math.pi * 2)
-    elif code == "head_tilt_smile":  # 卡27：侧头一笑定格
-        P["head_dx"] = 13
-        P["head_dy"] = 2
-        P["armR"] = (58, 30, "open")
-    elif code == "thumbs_run":  # 卡28：thumbs-up 后招手小跑出画
-        if u < 0.45:
-            P["armR"] = (150, 18, "thumb")
-            P["armL"] = (60, 30, "open")
-        else:
-            P["xoff"] = 1500 * ease_out_cubic((u - 0.45) / 0.55)
-            P["legL"] = 28 * math.sin(t * 16)
-            P["legR"] = -28 * math.sin(t * 16)
-            P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
-            P["armR"] = (140, 26 + 26 * math.sin(t * 11), "open")
-            P["yoff"] = -6 * abs(math.sin(t * 16))
-    elif code == "shoot_run":  # 卡22：投篮手势后追球跑出画
-        if u < 0.5:
-            P["armL"] = (128, 60, "open")
-            P["armR"] = (128, 60, "open")
-            P["squash"] = 0.04 * math.sin(min(u / 0.5, 1) * math.pi)
-        else:
-            P["xoff"] = 1500 * ease_out_cubic((u - 0.5) / 0.5)
-            P["legL"] = 28 * math.sin(t * 16)
-            P["legR"] = -28 * math.sin(t * 16)
-            P["armL"] = (40 + 20 * math.sin(t * 16), 40, "open")
-            P["armR"] = (40 - 20 * math.sin(t * 16), 40, "open")
-            P["yoff"] = -6 * abs(math.sin(t * 16))
+        P["yoff"] = -6 * abs(math.sin(t * 16))
     return P
+
+
+# pose_for 已实现的姿态码全集（场景线据此校验剧本标注）——现取注册表派生，不另抄
+POSE_CODES = frozenset(_POSES)
+
+
+def pose_for(code, u, t, p):
+    """返回姿态参数：armL/armR=(a1,a2,hand), legL/legR, head_dx/dy, squash, yoff, extras
+
+    未知姿态码返回空 dict（与旧 elif 链落空分支的行为一致）。"""
+    fn = _POSES.get(code)
+    return fn(u, t, p) if fn else {}
 
 
 # karaoke_points / frac_at 见 feuille.timeline（单一事实源，不在本文件重复）

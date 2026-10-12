@@ -3,6 +3,7 @@ name = "feuille"
 version = "0.1.0"
 description = "多语种视频生产与发布可复用层：从 videos/yiyezhiqiu/explorateur 蒸馏（TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对）"
 readme = "README.md"
+# 锁 3.12 = 像素/词边界行为基线，升级前必须重验 framehash 基线
 requires-python = ">=3.12,<3.13"
 # 版本对齐基线环境并锁定：Pillow 12.3.0 = 渲染像素基线（framehash 幂等的保证），
 # edge-tts 7.2.8 = 词级时间戳口径；升级前必须重验 framehash 基线（AGENTS.md 工程约定）。

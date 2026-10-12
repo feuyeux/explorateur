@@ -487,23 +487,18 @@ def _bail(res: dict, page, log_dir: Path, tag: str, stage: str, msg: str) -> dic
     return res
 
 
-def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
-    log_dir = Path(log_dir)
-    vid, cov = t["video"], t["cover"]
-    res = {"no": t["no"], "lang": t["lang"], "ok": False, "stage": ""}
-    print(f"\n🚀 [{t['no']:02d}] {t['lang']}  {Path(vid).name}")
-    print(f"   标题: {t['title']}")
+# ── 单条发布（按阶段拆分：上传 → 表单就绪 → 必填闸门 → 填词 → 提交） ────
 
-    if not Path(vid).exists():
-        res["stage"] = "素材缺失"; print("   ❌ 视频不存在"); return res
+DESC_SEL = ("div[contenteditable='true'], textarea[placeholder*='简介'], "
+            "div.editor-kit-editor, .ql-editor")
 
-    # 每条都**强制**重新导航到投稿页，不能只在 URL 不含 upload 时才刷。
-    # 否则上条投稿后表单还留着旧视频，再送一个文件会被 B 站当成「批量上传」，
-    # 弹出 batch-dialog 遮罩，后面标题/简介/封面的点击全被拦死。
-    page.goto(UPLOAD_URL, wait_until="domcontentloaded", timeout=60000)
-    time.sleep(5)
 
-    # 视频：挑第一个非 .txt 的 file input
+def _upload_video(page, vid) -> bool:
+    """送入上传口。页面上一个 file input 都没有 → 如实报错返回 False。
+
+    栽过的坑：v1 这里直接 None.set_input_files 抛 AttributeError，
+    报错信息与真实原因（上传口没挂上）对不上，排障绕了远路。
+    """
     fis = page.locator("input[type='file']")
     vinput = None
     for i in range(fis.count()):
@@ -512,77 +507,34 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
             vinput = fis.nth(i); break
     if vinput is None and fis.count():
         vinput = fis.first
+    if vinput is None:
+        print("   ❌ 投稿页上找不到任何 file input（上传口未挂上）")
+        return False
     vinput.set_input_files(vid)
     print("   ✓ 视频已送入上传通道")
-    # 批量上传弹窗往往在送入文件后才冒出来，先清一轮
-    for _ in range(2):
-        time.sleep(2)
-        dismiss_bili_dialogs(page)
+    return True
 
-    # 等上传完成：出现标题输入框
-    title_box = None
-    for _ in range(120):
+
+def _wait_form_ready(page, *, rounds=120):
+    """等上传完成：出现标题输入框。返回标题框 locator，未就绪返回 None。"""
+    for _ in range(rounds):
         for sel in ("input[placeholder*='标题']", "input[maxlength='80']"):
             loc = page.locator(sel).first
             try:
                 if loc.is_visible(timeout=600):
-                    title_box = loc; break
+                    return loc
             except Exception:
                 continue
-        if title_box:
-            break
         time.sleep(1.5)
-    if title_box is None:
-        res["stage"] = "上传/表单未就绪"; print("   ❌ 标题框未出现（上传可能失败）")
-        return res
-    print("   ✓ 上传完成，编辑表单就绪")
+    return None
 
-    # 通知弹窗会盖住整个表单，先清干净再动输入框
-    n = dismiss_bili_dialogs(page)
-    if n:
-        print(f"   ✓ 已清掉 {n} 个浮层")
 
-    # 标题
-    try:
-        title_box.click()
-        title_box.fill(t["title"][:80])
-        print(f"   ✓ 标题已录入（{len(t['title'][:80])} 字）")
-    except Exception as e:
-        print(f"   ⚠️ 标题：{e}")
+def _upload_subtitle(page, t: dict, subs_dir) -> None:
+    """.txt 字幕口（文件从 subs_dir/{lang}.txt 取，参数化不写死）。
 
-    # 必填项：分区 + 创作声明（B 站不填这两个 投稿键不解禁）
-    tag = f"{t['no']:02d}"
-    if not set_bili_zone(page, BILI_ZONE):
-        return _bail(res, page, log_dir, f"{tag}-zone",
-                     "主分区未生效（已中止投稿）", "主分区没设上 → 中止，不投")
-    if not set_bili_statement(page, BILI_STMT_REQUIRED, log_dir=log_dir):
-        return _bail(res, page, log_dir, f"{tag}-stmt",
-                     "创作声明未选定（已中止投稿）", "创作声明没选上 → 中止，不投")
-
-    # 简介：B站正文是 contenteditable
-    desc = page.locator(
-        "div[contenteditable='true'], textarea[placeholder*='简介'], "
-        "div.editor-kit-editor, .ql-editor"
-    ).first
-    try:
-        if desc.is_visible(timeout=2500):
-            desc.click()
-            page.keyboard.press("Meta+A")
-            page.keyboard.press("Backspace")
-            page.keyboard.type(t["body"])
-            page.keyboard.type("\n\n")
-            time.sleep(0.3)
-            for tag in t["tags"]:
-                page.keyboard.type(tag if tag.startswith("#") else f"#{tag}")
-                page.keyboard.type(" ")
-                time.sleep(0.3)
-            print(f"   ✓ 简介与 {len(t['tags'])} 个话题已录入")
-        else:
-            print("   ⚠️ 没找到简介框")
-    except Exception as e:
-        print(f"   ⚠️ 简介：{e}")
-
-    # 字幕：.txt file input（文件从 subs_dir/{lang}.txt 取，参数化不写死）
+    字幕是可选步骤：没给 subs_dir / 没有字幕文件 / 没有字幕口都如实跳过，
+    但喂失败要报出来——「没喂上」与「本来就不用喂」是两回事。
+    """
     txtf = None
     for i in range(page.locator("input[type='file']").count()):
         f = page.locator("input[type='file']").nth(i)
@@ -598,47 +550,17 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
                 txtf.set_input_files(str(srt))
                 print(f"   ✓ 字幕已上传 {srt.name}")
             except Exception as e:
-                print(f"   ⚠️ 字幕：{e}")
+                print(f"   ⚠️ 字幕上传失败：{e}")
         else:
             print(f"   （无字幕文件 {srt.name}，跳过）")
     else:
         print("   （未找到 .txt 字幕口，跳过）" if txtf is None
               else "   （未给 subs_dir，跳过字幕）")
 
-    # 封面：必须换成预制带文字版，不允许退回视频首帧或系统推荐封面
-    cover_ok = set_bili_cover(page, cov, tag, log_dir=log_dir)
-    if not cover_ok:
-        print(f"      预制封面：{cov}")
-        return _bail(res, page, log_dir, tag,
-                     "封面未生效（已中止投稿）", "封面未生效 → 中止本条，不点投稿")
-    print("   ✓ 封面已是预制带文字版，继续")
 
-    # 等投稿按钮解禁
-    print("   ⏳ 等待提交按钮解禁…")
-    ok = False
-    for _ in range(90):
-        el, txt = submit_btn(page)
-        if el is not None and el.get_attribute("disabled") is None:
-            ok = True
-            print(f"   ✓ 提交键「{txt}」已可用")
-            break
-        time.sleep(1)
-    if not ok:
-        res["stage"] = "提交按钮未就绪"; print("   ❌ 提交按钮未就绪")
-        dump_submit_candidates(page)
-        try:
-            page.screenshot(path=str(log_dir / f"coverfail-bili-{t['no']:02d}-submit.png"))
-        except Exception:
-            pass
-        return res
-
-    if not auto:
-        page.screenshot(path=str(log_dir / f"dryrun-bili-{t['no']:02d}.png"))
-        left = blocking(page)
-        res.update(ok=not left, stage="已填词(dry-run，未发布)" if not left else f"残留弹窗 {left}")
-        print(f"   🧪 dry-run：未发布。截图 dryrun-bili-{t['no']:02d}.png")
-        return res
-
+def _submit_and_confirm(page, res: dict, t: dict, *, log_dir) -> dict:
+    """点投稿键 → 二次确认 → 成功轮询。"""
+    log_dir = Path(log_dir)
     el, txt = submit_btn(page)
     el.scroll_into_view_if_needed(); time.sleep(0.5)
     el.click()
@@ -669,28 +591,121 @@ def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
     time.sleep(2)
     page.screenshot(path=str(log_dir / f"postbili-{t['no']:02d}-confirm.png"))
 
-    deadline = time.time() + 120
-    while time.time() < deadline:
+    # B 站成功页文案是「**稿件投递成功**」，不是「投稿/提交成功」。
+    # 栽过：词表里没有「投递」二字，脚本判成「已提交未确认」，
+    # 实际稿件早就进管理后台了。URL 也不会变，只能靠文案判定。
+    ok, stage = base.wait_success_stage(
+        page, BILI_SUCCESS_WORDS, timeout_s=120, poll_s=2,
+        url_gone=("upload", "frame"))
+    res.update(ok=ok, stage=stage)
+    if ok:
+        print(f"   ✅ {stage}" if stage == "已发布" else f"   ✅ 已跳转 {page.url}")
+    else:
+        print(f"   ⚠️ 已提交但未确认，URL={page.url}")
+    return res
+
+
+def publish_one(page, t: dict, auto: bool, *, log_dir, subs_dir=None) -> dict:
+    log_dir = Path(log_dir)
+    vid, cov = t["video"], t["cover"]
+    res = {"no": t["no"], "lang": t["lang"], "ok": False, "stage": ""}
+    # tag 只用于日志/截图命名（任务号），绝不再作循环变量名——
+    # 栽过的坑：话题循环用同名 tag 把任务号覆盖成 #话题串，
+    # 封面/中止证据截图全拿错文件名。
+    tag = f"{t['no']:02d}"
+    print(f"\n🚀 [{t['no']:02d}] {t['lang']}  {Path(vid).name}")
+    print(f"   标题: {t['title']}")
+
+    if not Path(vid).exists():
+        res["stage"] = "素材缺失"; print("   ❌ 视频不存在"); return res
+
+    # 每条都**强制**重新导航到投稿页，不能只在 URL 不含 upload 时才刷。
+    # 否则上条投稿后表单还留着旧视频，再送一个文件会被 B 站当成「批量上传」，
+    # 弹出 batch-dialog 遮罩，后面标题/简介/封面的点击全被拦死。
+    page.goto(UPLOAD_URL, wait_until="domcontentloaded", timeout=60000)
+    time.sleep(5)
+
+    if not _upload_video(page, vid):
+        return _bail(res, page, log_dir, f"{tag}-noupload",
+                     "上传口未就绪（已中止投稿）", "找不到上传 input → 中止，不投")
+    # 批量上传弹窗往往在送入文件后才冒出来，先清一轮
+    for _ in range(2):
+        time.sleep(2)
+        dismiss_bili_dialogs(page)
+
+    title_box = _wait_form_ready(page)
+    if title_box is None:
+        res["stage"] = "上传/表单未就绪"; print("   ❌ 标题框未出现（上传可能失败）")
+        return res
+    print("   ✓ 上传完成，编辑表单就绪")
+
+    # 通知弹窗会盖住整个表单，先清干净再动输入框
+    n = dismiss_bili_dialogs(page)
+    if n:
+        print(f"   ✓ 已清掉 {n} 个浮层")
+
+    # 标题（纪律 19：录不进标题 = 带病发布，中止本条）
+    if not base.fill_title(page, title_box, t["title"], limit=80):
+        return _bail(res, page, log_dir, f"{tag}-title",
+                     "标题未录入（已中止投稿）", "标题没录进去 → 中止，不投")
+
+    # 必填项：分区 + 创作声明（B 站不填这两个 投稿键不解禁）
+    if not set_bili_zone(page, BILI_ZONE):
+        return _bail(res, page, log_dir, f"{tag}-zone",
+                     "主分区未生效（已中止投稿）", "主分区没设上 → 中止，不投")
+    if not set_bili_statement(page, BILI_STMT_REQUIRED, log_dir=log_dir):
+        return _bail(res, page, log_dir, f"{tag}-stmt",
+                     "创作声明未选定（已中止投稿）", "创作声明没选上 → 中止，不投")
+
+    # 简介：B站正文是 contenteditable；正文+话题录不进 = 带病发布（纪律 19）
+    desc = page.locator(DESC_SEL).first
+    try:
+        desc_ready = desc.is_visible(timeout=2500)
+    except Exception:
+        desc_ready = False
+    if not desc_ready:
+        return _bail(res, page, log_dir, f"{tag}-desc",
+                     "简介框未出现（已中止投稿）", "没找到简介框 → 中止，不投")
+    if not base.fill_body(page, desc, t["body"], tags=t["tags"], pause=0.3):
+        return _bail(res, page, log_dir, f"{tag}-desc",
+                     "简介未录入（已中止投稿）", "简介没录进去 → 中止，不投")
+
+    _upload_subtitle(page, t, subs_dir)
+
+    # 封面：必须换成预制带文字版，不允许退回视频首帧或系统推荐封面
+    cover_ok = set_bili_cover(page, cov, tag, log_dir=log_dir)
+    if not cover_ok:
+        print(f"      预制封面：{cov}")
+        return _bail(res, page, log_dir, tag,
+                     "封面未生效（已中止投稿）", "封面未生效 → 中止本条，不点投稿")
+    print("   ✓ 封面已是预制带文字版，继续")
+
+    # 等投稿按钮解禁
+    print("   ⏳ 等待提交按钮解禁…")
+    ok = False
+    for _ in range(90):
+        el, txt = submit_btn(page)
+        if el is not None and el.get_attribute("disabled") is None:
+            ok = True
+            print(f"   ✓ 提交键「{txt}」已可用")
+            break
+        time.sleep(1)
+    if not ok:
+        res["stage"] = "提交按钮未就绪"; print("   ❌ 提交按钮未就绪")
+        dump_submit_candidates(page)
         try:
-            tip = page.inner_text("body", timeout=8000)
-            # B 站成功页文案是「**稿件投递成功**」，不是「投稿/提交成功」。
-            # 栽过：词表里没有「投递」二字，脚本判成「已提交未确认」，
-            # 实际稿件早就进管理后台了。URL 也不会变，只能靠文案判定。
-            if any(k in tip for k in BILI_SUCCESS_WORDS):
-                res.update(ok=True, stage="已发布")
-                print("   ✅ 投稿成功")
-                return res
+            page.screenshot(path=str(log_dir / f"coverfail-bili-{t['no']:02d}-submit.png"))
         except Exception:
             pass
-        if "upload" not in page.url and "frame" not in page.url:
-            res.update(ok=True, stage="已跳转")
-            print(f"   ✅ 已跳转 {page.url}")
-            return res
-        time.sleep(2)
+        return res
 
-    res["stage"] = "已提交未确认"
-    print(f"   ⚠️ 已提交但未确认，URL={page.url}")
-    return res
+    if not auto:
+        return base.dry_run_stop(
+            page, res, log_dir=log_dir,
+            shot_name=f"dryrun-bili-{t['no']:02d}.png",
+            blocking=lambda: blocking(page))
+
+    return _submit_and_confirm(page, res, t, log_dir=log_dir)
 
 
 def publish(tasks, *, profile_dir=None, log_dir, subs_dir=None, only=None,

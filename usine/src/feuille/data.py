@@ -21,12 +21,26 @@ mutate 它都会污染同进程内的其他读者。
     scene = scene_doc("colors", lessons_dir=Path(".../lessons"))
 """
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
+from .errors import FeuilleError
+
 # ROOT 由本文件位置向上定位仓库根（pyproject.toml 所在层），
 # 包内默认路径（personas/ languages/ lessons/）不依赖 cwd。
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file())
+# - `next(..., None)` 带缺省：安装在 site-packages 时向上找不到 pyproject.toml，
+#   不再在 import 期炸 StopIteration，改为下面的显式报错（说清怎么修）。
+# - 环境变量 FEUILLE_ROOT 允许覆盖（同 FEUILLE_BROWSER 的先例）：非源码树
+#   安装形态用它把数据根指回仓库。
+ROOT = Path(os.environ["FEUILLE_ROOT"]).resolve() \
+    if os.environ.get("FEUILLE_ROOT") \
+    else next((p for p in Path(__file__).resolve().parents
+               if (p / "pyproject.toml").is_file()), None)
+if ROOT is None:
+    raise FeuilleError(
+        "feuille 数据根定位失败：从包位置向上没有 pyproject.toml（site-packages 安装形态？）"
+        "——设置环境变量 FEUILLE_ROOT 指向 feuille 仓库根（含 personas/ languages/）")
 
 PERSONAS_DIR = ROOT / "personas"
 PERSONAS_PATH = PERSONAS_DIR / "personas.json"
@@ -132,5 +146,5 @@ def scene_doc(scene_id, lessons_dir=None):
     from .parse_scene import scene_paths      # 延迟导入：避免与解析器形成加载期环
     _, js = scene_paths(scene_id, lessons_dir)
     if not js.exists():
-        raise SystemExit(f"场景数据不存在：{js.name}（先跑 `uv run feuille scene parse --scene {scene_id}`）")
+        raise FeuilleError(f"场景数据不存在：{js.name}（先跑 `uv run feuille scene parse --scene {scene_id}`）")
     return _read_json(js)

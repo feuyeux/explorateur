@@ -56,6 +56,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .data import LESSONS_DIR
+from .errors import FeuilleError
 
 
 def _lessons(lessons_dir=None):
@@ -103,7 +104,7 @@ def _langs(languages_dir=None):
     from .data import language_manifests
     m = language_manifests(languages_dir)
     if not m:
-        raise SystemExit("语种目录为空：先建 languages/<locale>/manifest.json（见 languages/README.md）")
+        raise FeuilleError("语种目录为空：先建 languages/<locale>/manifest.json（见 languages/README.md）")
     return m
 
 
@@ -121,31 +122,31 @@ def parse_tokens(spec: str | None, token_file: str | None) -> list[dict]:
         items = [{"key": t["key"], "chip": str(t["chip"])} for t in raw]
     else:
         if not spec:
-            raise SystemExit("要教什么词？给 --tokens \"key:chip,key:chip\" 或 --tokens-file")
+            raise FeuilleError("要教什么词？给 --tokens \"key:chip,key:chip\" 或 --tokens-file")
         items = []
         for part in spec.split(","):
             part = part.strip()
             if not part:
                 continue
             if ":" not in part:
-                raise SystemExit(f"--tokens 项缺 chip：{part!r}（应写 key:#RRGGBB 或 key:\"文本\"）")
+                raise FeuilleError(f"--tokens 项缺 chip：{part!r}（应写 key:#RRGGBB 或 key:\"文本\"）")
             k, chip = part.split(":", 1)
             items.append({"key": k.strip(), "chip": chip.strip().strip('"')})
     if not items:
-        raise SystemExit("--tokens 是空的")
+        raise FeuilleError("--tokens 是空的")
     seen = set()
     for t in items:
         k = t["key"]
         if not k:
-            raise SystemExit(f"--tokens 里有空 key：{t!r}")
+            raise FeuilleError(f"--tokens 里有空 key：{t!r}")
         if k in seen:
-            raise SystemExit(f"--tokens 里有重复 key：{k}")
+            raise FeuilleError(f"--tokens 里有重复 key：{k}")
         seen.add(k)
         chip = t["chip"]
         if not chip:
-            raise SystemExit(f"token {k!r} 的 chip 为空")
+            raise FeuilleError(f"token {k!r} 的 chip 为空")
         if chip.startswith("#") and len(chip) != 7:
-            raise SystemExit(f"token {k!r} 的 chip {chip!r} 像色片但不是 #RRGGBB"
+            raise FeuilleError(f"token {k!r} 的 chip {chip!r} 像色片但不是 #RRGGBB"
                              "（字牌就写文本，别加 #）")
     return items
 
@@ -159,7 +160,7 @@ def default_spec(rounds: int, reg: dict) -> dict:
     """
     need = {"happy", "neutral", "encouraging"}
     if not need <= set(reg["moods"]):
-        raise SystemExit(f"MOOD_FACE 缺默认骨架要用的情绪：{sorted(need - set(reg['moods']))}")
+        raise FeuilleError(f"MOOD_FACE 缺默认骨架要用的情绪：{sorted(need - set(reg['moods']))}")
     return {
         "open.mood": "happy",
         "open.pose": "bounce-in both-hands",
@@ -184,10 +185,10 @@ def scaffold_brief(sid: str, title: str, tokens: list[dict], locales: list[str],
                    goal: str, structure: str, reg: dict) -> dict:
     """拼一份**能渲**的 brief：能现取的一律现取，留给人做主的只有 TODO。"""
     if style not in reg["device_styles"]:
-        raise SystemExit(f"--style {style!r} 不在 DEVICE_STYLES 注册表内。"
+        raise FeuilleError(f"--style {style!r} 不在 DEVICE_STYLES 注册表内。"
                          f"合法值：{', '.join(sorted(reg['device_styles']))}")
     if shape not in reg["shapes"]:
-        raise SystemExit(f"--shape {shape!r} 不合法。合法值：{', '.join(sorted(reg['shapes']))}")
+        raise FeuilleError(f"--shape {shape!r} 不合法。合法值：{', '.join(sorted(reg['shapes']))}")
     lines = FIXED_LINES + 2 * rounds
     return {
         "sceneId": sid,
@@ -253,23 +254,23 @@ def cmd_new(argv=None) -> int:
 
     sid = args.id.strip()
     if not sid or "/" in sid or sid.startswith("."):
-        raise SystemExit(f"课程 id 不合法：{sid!r}（纯目录名，不要路径分隔符或前导点）")
+        raise FeuilleError(f"课程 id 不合法：{sid!r}（纯目录名，不要路径分隔符或前导点）")
     out_dir = _lessons(args.lessons) / sid
     brief_path = out_dir / "brief.json"
     if brief_path.exists() and not args.force:
-        raise SystemExit(f"{brief_path} 已存在。加 --force 覆盖。")
+        raise FeuilleError(f"{brief_path} 已存在。加 --force 覆盖。")
 
     reg = _registries()
     langs = _langs(args.languages)
     locales = [c.strip() for c in args.locales.split(",") if c.strip()]
     unknown = [lc for lc in locales if lc not in langs]
     if unknown:
-        raise SystemExit(f"没有语种目录：{unknown}（先建 languages/<loc>/manifest.json）")
+        raise FeuilleError(f"没有语种目录：{unknown}（先建 languages/<loc>/manifest.json）")
     if args.rounds < 1:
-        raise SystemExit(f"--rounds 至少 1（实得 {args.rounds}）")
+        raise FeuilleError(f"--rounds 至少 1（实得 {args.rounds}）")
     bad_scenes = [s for s in (c.strip() for c in args.scenes.split(",")) if s and s not in reg["scenes"]]
     if bad_scenes:
-        raise SystemExit(f"--scenes 里有不存在的背景原语：{bad_scenes}\n"
+        raise FeuilleError(f"--scenes 里有不存在的背景原语：{bad_scenes}\n"
                          f"合法值见 `uv run python -c \"from feuille import scenes;"
                          f"print(sorted(scenes.SCENES))\"`")
 
@@ -393,25 +394,8 @@ class Report:
         return [c for c in self.checks if c.state == TODO]
 
 
-def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
-    """一节课的完成度。**每一层都以「下一条命令」收尾**——体检的价值不是骂人，是接手。
-
-    分层依据是 colors / numbers 两门课**实际产出过的文件**（而不是想象中的步骤）：
-    brief.json 只在 numbers 有（colors 早于草稿生成器），analysis/ 与 publish/ 只在
-    colors 有（numbers 只跑到成片就停了）——所以「必做」只有到成片那几层，
-    文档层与发布层是**可选层**，未做记 todo 而不是 fail。
-    """
-    # 项目根 = lessons 目录上推一层（build/ 产物、publish/ 台账、build/baseline/ 基线都在这层）。
-    root = _lessons(lessons_dir).parent
-    scene_out = root / "build" / "scene"
-    rep = Report(sid)
-    d = _lessons(lessons_dir) / sid
-    md_p, json_p = d / "scene.md", d / "scene.json"
-    brief_p = d / "brief.json"
-
-    def add(tier, name, state, detail="", nxt=""):
-        rep.checks.append(Check(tier, name, state, detail, nxt))
-
+def _check_tier_brief(add, sid, brief_p, md_p):
+    """① 创意：brief.json 体检（可选输入，理由见注释）。"""
     # ---- ① 创意 ----
     # brief.json 是**可选输入**，不是必填：colors 课早于草稿生成器，直接手写 scene.md，
     # 至今没补 brief。所以「没 brief」只在连 scene.md 都没有时才是欠账——
@@ -434,6 +418,9 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
                 f"{n_tok} token × {n_loc} 语种 · {brief.get('lines')} 行 · "
                 f"style={ {v.get('style') for v in (brief.get('devices') or {}).values()} }")
 
+
+def _check_tier_script(add, sid, md_p):
+    """② 剧本：scene.md 欠账与定稿标记体检。"""
     # ---- ② 剧本 ----
     if not md_p.exists():
         add("②剧本", "scene.md", TODO, "还没有剧本",
@@ -457,6 +444,9 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         else:
             add("②剧本", "已定稿", OK, "无 draft 标记，重跑草稿不会覆盖")
 
+
+def _check_tier_data(add, sid, md_p, json_p, lessons_dir, personas_dir):
+    """③ 数据：班底体检 → scene.json 解析/新鲜度 → schema 前置校验。返回解析出的 scene。"""
     # ---- ③ 数据 ----
     # 班底体检先于一切剧本检查：班底坏了（id 撞 / 配对破 / 字段缺），任何课都渲不出来
     # ——报在「还能便宜地修」的那一层（纪律 11）。判定本体是 library.persona 的纯函数
@@ -488,7 +478,7 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         try:
             fresh, _ = _parse(sid, lessons_dir)
             scene = fresh
-        except SystemExit as e:
+        except (FeuilleError, SystemExit) as e:
             add("③数据", "scene.json", FAIL, str(e))
         except Exception as e:                              # noqa: BLE001
             add("③数据", "scene.md 不合解析体例", FAIL, f"{type(e).__name__}: {e}")
@@ -512,7 +502,11 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
             else:
                 add("③数据", "schema 前置校验", OK,
                     f"{len(scene['locales'])} 语种 × {len(scene['tokenOrder'])} token")
+    return scene
 
+
+def _check_tier_outputs(add, sid, scene, scene_out):
+    """④ 成片：逐语种查语音 / 文字层 / mp4。返回本课语种清单 locs。"""
     # ---- ④ 成片 ----
     locs = list(scene["locales"]) if scene and scene.get("locales") else []
     if not locs:
@@ -532,7 +526,11 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
             f"{len(locs) - len(miss_mp4)}/{len(locs)} 支" if not miss_mp4
             else f"缺 {len(miss_mp4)} 支：{', '.join(miss_mp4[:6])}",
             "" if not miss_mp4 else f"uv run feuille scene render --scene {sid}（渲染线预留）")
+    return locs
 
+
+def _check_tier_docs(add, sid, locs, d, root):
+    """⑤ 文档（可选层：numbers 就没做，也完全不影响成片）。"""
     # ---- ⑤ 文档（可选层：numbers 就没做，也完全不影响成片）----
     if locs:
         ad = d / "analysis"
@@ -549,6 +547,9 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
             str(html.relative_to(root)) if html.exists() else "还没合并",
             "" if html.exists() else f"uv run feuille lesson build --scene {sid}（教学文档管线尚未接入）")
 
+
+def _check_tier_publish(add, sid, d, root):
+    """⑥ 发布（可选层）：平台文案与发布台账。"""
     # ---- ⑥ 发布（可选层）----
     # 平台文案文件名按 `feuille.manifest` 的 parse_copy 契约（`{plat}-copy.md`）从平台表
     # 派生：**显式**写了 `"copy": None` 的平台（知乎：一课一篇长文）不走逐支模板；
@@ -572,6 +573,9 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
         "" if ledger_n else "项目侧组装 plans 后经 feuille.manifest.build_manifest 建台账"
                            "（该契约吃闭包，有意不设 CLI 叶子）")
 
+
+def _check_tier_acceptance(add, sid, locs, scene_out, root):
+    """⑦ 验收：场景线验收状态位 + 逐帧像素基线查表。"""
     # ---- ⑦ 验收 ----
     # qa_scene（场景线逐项探针）尚未接入：它逐帧读 mp4，依赖场景渲染管线（⑥）。
     # 状态位判定（没成片 = todo / 有 mp4 无成片可验 = skip / 有成片 = 该跑没跑），
@@ -598,6 +602,36 @@ def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
     else:
         add("⑦验收", "逐帧像素基线", OK, f"{have}/{total} 支在基线内（{base_p}）")
 
+
+def _tier_report(sid: str, lessons_dir=None, personas_dir=None) -> Report:
+    """一节课的完成度。**每一层都以「下一条命令」收尾**——体检的价值不是骂人，是接手。
+
+    分层依据是 colors / numbers 两门课**实际产出过的文件**（而不是想象中的步骤）：
+    brief.json 只在 numbers 有（colors 早于草稿生成器），analysis/ 与 publish/ 只在
+    colors 有（numbers 只跑到成片就停了）——所以「必做」只有到成片那几层，
+    文档层与发布层是**可选层**，未做记 todo 而不是 fail。
+
+    每层拆成 _check_tier_* 模块级函数（逐层接线，检查文本逐字不变），按层序调用；
+    ③数据 返回解析出的 scene、④成片 返回 locs，供后续层消费。
+    """
+    # 项目根 = lessons 目录上推一层（build/ 产物、publish/ 台账、build/baseline/ 基线都在这层）。
+    root = _lessons(lessons_dir).parent
+    scene_out = root / "build" / "scene"
+    rep = Report(sid)
+    d = _lessons(lessons_dir) / sid
+    md_p, json_p = d / "scene.md", d / "scene.json"
+    brief_p = d / "brief.json"
+
+    def add(tier, name, state, detail="", nxt=""):
+        rep.checks.append(Check(tier, name, state, detail, nxt))
+
+    _check_tier_brief(add, sid, brief_p, md_p)
+    _check_tier_script(add, sid, md_p)
+    scene = _check_tier_data(add, sid, md_p, json_p, lessons_dir, personas_dir)
+    locs = _check_tier_outputs(add, sid, scene, scene_out)
+    _check_tier_docs(add, sid, locs, d, root)
+    _check_tier_publish(add, sid, d, root)
+    _check_tier_acceptance(add, sid, locs, scene_out, root)
     return rep
 
 

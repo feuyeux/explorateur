@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import platform as _pt
+from .errors import FeuilleError
 
 
 def line_spans(starts: Sequence[float], durs: Sequence[float], *, total: float,
@@ -71,7 +72,7 @@ def mux(master, voice, overlays, out, *, w: int, h: int, dur: float,
     """
     ffmpeg = _pt.ffmpeg()
     if ffmpeg is None:
-        raise SystemExit("缺 ffmpeg（resolver 未找到；缺件清单见 feuille.platform.missing()）")
+        raise FeuilleError("缺 ffmpeg（resolver 未找到；缺件清单见 feuille.platform.missing()）")
     graph, vlabel = filter_graph(w, h, len(overlays), dur, music_vol=music_vol,
                                  loudness_i=loudness_i, fps=fps)
     # 把每层 overlay 的 y / 时间窗填回图里（纯函数留槽，这里按序填值）

@@ -123,10 +123,13 @@ def wait_login(ctx, name: str, minutes: int = 6) -> bool:
     是 login_helper 原版逻辑；ctx 是持久 profile context，登录即落盘。）
     """
     site = SITES[name]
+    # 轮询前取好页面并复用——ctx.pages 为空时在循环里反复 new_page()
+    # 会一直开新标签（每轮一个），既慢又把浏览器开成一排窗口。
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
     limit = time.time() + minutes * 60
     tick = 0
     while time.time() < limit:
-        ok, desc = probe(ctx.pages[0] if ctx.pages else ctx.new_page(), name)
+        ok, desc = probe(page, name)
         if ok:
             print(f"   ✅ {site['label']} 登录成功 · {desc}")
             return True

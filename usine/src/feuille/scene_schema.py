@@ -206,9 +206,9 @@ def validate_scene(scene, personas=None, cards=None):
                 bad(f"共享剧本里这些行没标语种：{no_lang[:8]}——"
                     f"同台形态每行都要写 `**角色 · locale**`")
             for ln in lines:
-                lc = ln.get("lang")
-                if lc and lc not in locales:
-                    bad(f"#{ln.get('i')}: 台词行标的 locale {lc!r} 不在本课 locales 内")
+                unit_lang = ln.get("lang")  # 行内语标；不遮蔽外层循环变量 lc（渲染单元语种）
+                if unit_lang and unit_lang not in locales:
+                    bad(f"#{ln.get('i')}: 台词行标的 locale {unit_lang!r} 不在本课 locales 内")
             _check_lines(bad, lines, unit_key, allowed_speakers, reg, order)
             _check_notes(bad, lines, scene)
             continue

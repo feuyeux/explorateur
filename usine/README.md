@@ -53,7 +53,7 @@
 | `scenes` | 背景场景原语：65 注册场景 + prerender_bg + DrawScaled | character-rig + lesson-scene（doctor 合法值） |
 | `persona` | 人设契约校验器（`feuille persona validate` 直调） | character-rig + lesson-scene（doctor 班底体检） |
 
-### infrastructure —— 6 个（与业务无关的底座）
+### infrastructure —— 7 个（与业务无关的底座）
 
 | 模块 | 职责 |
 |---|---|
@@ -62,6 +62,7 @@
 | `framehash` | 逐帧像素基线（按平台分桶），验收的像素判据 |
 | `packaging` | 交付打包（zipfile，非 ASCII 文件名必须置 UTF-8 flag） |
 | `cli` | 统一入口路由表 `feuille <组> <命令>`——路由表是数据不是 if/elif |
+| `errors` | 库层显式错误通道 `FeuilleError`：库函数报错的唯一异常类型，CLI 统一接住（stderr + 退出码 1） |
 | `_run_verify_probes` | `feuille verify` 的 CLI 桥，转发到 scripts/verify_probes.py |
 
 ### skill 专属 —— 6 个（只被这一个 skill 用的业务实现）

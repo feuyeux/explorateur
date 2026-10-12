@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from .errors import FeuilleError
 
 SEC = re.compile(r"^### (\d+) · (\S+) `([^`]+)`(?: · (\d\d):(\d\d))?\s*$")
 
@@ -37,13 +38,13 @@ def replace(path, new_sections: dict[str, str]) -> None:
     secs = split_sections(text)
     for order, body in new_sections.items():
         if order not in secs:
-            raise SystemExit(f"{p.name} 找不到第 {order} 节")
+            raise FeuilleError(f"{p.name} 找不到第 {order} 节")
         secs[order] = body.rstrip("\n")
     orders = sorted(secs, key=int)
     lines = text.split("\n")
     head_end = next((m.start() for l in lines if (m := SEC.match(l))), None)
     if head_end is None:
-        raise SystemExit(f"{p.name} 里没有任何节头（体例被改了？）")
+        raise FeuilleError(f"{p.name} 里没有任何节头（体例被改了？）")
     header = text[:head_end].rstrip("\n")
     body = "\n\n".join(secs[o] for o in orders) + "\n"
     p.write_text(header + "\n\n" + body, "utf-8")

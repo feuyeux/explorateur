@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import sys
 
+from .errors import FeuilleError
+
 
 # (组, 命令) -> (模块, 函数)。模块 lazy import——CLI 启动零依赖。
 # **只登记真实存在的叶子**——虚指不存在的函数 = 路由表说谎（verify_cli 会抓）。
@@ -86,11 +88,25 @@ def main(argv=None) -> int:
             print(f"未知命令：feuille {grp} {cmd}")
             usage()
             return 2
+        # 走到这里说明 cmd 不是本组的真子命令，而是叶子的**第一个参数**
+        # （`feuille verify --only tts` 的 cmd="--only"）——路由层把它当命令
+        # 消化掉了，必须还给 argv，叶子拿到的才是真实残余参数。
+        # 配套 _run_verify_probes.run：显式 argv 优先，不再回头读 sys.argv。
+        if cmd:
+            argv.insert(0, cmd)
     module_name, func = target
     import importlib
-    mod = importlib.import_module(module_name)
-    fn = getattr(mod, func, None)
-    if fn is None:
-        print(f"{module_name} 里没有 {func}——叶子不可达（路由表与模块失配，这是 bug）")
-        return 2
-    return fn(argv) if argv else fn()
+    # FeuilleError = 库层显式失败的唯一出口（errors.py）：消息打印到 stderr、
+    # 退出码 1——与此前库层 `raise SystemExit(msg)` 由解释器打印的口径一致，
+    # CLI 可见的输出与退出码语义不变。import 也包进来：data.py 在定位失败时
+    # 于 import 期抛 FeuilleError，这里给出人话而不是 traceback。
+    try:
+        mod = importlib.import_module(module_name)
+        fn = getattr(mod, func, None)
+        if fn is None:
+            print(f"{module_name} 里没有 {func}——叶子不可达（路由表与模块失配，这是 bug）")
+            return 2
+        return fn(argv) if argv else fn()
+    except FeuilleError as e:
+        print(e, file=sys.stderr)
+        return 1

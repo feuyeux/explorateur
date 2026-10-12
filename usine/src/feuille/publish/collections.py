@@ -21,6 +21,8 @@ import json
 import time
 from pathlib import Path
 
+from . import base
+
 
 MANAGE = "https://creator.douyin.com/creator-micro/content/manage?tab=collections"
 
@@ -298,10 +300,24 @@ def fix_collection(page, *, title, want, search_kw, out_dir) -> dict:
 
     # ---- 关闭面板 ----
     print("▶ 关闭作品面板")
-    try:
-        page.locator("[class*='semi-modal-close'], [class*='icon-close']").first.click(timeout=3000)
-    except Exception:
-        page.mouse.click(700, 300)
+    # 绝不盲点绝对坐标（换视口/缩放/改版后点中的目标不可预测——栽过）。
+    # 一律元素定位：关闭钮 → ESC → 还在就如实报出来人工看。
+    closed = False
+    for sel in ("[class*='semi-modal-close']", "[class*='icon-close']"):
+        try:
+            loc = page.locator(sel).first
+            if loc.is_visible(timeout=800):
+                loc.click(timeout=3000)
+                closed = True
+                break
+        except Exception:
+            continue
+    time.sleep(1)
+    if not closed:
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
     time.sleep(2)
     # 若面板还在，按 ESC
     if page.evaluate(JS_PLUS):
@@ -324,13 +340,17 @@ def fix_collection(page, *, title, want, search_kw, out_dir) -> dict:
     time.sleep(7)
     shot(page, out_dir, "fix-05-saved.png")
     print(f"  URL {page.url}")
-    b2 = page.inner_text("body", timeout=10000)
-    back = title in b2
+    # 判据只信可见文本（inner_text('body') 会被隐藏层文案骗，login.probe 同源教训）
+    back = base.visible_text_hit(page, (title,))
     print(f"  返回列表页: {back}")
     log.append({"stage": "saved", "url": page.url, "back_to_list": back})
-    for kw in ("保存成功", "操作成功", "创建成功"):
-        if kw in b2:
-            print(f"  成功提示: {kw}")
+    try:
+        b2 = page.inner_text("body", timeout=10000)
+        for kw in ("保存成功", "操作成功", "创建成功"):
+            if kw in b2:
+                print(f"  成功提示: {kw}")
+    except Exception:
+        pass
 
     (out_dir / "fix-collection.json").write_text(
         json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -382,12 +402,22 @@ def create_collection(page, *, title, desc, cover, want, search_kw, out_dir) -> 
     shot(page, out_dir, "create-03-added.png")
     print(f"\n  共加入 {len(added)} 支（失败 {len(fails)}）")
 
-    # 关闭抽屉：ESC + 点抽屉外空白
+    # 关闭抽屉：ESC → 关闭钮 → 还开着就如实报出来（不盲点空白坐标）
     try:
         page.keyboard.press("Escape"); time.sleep(1.5)
     except Exception:
         pass
-    page.mouse.click(700, 500); time.sleep(2)
+    for sel in ("[class*='semi-modal-close']", "[class*='icon-close']",
+                "div[role='dialog'] [class*='close']"):
+        try:
+            loc = page.locator(sel).first
+            if loc.is_visible(timeout=600):
+                loc.click(timeout=2000); break
+        except Exception:
+            continue
+    if page.evaluate(JS_PLUS):
+        print("  ⚠ 作品面板还开着（关闭钮与 ESC 都没关上），继续前请人工看一眼")
+    time.sleep(2)
     shot(page, out_dir, "create-04-before-create.png")
 
     body = page.inner_text("body", timeout=8000)
@@ -403,7 +433,7 @@ def create_collection(page, *, title, desc, cover, want, search_kw, out_dir) -> 
     time.sleep(6)
     shot(page, out_dir, "create-05-created.png")
     print(f"  URL {page.url}")
-    body2 = page.inner_text("body", timeout=8000)
-    ok = title in body2
-    print(f"  页面含新合集名：{ok}")
+    # 判据只信可见文本（同 fix_collection 的 back 判据口径）
+    ok = base.visible_text_hit(page, (title,))
+    print(f"  页面含新合集名（可见）：{ok}")
     return ok

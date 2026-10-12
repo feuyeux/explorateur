@@ -45,8 +45,17 @@ def parse_signed(v) -> int:
 
     口径：strip 后去尾部单位再转数。曾因在前导 `+` 上断循环把人设基线
     **静默读成 0**（12 语种全跑在项目偏移上，结果碰巧可用——那是运气不是设计），故以此为戒。
+    单位只按**整段后缀**剥（"%" / "Hz"，可叠如 "%Hz"）——不能 rstrip 字符集：
+    rstrip("%Hz") 会把 "12H" / "12z" 这类残缺单位的尾字符也剥掉，静默读成 12。
     """
-    s = str(v).strip().rstrip("%Hz")
+    s = str(v).strip()
+    while True:
+        if s.endswith("%"):
+            s = s[:-1]
+        elif s.endswith("Hz"):
+            s = s[:-2]
+        else:
+            break
     try:
         return int(float(s))
     except ValueError:

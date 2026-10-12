@@ -26,6 +26,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from feuille import audit, packaging, section_patch as sp   # noqa: E402
+from feuille.errors import FeuilleError   # noqa: E402
 
 HERE = ROOT / "examples" / "yiyezhiqiu"
 CAST = json.loads((HERE / "data" / "poem-cast.json").read_text("utf-8"))
@@ -105,7 +106,7 @@ def check():
     try:
         sp.replace(copy, {"99": "…"})
         rows.append((False, "找不到节必须报错——没报"))
-    except SystemExit:
+    except FeuilleError:
         rows.append((True, "找不到节 → 当场报错"))
 
     # ---- 3. 打包：非 ASCII 文件名置 UTF-8 flag ----

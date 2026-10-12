@@ -26,6 +26,7 @@ import subprocess
 from pathlib import Path
 
 from . import platform as _pt
+from .errors import FeuilleError
 
 HTML_HEAD = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 html,body{{margin:0;padding:0;width:{w}px;height:{h}px;overflow:hidden;background:{bg};
@@ -47,7 +48,7 @@ def page(w: int, h: int, body: str, *, bg: str = "#FFFFFF", font: str = "sans-se
 def _require_browser():
     b = _pt.browser()
     if b is None:
-        raise SystemExit("缺 Chromium 内核浏览器（渲字必需；resolver 未找到，"
+        raise FeuilleError("缺 Chromium 内核浏览器（渲字必需；resolver 未找到，"
                          "缺件清单见 feuille.platform.missing()）")
     return b[1]
 

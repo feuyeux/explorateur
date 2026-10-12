@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .manifest import PLATFORMS
+from .errors import FeuilleError
 
 LEDGER_NAME = "ledger.json"
 VERSION = 1
@@ -52,10 +53,10 @@ def ledger_path(root) -> Path:
 def load(root) -> dict:
     p = ledger_path(root)
     if not p.exists():
-        raise SystemExit(f"台账不存在：{p}（先构建发布台账）")
+        raise FeuilleError(f"台账不存在：{p}（先构建发布台账）")
     doc = json.loads(p.read_text("utf-8"))
     if doc.get("version") != VERSION:
-        raise SystemExit(f"台账 schema 版本 {doc.get('version')} != {VERSION}，请重建"
+        raise FeuilleError(f"台账 schema 版本 {doc.get('version')} != {VERSION}，请重建"
                          f"（字段是 schema 的一部分，旧文件不作猜读）")
     return doc
 
@@ -80,7 +81,7 @@ def merge_results(doc: dict, results: dict) -> int:
     for key, patch in (results.get("results") or {}).items():
         e = doc["entries"].get(key)
         if e is None:
-            raise SystemExit(f"results 里的 {key!r} 在台账里没有对应记录——"
+            raise FeuilleError(f"results 里的 {key!r} 在台账里没有对应记录——"
                              f"这条发布对应的源被删了或改名了（悬空引用必须先修）")
         for field in _RESULT_FIELDS:
             if field in patch:

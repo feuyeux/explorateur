@@ -28,8 +28,10 @@
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+from .errors import FeuilleError
 
 # ---------------------------------------------------------------- 平台约束
 # 写成数据不是 if/else：加平台 = 加一行。B 站 80 是手测口径。
@@ -97,7 +99,7 @@ def parse_copy(path) -> list[dict]:
     """
     path = Path(path)
     if not path.exists():
-        raise SystemExit(f"文案事实源不存在：{path}")
+        raise FeuilleError(f"文案事实源不存在：{path}")
     lines = path.read_text("utf-8").split("\n")
     out: list[dict] = []
     i = 0
@@ -131,7 +133,7 @@ def parse_copy(path) -> list[dict]:
         topics_src = chunks.get("话题") or cur["body"] or ""
         cur["topics"] = _TOPICS.findall(topics_src)
         if cur["title"] is None or cur["body"] is None:
-            raise SystemExit(f"{path.name} 第 {order} 支缺标题或正文块（体例被改了？）")
+            raise FeuilleError(f"{path.name} 第 {order} 支缺标题或正文块（体例被改了？）")
         # 派生属性（纪律 7：一律现算）
         cur["title_chars"] = len(cur["title"])
         cur["body_chars"] = len(cur["body"])
@@ -232,6 +234,6 @@ def build_manifest(plans: dict, out_path=None) -> tuple[dict, list[str]]:
     if out_path is not None:
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(__import__("json").dumps(
+        out_path.write_text(json.dumps(
             manifest, ensure_ascii=False, indent=1), "utf-8")
     return manifest, problems

@@ -81,8 +81,12 @@ def launch(profile_dir_, *, headless=False, viewport=None, args=None):
             ["--start-maximized", "--disable-blink-features=AutomationControlled"],
         )
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        yield ctx, page
-        ctx.close()
+        try:
+            yield ctx, page
+        finally:
+            # 任何路径都要关 context——关闭才把 cookie 写进 profile。
+            # with 体抛异常时跳过 close = 登录态没落盘（下次发布全部掉登录）。
+            ctx.close()
 
 
 # ---------------------------------------------------------------- 登录墙
@@ -155,9 +159,98 @@ def find_publish_button(page, texts: tuple[str, ...] = ("发布",)):
     return None
 
 
+# ---------------------------------------------------------------- 填词（三家共用）
+def select_all_clear(page) -> None:
+    """全选清空。必须用 ControlOrMeta+A（Playwright 可移植组合键）。
+
+    栽过的坑：硬编码 Meta+A 在 Linux 上是 Super+A，Chromium 根本不响应，
+    「清空」静默失败——上一条投稿的残留标题/正文原样留在框里，接着
+    keyboard.type 会把新旧内容拼在一起发到真实账号。
+    """
+    page.keyboard.press("ControlOrMeta+A")
+    page.keyboard.press("Backspace")
+
+
+def fill_title(page, box, title: str, *, limit: int) -> bool:
+    """标题录入。失败返回 False——调用方按纪律 19 中止本条，不带着空标题发布。"""
+    snippet = title[:limit]
+    try:
+        box.click()
+        box.fill(snippet)
+        print(f"   ✓ 标题已录入（{len(snippet)}/{limit} 字）")
+        return True
+    except Exception as e:
+        print(f"   ❌ 标题录入失败：{e}")
+        return False
+
+
+def fill_body(page, box, body: str, *, tags: tuple = (), pause: float = 0.3) -> bool:
+    """正文录入（可选逐个补 #话题）。
+
+    contenteditable 编辑器必须走键盘输入（fill() 不触发 contenteditable 的
+    输入事件，栽过）。失败返回 False——正文是发布内容的一部分，
+    录不进去 = 「做了一半」，按纪律 19 中止而不是照发。
+    """
+    try:
+        box.click()
+        select_all_clear(page)
+        page.keyboard.type(body)
+        if tags:
+            page.keyboard.type("\n\n")
+            for topic in tags:
+                page.keyboard.type(topic if topic.startswith("#") else f"#{topic}")
+                page.keyboard.type(" ")
+                time.sleep(pause)
+        print(f"   ✓ 正文已录入（{len(tags)} 个话题）" if tags else "   ✓ 正文已录入")
+        return True
+    except Exception as e:
+        print(f"   ❌ 正文录入失败：{e}")
+        return False
+
+
+def dry_run_stop(page, res: dict, *, log_dir, shot_name: str, blocking) -> dict:
+    """dry-run 停手：截图留证 + 报残留弹窗，绝不点发布。三家共用同一口径。"""
+    try:
+        page.screenshot(path=str(Path(log_dir) / shot_name))
+    except Exception:
+        pass
+    left = blocking()
+    res.update(ok=not left,
+               stage="已填词(dry-run，未发布)" if not left else f"残留弹窗 {left}")
+    print(f"   🧪 dry-run：未发布。截图 {shot_name}")
+    if left:
+        print(f"   ❌ 仍有弹窗挡着：{left}")
+    return res
+
+
 # ---------------------------------------------------------------- 成功判定
-def wait_success(page, words, timeout_s=120, poll_s=2) -> bool:
-    """成功词表判定：轮询 body 可见文本，命中任一**全词**即 True（只读，不点任何东西）。
+def _visible_text_hit(page, words) -> bool:
+    """可见文本全词命中（内部实现；外部一律用 visible_text_hit）。"""
+    for k in words:
+        try:
+            loc = page.get_by_text(k, exact=False)
+            if loc.count() and loc.first.is_visible():
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def visible_text_hit(page, words) -> bool:
+    """可见文本全词命中——与 login_wall 同口径（只信可见文本），判成功的公共判据。
+
+    栽过的坑：inner_text('body') 会把 display:none 的底层文案也算进来
+    （login.py 的 probe 在这里翻过车）。判**成功**必须从严：
+    隐藏层的「成功」文案命中 = 谎报成功，比报「未确认」糟糕得多。
+    """
+    return _visible_text_hit(page, words)
+
+
+def wait_success_stage(page, words, timeout_s=120, poll_s=2, *,
+                       url_gone: tuple = ()) -> tuple[bool, str]:
+    """成功判定（带阶段名）。命中全词 → (True, "已发布")；
+    URL 离开投稿页（url_gone 里的子串全都不在了）→ (True, "已跳转")；
+    超时 → (False, "已提交未确认")。
 
     B 站成功页文案是「稿件投递成功」全词——v1 词表缺「投递」二字，11 条实际
     已进后台的稿件全被判成「已提交未确认」（见 bilibili.BILI_SUCCESS_WORDS 的坑注）。
@@ -166,14 +259,21 @@ def wait_success(page, words, timeout_s=120, poll_s=2) -> bool:
     """
     deadline = time.time() + timeout_s
     while time.time() < deadline:
-        try:
-            tip = page.inner_text("body", timeout=8000)
-            if any(k in tip for k in words):
-                return True
-        except Exception:
-            pass
+        if _visible_text_hit(page, words):
+            return True, "已发布"
+        if url_gone:
+            try:
+                if not any(u in page.url for u in url_gone):
+                    return True, "已跳转"
+            except Exception:
+                pass
         time.sleep(poll_s)
-    return False
+    return False, "已提交未确认"
+
+
+def wait_success(page, words, timeout_s=120, poll_s=2) -> bool:
+    """成功词表判定（布尔版；阶段名版见 wait_success_stage）。只读，不点任何东西。"""
+    return wait_success_stage(page, words, timeout_s, poll_s)[0]
 
 
 # ---------------------------------------------------------------- 风控
@@ -182,15 +282,11 @@ RISK_WORDS = ("Scan to verify", "发布失败，请稍后重试", "操作过于�
 
 
 def risk_hit(page, kws: tuple[str, ...] = RISK_WORDS) -> bool:
-    """检测平台风控弹窗/提示。
+    """检测平台风控弹窗/提示（可见文本口径，同 login_wall）。
 
     撞上风控时**不能**自动重试——只会越撞越死。必须停下来让用户本人扫码。
     """
-    try:
-        txt = page.inner_text("body", timeout=6000)
-    except Exception:
-        return False
-    return any(k in txt for k in kws)
+    return _visible_text_hit(page, kws)
 
 
 def modal_mask(page, sel: str = ".d-modal-mask, .d-modal-wrapper"):
@@ -266,7 +362,10 @@ def run_tasks(page, tasks, publish_one, *, upload_url, log_dir,
     results = []
     n = len(tasks)
     for idx, t in enumerate(tasks):
-        auto = not (dry_run and t["no"] == dry_run)
+        # --dry-run N：前 N 条干跑（与 manifest_argparser 的帮助文本一致）。
+        # 栽过的坑：v1 写成 t["no"] == dry_run——只有第 N 号干跑、其余照常真发，
+        # 操作者以为在演练，实际剩下全部发到真实账号。
+        auto = not (dry_run and t["no"] <= dry_run)
         try:
             try:
                 page.screenshot(path=str(log_dir / f"pre-{t['no']:02d}.png"))
@@ -343,7 +442,10 @@ def manifest_argparser(prog: str) -> argparse.ArgumentParser:
                     help="每条的过程截图 / result JSON 落盘目录")
     ap.add_argument("--only", default=None, help="只发指定序号（如 1,7；续跑用）")
     ap.add_argument("--frm", type=int, default=None, help="从指定序号起发")
-    ap.add_argument("--dry-run", type=int, default=0, help="只走前 N 条的干跑")
+    ap.add_argument(
+        "--dry-run", type=int, default=0,
+        help="只走前 N 条的干跑（N 按任务号 1..N 计而非筛选后位置：与 --only/--frm "
+             "组合时若筛选出的任务号均 > N，则不会干跑任何一条，全部真实发布）")
     ap.add_argument("--headless", action="store_true")
     return ap
 

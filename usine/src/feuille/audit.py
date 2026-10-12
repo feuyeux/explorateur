@@ -86,7 +86,7 @@ def ar_syllables(text: str) -> list[tuple[str, str]]:
             longv = True
             step = 2
         else:
-            longv = True
+            longv = True   # 非冗余分支：进入时 longv 初值是 False；辅音后无元音标记 → 视作闭音节记长
         out.append(("-" if longv else "⏑", syl))
         i += step
     return out
@@ -133,9 +133,13 @@ def hebrew_syllables(text: str) -> list[str]:
 # ---------------------------------------------------------------- 其余计数器
 
 def count_zh_chars(lines: list[str]) -> list[int]:
-    """汉字按字数；七言律句是一整句里两半，逗号才是断句处。"""
+    """汉字按字数；七言律句是一整句里两半，逗号才是断句处。
+
+    断句同时认全角 "，" 与半角 ","（写稿两形都合法）——分句前把半角归一成全角；
+    句读 "。；、,.!?" 一律不计入字数。
+    """
     return [len(re.sub(r"[，。；、,.!?]", "", h))
-            for ln in lines for h in ln.split("，") if h]
+            for ln in lines for h in ln.replace(",", "，").split("，") if h]
 
 
 def count_ru_vowels(lines: list[str]) -> list[int]:

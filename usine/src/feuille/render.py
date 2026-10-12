@@ -20,6 +20,7 @@ encode_frames 只管视频帧；音频合成与终混在 feuille.audio / feuille
 import subprocess
 
 from . import platform as _pt
+from .errors import FeuilleError
 
 
 def encode_frames(frame_iter, out_mp4, *, w, h, fps, dur, crf=18, preset="slow") -> int:
@@ -30,7 +31,7 @@ def encode_frames(frame_iter, out_mp4, *, w, h, fps, dur, crf=18, preset="slow")
     """
     ffmpeg = _pt.ffmpeg()
     if ffmpeg is None:
-        raise SystemExit("缺 ffmpeg（resolver 未找到；缺件清单见 feuille.platform.missing()）")
+        raise FeuilleError("缺 ffmpeg（resolver 未找到；缺件清单见 feuille.platform.missing()）")
     # 禁用 -shortest：EOF 冲刷时按已入队包随时机丢视频帧（实测高并发批量下
     # 丢帧、单渲不丢 → framehash 幂等必挂）。纯视频管道，-t dur 是唯一时长开关。
     cmd = [ffmpeg, "-y",

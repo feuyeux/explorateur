@@ -18,12 +18,13 @@ import subprocess
 from typing import Sequence
 
 from . import platform as _pt
+from .errors import FeuilleError
 
 
 def _require(tool: str | None, what: str) -> str:
     """resolver 拿不到就显式报缺，绝不退化「用系统默认」。"""
     if tool is None:
-        raise SystemExit(f"缺 {what}（resolver 未找到；缺件清单见 feuille.platform.missing()）")
+        raise FeuilleError(f"缺 {what}（resolver 未找到；缺件清单见 feuille.platform.missing()）")
     return tool
 
 

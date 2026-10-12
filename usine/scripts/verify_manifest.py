@@ -24,6 +24,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from feuille import manifest as mf          # noqa: E402
+from feuille.errors import FeuilleError   # noqa: E402
 
 PUB = ROOT / "examples" / "yiyezhiqiu" / "publish"
 
@@ -89,7 +90,7 @@ def check():
     try:
         mf.parse_copy(broken)
         rows.append((False, "缺标题块必须拒解析——没拒"))
-    except SystemExit as e:
+    except FeuilleError as e:
         rows.append((True, f"缺标题块 → 拒解析（{str(e)[:30]}…）"))
 
     # ---- 3. 平台检查：超限/无话题/钩子/条数 ----

@@ -25,6 +25,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from feuille import metrics as mt          # noqa: E402
+from feuille.errors import FeuilleError   # noqa: E402
 
 
 def entry(key, **kw):
@@ -67,7 +68,7 @@ def check():
     try:
         mt.merge_results(good, {"results": {"不存在/zh-CN/douyin": {"published": True}}})
         rows.append((False, "悬空引用必须报错——没报"))
-    except SystemExit:
+    except FeuilleError:
         rows.append((True, "悬空引用（键不在台账）→ 当场报错，不静默挂错行"))
 
     # ---- 2. 两级凭据分开判 ----
@@ -157,7 +158,7 @@ def check():
     try:
         mt.load(d)
         rows.append((False, "版本不匹配必须拒读——没拒"))
-    except SystemExit:
+    except FeuilleError:
         rows.append((True, "台账 schema 版本不匹配 → 拒读（旧文件不作猜读）"))
     return rows
 

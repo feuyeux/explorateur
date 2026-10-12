@@ -24,6 +24,7 @@ from collections import Counter
 from pathlib import Path
 
 from . import textlayer
+from .errors import FeuilleError
 
 # 平台规格（唯一事实源：尺寸 / 底色 / 展示裁切安全区）。
 # safe = (x0, y0, x1, y1)：平台信息流实际展示的区域；None = 上传即展示、无裁切。
@@ -51,7 +52,7 @@ def spec(key: str) -> dict:
     try:
         return SPECS[key]
     except KeyError:
-        raise SystemExit(f"未知封面规格 {key!r}（合法：{sorted(SPECS)}）") from None
+        raise FeuilleError(f"未知封面规格 {key!r}（合法：{sorted(SPECS)}）") from None
 
 
 def crop_backdrop(src, box, out, quality: int = 92) -> Path:

@@ -173,28 +173,25 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
         print("   ❌ 编辑器未就绪")
         return res
 
-    # 标题
-    try:
-        title_box.click()
-        title_box.fill(t["title"][:30])
-        print(f"   ✓ 标题已录入（{len(t['title'][:30])} 字）")
-    except Exception as e:
-        print(f"   ⚠️ 标题：{e}")
+    # 标题（纪律 19：录不进标题 = 带病发布，中止本条）
+    if not base.fill_title(page, title_box, t["title"], limit=30):
+        res["stage"] = "标题未录入（已中止发布）"
+        print("   🛑 标题没录进去 → 中止本条，不点发布")
+        return res
 
-    # 正文 + 话题胶囊
+    # 正文 + 话题胶囊（录不进 = 带病发布，纪律 19）
     try:
-        desc_box.click()
-        page.keyboard.press("Meta+A")
-        page.keyboard.press("Backspace")
-        page.keyboard.type(t["body"] + "\n\n")
-        time.sleep(0.3)
-        for tag in t["tags"]:
-            page.keyboard.type(tag if tag.startswith("#") else f"#{tag}")
-            page.keyboard.type(" ")
-            time.sleep(0.35)
-        print(f"   ✓ 正文与 {len(t['tags'])} 个话题已录入")
-    except Exception as e:
-        print(f"   ⚠️ 正文：{e}")
+        desc_ready = desc_box.is_visible(timeout=3000)
+    except Exception:
+        desc_ready = False
+    if not desc_ready:
+        res["stage"] = "正文框未出现（已中止发布）"
+        print("   🛑 没找到正文框 → 中止本条，不点发布")
+        return res
+    if not base.fill_body(page, desc_box, t["body"], tags=t["tags"], pause=0.35):
+        res["stage"] = "正文未录入（已中止发布）"
+        print("   🛑 正文没录进去 → 中止本条，不点发布")
+        return res
 
     dismiss_cover_modal(page)
 
@@ -272,16 +269,10 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
             time.sleep(0.6)
         except Exception:
             pass
-        left = blocking_modals(page)
-        shot = log_dir / f"dryrun-douyin-{t['no']:02d}.png"
-        page.screenshot(path=str(shot))
-        res.update(ok=not left, stage="已填词(dry-run，未发布)")
-        print("   🧪 dry-run：已填词并停在发布前，未点击发布")
-        if left:
-            res["stage"] = f"dry-run 残留弹窗 {left}"
-            print(f"   ❌ 仍有弹窗挡着：{left}")
-        print(f"   📷 截图 {shot}")
-        return res
+        return base.dry_run_stop(
+            page, res, log_dir=log_dir,
+            shot_name=f"dryrun-douyin-{t['no']:02d}.png",
+            blocking=lambda: blocking_modals(page))
 
     # 点发布
     try:
@@ -490,7 +481,7 @@ def fix_one(page, task: dict, *, search_kw: str, log_dir) -> bool:
     for i in range(ne):
         try:
             box = eds.nth(i).locator("xpath=../..")
-            rows.append((i, (box.inner_text() or "").replace("\\n", " ")))
+            rows.append((i, (box.inner_text() or "").replace("\n", " ")))
         except Exception:
             rows.append((i, ""))
     for i, t in rows:

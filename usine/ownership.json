@@ -4,7 +4,7 @@
   "_tiers": {
     "skills": "专属实现，只被这一个 skill 用",
     "library": "被 ≥2 个 skill 用的业务实现，或跨产线共用的判定源",
-    "infrastructure": "与业务无关的底座：平台解析、缓存账本、打包、CLI 路由、门禁桥"
+    "infrastructure": "与业务无关的底座：平台解析、缓存账本、打包、CLI 路由、门禁桥、错误通道"
   },
 
   "library": {
@@ -52,6 +52,7 @@
     "framehash": "成片逐帧像素基线，验收的像素判据",
     "packaging": "交付打包（zipfile，非 ASCII 文件名必须置 UTF-8 flag）",
     "cli": "统一入口路由表 `feuille <组> <命令>`，只做路由不做业务",
+    "errors": "库层显式错误通道 FeuilleError：库函数显式报错的唯一异常类型，cli 统一接住（stderr + 退出码 1）",
     "_run_verify_probes": "CLI 桥，转发到 scripts/verify_probes.py"
   },
 

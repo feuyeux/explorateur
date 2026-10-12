@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import inspect                                       # noqa: E402
 
 from feuille import framehash as fh, platform as pt  # noqa: E402
+from feuille.errors import FeuilleError   # noqa: E402
 
 
 def make_video(path, color, seconds=0.5):
@@ -145,7 +146,7 @@ def check():
         try:
             fh._discover_videos(bad)
             ok_bad = False
-        except SystemExit:
+        except FeuilleError:
             ok_bad = True
         rows.append((ok_bad, f"发现层：{label} → 显式报错（不静默产空基线，坑㉟）"))
     return rows

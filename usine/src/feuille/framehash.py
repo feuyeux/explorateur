@@ -27,6 +27,7 @@ import subprocess
 from pathlib import Path
 
 from . import platform as _pt
+from .errors import FeuilleError
 
 FPS_DEFAULT = 30.0
 
@@ -35,7 +36,7 @@ def framehash(path) -> str:
     """解码后全部帧的像素 MD5。失败即抛——静默跳过等于把「渲坏了」当「不在基线里」。"""
     ffmpeg = _pt.ffmpeg()
     if ffmpeg is None:
-        raise SystemExit("缺 ffmpeg（resolver 未找到）")
+        raise FeuilleError("缺 ffmpeg（resolver 未找到）")
     r = subprocess.run(
         [ffmpeg, "-v", "error", "-i", str(path), "-map", "0:v",
          "-f", "hash", "-hash", "md5", "-"],
@@ -53,7 +54,7 @@ def per_frame(path) -> list[str]:
     回答不了「哪一帧开始变」——而那才是定位回归唯一有用的信息。"""
     ffmpeg = _pt.ffmpeg()
     if ffmpeg is None:
-        raise SystemExit("缺 ffmpeg（resolver 未找到）")
+        raise FeuilleError("缺 ffmpeg（resolver 未找到）")
     r = subprocess.run(
         [ffmpeg, "-v", "error", "-i", str(path), "-map", "0:v",
          "-f", "framehash", "-hash", "md5", "-"],
@@ -193,7 +194,7 @@ def compare(videos, baseline_file, *, subset: bool = False,
     """当前成片集 vs 基线。返回 (分类结果, 退出码 0/1)。定位模式另抽证据图与差异热力图。"""
     videos = [Path(v) for v in videos]
     if not videos:
-        raise SystemExit("没找到成片：videos 为空")
+        raise FeuilleError("没找到成片：videos 为空")
     cur = {p.name: framehash(p) for p in videos}
     base = read_baseline(baseline_file)
     r = classify(base, cur, subset)
@@ -244,10 +245,10 @@ def _discover_videos(root) -> list[Path]:
     """
     build = Path(root) / "build"
     if not build.is_dir():
-        raise SystemExit(f"没有 build/ 目录（root={root}）——基线登记的是产物，先有产物")
+        raise FeuilleError(f"没有 build/ 目录（root={root}）——基线登记的是产物，先有产物")
     vids = sorted(build.rglob("*.mp4"))
     if not vids:
-        raise SystemExit(f"build/ 下没有 mp4（root={root}）——没找到成片，videos 为空")
+        raise FeuilleError(f"build/ 下没有 mp4（root={root}）——没找到成片，videos 为空")
     return vids
 
 
@@ -269,7 +270,7 @@ def main_save(argv=None) -> int:
     mismatch = [n for n, h in cur.items() if back.get(n) != h]
     extra = [n for n in back if n not in cur]
     if mismatch or extra:
-        raise SystemExit(f"基线回读自证失败（写 {len(cur)} 读 {len(back)}）："
+        raise FeuilleError(f"基线回读自证失败（写 {len(cur)} 读 {len(back)}）："
                          f"不符 {mismatch[:3]} 多出 {extra[:3]} → {out}")
     print(f"基线已采：{len(cur)} 支 → {out}")
     print(f"分桶：{bucket()}（基线按平台分桶，跨平台不可比）")

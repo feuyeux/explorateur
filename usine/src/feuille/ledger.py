@@ -90,11 +90,15 @@ def toolchain() -> dict:
             browser_id = None
     else:
         browser_id = None
+    # ffmpeg 版本探针走 platform resolver（与 render / compose 同一条事实源），
+    # 不再裸 `["ffmpeg", "-version"]` 摸 PATH——两套探法会摸到两个不同的 ffmpeg，
+    # 指纹跟着漂。resolver 未找到 = None = 诚实记缺（读不到即判过期），不编版本号。
+    ff = pt.ffmpeg()
     return {
         "python": platform.python_version(),
         "pillow": pillow,
         "browser": browser_id,
-        "ffmpeg": _run_first_line(["ffmpeg", "-version"]),
+        "ffmpeg": _run_first_line([ff, "-version"]) if ff else None,
     }
 
 

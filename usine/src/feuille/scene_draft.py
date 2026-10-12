@@ -40,6 +40,7 @@ import sys
 from pathlib import Path
 
 from .parse_scene import _norm_pose
+from .errors import FeuilleError
 
 TODO = "TODO"
 
@@ -53,7 +54,7 @@ def _langs(languages_dir=None):
     from .data import language_manifests
     m = language_manifests(languages_dir)
     if not m:
-        raise SystemExit("语种目录为空：先建 languages/<locale>/manifest.json（见 languages/README.md）")
+        raise FeuilleError("语种目录为空：先建 languages/<locale>/manifest.json（见 languages/README.md）")
     return m
 
 
@@ -84,7 +85,7 @@ def cast_for(locale, personas, cards):
         ids = [pid for pid, p in personas.items()
                if p.get("locale") == locale and (cards.get("cast") or {}).get(pid) == role]
         if len(ids) != 1:
-            raise SystemExit(f"{locale} {role} 角选派异常：{ids or '班底里没有该 locale 的人'}"
+            raise FeuilleError(f"{locale} {role} 角选派异常：{ids or '班底里没有该 locale 的人'}"
                              f"——先补 personas.json / intro-cards.json")
         out[role] = personas[ids[0]]["name"]["native"]
     return out
@@ -100,22 +101,22 @@ def expand_skeleton(skeleton, n):
     """
     rest = [s for s in skeleton if s.get("lines") == "rest"]
     if len(rest) > 1:
-        raise SystemExit(f"骨架里只能有一个 rest，实得 {[s['beat'] for s in rest]}")
+        raise FeuilleError(f"骨架里只能有一个 rest，实得 {[s['beat'] for s in rest]}")
     fixed = sum(int(s["lines"]) for s in skeleton if s.get("lines") != "rest")
     if not rest and n is None:
-        raise SystemExit("骨架没有 rest 项，必须给出总行数 n")
+        raise FeuilleError("骨架没有 rest 项，必须给出总行数 n")
     total = n if n is not None else None
     if rest:
         if total is None:
-            raise SystemExit("骨架含 rest 项时不需要再给 n")
+            raise FeuilleError("骨架含 rest 项时不需要再给 n")
         rest_n = total - fixed
         if rest_n < 1:
-            raise SystemExit(f"骨架行数超了：rest 只剩 {rest_n} 行（总 {total} - 固定 {fixed}）")
+            raise FeuilleError(f"骨架行数超了：rest 只剩 {rest_n} 行（总 {total} - 固定 {fixed}）")
         plan = [(s["beat"], None, int(s["lines"]) if s.get("lines") != "rest" else rest_n, s)
                 for s in skeleton]
     else:
         if total is not None and total != fixed:
-            raise SystemExit(f"n={total} 与骨架各节之和 {fixed} 不一致")
+            raise FeuilleError(f"n={total} 与骨架各节之和 {fixed} 不一致")
         plan = [(s["beat"], None, int(s["lines"]), s) for s in skeleton]
 
     out, i = [], 0
@@ -214,13 +215,13 @@ def render(brief, personas, cards, langs, reg):
     locales = brief["locales"]
     unknown = [l for l in locales if l not in langs]
     if unknown:
-        raise SystemExit(f"没有语种目录：{unknown}（先建 languages/<loc>/manifest.json）")
+        raise FeuilleError(f"没有语种目录：{unknown}（先建 languages/<loc>/manifest.json）")
 
     n = brief.get("lines")
     beats = expand_skeleton(brief["skeleton"], n)
     n_lines = sum(b["count"] for b in beats)
     if n_lines < 2:
-        raise SystemExit(f"骨架只展开出 {n_lines} 行台词，parse_locales 要求 ≥2")
+        raise FeuilleError(f"骨架只展开出 {n_lines} 行台词，parse_locales 要求 ≥2")
 
     spec = brief.get("spec", {})
     plan = assign_lines(beats, spec)
@@ -228,14 +229,14 @@ def render(brief, personas, cards, langs, reg):
     codes = {_norm_pose(c) for l in plan for c in (l["pose"] or "").split() if c}
     bad = sorted(codes - reg["poses"])
     if bad:
-        raise SystemExit(f"brief 里的姿态 {bad} 不在 POSE_CODES 注册表内（渲染会炸）")
+        raise FeuilleError(f"brief 里的姿态 {bad} 不在 POSE_CODES 注册表内（渲染会炸）")
     bad = sorted({l["mood"] for l in plan} - reg["moods"])
     if bad:
-        raise SystemExit(f"brief 里的情绪 {bad} 不在 MOOD_FACE 内（渲染会炸）")
+        raise FeuilleError(f"brief 里的情绪 {bad} 不在 MOOD_FACE 内（渲染会炸）")
     styles = {d.get("style") for d in (brief.get("devices") or {}).values() if d}
     bad = sorted(styles - reg["device_styles"])
     if bad:
-        raise SystemExit(f"brief 里的装置 style {bad} 不在 DEVICE_STYLES 注册表内")
+        raise FeuilleError(f"brief 里的装置 style {bad} 不在 DEVICE_STYLES 注册表内")
 
     L = []
     L.append("---")
@@ -388,7 +389,7 @@ def main(argv=None):
 
     if args.gaps:
         if not out.exists():
-            raise SystemExit(f"没有 {out}")
+            raise FeuilleError(f"没有 {out}")
         g = gaps(out.read_text("utf-8"))
         print("欠账清单：" + "　".join(f"{k}={v}" for k, v in g.items()))
         return 0
@@ -404,7 +405,7 @@ def main(argv=None):
     if out.exists() and not args.force:
         head = out.read_text("utf-8")[:2000]
         if DRAFT_MARK not in head:
-            raise SystemExit(
+            raise FeuilleError(
                 f"{out} 存在且不是草稿（缺 `{DRAFT_MARK}` 标记）——拒绝覆盖。\n"
                 f"确实要重写请加 --force，或换个 --out。")
     out.parent.mkdir(parents=True, exist_ok=True)

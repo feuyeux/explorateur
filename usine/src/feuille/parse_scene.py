@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from .data import LESSONS_DIR           # 课程统一目录：lessons/<id>/scene.md + scene.json + analysis/
+from .errors import FeuilleError
                                         # （data.py 锚定 feuille 仓库根，不依赖 cwd）
 
 
@@ -634,7 +635,7 @@ def annotate(locales, token_words, token_order, tokens, shared=None):
 def parse_scene(scene_id, lessons_dir=None):
     md_path, out_path = scene_paths(scene_id, lessons_dir)
     if not md_path.exists():
-        raise SystemExit(f"剧本不存在：{md_path}（已有场景：{', '.join(find_scene_ids(lessons_dir)) or '无'}）")
+        raise FeuilleError(f"剧本不存在：{md_path}（已有场景：{', '.join(find_scene_ids(lessons_dir)) or '无'}）")
     md = md_path.read_text("utf-8")
     meta, token_order, tokens, devices, levels, roles, cast, beats = parse_spec(md)
     token_words = parse_token_words(md, token_order)

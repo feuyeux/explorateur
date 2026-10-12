@@ -32,8 +32,6 @@ UPLOAD_URL = "https://creator.xiaohongshu.com/publish/publish"
 XHS_WALL = ("扫码登录", "验证码登录", "手机号登录", "立即登录")
 XHS_SUCCESS_WORDS = ("发布成功", "提交成功", "笔记已发布")
 
-_LAST_HINT = ""   # 抑制重复的「未找到」噪音
-
 
 def reset_page(page, label: str = "") -> bool:
     """每条开始前强制回到干净的投稿页。
@@ -76,13 +74,24 @@ def pick_tab(page, name: str) -> bool:
     return False
 
 
+# 品牌红像素判据的阈值（实测校准过：底栏药丸 #FF2442）。
+# 集中成常量——平台改版后重摸 DOM 时，调参只动这一处。
+_RED_MIN_PIXELS = 800      # 少于这个数说明不是那颗实心药丸
+_RED_MIN_W, _RED_MIN_H = 60, 24
+_RED_MAX_W, _RED_MAX_H = 300, 80
+
+
 def _pixel_probe(page, b64: str) -> dict:
-    """把 Playwright 截图喂回浏览器，用 canvas 解码，量底栏的品牌红像素。
+    """把 Playwright 截图喂回浏览器，用 canvas 解码，**一次扫描**同时量出
+    底栏品牌红像素数与包围盒。
 
     为什么要绕这一圈：底栏「发布」既不在主文档流里（elementsFromPoint /
     querySelectorAll / get_by_text 全部扫不到，很可能是跨源 iframe 合成层），
     但 Playwright 截图能合成出来。所以唯一可信的证据就是**真实像素**。
     这里不依赖 PIL（Playwright 那个解释器没装），改用浏览器自带的 canvas。
+
+    为什么必须单帧单扫：判定几何与点击坐标必须出自同一张截图——
+    分开截两张，期间页面一动（懒渲染/弹层浮动），两边就对不上号了。
     """
     return page.evaluate("""async (b64) => {
       const img = new Image();
@@ -111,7 +120,8 @@ def _pixel_probe(page, b64: str) -> dict:
           }
         }
       }
-      return { W, H, n, scanY: [y0, y1] };
+      const box = n ? {x0: minx, x1: maxx, y0: miny + y0, y1: maxy + y0, n} : null;
+      return { W, H, n, scanY: [y0, y1], box };
     }""", b64)
 
 
@@ -124,43 +134,21 @@ def find_red_button(page) -> tuple | None:
         print(f"   ⚠️ 截图解码失败 {info['err']}")
         return None
     n = info.get("n", 0)
-    if n < 800:                      # 太小说明不是那颗实心药丸
-        global _LAST_HINT
-        msg = f"底栏红像素 {n}（阈值 800）"
-        if msg != _LAST_HINT:
+    if n < _RED_MIN_PIXELS:
+        # 抑制重复的「未找到」噪音：轮询期间同一状态只提示一次
+        msg = f"底栏红像素 {n}（阈值 {_RED_MIN_PIXELS}）"
+        if msg != getattr(find_red_button, "_last_hint", ""):
             print(f"   · {msg}，不认定")
-            _LAST_HINT = msg
+            find_red_button._last_hint = msg
         return None
 
-    # 用第二次扫描取出精确包围盒
-    shot2 = page.screenshot()
-    b64 = base64.b64encode(shot2).decode()
-    box = page.evaluate("""async (b64) => {
-      const img = new Image();
-      img.src = 'data:image/png;base64,' + b64;
-      await img.decode();
-      const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0);
-      const H = c.height, W = c.width, y0 = Math.max(0, H - 90), ih = H - 2 - y0;
-      const d = ctx.getImageData(0, y0, W, ih).data;
-      const pts = [];
-      for (let y = 0; y < ih; y++) for (let x = 0; x < W; x++) {
-        const o = (y * W + x) * 4, r = d[o], g = d[o+1], b = d[o+2];
-        if (r > 220 && g < 90 && b < 105 && (r - g) > 140) pts.push([x, y + y0]);
-      }
-      if (!pts.length) return null;
-      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-      return { x0: Math.min(...xs), x1: Math.max(...xs),
-               y0: Math.min(...ys), y1: Math.max(...ys), n: pts.length };
-    }""", b64)
+    box = info.get("box")
     if not box:
         return None
     cx = (box["x0"] + box["x1"]) // 2
     cy = (box["y0"] + box["y1"]) // 2
     bw, bh = box["x1"] - box["x0"], box["y1"] - box["y0"]
-    if bw < 60 or bh < 24 or bw > 300 or bh > 80:
+    if bw < _RED_MIN_W or bh < _RED_MIN_H or bw > _RED_MAX_W or bh > _RED_MAX_H:
         print(f"   · 红块尺寸 {bw}x{bh} 不像按钮，不认定")
         return None
     return cx, cy, box["n"], (box["x0"], box["y0"], box["x1"], box["y1"])
@@ -331,8 +319,7 @@ def republish_after_reset(page, t: dict) -> bool:
             "div[placeholder*='正文'], div[data-placeholder*='正文']").first
         if body.is_visible(timeout=3000):
             body.click()
-            page.keyboard.press("Meta+A")
-            page.keyboard.press("Backspace")
+            base.select_all_clear(page)
             page.keyboard.type(t["body"])
             time.sleep(0.5)
         print("   ✓ 重置后已重填标题/正文")
@@ -384,30 +371,30 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
         return res
     print("   ✓ 上传完成，编辑表单就绪")
 
-    try:
-        title_box.click()
-        title_box.fill(t["title"][:20])   # 小红书标题上限 20
-        print(f"   ✓ 标题已录入（{len(t['title'][:20])}/20）")
-    except Exception as e:
-        print(f"   ⚠️ 标题：{e}")
+    # 标题（纪律 19：录不进标题 = 带病发布，中止本条；小红书标题上限 20）
+    if not base.fill_title(page, title_box, t["title"], limit=20):
+        res["stage"] = "标题未录入（已中止发布）"
+        print("   🛑 标题没录进去 → 中止本条，不点发布")
+        return res
 
-    # 正文：话题已在 body 末行，整体一次填入
+    # 正文：话题已在 body 末行，整体一次填入（录不进 = 带病发布，纪律 19）
     body = page.locator(
         "div[contenteditable='true'], textarea, .ql-editor, "
         "div[placeholder*='正文'], div[data-placeholder*='正文']"
     ).first
     try:
-        if body.is_visible(timeout=3000):
-            body.click()
-            page.keyboard.press("Meta+A")
-            page.keyboard.press("Backspace")
-            page.keyboard.type(t["body"])
-            time.sleep(0.5)
-            print("   ✓ 正文已录入（含末行话题）")
-        else:
-            print("   ⚠️ 没找到正文框")
-    except Exception as e:
-        print(f"   ⚠️ 正文：{e}")
+        body_ready = body.is_visible(timeout=3000)
+    except Exception:
+        body_ready = False
+    if not body_ready:
+        res["stage"] = "正文框未出现（已中止发布）"
+        print("   🛑 没找到正文框 → 中止本条，不点发布")
+        return res
+    if not base.fill_body(page, body, t["body"]):
+        res["stage"] = "正文未录入（已中止发布）"
+        print("   🛑 正文没录进去 → 中止本条，不点发布")
+        return res
+    time.sleep(0.5)  # 正文录入后的缓冲：xhs 编辑器对输入事件有节流，立即切封面会丢尾部字符
 
     # 封面：必须换成预制带文字版（PUBLISH-RULES.md 规则 1）。
     # 小红书默认截视频第一帧，那是纯叶子的画面，不算封面。
@@ -486,11 +473,10 @@ def publish_one(page, t: dict, auto: bool, *, log_dir) -> dict:
         return res
 
     if not auto:
-        page.screenshot(path=str(log_dir / f"dryrun-xhs-{t['no']:02d}.png"))
-        left = blocking(page)
-        res.update(ok=not left, stage="已填词(dry-run，未发布)" if not left else f"残留弹窗 {left}")
-        print(f"   🧪 dry-run：未发布。截图 dryrun-xhs-{t['no']:02d}.png")
-        return res
+        return base.dry_run_stop(
+            page, res, log_dir=log_dir,
+            shot_name=f"dryrun-xhs-{t['no']:02d}.png",
+            blocking=lambda: blocking(page))
 
     kind, payload = btn
     if kind == "xy":
