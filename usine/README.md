@@ -13,8 +13,8 @@
 |---|---|
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + uv 统一）+ H3 铁律 |
 | [pyproject.toml](pyproject.toml) + `uv.lock` | uv 工程（Python 3.12；publish 组 = Playwright） |
-| `src/feuille/` | 代码：33 个归属模块（约 1.03 万行），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
-| `scripts/` | 21 个反向验证脚本（20 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，370+ 项断言） |
+| `src/feuille/` | 代码：36 个归属模块（约 1.13 万行），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
+| `scripts/` | 22 个反向验证脚本（21 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，370+ 项断言） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
@@ -65,12 +65,12 @@
 | `errors` | 库层显式错误通道 `FeuilleError`：库函数报错的唯一异常类型，CLI 统一接住（stderr + 退出码 1） |
 | `_run_verify_probes` | `feuille verify` 的 CLI 桥，转发到 scripts/verify_probes.py |
 
-### skill 专属 —— 6 个（只被这一个 skill 用的业务实现）
+### skill 专属 —— 7 个（只被这一个 skill 用的业务实现）
 
 | 模块 | 归属 | 职责 |
 |---|---|---|
 | `publish`（base / login / douyin / xhs / bilibili / collections / veriflive） | multilingual-video-publishing | Playwright 发布器本体；对包内其他模块零依赖，自成一体 |
-| `lesson` / `parse_scene` / `scene_schema` / `scene_draft` / `section_patch` | lesson-scene | 开坑体检 / scene.md→scene.json / parse-render 之间校验闸门 / 创意→草稿 / 按节头整节替换 |
+| `lesson` / `parse_scene` / `scene_schema` / `scene_draft` / `scene_audio` / `section_patch` | lesson-scene | 开坑体检 / scene.md→scene.json / parse-render 之间校验闸门 / 创意→草稿 / 场景课 TTS 语音线（timeline.json + 逐行 mp3）/ 按节头整节替换 |
 
 > skill 层（`skills/<name>/`）只放**不会被 import** 的资产：SKILL.md 说明书、模板、
 > 工作样例、直接执行的诊断脚本（`gen_bgm.py`、`check_publish_copy.py`、

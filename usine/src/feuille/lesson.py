@@ -518,7 +518,7 @@ def _check_tier_outputs(add, sid, scene, scene_out):
         miss_mp4 = [lc for lc in locs if not (scene_out / f"scene-{sid}_{lc}.mp4").exists()]
         add("④成片", "语音", OK if not miss_tts else TODO,
             "全语种齐" if not miss_tts else f"缺 {len(miss_tts)} 语种：{', '.join(miss_tts[:6])}",
-            "" if not miss_tts else f"uv run feuille scene tts --scene {sid}（渲染线预留）")
+            "" if not miss_tts else f"uv run feuille scene tts --scene {sid}")
         add("④成片", "文字层", OK if not miss_txt else TODO,
             "全语种齐" if not miss_txt else f"缺 {len(miss_txt)} 语种：{', '.join(miss_txt[:6])}",
             "" if not miss_txt else f"uv run feuille scene assets --scene {sid}（渲染线预留）")

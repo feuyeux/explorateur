@@ -24,6 +24,7 @@ SUITES = {
     "platform":  ("verify_platform.py",  "跨平台解析（浏览器/ffmpeg/ffprobe/magick resolver）"),
     "ledger":    ("verify_ledger.py",    "产物缓存账本（注册制 + root 参数化）"),
     "tts":       ("verify_tts.py",       "TTS 内核（缓存键/词级时间戳/裁尾/重试）"),
+    "scene_audio": ("verify_scene_audio.py", "场景课 TTS 叶子（选角映射/情绪增量/台账自描述）"),
     "audio":     ("verify_audio.py",    "音轨合成（compose_track 坑③顺序）"),
     "timeline":  ("verify_timeline.py",  "时间轴与词级进度轴"),
     "textlayer": ("verify_textlayer.py", "Edge 渲字层（视口探测/双 matte）"),

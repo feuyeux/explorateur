@@ -41,6 +41,7 @@
       "parse_scene": "教学场景解析器：lessons/<id>/scene.md → scene.json",
       "scene_schema": "场景数据前置校验层（parse 与 render 之间）",
       "scene_draft": "教学创意 → scene.md 草稿生成",
+      "scene_audio": "场景课 TTS 语音线（④成片第一段）：scene.json × §0.4 roles 班底声线 → timeline.json + 逐行 mp3",
       "section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
     },
     "character-rig": {}

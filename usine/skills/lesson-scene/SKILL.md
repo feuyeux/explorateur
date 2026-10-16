@@ -6,7 +6,9 @@ description: >
   a validation gate sitting between parse and render. Use when scaffolding a new
   lesson, when turning a scene spec into `scene.json`, when scene validation
   fails before rendering, when generating a `scene.md` draft from a teaching
-  idea, or when replacing one language's section of publishing copy in place.
+  idea, when synthesizing a validated scene's per-line voice track
+  (`scene tts` → `timeline.json` + per-line mp3), or when replacing one
+  language's section of publishing copy in place.
   Not for drawing the persona or the background (that is character-rig) and not
   for producing video (that is karaoke-video or multilingual-video-poetry).
 ---
@@ -39,7 +41,7 @@ persona validate` 可独立跑，不读本文件也行）。
 
 **本 skill 是「课件内容」的唯一事实源**：`scene.md` 怎么写、怎么解析成 `scene.json`、解析后凭什么算合法。
 
-四个动作各对应一个 CLI 叶子：
+五个动作各对应一个 CLI 叶子：
 
 | 命令 | 作用 |
 |---|---|
@@ -48,6 +50,7 @@ persona validate` 可独立跑，不读本文件也行）。
 | `uv run feuille scene draft` | 教学创意 → `scene.md` 草稿 |
 | `uv run feuille scene parse` | `scene.md` → `scene.json` |
 | `uv run feuille scene validate` | parse 与 render 之间的前置校验 |
+| `uv run feuille scene tts` | 校验过的 scene × 班底声线 → ④语音线产物（`timeline.json` + 逐行 mp3） |
 
 **不做 / 转交**：
 
@@ -69,7 +72,7 @@ persona validate` 可独立跑，不读本文件也行）。
 
 ## 代码归属
 
-拥有模块：lesson, parse_scene, scene_schema, scene_draft, section_patch
+拥有模块：lesson, parse_scene, scene_schema, scene_draft, scene_audio, section_patch
 
 事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 本 skill **跨用**（不拥有）**library** 的 `data` / `devices` / `manifest` /

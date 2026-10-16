@@ -5,7 +5,7 @@
 文档字符串里宣称的每个 `feuille <组> <命令>` 也都必须在 COMMANDS 里登记
 （均由 verify_cli.py 机检——路由表不能说谎，文档也不能说谎）。
 
-    uv run feuille scene  parse|validate|draft       场景数据
+    uv run feuille scene  parse|validate|draft|tts   场景数据 / 场景课 TTS 语音线
     uv run feuille lesson new|doctor                 新课开坑 / 就绪度体检
     uv run feuille persona validate                  人设契约体检（逐人 + 班底不变量）
     uv run feuille cover  make|check                 封面（整页 HTML 截图 / 尺寸底色检查）
@@ -32,6 +32,10 @@ COMMANDS: dict[tuple[str, str], tuple[str, str]] = {
     ("scene", "parse"):   ("feuille.parse_scene", "main"),
     ("scene", "validate"): ("feuille.scene_schema", "main"),
     ("scene", "draft"):   ("feuille.scene_draft", "main"),
+    # ---- 场景课成片线（④）----
+    # tts = 语音线第一段：scene.json × 班底声线 → timeline.json + 逐行 mp3。
+    # assets / render 仍预留（lesson doctor ④ 如实标注）。
+    ("scene", "tts"):     ("feuille.scene_audio", "main"),
     # ---- 新课（③）----
     ("lesson", "new"):    ("feuille.lesson", "main_new"),
     ("lesson", "doctor"): ("feuille.lesson", "main_doctor"),
