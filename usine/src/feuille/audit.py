@@ -147,12 +147,15 @@ def count_ru_vowels(lines: list[str]) -> list[int]:
 
 
 def count_el_syllables(lines: list[str]) -> list[int]:
-    """希腊语：双元音（αι αυ ευ ει οι ου υι ηυ）只算一音节。"""
+    """希腊语：双元音（αι αυ ευ ει οι ου υι ηυ）只算一音节。
+    去变音符号后先小写再数：句首大写元音（如 Ένα 的 Έ）不在小写
+    字母表成员里，不小写会漏数句首音节（俄语大小写双列、德语/西语
+    先 lower——本计数器与兄弟计数器同口径）。"""
     diph = {"αι", "αυ", "ευ", "ει", "οι", "ου", "υι", "ηυ"}
     out = []
     for ln in lines:
         s = "".join(c for c in unicodedata.normalize("NFD", ln)
-                    if not unicodedata.category(c).startswith("M"))
+                    if not unicodedata.category(c).startswith("M")).lower()
         n, i = 0, 0
         while i < len(s):
             if s[i] in "αειουηω":

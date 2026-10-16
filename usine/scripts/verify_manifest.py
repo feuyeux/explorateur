@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """verify_manifest.py — 发布清单机制的反向验证
 
-第 0 条好数据放行（真实数据）：《一叶知秋》三平台文案稿（examples/yiyezhiqiu/publish/，
-已发布批次的原始事实源）全部解析正确——12 条齐、字段全、派生属性对得上。
+第 0 条好数据放行（自包含合成夹具，不依赖任何 examples 项目数据）：
+合成 12 语种 × 三平台文案稿全部解析正确——12 条齐、字段全、
+派生属性对得上、钩子符合各平台约定、check_copy 全过。
 
 反向各防一种退化：
 - 体例被改（缺标题块）→ 拒解析，不静默降级
@@ -26,7 +27,31 @@ sys.path.insert(0, str(ROOT / "src"))
 from feuille import manifest as mf          # noqa: E402
 from feuille.errors import FeuilleError   # noqa: E402
 
-PUB = ROOT / "examples" / "yiyezhiqiu" / "publish"
+# 12 语种 × 三平台（合成夹具，自包含——通用能力的验证不依赖 examples 内容）
+LANGS = [("中文", "zh-CN"), ("英语", "en-US"), ("日语", "ja-JP"),
+         ("韩语", "ko-KR"), ("法语", "fr-FR"), ("德语", "de-DE"),
+         ("西班牙语", "es-ES"), ("俄语", "ru-RU"), ("阿拉伯语", "ar-SA"),
+         ("印地语", "hi-IN"), ("葡萄牙语", "pt-BR"), ("意大利语", "it-IT")]
+
+
+def make_platform_copy(path, plat: str):
+    """按平台约定合成 12 语种文案稿：抖音 = 问句钩子 + 话题块、
+    小红书 = emoji+问句钩子 + 话题在正文末行（无话题块）、B 站 = 陈述 + 话题块。"""
+    secs = []
+    for no, (lang, locale) in enumerate(LANGS, 1):
+        if plat == "douyin":
+            secs.append((no, lang, locale, f"一叶知秋·{lang}·第{no:02d}话",
+                         f"秋天来了，{lang}里怎么形容它？第{no:02d}话带你看。",
+                         f"#秋日 #{lang}"))
+        elif plat == "xiaohongshu":
+            secs.append((no, lang, locale, f"一叶知秋{no:02d}·{lang}",
+                         f"🍂 秋天的{lang}你会说吗？第{no:02d}话干货来啦。\n#秋日 #{lang}",
+                         None))
+        else:   # bilibili
+            secs.append((no, lang, locale, f"【一叶知秋】第{no:02d}话·{lang}·完整版",
+                         f"这一话用{lang}聊聊秋天。欢迎三连。",
+                         f"#秋日 #{lang}"))
+    make_copy(path, with_duration=False, sections=secs)
 
 
 def make_copy(path, *, with_duration: bool, sections):
@@ -49,24 +74,29 @@ def check():
     tmp = tempfile.TemporaryDirectory(prefix="feuille-manifest-")
     d = pathlib.Path(tmp.name)
 
-    # ---- 0. 好数据放行：真实文案稿（已发布批次的原始事实源）----
-    for fname, plat, expect_hook in (("douyin-copy.md", "douyin", "question"),
-                                     ("xiaohongshu-copy.md", "xiaohongshu", "emoji+question"),
-                                     ("bilibili-copy.md", "bilibili", None)):
-        recs = mf.parse_copy(PUB / fname)
-        rows.append((len(recs) == 12, f"{fname}: 解析出 12 条（得 {len(recs)}）"))
+    # ---- 0. 好数据放行：合成 12 语种 × 三平台文案稿 ----
+    for plat, fname, want_hooks in (("douyin", "douyin-copy.md", {"question"}),
+                                    ("xiaohongshu", "xiaohongshu-copy.md", {"emoji+question"}),
+                                    ("bilibili", "bilibili-copy.md", {"statement"})):
+        make_platform_copy(d / fname, plat)
+        recs = mf.parse_copy(d / fname)
+        rows.append(([r["order"] for r in recs] == list(range(1, 13)),
+                     f"{fname}: 12 条齐且顺序对（得 {len(recs)} 条）"))
         hooks = {r["hook"] for r in recs}
-        rows.append((hooks == {expect_hook} if expect_hook else bool(hooks),
-                     f"{fname}: 钩子全为 {expect_hook or '（无约定）'}（实得 {hooks}）"))
+        rows.append((hooks == want_hooks,
+                     f"{fname}: 钩子全为 {sorted(want_hooks)}（实得 {hooks}）"))
         rows.append((all(r["title"] and r["body"] and r["topics"] and r["locale"]
-                         and r["title_chars"] == len(r["title"]) for r in recs),
-                     f"{fname}: 字段齐全，title_chars 派生自 len()"))
-    probs = mf.check_copy(PUB / "douyin-copy.md", "douyin", expect=12)
-    rows.append((not probs, "真实抖音文案过平台检查" + (f"　**{probs[:2]}**" if probs else "")))
+                         and r["title_chars"] == len(r["title"])
+                         and r["body_chars"] == len(r["body"])
+                         and r["topic_count"] == len(r["topics"]) for r in recs),
+                     f"{fname}: 字段齐全，派生属性全部现算自 len()"))
+        probs = mf.check_copy(d / fname, plat, expect=12)
+        rows.append((not probs, f"{fname}: 平台检查全过"
+                     + (f"　**{probs[:2]}**" if probs else "")))
 
-    # 小红书话题在正文末行：解析进 topics
-    xhs = mf.parse_copy(PUB / "xiaohongshu-copy.md")
-    rows.append((all(r["topics"] for r in xhs),
+    # 小红书话题在正文末行：解析进 topics（无独立话题块的体例）
+    xhs = mf.parse_copy(d / "xiaohongshu-copy.md")
+    rows.append((all(r["topics"] and r["topics"][0] == "秋日" for r in xhs),
                  "小红书话题从正文末行提取（无独立话题块的体例）"))
 
     # ---- 1. 两版体例（带/不带时长）都解析 ----
