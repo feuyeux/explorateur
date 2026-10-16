@@ -1,0 +1,1644 @@
+{
+ "id": "guangchaoshi-逛超市",
+ "sceneId": "guangchaoshi-逛超市",
+ "title": "五种语言逛超市",
+ "form": "dialogue",
+ "source": "scene.md",
+ "noteFloor": 3,
+ "askBalance": "any",
+ "rtlLocales": [],
+ "durationBudget": [
+  45.0,
+  55.0
+ ],
+ "roles": {
+  "A": "lively",
+  "B": "steady"
+ },
+ "beats": [
+  {
+   "beat": "open",
+   "from": "0",
+   "to": "0",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "reply",
+   "from": "1",
+   "to": "1",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "round",
+   "from": "2",
+   "to": "n-4",
+   "ask": "even",
+   "askBy": "A"
+  },
+  {
+   "beat": "summary",
+   "from": "n-3",
+   "to": "n-3",
+   "ask": "-",
+   "askBy": "-"
+  },
+  {
+   "beat": "bye",
+   "from": "n-2",
+   "to": "n-1",
+   "ask": "-",
+   "askBy": "-"
+  }
+ ],
+ "speechLevels": {
+  "ru-RU": {
+   "levelA": "随意体（ты）",
+   "levelB": "随意体（ты）",
+   "marker": "ты 形动词（бери、прикладывай）与无人称 можно 句",
+   "note": "同龄好友默认 ты；对店员要换 вы"
+  },
+  "zh-HK": {
+   "levelA": "口语粤文",
+   "levelB": "口语粤文",
+   "marker": "粤语字（喺、嘅、唔、咁、冇）",
+   "note": "全程口语粤文；中文对照给普通话说法"
+  },
+  "ja-JP": {
+   "levelA": "です・ます体",
+   "levelB": "です・ます体",
+   "marker": "词尾 です／ます（〜ませんか、〜ですか）",
+   "note": "礼貌体贯穿；邀请也用 〜ませんか"
+  }
+ },
+ "tokenOrder": [
+  "where",
+  "milk",
+  "price",
+  "cheaper",
+  "card"
+ ],
+ "tokens": {
+  "where": "在哪里",
+  "milk": "牛奶",
+  "price": "多少钱",
+  "cheaper": "便宜点",
+  "card": "刷卡"
+ },
+ "tokenWords": {
+  "ru-RU": [
+   {
+    "key": "where",
+    "word": "где",
+    "forms": [
+     "где"
+    ],
+    "romanization": "gde"
+   },
+   {
+    "key": "milk",
+    "word": "молоко",
+    "forms": [
+     "молоко"
+    ],
+    "romanization": "moloko"
+   },
+   {
+    "key": "price",
+    "word": "сколько стоит",
+    "forms": [
+     "сколько стоит"
+    ],
+    "romanization": "skolko stoit"
+   },
+   {
+    "key": "cheaper",
+    "word": "подешевле",
+    "forms": [
+     "подешевле"
+    ],
+    "romanization": "podeshevle"
+   },
+   {
+    "key": "card",
+    "word": "картой",
+    "forms": [
+     "картой"
+    ],
+    "romanization": "kartoy"
+   }
+  ],
+  "zh-HK": [
+   {
+    "key": "where",
+    "word": "邊度",
+    "forms": [
+     "邊度"
+    ],
+    "romanization": "bin1 dou6"
+   },
+   {
+    "key": "milk",
+    "word": "牛奶",
+    "forms": [
+     "牛奶"
+    ],
+    "romanization": "ngau4 naai5"
+   },
+   {
+    "key": "price",
+    "word": "幾多錢",
+    "forms": [
+     "幾多錢"
+    ],
+    "romanization": "gei2 do1 cin2"
+   },
+   {
+    "key": "cheaper",
+    "word": "平啲",
+    "forms": [
+     "平啲"
+    ],
+    "romanization": "peng4 di1"
+   },
+   {
+    "key": "card",
+    "word": "碌卡",
+    "forms": [
+     "碌卡"
+    ],
+    "romanization": "luk1 kaat1"
+   }
+  ],
+  "ja-JP": [
+   {
+    "key": "where",
+    "word": "どこ",
+    "forms": [
+     "どこ"
+    ],
+    "romanization": "doko"
+   },
+   {
+    "key": "milk",
+    "word": "牛乳",
+    "forms": [
+     "牛乳"
+    ],
+    "romanization": "gyūnyū"
+   },
+   {
+    "key": "price",
+    "word": "いくら",
+    "forms": [
+     "いくら"
+    ],
+    "romanization": "ikura"
+   },
+   {
+    "key": "cheaper",
+    "word": "安い",
+    "forms": [
+     "安い"
+    ],
+    "romanization": "yasui"
+   },
+   {
+    "key": "card",
+    "word": "カード",
+    "forms": [
+     "カード"
+    ],
+    "romanization": "kādo"
+   }
+  ]
+ },
+ "locales": {
+  "ru-RU": {
+   "locale": "ru-RU",
+   "langLabel": "俄语",
+   "aName": "Миша",
+   "bName": "Аня",
+   "stage": "莫斯科居民区小超市：货架过道，冷柜靠墙，收银台在出口",
+   "prop": {
+    "scenes": [
+     "shelf",
+     "counter",
+     "crates"
+    ],
+    "device": {
+     "scenes": [
+      "shelf",
+      "counter",
+      "crates"
+     ],
+     "style": "tray",
+     "shape": "round",
+     "cellW": 112,
+     "cellH": 112,
+     "well": "#F5F3EE",
+     "label": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）"
+    },
+    "label": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）",
+    "desc": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）"
+   },
+   "notes": "",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Аня, пойдём в магазин!",
+     "romanization": "Anya, poidyom v magazin!",
+     "gloss": "阿妮亚，咱们去超市吧！",
+     "note": "",
+     "gesture": {
+      "word": "магазин",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "магазин"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Пойдём! Я тут всё знаю.",
+     "romanization": "Poidyom! Ya tut vsyo znayu.",
+     "gloss": "走！这一带我全熟。",
+     "note": "",
+     "gesture": {
+      "word": "знаю",
+      "poses": [
+       "nod"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "знаю"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "А где здесь молочный отдел?",
+     "romanization": "A gde zdes molochnyy otdel?",
+     "gloss": "那奶制品区在哪儿？",
+     "note": "",
+     "gesture": {
+      "word": "где",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "where",
+     "tokenChip": "在哪里",
+     "tokenWord": "где",
+     "bubble": {
+      "kind": "think",
+      "text": "где"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Молоко — прямо, потом налево, у стены.",
+     "romanization": "Moloko pryamo, potom nalevo, u steny.",
+     "gloss": "牛奶直走，再左转，靠墙那排。",
+     "note": "",
+     "gesture": {
+      "word": "Молоко",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "milk",
+     "tokenChip": "牛奶",
+     "tokenWord": "молоко",
+     "bubble": {
+      "kind": "hint",
+      "text": "Молоко"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Сколько стоит эта бутылка?",
+     "romanization": "Skolko stoit eta butylka?",
+     "gloss": "这瓶多少钱？",
+     "note": "俄语·超市：сколько стоит 配 эта（这瓶，单数）用三单 стоит；换成复数 эти бутылки 要说 сколько стоят",
+     "gesture": {
+      "word": "Сколько стоит",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "сколько стоит",
+     "bubble": {
+      "kind": "think",
+      "text": "сколько стоит"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Сто рублей.",
+     "romanization": "Sto rubley.",
+     "gloss": "一百卢布。",
+     "note": "",
+     "gesture": {
+      "word": "Сто рублей",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "сколько стоит",
+     "bubble": {
+      "kind": "hint",
+      "text": "Сто рублей"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Дорого! А есть подешевле?",
+     "romanization": "Dorogo! A yest podeshevle?",
+     "gloss": "好贵！有便宜点的吗？",
+     "note": "俄语·超市：есть подешевле 是「有便宜点的吗」的口语直问，比 есть ли у вас подешевле 更干脆",
+     "gesture": {
+      "word": "подешевле",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "подешевле",
+     "bubble": {
+      "kind": "think",
+      "text": "подешевле"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Вот эта — восемьдесят рублей.",
+     "romanization": "Vot eta vosemdyesyat rubley.",
+     "gloss": "这瓶八十卢布。",
+     "note": "",
+     "gesture": {
+      "word": "восемьдесят",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "подешевле",
+     "bubble": {
+      "kind": "hint",
+      "text": "восемьдесят"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Отлично! Можно две таких?",
+     "romanization": "Otlichno! Mozhno dve takikh?",
+     "gloss": "太好了！拿两瓶行吗？",
+     "note": "",
+     "gesture": {
+      "word": "две",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "подешевле",
+     "bubble": {
+      "kind": "think",
+      "text": "подешевле"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Конечно, бери!",
+     "romanization": "Konechno, beri!",
+     "gloss": "当然，拿吧！",
+     "note": "俄语·超市：бери 是 ты（你）命令形——同龄好友全程用 ты，对店员才换 вы",
+     "gesture": {
+      "word": "бери",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "подешевле",
+     "bubble": {
+      "kind": "hint",
+      "text": "бери"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "А картой можно заплатить?",
+     "romanization": "A kartoy mozhno zaplatit?",
+     "gloss": "那能刷卡吗？",
+     "note": "俄语·超市：картой 是工具格（用卡），前置说 картой можно 最顺口；完整礼貌版 можно заплатить картой?",
+     "gesture": {
+      "word": "картой",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "картой",
+     "bubble": {
+      "kind": "think",
+      "text": "картой"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Можно, прикладывай! Касса вон там, у выхода.",
+     "romanization": "Mozhno, prikladyvay! Kassa von tam, u vykhoda.",
+     "gloss": "可以，刷吧！收银台在那边出口处。",
+     "note": "",
+     "gesture": {
+      "word": "прикладывай",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "картой",
+     "bubble": {
+      "kind": "hint",
+      "text": "прикладывай"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "А пакет тоже платный?",
+     "romanization": "A paket tozhe platnyy?",
+     "gloss": "塑料袋也要钱吗？",
+     "note": "",
+     "gesture": {
+      "word": "пакет",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "картой",
+     "bubble": {
+      "kind": "think",
+      "text": "картой"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "Да, пять рублей. Тоже картой можно.",
+     "romanization": "Da, pyat rubley. Tozhe kartoy mozhno.",
+     "gloss": "对，五个卢布，也可以刷卡。",
+     "note": "",
+     "gesture": {
+      "word": "картой",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "картой",
+     "bubble": {
+      "kind": "hint",
+      "text": "картой"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Так: где молоко, сколько стоит, картой можно. Всё запомнил!",
+     "romanization": "Tak: gde moloko, skolko stoit, kartoy mozhno. Vsyo zapomnil!",
+     "gloss": "牛奶在哪、多少钱、能不能刷卡，全记住啦！",
+     "note": "",
+     "gesture": {
+      "word": "запомнил",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "сколько стоит",
+     "bubble": {
+      "kind": "hint",
+      "text": "запомнил"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "Молодец! До скорого!",
+     "romanization": "Molodets! Do skorogo!",
+     "gloss": "真棒！回头见！",
+     "note": "",
+     "gesture": {
+      "word": "До скорого",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "сколько стоит",
+     "bubble": {
+      "kind": "hint",
+      "text": "До скорого"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "Пока-пока!",
+     "romanization": "Poka-poka!",
+     "gloss": "拜拜～！",
+     "note": "",
+     "gesture": {
+      "word": "Пока-пока",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "сколько стоит",
+     "bubble": {
+      "kind": "hint",
+      "text": "Пока-пока"
+     }
+    }
+   ]
+  },
+  "zh-HK": {
+   "locale": "zh-HK",
+   "langLabel": "粤语",
+   "aName": "阿豪",
+   "bName": "阿晴",
+   "stage": "香港屋邨附近超市：冻柜区过道，价签密密排开，收银台就在出口",
+   "prop": {
+    "scenes": [
+     "shelf",
+     "counter",
+     "crates"
+    ],
+    "device": {
+     "scenes": [
+      "shelf",
+      "counter",
+      "crates"
+     ],
+     "style": "tray",
+     "shape": "round",
+     "cellW": 112,
+     "cellH": 112,
+     "well": "#F5F3EE",
+     "label": "三輪圓井托盤，井內嵌中文字牌（貨架 · 收銀台 · 紙箱堆頭）"
+    },
+    "label": "三輪圓井托盤，井內嵌中文字牌（貨架 · 收銀台 · 紙箱堆頭）",
+    "desc": "三輪圓井托盤，井內嵌中文字牌（貨架 · 收銀台 · 紙箱堆頭）"
+   },
+   "notes": "",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "阿晴，一齊去超市呀！",
+     "romanization": "aa3 cing4, jat1 cai4 heoi3 ciu1 si1 aa3!",
+     "gloss": "阿晴，一起去超市吧！",
+     "note": "",
+     "gesture": {
+      "word": "超市",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "超市"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "好啊，呢間我熟㗎！",
+     "romanization": "hou2 aa3, nei1 gaan3 ngo5 suk6 gaa3!",
+     "gloss": "好啊，这家店我熟！",
+     "note": "",
+     "gesture": {
+      "word": "呢間",
+      "poses": [
+       "nod"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "呢間"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "噉牛奶喺邊度呀？",
+     "romanization": "gam2 ngau4 naai5 hai2 bin1 dou6 aa3?",
+     "gloss": "那牛奶在哪儿？",
+     "note": "粤语·超市：「噉」（gam2）＝那么、接着问——和「咁貴」的「咁」（gam3，这么）不是一个字",
+     "gesture": {
+      "word": "邊度",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "where",
+     "tokenChip": "在哪里",
+     "tokenWord": "邊度",
+     "bubble": {
+      "kind": "think",
+      "text": "邊度"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "牛奶喺凍櫃嗰邊，直行轉左。",
+     "romanization": "ngau4 naai5 hai2 dung3 gwai6 go2 bin1, zik6 haang4 zyun2 zo2.",
+     "gloss": "牛奶在冷藏柜那边，直走左转。",
+     "note": "",
+     "gesture": {
+      "word": "牛奶",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "milk",
+     "tokenChip": "牛奶",
+     "tokenWord": "牛奶",
+     "bubble": {
+      "kind": "hint",
+      "text": "牛奶"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "呢樽幾多錢呀？",
+     "romanization": "nei1 zun1 gei2 do1 cin2 aa3?",
+     "gloss": "这一瓶多少钱？",
+     "note": "粤语·超市：问价固定说「幾多錢」，别把普通话「多少钱」直接搬过去",
+     "gesture": {
+      "word": "幾多錢",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "幾多錢",
+     "bubble": {
+      "kind": "think",
+      "text": "幾多錢"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "十蚊一樽。",
+     "romanization": "sap6 man1 jat1 zun1.",
+     "gloss": "十块一瓶。",
+     "note": "粤语·超市：「蚊」是钱的口语单位——十蚊＝十块，八蚊＝八块",
+     "gesture": {
+      "word": "十蚊",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "幾多錢",
+     "bubble": {
+      "kind": "hint",
+      "text": "十蚊"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "咁貴嘅？有冇平啲嘅？",
+     "romanization": "gam3 gwai3 ge3? jau5 mou5 peng4 di1 ge3?",
+     "gloss": "这么贵？有没有便宜点的？",
+     "note": "粤语·超市：「平」就是便宜，「平啲」＝便宜一点；「咁貴」的「咁」＝这么",
+     "gesture": {
+      "word": "平啲",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "平啲",
+     "bubble": {
+      "kind": "think",
+      "text": "平啲"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "呢樽平啲，八蚊。",
+     "romanization": "nei1 zun1 peng4 di1, baat3 man1.",
+     "gloss": "这瓶便宜点，八块。",
+     "note": "",
+     "gesture": {
+      "word": "八蚊",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "平啲",
+     "bubble": {
+      "kind": "hint",
+      "text": "八蚊"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "好嘢！我要兩樽，得唔得？",
+     "romanization": "hou2 je5! ngo5 jiu3 loeng5 zun1, dak1 m4 dak1?",
+     "gloss": "好！我要两瓶，行不行？",
+     "note": "",
+     "gesture": {
+      "word": "兩樽",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "平啲",
+     "bubble": {
+      "kind": "think",
+      "text": "平啲"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "得，自己攞啦！",
+     "romanization": "dak1, zi6 gei2 lo2 laa1!",
+     "gloss": "行，自己拿吧！",
+     "note": "",
+     "gesture": {
+      "word": "攞",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "平啲",
+     "bubble": {
+      "kind": "hint",
+      "text": "攞"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "可以碌卡嘛？",
+     "romanization": "ho2 ji5 luk1 kaat1 maa3?",
+     "gloss": "可以刷卡吗？",
+     "note": "",
+     "gesture": {
+      "word": "碌卡",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "碌卡",
+     "bubble": {
+      "kind": "think",
+      "text": "碌卡"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "得，拍卡就得。",
+     "romanization": "dak1, paak3 kaat1 zau6 dak1.",
+     "gloss": "行，拍一下卡就行。",
+     "note": "粤语·超市：「碌卡」＝刷卡，「拍卡」＝感应式拍一下——上一句问「可以碌卡嘛」，这句答「拍卡就得」，两个词正好对照",
+     "gesture": {
+      "word": "拍卡",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "碌卡",
+     "bubble": {
+      "kind": "hint",
+      "text": "拍卡"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "膠袋要錢嘛？",
+     "romanization": "gaau1 doi6 jiu3 cin2 maa3?",
+     "gloss": "塑料袋要钱吗？",
+     "note": "",
+     "gesture": {
+      "word": "膠袋",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "碌卡",
+     "bubble": {
+      "kind": "think",
+      "text": "碌卡"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "要呀，一蚊一個，碌埋佢吖！",
+     "romanization": "jiu3 aa3, jat1 man1 jat1 go3, luk1 maai4 keoi5 aa1!",
+     "gloss": "要的，一块一个，一起刷了吧！",
+     "note": "",
+     "gesture": {
+      "word": "一蚊",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "碌卡",
+     "bubble": {
+      "kind": "hint",
+      "text": "一蚊"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "我識晒喇：牛奶喺邊度、幾多錢、點樣碌卡！",
+     "romanization": "ngo5 sik1 saai3 laa3: ngau4 naai5 hai2 bin1 dou6, gei2 do1 cin2, dim2 joeng6 luk1 kaat1!",
+     "gloss": "我全学会了：牛奶在哪、多少钱、怎么刷卡！",
+     "note": "",
+     "gesture": {
+      "word": "識晒",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "幾多錢",
+     "bubble": {
+      "kind": "hint",
+      "text": "識晒"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "得閒再一齊嚟行超市呀！",
+     "romanization": "dak1 haan4 zoi3 jat1 cai4 lai4 haang4 ciu1 si1 aa3!",
+     "gloss": "有空再一起来逛超市呀！",
+     "note": "",
+     "gesture": {
+      "word": "得閒",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "幾多錢",
+     "bubble": {
+      "kind": "hint",
+      "text": "得閒"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "好呀，拜拜！",
+     "romanization": "hou2 aa3, baai3 baai3!",
+     "gloss": "好呀，拜拜！",
+     "note": "",
+     "gesture": {
+      "word": "拜拜",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "幾多錢",
+     "bubble": {
+      "kind": "hint",
+      "text": "拜拜"
+     }
+    }
+   ]
+  },
+  "ja-JP": {
+   "locale": "ja-JP",
+   "langLabel": "日语",
+   "aName": "ハルカ",
+   "bName": "リク",
+   "stage": "日本街角超市：乳制品冷柜前的过道，吊牌价签，收银台在入口旁",
+   "prop": {
+    "scenes": [
+     "shelf",
+     "counter",
+     "crates"
+    ],
+    "device": {
+     "scenes": [
+      "shelf",
+      "counter",
+      "crates"
+     ],
+     "style": "tray",
+     "shape": "round",
+     "cellW": 112,
+     "cellH": 112,
+     "well": "#F5F3EE",
+     "label": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）"
+    },
+    "label": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）",
+    "desc": "三轮圆井托盘，井内嵌中文字牌（货架 · 收银台 · 纸箱堆头）"
+   },
+   "notes": "",
+   "dialogue": [
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "リクさん、スーパーへ行きませんか。",
+     "romanization": "Riku-san, sūpā e ikimasen ka.",
+     "gloss": "小陆，要不要一起去超市？",
+     "note": "日语·超市：〜ませんか 是邀请的礼貌形，比 〜ましょう 更柔和，给对方留出婉拒的余地",
+     "gesture": {
+      "word": "スーパー",
+      "poses": [
+       "bounce_in",
+       "both_hands"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 0,
+     "role": "open",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "スーパー"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "いいですね。場所は僕が知っています。",
+     "romanization": "Ii desu ne. Basho wa boku ga shitte imasu.",
+     "gloss": "好啊。地方我熟。",
+     "note": "",
+     "gesture": {
+      "word": "場所",
+      "poses": [
+       "nod"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 1,
+     "role": "reply",
+     "isQuestion": false,
+     "tokenKey": null,
+     "tokenChip": null,
+     "tokenWord": "",
+     "bubble": {
+      "kind": "hint",
+      "text": "場所"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "あの、牛乳はどこですか。",
+     "romanization": "Ano, gyūnyū wa doko desu ka.",
+     "gloss": "请问，牛奶在哪儿？",
+     "note": "",
+     "gesture": {
+      "word": "どこ",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 2,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "where",
+     "tokenChip": "在哪里",
+     "tokenWord": "どこ",
+     "bubble": {
+      "kind": "think",
+      "text": "どこ"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "牛乳は乳製品のコーナーです。まっすぐ行って左です。",
+     "romanization": "Gyūnyū wa nyūseihin no kōnā desu. Massugu itte hidari desu.",
+     "gloss": "牛奶在乳制品区，直走左手边。",
+     "note": "",
+     "gesture": {
+      "word": "コーナー",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 3,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "milk",
+     "tokenChip": "牛奶",
+     "tokenWord": "牛乳",
+     "bubble": {
+      "kind": "hint",
+      "text": "コーナー"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "この牛乳、いくらですか。",
+     "romanization": "Kono gyūnyū, ikura desu ka.",
+     "gloss": "这牛奶多少钱？",
+     "note": "日语·超市：いくらですか 不分单复数——一瓶一箱都这么问，不用改句子",
+     "gesture": {
+      "word": "いくら",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 4,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "いくら",
+     "bubble": {
+      "kind": "think",
+      "text": "いくら"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "一本二百円です。",
+     "romanization": "Ippon nihyaku-en desu.",
+     "gloss": "一瓶两百日元。",
+     "note": "",
+     "gesture": {
+      "word": "一本",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 5,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "いくら",
+     "bubble": {
+      "kind": "hint",
+      "text": "一本"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "少し高いですね。安いのはありませんか。",
+     "romanization": "Sukoshi takai desu ne. Yasui no wa arimasen ka.",
+     "gloss": "有点贵呢。没有便宜点的吗？",
+     "note": "",
+     "gesture": {
+      "word": "安い",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 6,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "安い",
+     "bubble": {
+      "kind": "think",
+      "text": "安い"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "こちらは百五十円ですよ。",
+     "romanization": "Kochira wa hyakugojū-en desu yo.",
+     "gloss": "这个是一百五十日元哦。",
+     "note": "",
+     "gesture": {
+      "word": "こちら",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 7,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "安い",
+     "bubble": {
+      "kind": "hint",
+      "text": "こちら"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "じゃあ、安いのを二本いただけますか。",
+     "romanization": "Jaa, yasui no o nihon itadakemasu ka.",
+     "gloss": "那请给我两瓶便宜的。",
+     "note": "日语·超市：瓶装牛奶的量词是「本」，两瓶＝二本（にほん）——和「日本」同音，听到别愣",
+     "gesture": {
+      "word": "二本",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 8,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "安い",
+     "bubble": {
+      "kind": "think",
+      "text": "安い"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "はい、二本ですね。どうぞ。",
+     "romanization": "Hai, nihon desu ne. Dōzo.",
+     "gloss": "好，两瓶是吧。请拿好。",
+     "note": "",
+     "gesture": {
+      "word": "どうぞ",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 9,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "cheaper",
+     "tokenChip": "便宜点",
+     "tokenWord": "安い",
+     "bubble": {
+      "kind": "hint",
+      "text": "どうぞ"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "カードでいいですか。",
+     "romanization": "Kādo de ii desu ka.",
+     "gloss": "刷卡可以吗？",
+     "note": "日语·超市：〜でいいですか 的 で 表示手段（用……行吗），付款时的万能句式",
+     "gesture": {
+      "word": "カード",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 10,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "カード",
+     "bubble": {
+      "kind": "think",
+      "text": "カード"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "はい、大丈夫ですよ。",
+     "romanization": "Hai, daijōbu desu yo.",
+     "gloss": "可以，没问题。",
+     "note": "",
+     "gesture": {
+      "word": "大丈夫",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 11,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "カード",
+     "bubble": {
+      "kind": "hint",
+      "text": "大丈夫"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "レジ袋は有料ですか。",
+     "romanization": "Rejibukuro wa yūryō desu ka.",
+     "gloss": "购物袋要收费吗？",
+     "note": "",
+     "gesture": {
+      "word": "レジ袋",
+      "poses": [
+       "point"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 12,
+     "role": "round",
+     "isQuestion": true,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "カード",
+     "bubble": {
+      "kind": "think",
+      "text": "カード"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "neutral",
+     "text": "はい、三円です。カードで一緒に払えますよ。",
+     "romanization": "Hai, san-en desu. Kādo de issho ni haraemasu yo.",
+     "gloss": "是的，三日元，刷卡时一起付就行。",
+     "note": "",
+     "gesture": {
+      "word": "一緒",
+      "poses": [
+       "palm_open"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 13,
+     "role": "round",
+     "isQuestion": false,
+     "tokenKey": "card",
+     "tokenChip": "刷卡",
+     "tokenWord": "カード",
+     "bubble": {
+      "kind": "hint",
+      "text": "一緒"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "どこにあるか、いくらか、カードが使えるか、全部覚えました！",
+     "romanization": "Doko ni aru ka, ikura ka, kādo ga tsukaeru ka, zenbu oboemashita!",
+     "gloss": "在哪儿、多少钱、能不能刷卡，全记住啦！",
+     "note": "",
+     "gesture": {
+      "word": "全部",
+      "poses": [
+       "jump_celebrate"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 14,
+     "role": "summary",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "いくら",
+     "bubble": {
+      "kind": "hint",
+      "text": "全部"
+     }
+    },
+    {
+     "speaker": "B",
+     "mood": "encouraging",
+     "text": "また一緒に行きましょう。",
+     "romanization": "Mata issho ni ikimashō.",
+     "gloss": "下次再一起去吧。",
+     "note": "",
+     "gesture": {
+      "word": "行きましょう",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": false,
+     "i": 15,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "いくら",
+     "bubble": {
+      "kind": "hint",
+      "text": "行きましょう"
+     }
+    },
+    {
+     "speaker": "A",
+     "mood": "happy",
+     "text": "はい！では、また！",
+     "romanization": "Hai! De wa, mata!",
+     "gloss": "好！那回见！",
+     "note": "",
+     "gesture": {
+      "word": "また",
+      "poses": [
+       "wave"
+      ]
+     },
+     "easterEgg": null,
+     "exits": true,
+     "i": 16,
+     "role": "bye",
+     "isQuestion": false,
+     "tokenKey": "price",
+     "tokenChip": "多少钱",
+     "tokenWord": "いくら",
+     "bubble": {
+      "kind": "hint",
+      "text": "また"
+     }
+    }
+   ]
+  }
+ }
+}
