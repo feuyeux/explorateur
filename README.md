@@ -1,8 +1,8 @@
 # explorateur
 
-> 一个装了三台独立机器的工作区。每个子项目自带栈、自带文档、自带测试，**互不依赖**。
+> 一个装了三台独立机器和一台 RSI 引擎的工作区。每个子项目自带栈、自带文档、自带测试，**互不依赖**。
 
-这个仓库是工作区，不是单体工程——三个子项目之间没有代码引用，各自可单独 clone、单独构建、单独发布。下面是入口索引；改代码前请直接进对应子项目读它自己的文档。
+这个仓库是工作区，不是单体工程——三个子项目之间没有代码引用，各自可单独 clone、单独构建、单独发布。RSI 工作流（[`théâtre/`](théâtre/) 引擎 + [`benchmarks/usine/`](benchmarks/usine/) 适配层）对 usine 是单向安全改进关系，不构成子项目间依赖（见下文「RSI 工作流」）。下面是入口索引；改代码前请直接进对应子项目读它自己的文档。
 
 ---
 
@@ -12,12 +12,30 @@
 |---|---|---|---|---|
 | [`humming/`](humming/) | **HummingScore** 哼唱识谱：哼一段 → 实时转五线谱 / 简谱 / MIDI / MusicXML | Tauri 2 + 原生 JS（无框架） | 32 文件 / 7853 行 | [README](humming/README.md) · [使用指南](humming/docs/使用指南.md) · [架构](humming/docs/设计/架构.md) |
 | [`reading/`](reading/) | **Ready Reader** 外语原著精读：导入 Markdown → LLM 结构化拆解 → 双栏逐句精读 | Tauri 2 + 纯 Rust 后端 | 30 文件 / 8119 行 | [README](reading/README.md) · [使用指南](reading/docs/使用指南.md) · [架构](reading/docs/设计/架构.md) |
-| [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | Python 3.12 + uv | 52 文件 / 12950 行 | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) |
+| [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | Python 3.12 + uv | 36 归属模块 / 约 1.13 万行 | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) · [架构](usine/docs/architecture.md) |
 
 规模一栏的口径：`humming` / `reading` 统计 `.js`/`.mjs`/`.rs`/`.css`/`.html`/`.sql`
-源文件及其行数，已排除 `target/`、`node_modules/`、`src/vendor/` 等构建产物。
+源文件及其行数，已排除 `target/`、`node_modules/`、`src/vendor/` 等构建产物；
+`usine` 按 `src/feuille` 归属模块与行数计（口径见 [usine/README.md](usine/README.md)）。
 
 `humming` 与 `reading` 是两个**应用**（可打包成安装包分发的桌面程序）；`usine` 是一个**库层**（被其它内容项目复用的机制 + 体例 + 纪律，不直接分发）。
+
+---
+
+## RSI 工作流（théâtre × usine）
+
+usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进）安全地改进——Actor 在
+隔离 guest 里改代码、Verifier 判定、门禁绿才合并回真树：
+
+| 目录 | 是什么 | 入口 |
+|---|---|---|
+| [`théâtre/`](théâtre/) | vendored RSIAgent 引擎（上游 `4d7ef43`；内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [PROVENANCE.md](théâtre/PROVENANCE.md)（补丁纪律）· [ADAPTATION.md](théâtre/ADAPTATION.md)（实现偏离） |
+| [`benchmarks/usine/`](benchmarks/usine/) | 适配层：装配 / 传输 / 围栏 / 合并（假 LLM 干跑 12/12 全绿） | `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token） |
+| [`plan/`](plan/) | 排产与调研文档 | [rsiagent-memory.md](plan/rsiagent-memory.md)（RSI 调研） |
+
+红线：发布 / 登录永不自动执行（VM 门面三层防线）；一候选一 commit，每波 tag
+`theatre/wave-N`；运行产物与 `endpoints.json`（真网关凭据）一律落仓库外 run root
+（`theatre-usine-runs`），根 `.gitignore` 兜底；真波次**用户喊跑才跑**。
 
 ---
 
@@ -44,7 +62,7 @@ cd humming && npm install && npm test
 # reading —— 119 个 Rust 测试：单元 + command 调度 + 前后端契约 + 全链路冒烟
 cd reading/src-tauri && cargo test
 
-# usine —— 17 套 250+ 项反向验证
+# usine —— 21 套 370+ 项反向验证（verify_probes 聚合）
 cd usine && uv sync && uv run feuille verify
 ```
 
@@ -59,7 +77,7 @@ cd usine && uv sync && uv run feuille verify
 - **两个应用均以 MIT 发布**：各自项目根目录带 `LICENSE`（`humming/LICENSE`、`reading/LICENSE`），
   版权署名分别为 HummingScore 与 Ready Reader；机器可读声明在 `package.json` / `Cargo.toml` 的 `license` 字段。
 - **`src-tauri/target/` 是本机私有的**，不随仓库分发，也因此**会带上编译时的绝对路径**。项目目录一旦改名或移动，必须 `cargo clean` 后重建，否则 tauri-build 会继续去读旧路径而构建失败（见下方「已知坑」）。
-- 纪律条文的权威文本在 [`usine/AGENTS.md`](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）。该文件自带完整约定，本工作区没有更上层的 `AGENTS.md`。
+- 纪律条文的权威文本在 [`usine/AGENTS.md`](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）；工作区级约束（技能库路由 / 规则层级）在 [AGENTS.md](AGENTS.md)——两层各管各的，互不覆盖。
 
 ---
 

@@ -1,7 +1,8 @@
 # AGENTS.md · explorateur 工作区约束
 
 > 本工作区有三个子项目：`usine/`（feuille——多语种视频生产与发布的可复用层）、
-> `humming/` 与 `reading/`（两个独立应用，本文件不约束其内部实现）。
+> `humming/` 与 `reading/`（两个独立应用，本文件不约束其内部实现）；另有 RSI 工作流
+> （`théâtre/` 引擎 + `benchmarks/usine/` 适配层，只对 usine 做单向安全改进）。
 > 本文件只定**工作区级**的约束：技能库在哪、怎么复用、与全局技能的分工、规则以哪份文件为准。
 
 ## 技能库（复用入口）
@@ -48,4 +49,9 @@
 - 在 `usine/` 内工作、或把 feuille 资产用于任何内容项目时，纪律与工程约定的
   **权威文本是 [usine/AGENTS.md](usine/AGENTS.md)**（22 条纪律 + 跨平台/uv 约定 +
   H3 铁律）；冲突时以它为准。
+- 在 `théâtre/` 内工作或操作 RSI 波次时，先读
+  [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、
+  不回步上游）与 [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制、图表与
+  红线）；适配层操作走 `benchmarks/usine/run_usine.py`（`--preflight` 先行，执行需
+  ack token；发布永不自动，真波次用户喊跑才跑）。
 - 生成类命令默认不覆盖已有产物（显式 `--force` 才覆盖）；验收一律看退出码。
