@@ -1,0 +1,1100 @@
+#!/usr/bin/env python3
+"""run_usine.py — orchestrate RSI waves over the usine production line (Windows).
+
+Phase-1 wave loop for the usine (feuille) multilingual video production line,
+adapted onto this Windows host through benchmarks/usine/{guest_env,
+verifier_adapter,usine_hooks,wave_merge}.py.  The stock wave machinery
+(explore/phase1_wave.py) is reused untouched; this orchestrator only assembles
+the adaptation layer around it.
+
+Assembly contract (order is load-bearing)
+-----------------------------------------
+1.  Locate the théâtre checkout and put it (plus this directory) on sys.path.
+2.  install_verifier_adapter() BEFORE any core/explore import: production
+    construction sites resolve the executor and system-prompt builder from
+    core.verifier_runtime at call time.
+3.  Patch core.actor.build_system / core.loop.build_system (dual-module, ALE
+    precedent) with substrate-true replacements + a transport note.  The patch
+    asserts every seam substring against BOTH stock variants (native/blind)
+    at install time, so upstream template drift fails loudly instead of
+    silently no-op'ing.
+4.  Load the five usine role configs (config/roles-usine/*.yaml), normalize
+    the deferred verifier-config paths against THIS directory, and validate
+    the decided model lineup fail-closed (no model outside the approved
+    slugs; escalated seats recomputed exactly like core.loop.escalation_cfg).
+5.  Resolve LLM endpoints IN MEMORY from the host credential store
+    (provider.* then custom_provider.*; apiKey/baseURL per provider options).
+    Key values never enter logs, manifests, or errors.
+6.  Preflight prints a readiness payload and writes NOTHING (no endpoints
+    file, no run root, no corpus).  Execute requires the exact ack token.
+7.  The run root lives OUTSIDE every repository; endpoints.json is generated
+    there and pointed at via RSIAGENT_LLM_ENDPOINTS_FILE before any LLM call.
+8.  Fresh runs build the instruction corpus from the distribution; resumes
+    merge pending waves, then require the corpus to EQUAL a fresh rebuild
+    from the distribution.  The corpus is FIXED for the whole run: stock
+    Phase 1 feeds every prior project text verbatim back into later
+    Curriculum prompts (previous_wave_outcomes -> _outcome_text) while
+    _audit_prompt authorizes only the target direction, so any mid-run
+    corpus growth would trip the boundary at the next wave's FIRST
+    authoring segment.
+9.  Before anything is written or spent, _check_distribution_fences proves
+    the distribution's 8-gram shingles are DISJOINT from every text that
+    can reach an audited surface: seeded usine tracked text and capture
+    member names, the first-party prompt/infra modules
+    (explore/core/env/config/llm), this adapter directory (the transport
+    note), and the role configs' system_extra.  The stock audit exempts
+    only the target direction (wave prompts) or the project instruction
+    (captures) - never the distribution - so one shared shingle would trip
+    audits on every wave.  Both entrypoints and every resume run the gate
+    (resume re-runs it after pending merges, since HEAD moved); a
+    collision means the distribution wording must change, never the fence.
+10. Fixtures are seeded additively at the capture seam: the first
+    ``phase1-project-*`` capture of each wave pushes a git-archive(HEAD) seed
+    of the usine prefix into the guest and extracts it over /home/user
+    (baseline wins collisions; the Curriculum scaffold is preserved), and the
+    captured fixture — the merge baseline — becomes scaffold UNION baseline.
+    Candidate captures (``phase1-candidate-*``) and blocked-draft captures
+    are never seeded.
+11. Every completed wave merges into the real usine repository through the
+    wave-merge event sink (one commit per accepted candidate, one tag per
+    wave).  Publishing stays impossible: the VM facade refuses
+    publish-shaped programs before execution.
+
+Red lines: zero live platform publishing/login (three layers: VM facade,
+guest-home USERPROFILE pin, offline-only gates); one commit per accepted
+candidate; every wave tagged theatre/wave-N; no push.
+"""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import dataclasses
+import gzip
+import hashlib
+import io
+import json
+import logging
+import os
+import re
+import signal
+import subprocess
+import sys
+import tarfile
+import time
+from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
+
+log = logging.getLogger("rsiagent.usine.run")
+
+_HERE = Path(__file__).resolve().parent
+_EXPLORATEUR_ROOT = _HERE.parents[1]
+DEFAULT_THEATRE = _EXPLORATEUR_ROOT / "théâtre"
+DEFAULT_USINE_DIR = _EXPLORATEUR_ROOT / "usine"
+DEFAULT_RUNS_ROOT = (_EXPLORATEUR_ROOT.parents[0]
+                     / "theatre-usine-runs")
+DEFAULT_LLM_CONFIG = Path.home() / ".minimax" / "config.yaml"
+DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
+DEFAULT_GATE_ARGV = ("uv", "run", "feuille", "verify")
+
+EXECUTE_ACK = "RUN-USINE-PHASE1-WAVES"
+_SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+\Z")
+# The approved usine lineup.  Anything outside this set fails closed before a
+# single token is spent (user constraint: no models below M3 tier; fuyao-work
+# and fuyao-coding are the approved auxiliary seats).
+ALLOWED_MODEL_SLUGS = frozenset({
+    "MiniMax-M3",
+    "MiniMax-M3.1-Flash-Preview",
+    "fuyao-work",
+    "fuyao-coding",
+})
+
+ROLE_FILES = {
+    "actor": "actor-usine.yaml",
+    "verifier": "verifier-usine.yaml",
+    "verifier_control": "target-usine.yaml",
+    "curriculum": "curriculum-usine.yaml",
+    "memory_actor": "actor-usine.yaml",
+}
+
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+
+
+# ---------------------------------------------------------------- io helpers
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_json_atomic(path: Path, value: dict) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _append_event(path: Path, event_type: str, *, status: str,
+                  state: dict, payload: dict) -> None:
+    record = {
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "event_type": event_type,
+        "status": status,
+        "state": state,
+        "payload": payload,
+    }
+    with Path(path).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True)
+                     + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _parse_checkpoints(value: str, budget: int) -> tuple[int, ...]:
+    try:
+        checkpoints = tuple(sorted(set(
+            int(item.strip()) for item in value.split(",") if item.strip())))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "checkpoints must be comma-separated integers") from exc
+    if any(index < 0 or index > budget for index in checkpoints):
+        raise argparse.ArgumentTypeError(
+            "checkpoints must lie between zero and the project budget")
+    return checkpoints
+
+
+def _safe_phase_root(runs_root: str, name: str) -> Path:
+    if not _SAFE_NAME.fullmatch(name) or name in {".", ".."}:
+        raise ValueError("--run-name must be one safe basename")
+    base = Path(runs_root).expanduser().resolve(strict=False)
+    root = (base / name / "phase1").resolve(strict=False)
+    if root.parents[1] != base:
+        raise ValueError("Phase-1 result root escapes the runs root")
+    return root
+
+
+def _resolve_input_file(value: str, *, repo_root: Path) -> Path:
+    raw = Path(value).expanduser()
+    candidate = raw if raw.is_absolute() else repo_root / raw
+    if candidate.is_symlink():
+        raise RuntimeError(f"input path may not be a symlink: {candidate}")
+    path = candidate.resolve(strict=True)
+    if not path.is_file():
+        raise RuntimeError(f"input path is not one file: {path}")
+    return path
+
+
+def _install_paths() -> Path:
+    theatre = DEFAULT_THEATRE.resolve(strict=True)
+    if not (theatre / "core" / "actor.py").is_file():
+        raise RuntimeError(f"théâtre checkout is missing core/: {theatre}")
+    for path in (str(theatre), str(_HERE)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    return theatre
+
+
+# ------------------------------------------------- actor system-prompt patch
+
+# Exact stock substrings (core/actor.py _SYSTEM_TEMPLATE + the two look
+# bullets, backslash continuations already collapsed).  Shared seams occur
+# once in BOTH stock variants; each look bullet is exclusive to its variant.
+_TASK_LINE_OLD = ("You solve ONE task on a real Ubuntu machine by WRITING "
+                  "PROGRAMS.")
+_TASK_LINE_NEW = ("You solve ONE task on a real Windows machine driven "
+                  "through git-bash by WRITING PROGRAMS.")
+_MACHINE_FACTS_OLD = ("MACHINE FACTS: Ubuntu with python3. You may install "
+                      "tools you need (pip3 / apt-get).")
+# Honest replacement: the théâtre venv has NO pip, the host has no apt-get,
+# and installing packages is not part of this environment.
+_MACHINE_FACTS_NEW = ("MACHINE FACTS: Windows host driven through git-bash "
+                      "with python3. Installing packages is NOT available "
+                      "here (no pip3, no apt-get); work with the tools "
+                      "already on the machine. There is no systemd and no "
+                      "GUI desktop.")
+_NATIVE_LOOK_OLD = (
+    'You may look directly at a DOCUMENT file (it is rendered to an image '
+    'for you) and at the LIVE SCREEN with path "screen:" (the running '
+    'desktop/GUI state).')
+_BLIND_LOOK_OLD = (
+    'You may look directly at a DOCUMENT file (it is rendered to an image '
+    'for you \u2014 no need to convert it first) and at the LIVE SCREEN '
+    'with path "screen:" (the running desktop/GUI state, when the result '
+    'you must judge is on screen rather than in a file).')
+# Substrate-true for both variants: image-file Looks still work (pixels are
+# read host-side), but there is no document renderer and no live screen.
+_LOOK_NEW = (
+    'There is no rendered-document channel and no live screen on this '
+    'machine: "screen:" is unavailable, and documents are not rendered to '
+    'images. Read every file (documents included) by WRITING PROGRAMS that '
+    'open and read it.')
+
+_USINE_PROMPT_REPLACEMENTS = (
+    (_TASK_LINE_OLD, _TASK_LINE_NEW),
+    (_MACHINE_FACTS_OLD, _MACHINE_FACTS_NEW),
+    (_NATIVE_LOOK_OLD, _LOOK_NEW),
+    (_BLIND_LOOK_OLD, _LOOK_NEW),
+)
+
+_USINE_TRANSPORT_NOTE = """
+USINE TRANSPORT FACTS (Windows git-bash guest):
+- Your programs are delivered through a base64 envelope and executed with
+  "python3 -u" (python) or "bash" (bash); nothing rewrites paths inside your
+  program text.
+- PYTHON programs: the canonical paths work as-is - /home/user (your home),
+  /home/user/evolution_project (the project root), /tmp, /dev/shm.
+- BASH programs: literal /home/user and /dev/shm resolve to the bash
+  installation's own directories, NOT to your guest tree - use $HOME or ~
+  (your home directory) and /tmp instead.
+- The offline verification gate is "uv run feuille verify", run from the
+  project root. Keep the uv environment OUTSIDE the project root so it never
+  lands in your captured work:
+    bash:   cd "$HOME/evolution_project" && UV_PROJECT_ENVIRONMENT="$HOME/.venv-gate" uv run feuille verify
+  From a python program, run uv with its working directory at
+  /home/user/evolution_project and the same environment variable set to
+  "/home/user/.venv-gate" (it resolves against your home drive).
+  "uv run feuille verify --list" names the suites; --only <suite> runs one.
+  The first run on a fresh machine builds the environment (about a minute);
+  later runs reuse it. Live platform publishing and platform login never
+  run in this environment: those programs are refused before execution, so
+  develop and verify offline only."""
+
+
+def _install_actor_prompt_patch() -> None:
+    """Wrap core.actor/core.loop build_system with substrate-true text.
+
+    Fail-closed at install time: every seam substring is pinned against both
+    stock variants (native build_system(None) and a blind probe cfg), and the
+    patched products must carry each replacement exactly once.  Upstream
+    template drift therefore raises instead of silently no-op'ing.
+    """
+    import core.actor as actor_mod
+    import core.loop as loop_mod
+
+    stock = actor_mod.build_system
+    blind_probe = SimpleNamespace(
+        vision_model="usine-seam-probe", system_extra="", action_discipline=False)
+    native = stock(None)
+    blind = stock(blind_probe)
+    for old, _new in _USINE_PROMPT_REPLACEMENTS[:2]:
+        if native.count(old) != 1 or blind.count(old) != 1:
+            raise RuntimeError(
+                "usine actor-prompt seam drifted (shared): " + old[:48])
+    if (native.count(_NATIVE_LOOK_OLD) != 1
+            or _NATIVE_LOOK_OLD in blind):
+        raise RuntimeError("usine actor-prompt seam drifted (native look)")
+    if (blind.count(_BLIND_LOOK_OLD) != 1
+            or _BLIND_LOOK_OLD in native):
+        raise RuntimeError("usine actor-prompt seam drifted (blind look)")
+
+    def usine_system(cfg=None, *, ask_enabled: bool = False) -> str:
+        text = stock(cfg, ask_enabled=ask_enabled)
+        for old, new in _USINE_PROMPT_REPLACEMENTS:
+            text = text.replace(old, new)
+        return text + _USINE_TRANSPORT_NOTE
+
+    patched_native = usine_system(None)
+    patched_blind = usine_system(blind_probe)
+    if (patched_native.count(_TASK_LINE_NEW) != 1
+            or patched_native.count(_MACHINE_FACTS_NEW) != 1
+            or patched_native.count(_LOOK_NEW) != 1
+            or patched_native.count(_TASK_LINE_OLD)
+            or patched_native.count(_MACHINE_FACTS_OLD)
+            or patched_native.count(_NATIVE_LOOK_OLD)):
+        raise RuntimeError("usine native actor patch did not apply cleanly")
+    if (patched_blind.count(_LOOK_NEW) != 1
+            or patched_blind.count(_BLIND_LOOK_OLD)
+            or patched_blind.count(_TASK_LINE_OLD)
+            or patched_blind.count(_MACHINE_FACTS_OLD)):
+        raise RuntimeError("usine blind actor patch did not apply cleanly")
+
+    actor_mod.build_system = usine_system
+    loop_mod.build_system = usine_system
+    log.info("actor system prompt patched for the usine substrate "
+             "(core.actor + core.loop)")
+
+
+# ---------------------------------------------------------------- role configs
+
+def _load_roles():
+    """Load the five usine role configs and validate the decided lineup."""
+    from config.runtime_paths import normalize_verifier_config_paths, resolve_path
+    from config.settings import load
+
+    paths, configs = {}, {}
+    for role, name in ROLE_FILES.items():
+        path = resolve_path(
+            Path("config") / "roles-usine" / name, repo_root=_HERE)
+        if not path.is_file():
+            raise RuntimeError(f"usine role config is missing: {path}")
+        cfg = load(str(path))
+        normalize_verifier_config_paths(cfg, _HERE)
+        paths[role] = path
+        configs[role] = cfg
+
+    # Stock Phase-1 practice invariants for the four agent seats.
+    for role in ("actor", "verifier", "curriculum", "memory_actor"):
+        cfg = configs[role]
+        if (not cfg.agent_decided_stop or not cfg.practice_mode
+                or cfg.independent_verify or cfg.max_resumes != 0):
+            raise RuntimeError(
+                f"usine Phase-1 {role} must use Agent-owned practice mode")
+    if configs["memory_actor"].model != configs["actor"].model:
+        raise RuntimeError(
+            "memory writing must continue with the same Actor Agent model")
+
+    control = configs["verifier_control"]
+    for attribute in ("agentic_verifier_config",
+                      "escalation_agentic_verifier_config"):
+        value = getattr(control, attribute, "")
+        if not value or not Path(value).is_file():
+            raise RuntimeError(
+                f"control.{attribute} does not resolve to a file: {value!r}")
+    escalation_cfg = load(str(control.escalation_agentic_verifier_config))
+    if (not escalation_cfg.practice_mode or escalation_cfg.independent_verify
+            or escalation_cfg.max_resumes != 0):
+        raise RuntimeError(
+            "escalated verifier seat must use Agent-owned practice mode")
+    return configs, paths, escalation_cfg
+
+
+def _check_lineup(configs: dict, escalation_cfg) -> dict:
+    """Fail closed on any drift from the decided usine model lineup."""
+    actor = configs["actor"]
+    curriculum = configs["curriculum"]
+    verifier = configs["verifier"]
+    control = configs["verifier_control"]
+
+    if actor.model != "MiniMax-M3":
+        raise RuntimeError("usine Actor Agent must be MiniMax-M3")
+    if actor.vision_model != "":
+        raise RuntimeError("usine Actor Agent must use native vision")
+    if curriculum.model != "fuyao-work":
+        raise RuntimeError("usine Curriculum Agent must be fuyao-work")
+    if curriculum.vision_model != "MiniMax-M3":
+        raise RuntimeError("usine Curriculum eyes must be MiniMax-M3")
+    if verifier.model != "MiniMax-M3.1-Flash-Preview":
+        raise RuntimeError(
+            "usine Agentic Verifier must be MiniMax-M3.1-Flash-Preview")
+    if verifier.vision_model != "":
+        raise RuntimeError("usine Agentic Verifier must use native vision")
+    if control.model != "MiniMax-M3":
+        raise RuntimeError("usine control Actor seat must be MiniMax-M3 "
+                           "(the escalated verifier falls back to it)")
+    if control.verifier_model != "MiniMax-M3.1-Flash-Preview":
+        raise RuntimeError("usine control verifier_model drifted")
+    if control.escalation_model != "MiniMax-M3.1-Flash-Preview":
+        raise RuntimeError("usine control escalation_model drifted")
+    if control.vision_model != control.escalation_model:
+        raise RuntimeError(
+            "control.vision_model must equal escalation_model so the "
+            "escalated Actor keeps native vision")
+    if not control.escalation_verifier_cross_model:
+        raise RuntimeError("control.escalation_verifier_cross_model must be "
+                           "true (xverify: no escalated self-review)")
+    if not control.independent_verify or control.verifier_stage_lifecycle:
+        raise RuntimeError("usine candidate-only control profile drifted")
+    if control.verifier_execution_mode != "rollback_mirror":
+        raise RuntimeError("usine control must use the rollback_mirror "
+                           "execution boundary")
+    if not control.verifier_hide_actor_memory:
+        raise RuntimeError("usine control must hide Actor memory")
+
+    # Mirror core.loop.escalation_cfg math exactly and pin the result.
+    esc_verifier = control.verifier_model or control.model
+    if (control.escalation_verifier_cross_model
+            and esc_verifier == control.escalation_model):
+        esc_verifier = control.model
+    esc_vision = ("" if (control.vision_model
+                         and control.escalation_model == control.vision_model)
+                  else control.vision_model or control.model)
+    if esc_verifier != "MiniMax-M3" or esc_vision != "":
+        raise RuntimeError(
+            f"escalated seats drifted: verifier={esc_verifier!r} "
+            f"vision={esc_vision!r}")
+    if escalation_cfg.model != esc_verifier:
+        raise RuntimeError(
+            "escalation verifier config must seat the computed cross-model "
+            f"verifier ({esc_verifier})")
+    if escalation_cfg.vision_model != "":
+        raise RuntimeError("escalated verifier seat must use native vision")
+
+    used = {
+        value for value in (
+            configs["actor"].model, configs["actor"].vision_model,
+            configs["memory_actor"].model, configs["memory_actor"].vision_model,
+            curriculum.model, curriculum.vision_model,
+            verifier.model, verifier.vision_model,
+            control.model, control.verifier_model,
+            control.escalation_model, control.vision_model,
+            escalation_cfg.model, escalation_cfg.vision_model,
+            esc_verifier, esc_vision)
+        if value}
+    unknown = sorted(value for value in used
+                     if value not in ALLOWED_MODEL_SLUGS)
+    if unknown:
+        raise RuntimeError(
+            f"model outside the approved usine lineup: {unknown}")
+    return {"esc_actor": control.escalation_model,
+            "esc_verifier": esc_verifier,
+            "esc_vision": esc_vision,
+            "used_models": sorted(used)}
+
+
+# ---------------------------------------------------------------- credentials
+
+def _resolve_endpoints(llm_config_path: Path, needed: set) -> dict:
+    """Map every needed model slug to its provider credentials, in memory.
+
+    Scans ``provider.*`` then ``custom_provider.*`` in the host credential
+    store; a slug served by a provider maps to that provider's options
+    (apiKey -> api_key, baseURL -> base_url).  Fail-closed on any missing
+    slug or missing credential field.  Key values never enter logs, errors,
+    or the preflight payload.
+    """
+    import yaml
+
+    path = Path(llm_config_path).expanduser()
+    if not path.is_file():
+        raise RuntimeError(f"LLM credential config not found: {path}")
+    try:
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(
+            f"LLM credential config is unreadable: {type(exc).__name__}") from exc
+    if not isinstance(document, dict):
+        raise RuntimeError("LLM credential config is not a mapping")
+
+    needed = set(needed)
+    found: dict[str, dict[str, str]] = {}
+    for section in ("provider", "custom_provider"):
+        providers = document.get(section)
+        if not isinstance(providers, dict):
+            continue
+        for name, spec in providers.items():
+            if not isinstance(spec, dict):
+                continue
+            models = spec.get("models")
+            slugs = (models.keys() if isinstance(models, dict)
+                     else models if isinstance(models, list) else ())
+            options = spec.get("options")
+            options = options if isinstance(options, dict) else {}
+            base_url = options.get("baseURL") or options.get("base_url")
+            api_key = options.get("apiKey") or options.get("api_key")
+            for slug in slugs:
+                if (not isinstance(slug, str) or slug not in needed
+                        or slug in found):
+                    continue
+                if (not isinstance(base_url, str) or not base_url
+                        or not isinstance(api_key, str) or not api_key):
+                    raise RuntimeError(
+                        f"provider {name!r} lists {slug!r} but lacks an "
+                        "apiKey/baseURL pair")
+                found[slug] = {"base_url": base_url, "api_key": api_key}
+    missing = sorted(needed - found.keys())
+    if missing:
+        raise RuntimeError(f"no credentials found for model(s): {missing}")
+    log.info("resolved LLM endpoints for %d model slug(s)", len(found))
+    return found
+
+
+# ------------------------------------------------------------------- seeding
+
+def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
+    """git-archive the committed usine prefix into an evolution_project seed.
+
+    The seed is the honest baseline: ``git archive HEAD -- <prefix>`` of the
+    real usine repository (tracked content only, committed state only).
+    Member names are rewritten ``<prefix>/<rel>`` -> ``evolution_project/
+    <rel>``; directory members are dropped (extraction creates parents) and
+    non-regular members are skipped and counted (symlinks have no faithful
+    Windows guest semantics).  With ``write_to`` the compressed seed is
+    written atomically next to a manifest; without it nothing is written
+    (preflight preview).
+    """
+    import wave_merge
+
+    usine_dir = Path(usine_dir)
+    ctx = wave_merge._repo_context(usine_dir)
+    head = wave_merge._assert_preconditions(ctx, usine_dir)
+    prefix = str(ctx["prefix"])
+    base = prefix if prefix.endswith("/") else prefix + "/"
+    argv = ["git", "-C", ctx["toplevel"], "archive", "--format=tar", "HEAD"]
+    if prefix:
+        argv += ["--", base]
+    try:
+        proc = subprocess.run(argv, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"git archive could not run: {exc}") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "git archive HEAD failed (exit "
+            f"{proc.returncode}): {proc.stderr.decode('utf-8', 'replace')[:300]}")
+
+    out = io.BytesIO()
+    files = 0
+    skipped = 0
+    with (tarfile.open(fileobj=io.BytesIO(proc.stdout), mode="r:") as src,
+          tarfile.open(fileobj=out, mode="w",
+                       format=tarfile.GNU_FORMAT) as dst):
+        for member in src:
+            if member.isdir():
+                # git archive also emits the pathspec directory itself
+                # ("usine/"); extraction creates parents, so skip all dirs.
+                continue
+            name = PurePosixPath(member.name).as_posix()
+            if prefix:
+                if not name.startswith(base):
+                    raise RuntimeError(
+                        f"seed archive member outside the prefix: {member.name!r}")
+                rel = name[len(base):]
+            else:
+                rel = name
+            if not rel or rel.endswith("/"):
+                continue
+            if not member.isfile():
+                skipped += 1
+                continue
+            fresh = copy.copy(member)
+            fresh.name = "evolution_project/" + rel
+            dst.addfile(fresh, src.extractfile(member))
+            files += 1
+    if not files:
+        raise RuntimeError("the usine seed would be empty")
+    data = gzip.compress(out.getvalue(), compresslevel=1, mtime=0)
+    sha = hashlib.sha256(data).hexdigest()
+    info = {
+        "head": head,
+        "prefix": prefix or "(repo root)",
+        "members": files,
+        "skipped_non_regular": skipped,
+        "bytes": len(data),
+        "sha256": sha,
+        "written": False,
+        "path": None,
+    }
+    if write_to is not None:
+        seed_dir = Path(write_to) / "baselines"
+        seed_dir.mkdir(parents=True, exist_ok=True)
+        seed_path = seed_dir / "seed.tgz"
+        temporary = seed_path.with_name(seed_path.name + ".rsiagent-part")
+        temporary.write_bytes(data)
+        os.replace(temporary, seed_path)
+        info["written"] = True
+        info["path"] = str(seed_path)
+        _write_json_atomic(seed_dir / "seed_manifest.json", info)
+        log.info("usine seed rebuilt at HEAD %s: %d member(s), %d bytes",
+                 head[:10], files, len(data))
+    return info
+
+
+def _seed_guest(vm, state: dict) -> None:
+    """Push + extract the seed into one guest (idempotent per wave VM)."""
+    env = getattr(vm, "env", None)
+    scratch = str(getattr(env, "scratch", "")) if env is not None else ""
+    if not scratch:
+        raise RuntimeError(
+            "usine seeding requires a WorktreeEnv-backed VM (no scratch)")
+    info = state["cache"].get(scratch)
+    if info is None:
+        info = _build_seed(state["usine_dir"], Path(state["run_root"]))
+        state["cache"][scratch] = info
+    ok, error = vm.push_file(info["path"], "/dev/shm/usine-seed.tgz")
+    if not ok:
+        raise RuntimeError(f"usine seed push failed: {error}")
+    out = vm.run_command(
+        "stat -c %s /dev/shm/usine-seed.tgz; "
+        "sha256sum /dev/shm/usine-seed.tgz | cut -d' ' -f1",
+        timeout=120) or ""
+    lines = [line.strip() for line in out.strip().splitlines()
+             if line.strip()]
+    if (len(lines) < 2 or lines[0] != str(info["bytes"])
+            or lines[1] != info["sha256"]):
+        raise RuntimeError("usine seed failed guest size/digest verification")
+    # Extract over /home/user WITHOUT wiping: the Curriculum scaffold keeps
+    # its task-specific extras and the baseline wins file collisions.
+    out = vm.run_command(
+        "tar xzf /dev/shm/usine-seed.tgz -C /home/user && "
+        "rm -f /dev/shm/usine-seed.tgz; echo USINE_SEED_RC=$?",
+        timeout=900) or ""
+    if "USINE_SEED_RC=0" not in out:
+        raise RuntimeError(f"usine seed extraction failed: {out[-400:]}")
+
+
+def _seeded_capture(inner, state: dict):
+    """Wrap hooks.capture_project: seed the guest at fixture-capture time only.
+
+    ``phase1-project-*`` captures stage the Curriculum fixture and then
+    capture the merge baseline, so the seed merges into the tree right
+    here — the captured fixture (and every branch VM replaying it) becomes
+    scaffold UNION baseline.  Candidate captures (``phase1-candidate-*``)
+    and blocked-draft captures are forwarded untouched.
+    """
+    def capture_project(vm, key, host_dir, *args, **kwargs):
+        if isinstance(key, str) and key.startswith("phase1-project-"):
+            _seed_guest(vm, state)
+        return inner(vm, key, host_dir, *args, **kwargs)
+    return capture_project
+
+
+# -------------------------------------------------------------------- corpus
+
+# The corpus is FIXED for the whole run (distribution shingles only, never
+# extended mid-run): stock Phase 1 feeds every prior project text verbatim
+# back into later Curriculum prompts while _audit_prompt authorizes only the
+# target direction, so per-wave corpus growth would quarantine the next
+# wave's first authoring segment.  extend_corpus stays available in
+# usine_hooks for operator-driven flows, but this orchestrator never grows
+# the corpus between waves.
+
+
+# ------------------------------------------------------ distribution fence
+
+# First-party packages this run can import: every string literal in them can
+# reach an audited surface (system prompts, wave-authoring and verifier
+# templates, infra strings replayed into transcripts).  tests/ tools/
+# benchmarks/ are never imported by the wave loop and stay out of the fence.
+_FENCE_PY_PACKAGES = ("explore", "core", "env", "config", "llm")
+_FENCE_BINARY_HEAD = 8192      # mirrors UsineAudit.captured's binary cutoff
+
+
+def _fence_texts(theatre: Path, usine_dir: Path, stats: dict):
+    """Yield (label, text) for every source the fence must clear.
+
+    Mirrors the audit's decode rules exactly: content is decoded
+    utf-8/ignore, and a NUL within the first 8 KiB marks a binary member
+    whose CONTENT the capture audit skips.  Names stay audited, so the
+    rewritten capture member name is yielded for every tracked file.
+    """
+    import wave_merge
+
+    ctx = wave_merge._repo_context(usine_dir)
+    prefix = str(ctx["prefix"])
+    base = prefix if prefix.endswith("/") else prefix + "/"
+    argv = ["git", "-C", ctx["toplevel"], "ls-files", "-z"]
+    if prefix:
+        argv += ["--", base]
+    try:
+        proc = subprocess.run(argv, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"git ls-files could not run: {exc}") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "git ls-files failed (exit "
+            f"{proc.returncode}): {proc.stderr.decode('utf-8', 'replace')[:300]}")
+    tracked = [name for name in
+               proc.stdout.decode("utf-8", "surrogateescape").split("\0")
+               if name]
+    if not tracked:
+        raise RuntimeError("the usine prefix has no tracked files to fence")
+    stats["usine_tracked"] = len(tracked)
+    for name in tracked:
+        if prefix:
+            if not name.startswith(base):
+                raise RuntimeError(
+                    f"tracked usine path outside the prefix: {name!r}")
+            rel = name[len(base):]
+        else:
+            rel = name
+        # The seed strips the prefix (members are evolution_project/<rel>)
+        # and capture member names are audited as text.
+        yield "usine:capture-name", "evolution_project/" + rel
+        path = Path(ctx["toplevel"]) / name
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError(
+                f"tracked usine file is unreadable: {name}") from exc
+        if b"\x00" in data[:_FENCE_BINARY_HEAD]:
+            stats["usine_binary_skipped"] += 1
+            continue
+        yield "usine:seeded-text", data.decode("utf-8", "ignore")
+    for package in _FENCE_PY_PACKAGES:
+        for path in sorted((theatre / package).rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            stats["theatre_py"] += 1
+            yield f"theatre:{package}", path.read_text(
+                encoding="utf-8", errors="ignore")
+    for path in sorted(_HERE.glob("*.py")):
+        stats["adapter_py"] += 1
+        yield "adapter:code", path.read_text(encoding="utf-8", errors="ignore")
+    for path in sorted((_HERE / "config" / "roles-usine").glob("*.yaml")):
+        stats["role_yaml"] += 1
+        yield "adapter:role-config", path.read_text(
+            encoding="utf-8", errors="ignore")
+
+
+def _check_distribution_fences(distribution: str, theatre: Path,
+                               usine_dir: Path) -> dict:
+    """Fail closed unless the distribution is 8-gram-disjoint from every
+    text that flows into audited surfaces.
+
+    The corpus IS the distribution's shingles, and the stock audit exempts
+    only the target direction (wave prompts) or the project instruction
+    (captures) - never the distribution itself: one shared 8-gram with
+    seeded usine text, a capture member name, a stock/adapted prompt
+    template, a role system_extra, or the transport note would trip audits
+    on every wave.  Both entrypoints and every resume run this gate BEFORE
+    anything is written or spent; resume re-runs it after pending merges
+    too (merged candidates move HEAD, and the next wave captures from the
+    new tree).
+    """
+    import usine_hooks
+
+    grams = usine_hooks._shingles(distribution)
+    if not grams:
+        raise RuntimeError(
+            "the distribution yields no word 8-grams (write it as English "
+            "prose: the [a-z0-9]+ tokenizer produces zero shingles from CJK "
+            "text, which would silently disable the leakage fence)")
+    stats = {"usine_binary_skipped": 0, "theatre_py": 0,
+             "adapter_py": 0, "role_yaml": 0}
+    collisions: dict = {}
+    sources = 0
+    for label, text in _fence_texts(theatre, usine_dir, stats):
+        sources += 1
+        for hit in usine_hooks._shingles(text) & grams:
+            collisions.setdefault(hit, set()).add(label)
+    if collisions:
+        detail = "; ".join(
+            f"{sorted(labels)}: {shingle!r}"
+            for shingle, labels in sorted(collisions.items())[:5])
+        raise RuntimeError(
+            f"distribution shares {len(collisions)} instruction shingle(s) "
+            f"with audited surfaces - reword the distribution: {detail}")
+    result = {"status": "clear", "distribution_shingles": len(grams),
+              "audited_sources": sources, **stats}
+    log.info("distribution fence clear: %d shingle(s) disjoint from %d "
+             "audited source(s) (%d tracked usine file(s), %d binary "
+             "skipped)", len(grams), sources, stats["usine_tracked"],
+             stats["usine_binary_skipped"])
+    return result
+
+
+# ----------------------------------------------------------------------- CLI
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run-name", required=True)
+    parser.add_argument(
+        "--distribution-file", default=str(DEFAULT_DISTRIBUTION),
+        help=("UTF-8 target-direction/distribution description; seeds the "
+              "instruction corpus and steers the Curriculum"))
+    parser.add_argument(
+        "--target-query-conditioned", action="store_true",
+        help=("derive diverse Phase-1 exploration from the supplied exact "
+              "query; the unchanged target itself remains reserved for "
+              "Phase 2"))
+    parser.add_argument("--project-budget", type=int, default=8)
+    parser.add_argument("--checkpoints", default="0,2,4,8")
+    parser.add_argument(
+        "--max-parallel", type=int, default=4,
+        help=("host scheduling capacity for a Curriculum-authored wave; "
+              "this does not prescribe or truncate the wave width"))
+    parser.add_argument(
+        "--root", default=str(DEFAULT_RUNS_ROOT),
+        help=("run-lineage root, OUTSIDE every repository (endpoints.json "
+              "with live credentials is generated there)"))
+    parser.add_argument("--usine-dir", default=str(DEFAULT_USINE_DIR))
+    parser.add_argument(
+        "--gate-argv", nargs="+", default=list(DEFAULT_GATE_ARGV),
+        help=("the offline verification gate executed from the usine "
+              "directory before every merge commit"))
+    parser.add_argument("--gate-timeout", type=float, default=1800.0)
+    parser.add_argument(
+        "--llm-config", default=str(DEFAULT_LLM_CONFIG),
+        help="host credential store (provider/custom_provider sections)")
+    parser.add_argument(
+        "--resume-completed-boundary", action="store_true",
+        help=("resume an infrastructure-stopped lineage only when every "
+              "accepted project is durably closed and the persistent "
+              "Curriculum transcript is intact"))
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument(
+        "--preflight", action="store_true",
+        help=("print the readiness payload and exit without writing "
+              "anything (no endpoints file, no run root, no corpus)"))
+    action.add_argument("--execute", default="", help=EXECUTE_ACK)
+    return parser
+
+
+def main(argv: list | None = None) -> int:
+    args = _parser().parse_args(argv)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    if args.project_budget < 0:
+        raise RuntimeError("--project-budget must be nonnegative")
+    if args.max_parallel < 1:
+        raise RuntimeError("--max-parallel must be positive")
+    if not args.gate_argv:
+        raise RuntimeError("--gate-argv must name the offline gate command")
+    checkpoints = _parse_checkpoints(args.checkpoints, args.project_budget)
+
+    theatre = _install_paths()
+    import verifier_adapter
+    verifier_adapter.install_verifier_adapter()
+    import guest_env            # noqa: F401  (substrate; registers atexit net)
+    import usine_hooks
+    import wave_merge
+    _install_actor_prompt_patch()
+
+    distribution_path = _resolve_input_file(
+        args.distribution_file, repo_root=_HERE)
+    distribution = distribution_path.read_text(encoding="utf-8").strip()
+    if not distribution:
+        raise RuntimeError("distribution description is empty")
+    usine_dir = Path(args.usine_dir).expanduser().resolve(strict=True)
+    if not usine_dir.is_dir():
+        raise RuntimeError(f"usine directory is missing: {usine_dir}")
+    run_root = _safe_phase_root(args.root, args.run_name)
+
+    configs, role_paths, escalation_cfg = _load_roles()
+    lineup = _check_lineup(configs, escalation_cfg)
+    endpoints = _resolve_endpoints(
+        Path(args.llm_config), set(lineup["used_models"]))
+
+    gate_argv = tuple(str(item) for item in args.gate_argv)
+    merge_config = wave_merge.UsineMergeConfig(
+        usine_dir=str(usine_dir), gate_argv=gate_argv,
+        gate_timeout=float(args.gate_timeout))
+    # Fail closed on a dirty/foreign usine repository before anything else.
+    ctx = wave_merge._repo_context(usine_dir)
+    wave_merge._assert_preconditions(ctx, usine_dir)
+
+    # The distribution must be 8-gram-disjoint from every audited surface
+    # BEFORE anything is written or spent (fail-closed on both entrypoints;
+    # no endpoints file, no run root, no corpus has been touched yet).
+    fence = _check_distribution_fences(distribution, theatre, usine_dir)
+
+    corpus_path = run_root / "corpus_shingles.json"
+    corpus_mode = "resume" if args.resume_completed_boundary else "fresh"
+
+    if args.preflight:
+        seed_preview = _build_seed(usine_dir, write_to=None)
+        payload = {
+            "status": "ready",
+            "phase": "usine_production_line_rsi_waves",
+            "study_design": (
+                "target_conditioned_adaptation"
+                if args.target_query_conditioned
+                else "held_out_generalization"),
+            "result_root": str(run_root),
+            "project_budget": args.project_budget,
+            "memory_checkpoints": list(checkpoints),
+            "parallel_waves": True,
+            "max_parallel": args.max_parallel,
+            "wave_width_agent_owned": True,
+            "branch_memory_snapshot_isolated": True,
+            "memory_writes_serialized": True,
+            "curriculum_may_stop_early": True,
+            "curriculum_terminal_token": "SATURATED",
+            "actor_agent": configs["actor"].model,
+            "memory_actor_agent": configs["memory_actor"].model,
+            "verifier_agent": configs["verifier_control"].verifier_model,
+            "escalated_actor": lineup["esc_actor"],
+            "escalated_verifier": lineup["esc_verifier"],
+            "curriculum_agent": configs["curriculum"].model,
+            "curriculum_eyes": configs["curriculum"].vision_model,
+            "verifier_execution_mode":
+                configs["verifier_control"].verifier_execution_mode,
+            "verifier_candidate_surface":
+                "actual_candidate_with_actor_private_artifacts_hidden",
+            "verifier_pre_actor_orientation": False,
+            "official_evaluator_imported": False,
+            "official_evaluator_calls": 0,
+            "distribution_path": str(distribution_path),
+            "distribution_sha256": _sha256(distribution_path),
+            "distribution_fence": fence,
+            "corpus_mode": corpus_mode,
+            "corpus_path": str(corpus_path),
+            "corpus_lifetime": (
+                "fixed: distribution shingles only; never extended mid-run "
+                "(stock Phase-1 feedback replays prior project texts "
+                "verbatim into later Curriculum prompts)"),
+            "usine_dir": str(usine_dir),
+            "usine_repo_toplevel": ctx["toplevel"],
+            "usine_repo_prefix": ctx["prefix"] or "(repo root)",
+            "seed_preview": seed_preview,
+            "gate": {"argv": list(gate_argv),
+                     "timeout": float(args.gate_timeout)},
+            "llm_endpoints": {
+                "config": str(Path(args.llm_config).expanduser()),
+                "resolved": {slug: {"base_url": True, "api_key": True}
+                             for slug in sorted(endpoints)},
+            },
+            "publish_boundary": [
+                "vm facade refuses publish-shaped programs before execution",
+                "guest-home USERPROFILE pin (no live platform profiles)",
+                "offline-only gate; corpus leakage audits",
+            ],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    if args.execute != EXECUTE_ACK:
+        raise RuntimeError(f"--execute must equal {EXECUTE_ACK}")
+
+    if (run_root.exists() and any(run_root.iterdir())
+            and not args.resume_completed_boundary):
+        raise RuntimeError(
+            "usine Phase-1 root is nonempty; preserve it and use a new name")
+    if args.resume_completed_boundary and not run_root.is_dir():
+        raise RuntimeError("usine Phase-1 resume root does not exist")
+    run_root.mkdir(parents=True, exist_ok=True)
+    events_path = run_root / "events.jsonl"
+
+    # Credentials: generated OUTSIDE every repository, before any LLM call.
+    endpoints_path = run_root / "endpoints.json"
+    _write_json_atomic(endpoints_path, endpoints)
+    os.environ["RSIAGENT_LLM_ENDPOINTS_FILE"] = str(endpoints_path)
+    log.info("endpoints map written for %d model slug(s) (values never "
+             "logged)", len(endpoints))
+
+    # Corpus: fresh builds from the distribution; resume merges pending
+    # waves first, then requires the corpus to equal a fresh rebuild from
+    # the distribution (the corpus is fixed for the whole run).
+    if args.resume_completed_boundary:
+        grams = usine_hooks.load_corpus(corpus_path)
+        if grams != usine_hooks._shingles(distribution):
+            raise RuntimeError(
+                "resumed usine corpus does not equal a fresh rebuild from "
+                "the distribution (corpus rewrite or distribution drift)")
+        reports = wave_merge.merge_pending_waves(str(run_root), merge_config)
+        if reports:
+            log.info("resume merged %d pending wave(s)", len(reports))
+            # Merged candidates moved HEAD: re-clear the fence against the
+            # new tree before the next wave captures from it.
+            _check_distribution_fences(distribution, theatre, usine_dir)
+    else:
+        usine_hooks.build_corpus(corpus_path, [distribution])
+
+    manifest = {
+        "schema_version": 1,
+        "kind": "usine_production_line_rsi_phase1",
+        "phase": "usine_production_line_rsi_waves",
+        "study_design": (
+            "target_conditioned_adaptation"
+            if args.target_query_conditioned else "held_out_generalization"),
+        "result_root": str(run_root),
+        "project_budget": args.project_budget,
+        "memory_checkpoints": list(checkpoints),
+        "parallel_waves": True,
+        "max_parallel": args.max_parallel,
+        "wave_width_agent_owned": True,
+        "branch_memory_snapshot_isolated": True,
+        "memory_writes_serialized": True,
+        "curriculum_may_stop_early": True,
+        "curriculum_terminal_token": "SATURATED",
+        "usine_dir": str(usine_dir),
+        "gate_argv": list(gate_argv),
+        "gate_timeout": float(args.gate_timeout),
+        "merge_tag_prefix": merge_config.tag_prefix,
+        "merge_commit_scope": merge_config.commit_scope,
+        "distribution_path": str(distribution_path),
+        "distribution_sha256": _sha256(distribution_path),
+        "corpus_path": str(corpus_path),
+        "corpus_sha256": _sha256(corpus_path),
+        "corpus_resume_check": "equal_to_distribution_rebuild",
+        "seed_source": "git_archive_head_prefix",
+        "seed_cache_key": "guest_scratch",
+        "configs": {
+            role: {
+                "path": str(role_paths[role]),
+                "sha256": _sha256(role_paths[role]),
+                "effective": dataclasses.asdict(configs[role]),
+            }
+            for role in sorted(configs)
+        },
+    }
+    manifest = json.loads(json.dumps(
+        manifest, ensure_ascii=False, sort_keys=True))
+    manifest_path = run_root / "manifest.json"
+    if args.resume_completed_boundary:
+        try:
+            existing = json.loads(
+                manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            raise RuntimeError(
+                "usine resume manifest is unreadable") from exc
+        if existing != manifest:
+            raise RuntimeError(
+                "usine resume protocol/config manifest drifted")
+    else:
+        _write_json_atomic(manifest_path, manifest)
+
+    hooks = usine_hooks.hooks_for(corpus_path)
+    seed_state = {"usine_dir": str(usine_dir), "run_root": str(run_root),
+                  "cache": {}}
+    hooks.capture_project = _seeded_capture(hooks.capture_project, seed_state)
+    vm_factory = usine_hooks.publish_blacklist_vm_factory(
+        guest_env.worktree_vm_factory())
+
+    def logger(event_type, **kwargs):
+        _append_event(events_path, event_type, **kwargs)
+
+    sink = wave_merge.wave_merge_event_sink(
+        str(run_root), merge_config, inner=logger)
+
+    from explore.phase1_wave import evolve_parallel_phase1
+    result = evolve_parallel_phase1(
+        root=str(run_root), target_direction=distribution,
+        actor_cfg=configs["actor"],
+        curriculum_cfg=configs["curriculum"],
+        memory_cfg=configs["memory_actor"],
+        verifier_control_cfg=configs["verifier_control"],
+        vm_factory=vm_factory, corpus_path=str(corpus_path), hooks=hooks,
+        event_sink=sink,
+        project_budget=args.project_budget,
+        checkpoint_projects=checkpoints,
+        max_parallel=args.max_parallel,
+        target_query_conditioned=args.target_query_conditioned,
+        resume_completed_boundary=args.resume_completed_boundary,
+        park_verified_branches=False)
+
+    from explore.practice_loop import (
+        _atomic_install_memory,
+        _manifest,
+        _read_memory_tree,
+    )
+    from explore.target_learning import _memory_tree_sha256
+
+    memory = _read_memory_tree(result.memory_dir)
+    frozen = run_root / "memory_frozen"
+    _atomic_install_memory(str(frozen), memory)
+    payload = {
+        "schema_version": 1,
+        "phase": "usine_production_line_rsi_waves",
+        "study_design": (
+            "target_conditioned_adaptation"
+            if args.target_query_conditioned else "held_out_generalization"),
+        "status": result.status,
+        "projects": result.projects,
+        "stop_reason": result.reason,
+        "project_budget": args.project_budget,
+        "checkpoints": list(checkpoints),
+        "parallel_waves": True,
+        "max_parallel": args.max_parallel,
+        "memory_files": len(memory),
+        "memory_bytes": sum(len(data) for data in memory.values()),
+        "memory_manifest": _manifest(memory),
+        "memory_tree_sha256": _memory_tree_sha256(memory),
+        "memory_frozen_path": str(frozen),
+        "official_evaluator_calls": 0,
+    }
+    _write_json_atomic(run_root / "result.json", payload)
+    print("\n=== USINE PHASE 1 RESULT " + json.dumps(payload, sort_keys=True))
+    return 0 if result.status in {"saturated", "budget_exhausted"} else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

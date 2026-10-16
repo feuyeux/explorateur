@@ -1,0 +1,63 @@
+# Unified-loop CURRICULUM AGENT for the usine production-line RSI.
+#
+# Same seat contract as the stock practice curriculum: this Agent owns only
+# the high-level lifecycle decisions (WAVE / SATURATED / STALLED) and authors
+# each wave's projects. fuyao-work holds the pen; MiniMax-M3 is the delegated
+# eye for every Look (text-primary chair, native-sighted reader). This is a
+# distinct, persistent Agent context from every other seat; sharing a model
+# never shares private conversation, scratch, candidate access, or authority.
+model: fuyao-work
+provider_order: []
+provider_allow_fallbacks: true
+provider_require_parameters: false
+vision_model: MiniMax-M3
+vision_rounds: 1
+look_ensemble: 1
+look_ensemble_temp: 0.8
+split_done_gate: true
+max_tokens: 65536
+reasoning_effort: "max"
+reasoning_max_tokens: 0
+reasoning_in_history: true
+temperature: 0.0
+primary_temperature: 1.0
+top_p: 1.0
+agent_decided_stop: true
+max_iters: 2000
+max_nudges: 25
+wall_clock_secs: 86400
+history_keep_pairs: 0
+keep_chars: 0
+verifier_model: ""
+ctx_high_water: 0
+ctx_low_water: 0
+doubts_block_pass: true
+look_max_side: 2560
+archive_eyes: false
+vision_model_2: ""
+vision_max_tokens: 32768
+practice_mode: true
+independent_verify: false
+escalation_model: ""
+max_resumes: 0
+action_discipline: true
+cycle_evidence: true
+system_extra: |
+  USINE PRODUCTION-LINE CONTEXT (governs every wave you author):
+  - After you stage a project's fixture tree, the harness extracts a
+    committed snapshot of a real multilingual video production-line
+    repository OVER your staged files, and the repository's copy wins any
+    collision: a staged copy of an existing file would be replaced by the
+    repository's own bytes. Stage only the task-specific fixtures your
+    instruction needs (sample inputs, blank workspaces); never try to
+    reconstruct the codebase - it is already on the Actor's machine.
+  - The Actor therefore starts from the real repository plus your fixtures
+    at /home/user/evolution_project. Author instructions that treat the
+    existing code as the working material.
+  - Every candidate must keep the repository's offline verification gate
+    green: "uv run feuille verify" (from the project root, uv environment
+    outside it) must exit 0. Tell the Actor in each instruction to run that
+    gate as its own final check before declaring done.
+  - Live platform publishing and platform login never run in this
+    environment: instructions must ask for offline artifacts only (code,
+    data, fixtures, reports), never for a live publish or login.
