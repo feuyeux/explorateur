@@ -15,10 +15,18 @@
    请求 80s 实得 78.0s、请求 62s 实得 54.0s（SKILL.md 坑 1）→ 都必须 ⚠。
 3. **color_contrast.py**（multilingual-video-poetry）：gap_verdict——
    阈值是项目自标定值（不内置默认），判据只判「字芯-背景亮度差 ≥ 阈值」。
+4. **audit_charset.py**（one-page-poster）：字符子集门（tofu 防线）。
+   家族归属是栈式的（映射类压栈、无族类 span 继承外层族、闭合弹栈）——
+   旧扁平实现在任何带 class 的标签上清空家族态，叠印层逐字母 span
+   （.lay/.top/.t/.c）全是无族类标签，整个大词逃过 tofu 门（a01/a02 实锤：
+   a01 的 OBS Deva 只查到 6 个字符＝语言名标签，धन्यवाद 整词漏网）。
+   凿洞：只出现在叠印层的码位（ा）被删出子集必须当场 MISSING；
+   弹栈纪律：族闭合后的文本不许被误归。
 """
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sys
 import tempfile
@@ -37,6 +45,7 @@ def _load(name: str, rel: str):
 cpc = _load("check_publish_copy", "skills/publish-copy/scripts/check_publish_copy.py")
 gbm = _load("gen_bgm", "skills/bgm-bed/scripts/gen_bgm.py")
 cc = _load("color_contrast", "skills/multilingual-video-poetry/scripts/color_contrast.py")
+ac = _load("audit_charset", "skills/one-page-poster/scripts/audit_charset.py")
 
 
 def _xhs_file(td: pathlib.Path, body: str, title: str = "十二种语言说落叶") -> pathlib.Path:
@@ -136,12 +145,50 @@ def check() -> list[tuple[bool, str]]:
     except Exception:                                        # noqa: BLE001
         ok = False
     rows.append((ok, "_fact_numbers：数值与可 parse 字符串收进、布尔/文本不收"))
+
+    # ==================== audit_charset ====================
+    with tempfile.TemporaryDirectory() as td:
+        tdp = pathlib.Path(td)
+        # 合成叠印源：.lay/.top/.c/.sp 全是「带 class 但无映射族」的标签，
+        # 逐字母大词文本只活在这里——扁平重置的盲区本体
+        (tdp / "poster_src.html").write_text(
+            "<html><body>\n"
+            '<div class="cell f-deva"><span class="stack f-deva">'
+            '<span class="lay v" aria-hidden="true">बात</span>'
+            '<span class="top"><span class="c">ब</span><span class="sp"></span>'
+            '<span class="c">त</span></span></span></div>\n'
+            '<div class="cell">Ω</div>\n'      # 族外文本：不许被误归
+            "</body></html>\n", "utf-8")
+
+        def _missing(subset_text: str) -> list:
+            (tdp / "fonts.json").write_text(json.dumps([
+                {"family": "OBS Deva", "google": "Noto+Sans+Devanagari:wght@500",
+                 "text": subset_text, "classes": ["f-deva"]}]), "utf-8")
+            return ac.check(tdp / "poster_src.html", tdp / "fonts.json")[0]
+
+        # ---- 7. 好数据放行：叠印层逐字母文本进扫描面且全覆盖 ----
+        miss = _missing("बात")
+        rows.append((not miss,
+                     "audit_charset 好数据放行：合成叠印源（.lay/.top 逐字母）全绿"
+                     + (f"　**误报 {miss}**" if miss else "")))
+
+        # ---- 8. 凿洞：只出现在叠印层的码位删出子集必须被抓 ----
+        miss = _missing("बत")                 # ा 只活在 .lay/.top 的叠印文本里
+        caught = any(ch == "ा" for _, ch, _ in miss)
+        rows.append((caught,
+                     "audit_charset 凿洞：叠印层专属码位 ा 删出子集 → MISSING"
+                     + ("" if caught else "　**漏网：扁平重置的盲区复活了**")))
+
+        # ---- 9. 弹栈纪律：族闭合后的文本不被误归 ----
+        leaked = any(ch == "Ω" for _, ch, _ in miss)
+        rows.append((not leaked,
+                     "audit_charset 弹栈纪律：族外文本（Ω）不进任何族"))
     return rows
 
 
 def main() -> int:
     print("=" * 72)
-    print("skill 层脚本判据：publish-copy 指纹/溯源 + bgm 垫量/床长 + poetry gate")
+    print("skill 层脚本判据：publish-copy 指纹/溯源 + bgm 垫量/床长 + poetry gate + poster 字符门")
     print("=" * 72)
     rows = check()
     fails = 0

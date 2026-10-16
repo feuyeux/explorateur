@@ -48,7 +48,13 @@ Hard limits, by design:
     component and no per-component labeling can split it: the script prints
     the component table and fails loudly. --vowel-comp cannot fix a merged
     component; use a wording that avoids merged syllables, or fall back to
-    a whole-syllable treatment for that glyph;
+    a whole-syllable treatment for that glyph. Detection is an invariant,
+    not a heuristic: >=2 non-final components is normal (initial + medial,
+    more for ㅎ/ㅘ), so exactly 1 means initial and medial are fused. Do NOT
+    "fix" this by letting classify() label the lone blob V — with a
+    horizontal medial it IS the bottom group, so the emitted rule paints the
+    consonant red and verify still passes (A-03 복/요, both shipped whole-blue
+    via --vowel-comp 0 while auto disagreed);
   - ㅛ/ㅠ stack two cups around mid-height; the top cup can fall outside both
     geometry rules — check the table and override with --vowel-comp.
 
@@ -68,6 +74,15 @@ import argparse, json, pathlib, re, subprocess, sys, tempfile, unicodedata
 
 CHROME = None  # resolved in main
 RED, BLUE = (0xC9, 0x40, 0x3A), (0x2F, 0x5D, 0x9E)  # --vowel / --cons
+
+# Finals made of TWO consonants. NFD does NOT split them into two jamo — it
+# emits one Extended-B codepoint (많 → ᄆ + ᅡ + ᆭ U+11AD), so `len(nfd) > 3` is
+# never true and cannot be used to spot them. They matter because the labeler's
+# final-band test keys on the T codepoint: for 많 the T slot's ink sits in the
+# right half-band instead of the bottom band, so it gets labeled VOWEL.
+# Measured on A-03: auto → 3 red rects (wrong), --vowel-comp 1 → 1 red rect.
+CLUSTER_FINALS = frozenset((0x11AA, 0x11AC, 0x11AD, 0x11B0, 0x11B1, 0x11B2,
+                            0x11B3, 0x11B4, 0x11B5, 0x11B6, 0x11B9))
 
 
 def _ensure_deps():
@@ -89,12 +104,20 @@ pre { position: absolute; top: 0; left: -9999px; }
 %(rows)s
 <pre id="rects">RECTS {}</pre>
 <script>
-const out = {};
-for (const el of document.querySelectorAll(".ksyl")) {
-  const r = el.getBoundingClientRect();
-  out[el.id] = [r.x, r.y, r.width, r.height];
+function dumpRects() {
+  const out = {};
+  for (const el of document.querySelectorAll(".ksyl")) {
+    const r = el.getBoundingClientRect();
+    out[el.id] = [r.x, r.y, r.width, r.height];
+  }
+  document.getElementById("rects").textContent = "RECTS " + JSON.stringify(out);
 }
-document.getElementById("rects").textContent = "RECTS " + JSON.stringify(out);
+// probe-font-decode race：rect 必须在字体子集真正解码后取——verify 行里
+// patched span 的 x 取决于前一个 gt span 的 advance，fallback 度量会整体
+// 错位，verify 全 FAIL 且模式一致（vowel 0 / consonant 全错）。
+(document.fonts && document.fonts.ready
+  ? document.fonts.ready.then(() => setTimeout(dumpRects, 300))
+  : setTimeout(dumpRects, 0));
 </script></body></html>"""
 
 VERIFY_TPL = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -113,12 +136,18 @@ pre { position: absolute; top: 0; left: -9999px; }
 %(rows)s
 <pre id="rects">RECTS {}</pre>
 <script>
-const out = {};
-for (const el of document.querySelectorAll(".ksyl")) {
-  const r = el.getBoundingClientRect();
-  out[el.id] = [r.x, r.y, r.width, r.height];
+function dumpRects() {
+  const out = {};
+  for (const el of document.querySelectorAll(".ksyl")) {
+    const r = el.getBoundingClientRect();
+    out[el.id] = [r.x, r.y, r.width, r.height];
+  }
+  document.getElementById("rects").textContent = "RECTS " + JSON.stringify(out);
 }
-document.getElementById("rects").textContent = "RECTS " + JSON.stringify(out);
+// probe-font-decode race：同 BUILD_TPL——rect 必须在字体子集解码后取。
+(document.fonts && document.fonts.ready
+  ? document.fonts.ready.then(() => setTimeout(dumpRects, 300))
+  : setTimeout(dumpRects, 0));
 </script></body></html>"""
 
 
@@ -130,6 +159,10 @@ def render_chrome(url, w, h, out=None, dom=False):
            "--window-size=%d,%d" % (w, h), "--force-device-scale-factor=1",
            "--hide-scrollbars"]
     cmd += (["--dump-dom", url] if dom else ["--screenshot=" + out, url])
+    if not dom and out and not pathlib.Path(out).is_absolute():
+        # Windows + Edge headless：相对路径的 --screenshot= 静默失败（退出 0、
+        # 不写文件）；macOS/Linux 无此问题。统一 resolve 成绝对路径。
+        cmd[-2] = "--screenshot=" + str(pathlib.Path(out).resolve())
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if r.returncode != 0:
         sys.exit(f"chrome failed: {r.stderr[:500]}")
@@ -347,6 +380,20 @@ def classify(comps, has_t, medial_cp):
             return None, "final jamo present but no component reaches the bottom band"
     labels = ["C"] * n
     rest = [i for i in range(n) if i not in t_idx]
+    # Fused initial+medial: a normal syllable leaves >=2 non-final components
+    # (the initial, plus the medial — and ㅎ-style initials and ㅘ-style medials
+    # add MORE). Exactly one non-final component means the vowel ink touches the
+    # consonant ink and became a single blob, which no labeling can split.
+    # Without this check classify() happily labels that blob V (has_h makes the
+    # sole non-final component the "bottom group") and emits a rule that paints
+    # the CONSONANT red — and verify then PASSES, because verify only checks
+    # that the CSS reproduces the labels. Measured A-03: 복 ㅂ+ㅗ → 2 comps,
+    # rule = full-width 67.2% red band over the whole ㅂ+ㅗ blob; 요 ㅇ+ㅛ →
+    # 1 comp, rule = 100% red (whole syllable, ㅇ included). Both "PASS".
+    if len(rest) == 1:
+        return None, ("initial and medial ink are ONE fused component — this "
+                      "syllable cannot be split by labeling; use --vowel-comp 0 "
+                      "(whole-consonant blue) or the .cv fusion gradient")
     for i in rest:
         if comps[i]["cx"] - left > 0.50 * wink:
             labels[i] = "V"
@@ -466,6 +513,20 @@ def main():
     for i, syl in enumerate(a.syllables):
         cls = "k%04X" % ord(syl[0])
         L, V, T = jamo_decomp(syl)
+        nfd = unicodedata.normalize("NFD", syl)
+        # Codepoints are the identity of a syllable — never derive the rule name
+        # (or the fonts.json char) from the glyph you *read*: ㅀ(rieul-hieuh) and
+        # ㄶ(nieun-hieuh) render near-identically, so a syllable, a misread
+        # neighbour and a non-word are indistinguishable by eye. Print the truth
+        # (codepoint + Unicode name + full NFD) so the operator never has to.
+        if T is not None and ord(T) in CLUSTER_FINALS:
+            print(f"#   ⚠ CLUSTER final {unicodedata.name(T, '?')} — its two "
+                  f"consonants share one jamo codepoint, and this final's ink may "
+                  f"sit in the RIGHT half-band (vowel territory) instead of the "
+                  f"bottom band; the labeler will then call it a vowel. Audit the "
+                  f"component table below by hand and override with --vowel-comp "
+                  f"if wrong (A-03 많: auto gave 3 red rects, --vowel-comp 1 gave "
+                  f"the correct 1)")
         x, y, w, h = rects[f"k{i}"]
         sub = ink[int(round(y)):int(round(y + h)), int(round(x)):int(round(x + w))]
         if sub.sum() == 0:
@@ -478,8 +539,9 @@ def main():
                           "y0": int(ys.min()), "y1": int(ys.max()),
                           "cx": float((xs.min() + xs.max()) / 2),
                           "cy": float((ys.min() + ys.max()) / 2)})
-        print(f"# {syl} (.{cls}) = {L} + {V}" + (f" + {T}" if T else "") +
-              f"  (box {w:.2f}x{h:.0f})")
+        print(f"# {syl} U+{ord(syl):04X} {unicodedata.name(syl, '?')} (.{cls}) = "
+              + " + ".join(f"{c} U+{ord(c):04X}" for c in nfd)
+              + f"  (box {w:.2f}x{h:.0f})")
         rec = {"syl": syl, "err": None, "rule": None, "w": w, "h": h}
         recs.append(rec)
         if a.vowel_comp:

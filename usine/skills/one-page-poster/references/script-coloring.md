@@ -47,14 +47,42 @@ When a script cannot be colored with spans at all (Arabic, Hebrew, Devanagari):
   rasters share one grid cell and land on the identical origin. Do NOT use
   `position:absolute` for the underlay: its containing-block origin rounds
   differently from the in-flow top layer and you get 1px fringes ("花了").
+- **mirror the `.top` span structure inside `.lay`** (Windows raster fact,
+  A-03): if `.top` is split into c/t spans while `.lay` is one text node,
+  each box boundary quantizes the origin by up to ~+1/64px — A-03's Hindi
+  word end drifted a cumulative +0.125px and the layers misregistered at
+  subpixel scale. Put the SAME c/t spans (and spaces) in `.lay`, then
+  neutralize the classes with `.stack .lay .c, .stack .lay .t { color:
+  inherit; }` — the lay spans carry only the box-boundary duty, both layers
+  quantize along the identical path, and every box verifies dx=0.
 - mark removal must not change layout: compensate each removed mark's real
   advance with a spacer (see §3), or keep a zero-advance mark's absence as-is
   (nikkud/harakat take no width);
 - keep `dir="rtl"` on BOTH layers for RTL scripts.
 
 Acceptance: single-layer renders compared in the word rect → best integer
-shift (0,0), unmatched top-color 0.00% (scripts/check_overlay.py). On the
+shift (0,0), unmatched top-color 0.00% (scripts/check_overlay.py; also inject
+the §4 grayscale forcing on the check variants). On the
 12-language poster: Arabic, Hebrew, Devanagari all pass at 0.00%.
+
+Spacing matras (ा, ी …) in the top text — two constructions, both measured
+on the delivered A-01/A-02 posters (2160×2880 composites):
+
+- **keep the matra in `.top` inside a transparent `.t` span**: free layout
+  parity — both layers carry the same text, no spacer to measure. But the
+  cluster paint rule ignores that transparency: the matra paints with its
+  base's color, i.e. the whole cluster comes out BLUE. Measured: A-01 धन्यवाद
+  word rect = 0 red / 33163 blue px (whole word blue); A-02 माफ़ कीजिए = only
+  the independent ए inked red (2499 red / 19815 blue). Independent letters
+  (ए, ا/آ, ו/ה/י) are their own clusters — their `.t` transparency IS
+  honored (A-02: Arabic 4375 red px from آ, Hebrew 8206 from י/ה).
+- **delete the matra + compensate with a measured `.sp` spacer** (§3): the
+  matra comes out red (only the bottom layer inks it), at the cost of
+  probing every removed mark's in-cluster advance against its actual base.
+
+Decide up front and state the choice in the report: keep-in-`.t` = zero
+measurement work, matras blue; delete+`.sp` = red matras, per-mark advance
+probing. A-01 and A-02 both shipped keep-in-`.t`.
 
 ## 3. Devanagari: the full construction
 
@@ -122,8 +150,29 @@ to see images at all — all verification is programmatic).
   bottom render and `.stack .lay { visibility:hidden }` for the top render
   (same window size / scale as the poster), then diff masks in the word rect
   from the ?verify=1 diagnostics.
+- **Force grayscale AA on the check variants** (A-03, Windows/Edge): ClearType
+  LCD stripes are asymmetric across the two ink colors — red ink's blue
+  channel sits Δ172 from the paper base, blue ink's only Δ72, so at equal
+  stripe coverage the red mask loses pixels the blue mask keeps. Hindi and
+  Arabic paints rasterize LCD-striped and the mask loss reads as
+  misregistration (measured top-unmatched 9.65% Hindi / 6.94% Arabic);
+  Hebrew happened to rasterize grayscale and read 0.00% unaided. Inject
+  `.stack .lay, .stack .top { will-change: transform; }` in BOTH check
+  variants to force composited grayscale AA — all three scripts then pass at
+  0.00% (印地 9.65%→0.00%, 阿语 6.94%→0.00% on A-03). Inject on the check
+  variants only; the delivered PNGs keep native AA.
 - Pixel-set intersection has the same trap: `A & ~B` on one composite tells
   you nothing about registration.
+- Read check_overlay's two mismatch counts directionally: **top-only** pixels
+  (top-layer ink with no bottom ink under it) are the real error signal —
+  misregistration, wrong spacer width, a base missing from `.top` — and must
+  sit at the antialiasing floor (A-02: 0–1 px). **bottom-only** pixels are
+  the design, not a leak: they are exactly the ink the top layer omits
+  (removed marks, transparent independent letters), i.e. the visible
+  bottom-color strokes in the composite — A-02 word rects measured 797 (ए),
+  1109 (آ), 2126 (י/ה). Chase bottom-only ink only where the top layer
+  should have laid a consonant (spacer on the wrong side of a reordered
+  mark shows the red stem peeking past a blue base).
 - Isolated-glyph comparisons must replicate real positions: placing a
   standalone क at the same origin as कि does NOT compare outlines (ि's
   advance pushes क right inside the cluster). Cross-correlate with a generous
@@ -152,11 +201,42 @@ Hangul syllables are single paint clusters (CJK logic), so spans can't split
   (exit nonzero otherwise);
 - the verify pass proves the CSS reproduces the LABELS — the jamo truth of the
   labels is the printed component table; sanity-check it against the jamo
-  line, and override with `--vowel-comp` if a label is wrong;
+  line, and override with `--vowel-comp` if a label is wrong. **Cluster finals**
+  (ㄳ ㄵ ㄶ ㄺ ㄻ ㄼ ㄽ ㄾ ㄿ ㅀ ㅄ — TWO consonants in ONE jamo codepoint, U+11AA /
+  0x11AC-0x11AD / U+11B0-0x11B6 / U+11B9) can AUTO-mislabel, because NFD emits
+  the whole cluster as a single Extended-B jamo and the labeler's final-band
+  test keys on that one codepoint: the final's ink can sit in the right
+  half-band (vowel territory) instead of the bottom band, and comes out V. A-03
+  많 (ᆭ U+11AD): comp3 x[77,167] y[144,173] was labeled V, giving 3 red rects
+  where 1 is correct — fixed with `--vowel-comp 1` (only ㅏ's vertical red),
+  verify PASS 0 wrong px. Note `len(NFD) > 3` does NOT detect this (NFD never
+  splits a cluster final); the script checks the actual cluster-final codepoint
+  set and prints a ⚠ line naming the final, so read that line before trusting
+  any label. It also prints every syllable's `U+XXXX`, its Unicode name and its
+  full NFD decomposition with codepoints — never take a syllable's identity
+  from the glyph you read back (see below);
 - hard limit: when vowel ink TOUCHES consonant ink (ㅓ's tick reaches the ㅇ
   in 어, ㅜ sits on the final ㄱ in 국 — in OBS KR), the syllable is ONE
   component and no labeling can split it; the script fails loudly — choose a
-  wording that avoids merged syllables or treat that glyph whole;
+  wording that avoids merged syllables or treat that glyph whole. Two shipped
+  treat-it-whole precedents: whole-syllable consonant blue by re-measuring
+  with `--vowel-comp 0` (A-03 복/요, verify PASS), and the kana-style fusion
+  gradient `.cv` over the whole glyph (A-04 얼 — chosen because 예's same-form
+  ㅇ sits in the blue zone and painting ㅇ red there would contradict it).
+  **The failure is a code invariant, not a hope:** a syllable always leaves
+  ≥2 non-final components (initial + medial; ㅎ-style initials and ㅘ-style
+  medials only add more), so exactly ONE non-final component means initial and
+  medial are fused, and `classify()` returns an error instead of a rule. This
+  guard exists because the silent alternative was worse than a crash: with
+  `has_h` set, the lone fused blob *is* the "bottom group", so classify()
+  labeled it V and emitted a real-looking rule that painted the CONSONANT red
+  — and verify PASSED, since verify only checks that the CSS reproduces the
+  labels. Measured A-03: 복 ㅂ+ㅗ came out 2 components (the ㅂ+ㅗ blob
+  x[9,173] y[53,157] + the final ㄱ) → rule painted a full-width 67.2% red
+  band over the whole blob; 요 ㅇ+ㅛ came out 1 component → rule painted 100%
+  red, ㅇ included. Both "PASS". Both were already shipped as `--vowel-comp 0`
+  whole-blue, which is why the poster was right while auto was wrong — and why
+  the guard now makes auto refuse instead of quietly contradicting it;
 - CSS percentage `background-position` resolves against (container − image)
   in EVERY form, including the 4-value `left X%` form (measured in Chrome:
   it is not a plain offset) — the script emits 2-value percentages computed
@@ -166,6 +246,39 @@ Hangul syllables are single paint clusters (CJK logic), so spans can't split
   `font-family` + explicit `line-height` (must match the surrounding `.word`);
 - accept intentional ~1px slivers where vowel strokes nearly touch consonant
   strokes (0.5px at poster scale) — chasing them breaks adjacent patches.
+
+### Glyph identity is a codepoint, never a glyph you read back
+
+Four rules that exist because A-03's Korean cell was misdiagnosed twice in a
+row, both times from a glyph read off a screen or out of a file dump rather
+than from a codepoint:
+
+- **A rule's name IS its glyph's codepoint.** `.ksyl` patch rules are named
+  `k%04X` from `ord(glyph)`; paste each rule under the class `measure_korean.py`
+  printed for it. If one syllable wears another's rule, every pre-existing gate
+  still passes — measure_korean verifies a rule against its OWN labels, and the
+  subset audit only checks page chars ⊆ fonts.json. So
+  `scripts/audit_charset.py` now asserts the binding itself: class codepoint ==
+  glyph codepoint, the rule exists, and no rule is orphaned — and it reports
+  BOTH failure classes (subset + binding) in one run before exiting, because
+  fixing one must not mask the other.
+- **Never take a syllable's identity from the glyph you read.** ㅀ
+  (rieul-hieuh) and ㄶ (nieun-hieuh) render near-identically, so `많`, a misread
+  `만`, and the non-word `맗` are indistinguishable by eye. Anchor codepoints
+  with facts that do not come from your eyes: the Unicode name, the Hangul
+  syllable formula `(초성×21+중성)×28+종성`, a romanization (Revised
+  Romanization *manhi* ⇒ final ㄶ, since ㄶ→nh and ㅀ→lh), or sound change (ㅀ
+  assimilates to [ㄹ] before a vowel — 싫어 → [시러] — while ㄶ keeps its ㄴ, so
+  많 reads [마니]). Same rule as any non-Latin codepoint: verify with a probe
+  that passes codepoints.
+- **fonts.json `text` comes from the words manifest**, the fact source — never
+  from a character copied out of the poster you are editing, or the subset and
+  the page end up validating each other.
+- **Diagnostic scripts are read-only; repair is a separate step.** A one-shot
+  "diagnose and fix" converts a wrong premise into a corrupted fact source (A-03:
+  a wrong codepoint belief rewrote a correct `fonts.json`). Diagnose, anchor the
+  judgement with an independent check, then repair behind before/after
+  assertions, and keep a revert script.
 
 ## 6. Other scripts, one line each
 
@@ -249,3 +362,19 @@ Rules learned the hard way:
 - Every character the page may ever render with a family (copy, labels,
   legend, annotations) must be in that family's `text` list — enforce with
   scripts/audit_charset.py after every copy edit.
+- **A Google `&text=` subset is not the character list you asked for.** For
+  scripts Google composes per jamo cluster (Hangul, Devanagari) the returned
+  `unicode-range` lists the script's full codepoint closure, so it routinely
+  contains syllables/jamo you never asked for. That is normal — never diagnose
+  it as contamination, and never read "the subset lacks codepoint X" as proof
+  about your intended text. Assert against `fonts.json` (the manifest), and
+  when you do need to know whether a specific character is really renderable,
+  ask the RENDERER (a codepoint-only probe that fails on no-ink/tofu) — not the
+  unicode-range list.
+- List EVERY class that sets its own `font-family` in that family's
+  `classes` (`.annot`, `.jyut`, `.tagline` …): the audit sees families only
+  through that list, and a font-family class WINS over DOM inheritance.
+  Live case from the archived example: the Japanese furigana sat in the
+  OBS JP `text` list while `.annot` rendered them with OBS SC — five kana
+  (い っ ち ゃ ぱ) plus pinyin ē rode local-font fallback unnoticed until the
+  stack-based audit flagged them; both `text` lists were then repaired.

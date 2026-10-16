@@ -119,7 +119,18 @@ directories.
 6. **Verify** (the model usually cannot see the image — all checks are
    programmatic; run after every revision, not just at the end):
    - `scripts/audit_charset.py poster_src.html fonts.json` — page chars ⊆
-     subsets, no tofu;
+     subsets, no tofu. Family attribution is a stack mirroring CSS
+     inheritance (text under the per-letter wrappers `.lay/.top/.t/.c/.ksyl/
+     .zi` inherits its cell's family), so overlay words ARE in scope; every
+     class that sets its own `font-family` (`.annot`, `.jyut`, `.tagline`…)
+     must be listed in that family's fonts.json `classes`, or its text
+     escapes the audit. The same run also asserts **patch-rule binding**: a
+     `.ksyl` rule is named `k%04X` from `ord(glyph)`, so check that each
+     glyph wears the rule of its OWN codepoint, that the rule exists, and that
+     no rule is orphaned (a rule pasted under the wrong name still passes every
+     other gate — measure_korean verifies a rule against its own labels, and
+     the subset check never looks at rule names). Both failure classes are
+     reported in one pass; fix neither in isolation;
    - `google-chrome --headless --dump-dom "file://...index.html?verify=1"`
      piped to `scripts/fit_diag.py` — per-cell font size, word rects, overflow;
    - `scripts/verify_colors.py poster.png --cols 3 --rows 4 --langs …` —
@@ -127,13 +138,24 @@ directories.
    - for overlay cells (mark scripts): see step 7.
 7. **Overlay registration check** for two-layer cells: render each layer
    alone (inject `.stack .top { visibility:hidden }` for the bottom render,
-   `.stack .lay { visibility:hidden }` for the top) and run
-   `scripts/check_overlay.py lay.png top.png X Y W H` with the word rect from
-   fit_diag. Accept only best-shift (0,0) and unmatched ≈ 0%. Full rules and
-   the composite-measurement trap: `references/script-coloring.md` §4.
+   `.stack .lay { visibility:hidden }` for the top — plus
+   `.stack .lay, .stack .top { will-change: transform; }` in BOTH variants
+   to force grayscale AA, or ClearType LCD stripes read as misregistration)
+   and run `scripts/check_overlay.py lay.png top.png X Y W H` with the word
+   rect from fit_diag. Accept only best-shift (0,0) and unmatched ≈ 0%.
+   Full rules and the composite-measurement trap:
+   `references/script-coloring.md` §4.
 8. Iterate on user feedback, re-run the whole verify suite, and keep the
    project dir clean: only `index.html`, `poster.png`, `README.md`, and the
-   build/verify pipeline survive; delete diagnostic scratch files.
+   build/verify pipeline survive; delete diagnostic scratch files. **Before
+   deleting anything, carry the measurement provenance into the README** —
+   which syllable got which treatment (auto split / `--vowel-comp N` override /
+   whole-glyph fallback) and what the verify pass reported. A skill reference
+   that cites a measurement as fact cannot cite a scratch dir you deleted: A-03
+   shipped with the gate green and the prose citing a `k_measure/` that no
+   longer existed, so nobody could re-check the claim and a wrong belief stood
+   unchallenged through two re-diagnoses. Provenance in the README, scratch
+   deletable.
 
 ## Complex-script coloring
 
@@ -160,10 +182,12 @@ verify the embedded subset actually loaded before trusting any em value). Quick 
   exiting nonzero unless every ink pixel matches). It cannot split a
   syllable whose vowel ink TOUCHES consonant ink (어 국 render as one
   component in OBS KR — it fails loudly; choose wording that avoids merged
-  syllables), and cannot judge the labels themselves (sanity-check the
-  component table against the jamo line; override with --vowel-comp if
-  wrong). Never copy patch fractions from another theme — they do not
-  transfer;
+  syllables, or treat the glyph whole: `--vowel-comp 0` whole-blue as in
+  A-03 복/요, or the `.cv` fusion gradient as in A-04 얼), and cannot judge
+  the labels themselves (sanity-check the component table against the jamo
+  line — complex finals like 많's ㄶ auto-mislabel; override with
+  --vowel-comp if wrong). Never copy patch fractions from another theme —
+  they do not transfer;
 - per-character readings (hanzi+zhuyin, kanji+furigana): `.zi` columns —
   one column per character, reading fixed-size inside its own column
   (below for Chinese, above for Japanese via `.wjp` bottom-alignment);
