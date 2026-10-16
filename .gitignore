@@ -69,3 +69,11 @@ one-unit-money-poster/
 # textlayer.viewport_deficit() 写出的视口探针：workdir 缺省时落在 cwd，
 # 模块自身不清理。它是运行时产物、可随时重跑再生，绝不入库
 *_vp_probe.html
+
+# ── RSI / théâtre（vendored RSIAgent fork）───────────────
+# 内嵌仓库目录：磁盘保留（其 HEAD 即上游 vendored commit），绝不进本仓库索引——
+# 防止 git 把 théâtre/ 折叠成 gitlink（mode 160000 空指针）
+/théâtre/.git/
+# RSI run root 生成的真网关凭据文件（run root 约定在仓库外；
+# 此规则兜底 --root 一旦指进仓库的失误，密钥永不入库）
+endpoints.json
