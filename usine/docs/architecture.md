@@ -5,7 +5,7 @@ related:
   - "../AGENTS.md —— 纪律与工程约定（权威）"
   - "workflow.md —— 工作流 ①–⑬ 运行手册（同目录）"
   - "toolchain.md —— 工具链与平台后台（同目录）"
-  - "../../théâtre/ARCHITECTURE.md —— RSI 引擎与适配层（仓库级）"
+  - "仓库级引擎文档 théâtre/ARCHITECTURE.md —— RSI 引擎与适配层（usine 树之外）"
 ---
 
 # 架构
@@ -13,8 +13,8 @@ related:
 状态：v1（2026-10-16）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
 每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——数据从哪来、模块归谁、门禁
 怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。
-图表配色与术语纪律全篇统一（§0），与
-[../../théâtre/ARCHITECTURE.md](../../théâtre/ARCHITECTURE.md) §0 同一套。
+图表配色与术语纪律全篇统一（§0），与仓库级引擎文档
+`théâtre/ARCHITECTURE.md` §0（vendored 树，位于本树之外）同一套。
 
 ---
 
@@ -410,8 +410,8 @@ flowchart LR
     class GUEST sandbox
 ```
 
-安全性质（全部由适配层保证，细节见
-[../../théâtre/ARCHITECTURE.md](../../théâtre/ARCHITECTURE.md)）：
+安全性质（全部由适配层保证，细节见仓库级引擎文档
+`théâtre/ARCHITECTURE.md`（vendored 树，位于本树之外））：
 
 - **本树在波次期间分毫不动**：Actor 改的是 seed 快照（worktree guest），
   候选以 delta 形式出来，合并是显式动作（一候选一 commit，带 tag）。
@@ -420,6 +420,6 @@ flowchart LR
 - **发布红线对 RSI 同样成立**：适配层在 VM 门面处拒绝发布类命令（三层防线），
   改进波次永不触碰真实平台流量。
 - 引擎内部机制（三角色、练习循环、围栏与审计、Verifier 隔离、合并管线）的
-  完整架构见 [../../théâtre/ARCHITECTURE.md](../../théâtre/ARCHITECTURE.md)；
-  适配层相对设计稿的偏离记录见其
-  [ADAPTATION.md](../../théâtre/ADAPTATION.md)。
+  完整架构见仓库级引擎文档 `théâtre/ARCHITECTURE.md`（vendored 树，位于
+  本树之外）；适配层相对设计稿的偏离记录见同目录的
+  `ADAPTATION.md`（同一 vendored 树内）。
