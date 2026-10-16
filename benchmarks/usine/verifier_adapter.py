@@ -646,12 +646,14 @@ _SUBSTRATE_REPLACEMENTS = (
 
 _SUBSTRATE_NOTE = (
     "\n\nSubstrate facts: this is a POSIX worktree guest on a Windows host. "
-    "Use $VERIFIER_SCRATCH directly from both Bash and Python; /tmp works "
-    "from both languages too. Python programs may also use canonical "
-    "/home/user/... paths (including in Looks); in Bash programs prefer "
-    "$VERIFIER_SCRATCH, /tmp, and $HOME over literal /home/user paths. There "
-    "is no apt-get, no systemd, and no GUI; screen Looks are unavailable - "
-    "inspect evidence with program output and file Looks.")
+    "Use $VERIFIER_SCRATCH directly from both Bash and Python. Python "
+    "programs may also use canonical /home/user/... and /tmp/... paths "
+    "(including in Looks); in Bash programs prefer $VERIFIER_SCRATCH and "
+    "$HOME over literal /home/user and /tmp paths - a literal /tmp in Bash "
+    "resolves through a mount shared by other processes and is not reliable "
+    "in this guest. There is no apt-get, no systemd, and no GUI; screen "
+    "Looks are unavailable - inspect evidence with program output and file "
+    "Looks.")
 
 
 def _substrate_system_prompt(base: str) -> str:

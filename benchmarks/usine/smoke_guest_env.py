@@ -14,7 +14,10 @@ asserts the seam properties the usine RSI adapter depends on:
   * binary program output externalization (stock envelope contract)
   * fetch_file / push_file byte fidelity and stock failure contracts
   * the _reset_null_vm boundary: reset + scrubbed task attrs + RSI_CLEAN_RC
-  * two concurrent guests on distinct drives with isolated disks
+  * two concurrent guests on distinct drives with isolated disks, including
+    the /tmp rewrite (the MSYS usertemp mount is sticky across concurrent
+    guests: a literal /tmp in a command must land on each guest's own drive
+    through the drive-form rewrite, never through the shared mount)
   * close(): subst drive released, scratch removed, idempotent
 
 Usage (théâtre venv; keep child argv ASCII on PowerShell 5.1):
@@ -299,6 +302,25 @@ def main() -> int:
         out = vm2.run_command("echo $HOME")
         check("env2-home-restored", out.strip() == "/home/user",
               f"$HOME={out.strip()!r}")
+
+        # -- concurrent /tmp isolation (real-wave infra failure mode) -----
+        # The MSYS usertemp /tmp mount is sticky across concurrently spawned
+        # guests: a literal /tmp in a command string MUST be rewritten into
+        # the per-guest drive form so each guest reads and writes its own
+        # disk.  Without the rewrite, vm2's write lands wherever the sticky
+        # mount points (typically the FIRST guest's TEMP) and vm1 sees it.
+        out = vm2.run_command(
+            "echo e2 > /tmp/e2_marker.txt; "
+            "test -f /tmp/e2_marker.txt && echo E2_TMP_OK")
+        e2_host = env2.disk_root / "tmp" / "e2_marker.txt"
+        e1_cross = disk1 / "tmp" / "e2_marker.txt"
+        out1_view = vm1.run_command(
+            "test ! -e /tmp/e2_marker.txt && echo TMP_ISOLATED")
+        check("concurrent-tmp-isolation",
+              "E2_TMP_OK" in out and e2_host.exists()
+              and not e1_cross.exists() and "TMP_ISOLATED" in out1_view,
+              f"vm2={out.strip()!r} vm1_view={out1_view.strip()!r} "
+              f"e2_host={e2_host.exists()} e1_cross={e1_cross.exists()}")
 
         # -- close lifecycle ------------------------------------------------
         vm1.client_password = env1.client_password  # insurance attr read paths

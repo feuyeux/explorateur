@@ -3,7 +3,9 @@
 Verifies, end to end, the environment assumptions `guest_env.py` depends on:
 
   * subst drive letter maps the guest root; `/z/...` cygdrive prefix works
-  * MSYS `/tmp` follows the per-VM Windows TEMP overlay
+  * MSYS `/tmp` follows the Windows TEMP overlay for a lone guest, but the
+    usertemp mount is STICKY across concurrent guests - which is why
+    guest_env.py rewrites `/tmp` into the drive form instead of trusting it
   * MSYS argv path conversion for native exes (`/z/...`, `/tmp/...`, `/dev/null`)
   * drive-relative embedded paths resolve inside the guest drive
   * login shell puts GNU coreutils (/usr/bin) ahead of Windows PATH junk
@@ -193,13 +195,21 @@ def probe_home(gb: GuestBash) -> None:
 
 
 def probe_msys_tmp(gb: GuestBash) -> None:
+    """INFO-grade: with a lone guest, MSYS still mounts ``/tmp`` at this
+    guest's TEMP overlay - but the usertemp mount is sticky, so under
+    concurrent guests every bash resolves literal ``/tmp`` through ONE
+    guest's TEMP (cross-verified in a real wave).  guest_env.py therefore
+    rewrites ``/tmp`` into the per-guest drive form instead of trusting the
+    mount; the concurrent isolation regression lives in
+    ``smoke_guest_env.py`` (``concurrent-tmp-isolation``)."""
     rc, out, err = gb.run("cygpath -w /tmp && echo probe > /tmp/msys_tmp_probe.txt && cat /tmp/msys_tmp_probe.txt")
     want = str(gb.guest_root / "tmp")
     host_file = gb.guest_root / "tmp" / "msys_tmp_probe.txt"
-    check(
-        "msys-tmp-follows-temp",
-        rc == 0 and norm(out.splitlines()[0] if out else "") == norm(want) and host_file.exists(),
-        f"cygpath -w /tmp -> {out.splitlines()[0] if out else ''!r}; host file exists={host_file.exists()}",
+    info(
+        "msys-tmp-follows-temp-lone-guest",
+        f"cygpath -w /tmp -> {out.splitlines()[0] if out else ''!r} "
+        f"(want {want!r}); host file exists={host_file.exists()}; "
+        f"STICKY under concurrent guests - guest_env rewrites /tmp",
     )
 
 

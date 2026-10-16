@@ -251,7 +251,9 @@ USINE TRANSPORT FACTS (Windows git-bash guest):
   /home/user/evolution_project (the project root), /tmp, /dev/shm.
 - BASH programs: literal /home/user and /dev/shm resolve to the bash
   installation's own directories, NOT to your guest tree - use $HOME or ~
-  (your home directory) and /tmp instead.
+  (your home directory) instead. For scratch space in bash use $HOME too
+  (e.g. "$HOME/scratch"); a literal /tmp in bash resolves through a mount
+  shared by other processes and is NOT reliable in your guest.
 - The offline verification gate is "uv run feuille verify", run from the
   project root. Keep the uv environment OUTSIDE the project root so it never
   lands in your captured work:

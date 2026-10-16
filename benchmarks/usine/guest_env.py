@@ -5,7 +5,7 @@ top of a per-VM ``subst`` drive that hosts a POSIX-looking guest tree:
 
     <drive>:/home/user          guest home (~, $HOME)
     <drive>:/home/user/bin      python3 shim (PATH overlay beats WindowsApps)
-    <drive>:/tmp                follows the MSYS usertemp mount (TEMP overlay)
+    <drive>:/tmp                rewritten like /home/user (MSYS usertemp is sticky)
     <drive>:/dev/shm            program staging + verifier scratch
 
 Every building block here was validated by ``benchmarks/usine/probe_env.py``
@@ -19,13 +19,25 @@ depends on:
   put GNU coreutils ahead of the shadow binaries on this host's PATH (FPC
   rm/find/timeout/stat, System32 tar/find/timeout); the guest ``bin`` dir
   puts the python3 shim ahead of the WindowsApps alias.
-* MSYS mounts ``/tmp`` at the Windows TEMP overlay, so ``/tmp`` needs no
-  rewrite; ``/home/user`` and ``/dev/shm`` have no per-VM mount, so the
-  execute server rewrites exactly those two tokens into the drive form
-  ``/{d}/home/user`` / ``/{d}/dev/shm`` (boundary-sensitive), and restores
+* MSYS mounts ``/tmp`` at the Windows TEMP overlay of whichever guest
+  resolved it FIRST, and that usertemp mount is sticky: with concurrent
+  guests on distinct drives, a literal ``/tmp`` inside a bash command
+  resolves to one fixed guest's temp directory for every guest
+  (cross-verified failure in a real wave - each guest's bash saw another
+  guest's ``/tmp`` while ``push_file`` kept writing its own disk).
+  ``/tmp`` is therefore treated exactly like ``/home/user`` and
+  ``/dev/shm``, which have no per-VM mount either: the execute server
+  rewrites all three tokens into the drive form ``/{d}/home/user`` /
+  ``/{d}/tmp`` / ``/{d}/dev/shm`` (boundary-sensitive), and restores
   the canonical guest spelling on all output, including inside the
   ``RSIAGENT_RUN_OUTPUT_BASE64:`` envelope (drive letters are per-VM and
   must never leak into agent-visible text or captured artifacts).
+  Base64 envelope program bodies are never rewritten (byte-verbatim
+  contract), which is why the transport notes steer bash programs away
+  from literal ``/tmp`` (use ``$HOME``/``~``) while python programs keep
+  the canonical spelling: Windows python resolves ``/tmp/x`` against the
+  current drive, and the program's working directory is on the guest
+  drive, so the canonical spelling still lands on the right disk.
 * Windows python resolves drive-relative embedded paths (``/home/user/x``)
   against the current drive, so python programs keep working unchanged.
   Literal ``/home/user`` inside *bash* programs still falls to the MSYS
@@ -358,12 +370,18 @@ class WorktreeEnv:
         posix_prefix = re.escape(self.p)
         win_root = rf"[{drive}{self.drive_letter.lower()}]:[/\\]"
         # Longest-first; POSIX forms get a word-character lookbehind so we
-        # never touch e.g. "x/z/home/user" inside longer tokens.
+        # never touch e.g. "x/z/home/user" inside longer tokens.  /tmp is
+        # rewritten for the same reason as /home/user and /dev/shm: the MSYS
+        # usertemp mount is sticky under concurrent guests (one guest's bash
+        # resolves every guest's literal /tmp through the first TEMP overlay),
+        # while the drive form /{d}/tmp always resolves to this guest's disk.
         self._rewrite_rules = (
             (re.compile(r"(?<!\w)/home/user(?!\w)"),
              f"{self.p}/home/user"),
             (re.compile(r"(?<!\w)/dev/shm(?!\w)"),
              f"{self.p}/dev/shm"),
+            (re.compile(r"(?<!\w)/tmp(?!\w)"),
+             f"{self.p}/tmp"),
         )
         self._restore_rules = (
             (re.compile(posix_prefix + r"/home/user(?!\w)"), "/home/user"),
