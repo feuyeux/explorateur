@@ -22,7 +22,11 @@ import {
 export { usineRoot } from './tools.js'
 
 export const name = 'feuille-usine'
-export const inject = ['tools', 'systemPrompt']
+// inject 必须含 'approval'：videoGenerationTool 在 apply 期就取 ctx.approval，
+// 真 cordis 对未声明就访问的服务抛 "cannot get property ... without inject"，
+// 整个插件加载失败、17 工具面全丢（2026-10-18 dsh 宿主真跑首测抓到；vitest 的
+// fakeCtx 不校验 inject，测试面永远看不见这类断点）。
+export const inject = ['tools', 'systemPrompt', 'approval']
 
 // 供测试/诊断定位 usine 工作区根（verify 工具同款逻辑）。
 

@@ -151,10 +151,14 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     expect(names(ctx)).not.toContain("usine_publish")
   })
 
-  it("inject 声明 tools + systemPrompt；publish 未声明（它是 config 门不是服务门）", async () => {
+  it("inject 声明 tools + systemPrompt + approval；publish 未声明（它是 config 门不是服务门）", async () => {
     const plugin = await loadPlugin()
     expect(plugin.name).toBe("feuille-usine")
-    expect(plugin.inject).toEqual(["tools", "systemPrompt"])
+    // approval 必须声明：videoGenerationTool 在 apply 期就取 ctx.approval，真
+    // cordis 对未声明就访问的服务抛 "cannot get property ... without inject"，
+    // 整个插件加载失败、工具面全丢（2026-10-18 dsh 宿主真跑首测抓到；本文件
+    // 的 fakeCtx 不校验 inject，这里把声明钉住防回退）。
+    expect(plugin.inject).toEqual(["tools", "systemPrompt", "approval"])
   })
 
   it("config.publish === true 才注册 usine_publish；fiber 先销毁则异步注册放弃", async () => {
