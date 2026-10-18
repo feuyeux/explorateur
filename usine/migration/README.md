@@ -636,3 +636,53 @@ Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
 Python verify_lesson 13/13、verify_scene_audio 14/0、verify_tts 16/0（含真实
 网络合成一次）、verify_timeline 13/0、verify_publish、verify_audit 23/23
 复跑全绿（双轨期纪律）。**P5-4 收口。**
+
+## P5-5：lesson.ts（new 开坑 + doctor 七层体检）——2026-10-18
+
+lesson.py 全量移植（cmd_new / cmd_doctor / tier_report / baseline_hits），
+CLI 接 lesson/new + lesson/doctor 两叶子。verify_lesson.py 的 §3（doctor 班底
+体检接线）随之落 vitest（§1/§2 已在 scene_schema.test.ts，本批补齐最后一块）。
+
+### 移植要点
+
+- **事实源现取**：registries() = scene_draft.registries()（同一份集合运算依据，
+  不另抄）+ scenes（SCENES 键）+ shapes（draw_device 分支口径）。langs 直接
+  复用 scene_draft.langs——两边错误文案逐字相同，复用即忠实。
+- **argparse 口径**：位置参数 + 带值旗标跳值（positional）、重复旗标后者覆盖
+  （argValue lastIndexOf）、int/choices 坏值 → 退出码 2；FeuilleError 照旧上抛
+  （统一入口 → 1）。
+- **_pad 显示宽度**：east_asian_width W/F 类按码点区间镜像（CJK/假名/谚文/全角/
+  表情记 2 格）——标签字符集内与 Python 对齐；测试按**显示列**断言而非 UTF-16
+  下标（下标口径下「班底体检」永远比「brief.json」少 4，那测的是编码不是排版）。
+- **freshness 深比较 pyEq**：键序无关递归 + 45 与 PyFloat(45.0) 互等
+  （valueOf 解包）——parse 出的 durationBudget 是 PyFloat，落库 JSON 回读是 45，
+  Python `==` 为 True，pyEq 不同口径则每课都误报「不新鲜」。
+- **班底体检走原始清单**（personasDoc 而非 {id} 索引——索引静默折叠重复 id）；
+  try/else 口径：读得走班底才做体检，读不了只报读不了。
+- **baselineHits 应命中数口径**：表空/缺表 → (0,0) = SKIP（「还没渲」≠「漏了
+  基线」）；表在但没这门课 → 0/N。基线路径经 framehash.baselinePath 按平台分桶。
+- **显示代码不让命令失败**：shown 路径——Node relative 不抛，以「跑出根外」
+  判定回落，与 Python relative_to ValueError 回落同义。
+- **--strict 结构性观察**：qa_scene 未接入前，⑦验收场景线在有 mp4 后恒 TODO
+  （硬层）——strict→0 结构上不可达，Python 同构；测试按此如实断言（strict→1
+  由 ④/⑦ 硬层 pending 判定，⑤/⑥ OPTIONAL 过滤不误伤）。
+- 按原样镜像，不「顺手修正」：tier ① 的 `brief.get('lines')` 缺键 → 印 "None"；
+  style 集合缺键 → set 里是 None（repr {None}）；"  " 作为 --tokens 在 Python
+  也是 truthy → 走「--tokens 是空的」而非「要教什么词」。
+
+### 测试（packages/core/test/lesson.test.ts，18 用例；verify_lesson.py §3 对应）
+### + cli.test.ts 路由端到端 1 条
+
+- **§3 对应（判据与 Python verify 同款）**：坏班底（id 重复，原始清单）→ FAIL
+  且 detail 含「重复」；好班底（feuille 缺省 28 人）→ OK。
+- cmd_new：键序 = 落库序逐键断言、rounds=3 → 11 行、tokens 两型、scenes 写进
+  devices、--tokens-file、拒覆盖/--force、id/旗标错误各打一枪、用法错 → 2。
+- tierReport：只有 brief 的新课分层状态（⑤ 整层无行）；真实课件 freshness
+  OK → 改 json → FAIL（漂移可见）；④ 逐项 TODO、基线 SKIP。
+- baselineHits、printReport 显示列对齐、cmd_doctor 退出码（空清单 0 / 指错课 1 /
+  strict 1）、--json 键序与 tier 序、--all iterdir 排序。
+
+门禁：typecheck 干净；vitest 32 文件全绿（298 用例，2 skipped）×4 连续；
+Python verify_lesson 13/13、verify_scene_audio 14/0、verify_tts 16/0、
+verify_timeline 13/0、verify_publish、verify_audit 23/23 复跑全绿（双轨期纪律）。
+**P5-5 收口。**

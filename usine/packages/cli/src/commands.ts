@@ -59,6 +59,14 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/scene-tts.js'),
     desc: '场景课 TTS：scene.json × 班底声线 → timeline.json + 逐行 mp3（台账增量）',
   },
+  'lesson/new': {
+    load: () => import('./leaves/lesson-new.js'),
+    desc: '新课开坑：lessons/<id>/brief.json（注册表现取 + 选角当场验 + 空跑草稿自证）',
+  },
+  'lesson/doctor': {
+    load: () => import('./leaves/lesson-doctor.js'),
+    desc: '课件就绪度体检：①创意…⑦验收，每条未完成带下一条命令（FAIL → 退出码 1）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */

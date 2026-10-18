@@ -117,4 +117,23 @@ describe('P5 课件线叶子经路由端到端可达', () => {
       rmSync(d, { recursive: true, force: true })
     }
   })
+
+  it('lesson new 开坑 + lesson doctor 体检：经路由端到端可达（退出码口径一致）', async () => {
+    const d = mkdtempSync(join(tmpdir(), 'feuille-cli-lesson-'))
+    try {
+      mkdirSync(join(d, 'lessons'), { recursive: true })
+      expect(await main(['lesson', 'new', 'fruit', '--title', '水果',
+        '--tokens', 'apple:#D8453B', '--lessons', join(d, 'lessons')])).toBe(0)
+      const brief = JSON.parse(readFileSync(join(d, 'lessons', 'fruit', 'brief.json'), 'utf8'))
+      expect(brief['lines']).toBe(11)   // rounds=3 → 5+2×3
+      // 体检：有欠账无 FAIL → 0；--strict 计硬层欠账 → 1（与 core 门禁同口径）
+      expect(await main(['lesson', 'doctor', '--scene', 'fruit', '--lessons', join(d, 'lessons')])).toBe(0)
+      expect(await main(['lesson', 'doctor', '--scene', 'fruit', '--lessons', join(d, 'lessons'),
+        '--strict'])).toBe(1)
+      // --scene 指到不存在的课 → 1（不静默）
+      expect(await main(['lesson', 'doctor', '--scene', 'nope', '--lessons', join(d, 'lessons')])).toBe(1)
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
 })
