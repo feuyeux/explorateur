@@ -586,3 +586,53 @@ Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
 门禁：typecheck 干净；vitest 30 文件全绿（267 用例，2 skipped）×4 连续；
 Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
 复跑全绿（双轨期纪律）。**P5-3 收口。**
+
+## P5-4 scene_audio 场景课 TTS 叶子（④成片·语音线第一段）
+
+### 实现（packages/core/src/scene_audio.ts；CLI 叶子 scene/tts）
+
+- 全量移植 scene_audio.py：`buildLocaleTimeline`（逐行合成 → enrichLines →
+  timeline，不落盘便于测试）、`runScene`（台账增量 + 落盘 + line-XX.mp3 副本）、
+  `mainTts`（--scene 必填缺 → 2；**本模块自捕 FeuilleError** → stderr + 1，
+  与 Python main 的 try/except 同构）、`pickCast`（§0.4 roles 声明驱动：
+  role → energy → 班底唯一人，解不出显式报错不静默回落）、`moodOffset`
+  （moodVoices 缺省 ±0 不猜）、`effectiveDurOf`（实测时长，不用 1e9 哨兵——
+  空 words/伪词行哨兵直灌 enrich 会炸 tail_silence≈-1e9）、`sceneMdSha16`、
+  `timelineName`（doctor ④ 探针与落盘同一条格式串，lesson.ts P5-5 复用）。
+- 选角不看名字只看 energy：A 声明 steady 就配沉稳声线（曾经收了名字不看，
+  A=steady 的合法课会被静默换声线——这条纪律原样保留并有测试钉住）。
+- 产物线注册：modules = tts 拆分后的全部五个文件（synth/pure/client/drm/split）
+  + timeline.ts + audio.ts——Python 单文件 tts.py 的对应物；data =
+  @lessons/*/scene.md + personas/personas.json 不变。
+- **双态口径**：内存 = TS camelCase（TimelineLine 的 speechDur/…，timeline.ts
+  P3 既定约定）；落盘 = Python 同款 snake_case 键序（i→speaker→mood→text→key→
+  words→dur→speech_dur→file_dur→tail_silence→start；顶层 locale→lines→gap→
+  totalDur→spanDur），经 parse_scene.pyJsonDump 写出——doctor ④ / compose 线
+  消费的是落盘形态，迁移期与 Python 产物互读。
+- 性能修复传导：synthCached 返回的实测时长以 durs 表传给 enrichLines——
+  全缓存命中零 ffprobe（P3 的设计内置修复，在第一条产线上真正生效）。
+
+### 测试（packages/core/test/scene_audio.test.ts，12 用例；verify_scene_audio.py
+### 14 断言全数对应 + 离线端到端）
+
+- 好数据放行：ru 选角 A=lively→misha、B=steady→anya；roles 换能量
+  （A=steady→anya）证声明驱动；LINE_GAP=0.35。
+- 反向：班底双活泼 → FeuilleError；说话人 'C' 不在 roles → 报错名单按
+  Python sorted-list 口径印；moodVoices 无该 mood → ±0、声明生效；
+  空 words 行 dur 回落实测 ≈3s（不是 1e9 哨兵）。
+- 台账：产物缺失判过期（不钉 why 措辞——Python verify 同款只断 not ok；
+  账本无条目时先命中「首建」判据）；漏传 extra 按条目里那份复算 → fresh；
+  sha 变则指纹变。真实 root 布局夹具（lessons/<id>/scene.md + personas/）。
+- 叶子可达 + 格式串源码机检（scene-${sid}_${lc}.timeline.json 与
+  build/scene/audio 目录约定任何一边改名当场红）。
+- **离线端到端**：预置内容寻址缓存（ffmpeg 真造 mp3 + 词表；键走产线同一
+  取值链 pickCast→moodOffset→voiceParams→contentHash）→ runScene 全程零网络：
+  落盘字节起手 = Python json.dumps(indent=1) 口径（键序逐位断言）、行 0 真词表
+  裁尾 ≈0.8s / 行 1 空词表回落实测 ≈2s、start 累进、line-00/01.mp3 副本、
+  台账 extra=(sid, sha, "0.35")、二跑不 --force → [SKIP]。
+- mainTts：缺 --scene → 2；缺 roles 声明 → stderr + 1。
+
+门禁：typecheck 干净；vitest 31 文件全绿（279 用例，2 skipped）×4 连续；
+Python verify_lesson 13/13、verify_scene_audio 14/0、verify_tts 16/0（含真实
+网络合成一次）、verify_timeline 13/0、verify_publish、verify_audit 23/23
+复跑全绿（双轨期纪律）。**P5-4 收口。**

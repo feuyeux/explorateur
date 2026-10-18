@@ -55,6 +55,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/scene-draft.js'),
     desc: '教学创意 → lessons/<id>/scene.md 结构草稿（只填结构留 TODO；--gaps 查欠账）',
   },
+  'scene/tts': {
+    load: () => import('./leaves/scene-tts.js'),
+    desc: '场景课 TTS：scene.json × 班底声线 → timeline.json + 逐行 mp3（台账增量）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */
