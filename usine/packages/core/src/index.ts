@@ -10,3 +10,6 @@ export const VERSION = '0.1.0'
 
 // spike 1（edge-tts v2 客户端）——P3 tts 模块的种子
 export * from './tts/index.js'
+
+// spike 2（sharp + canvas 成像管线）——P3 textlayer / P4 rig·scenes 的种子
+export * from './imaging/index.js'

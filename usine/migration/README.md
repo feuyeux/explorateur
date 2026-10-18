@@ -59,3 +59,29 @@
 - **遗留到 P3**：4096 字节分片（`split_text_by_byte_length`）与内容寻址缓存
   （`synth_cached`）；spike 只做单段合成 + 重试。
 
+
+### Spike 2 — sharp + canvas 成像管线（2026-10-18，✅ 通过）
+
+落地 `packages/core/src/imaging/`（matte.ts / draw.ts / index.ts），依赖
+sharp + @napi-rs/canvas（Skia，预编译二进制）。判据走共享 op-spec
+（`golden/assets/scenes_ref.spec.json`）：Python(Pillow) 与 TS(Skia) 按同一份
+数据渲染，杜绝两侧漂移。
+
+- **matte 数学：逐像素逐字节 parity（0 不等字节）**。TS(sharp raw) 与
+  Python(Pillow+numpy) 对同一对 matte_w/matte_b 截图输入输出完全相等——
+  双 matte 是解码后的纯数学（alpha=255-max(C_w-C_b)、去预乘 C_b/a、
+  astype(uint8) 截断），不存在栅格化自由度；alpha 结构统计
+  （coverage 0.05237 / mean 61.08 / max 255 / bbox）与金样本一致。
+  **P3 textlayer 可直接按逐字节判据入迁移。**
+- **rig/scenes 渲染：结构 parity，阈值实测校定**。关键语义差（实测探针证明）：
+  **PIL 的 arc/ellipse 描边从 box 内接椭圆向内加粗，canvas 居中描边**——TS 侧
+  路径须内缩 width/2，否则弧带整体外扩（修正前 p99=49，修正后 p99=5）。
+  其余对齐：PIL box 闭区间(+1)、角度同约定（0°=三点钟、y 向下顺时针）、
+  gradient 逐行带状着色（banker's rounding）、SS 超采样 + LANCZOS 缩回
+  （sharp lanczos3）。
+- **判据口径（机桶纪律）**：降采样 270×480 灰度的均值绝对差与 p99——
+  实测 mean=0.144 / p99=5 / max=79（max 为单像素 AA 尾部），门禁阈值定
+  mean<0.5、p99<15（留机桶余量）。Pillow↔Skia 边缘 AA 必然不同，
+  比结构与几何，不比像素。
+- **遗留到 P4**：DrawScaled 代理、65 个注册场景名、rig TB/T 变换壳在
+  draw.ts 的 op 面上铺开（op 面已覆盖 scenes/rig 用到的全部绘制原语）。
