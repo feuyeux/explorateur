@@ -29,7 +29,8 @@ Two host-side seam sets, both consumed by run_usine.py:
     persistent-profile browser launches.  A refusal is a normal program
     outcome (exit 126 + an explanatory message), never an infra failure, so
     the model sees the boundary and adapts.  The structural backstop is the
-    guest-home pin in guest_env.py: ``USERPROFILE`` resolves inside the
+    guest-home pin in guest_env.py: ``USERPROFILE`` (Windows) / ``HOME``
+    (POSIX) resolves inside the
     sandbox disk, so live platform login profiles (``~/*_creator_profile``)
     do not exist for guest programs and every stock publish/login path stops
     at its own login wall.  Residuals (documented in ADAPTATION.md): the

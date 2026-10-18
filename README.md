@@ -30,7 +30,7 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 | 目录 | 是什么 | 入口 |
 |---|---|---|
 | [`théâtre/`](théâtre/) | vendored RSIAgent 引擎（上游 `4d7ef43`；内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [PROVENANCE.md](théâtre/PROVENANCE.md)（补丁纪律）· [ADAPTATION.md](théâtre/ADAPTATION.md)（实现偏离） |
-| [`benchmarks/usine/`](benchmarks/usine/) | 适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检；**改进方向含智能体面（dsh 插件工具面）** | [README](benchmarks/usine/README.md)（**运行手册：怎么跑一次 wave、怎么校验自进化产物**）· `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token；真波次喊跑才跑，且只能在 Windows wave host 上跑） |
+| [`benchmarks/usine/`](benchmarks/usine/) | 适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检；**改进方向含智能体面（dsh 插件工具面）** | [README](benchmarks/usine/README.md)（**运行手册：怎么跑一次 wave、怎么校验自进化产物**）· `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token；真波次喊跑才跑；Windows wave host 与 macOS POSIX host 均可跑） |
 | [`plan/`](plan/) | 排产与调研文档 | [rsiagent-memory.md](plan/rsiagent-memory.md)（RSI 调研） |
 
 红线：发布 / 登录永不自动执行（VM 门面三层防线）；一候选一 commit，每波 tag

@@ -16,8 +16,10 @@ What one scripted wave exercises (exactly 8 fake chat calls):
   2. Actor (MiniMax-M3) runs the true offline gate inside the guest
      ("pnpm install" once, then "pnpm verify"), adds one note under
      docs/theatre-rsi/, and submits /home/user/actor_handoff.md.
-     Prerequisite on the wave host: Node >= 24 + pnpm 11 on PATH, with
-     a warm pnpm store or network access for the first install.
+     Prerequisite on the driving host (Windows wave host or POSIX):
+     Node >= 24 + pnpm 11 on PATH, with a warm pnpm store or network
+     access for the first install; POSIX hosts also need GNU coreutils
+     (brew install coreutils) for the guest dialect.
   3. Actor declares done (the done probe checks the handoff exists).
   4. Verifier (MiniMax-M3.1-Flash-Preview) publishes one
      verifier-report program with exactly one standalone VERDICT line.
@@ -52,9 +54,13 @@ Layout (created fresh; the harness refuses to run over leftovers):
     fixture/                          the merge-target repository (kept)
     vm-scratch/                       guest VM scratch (cleaned by close())
 
-Run it from the theatre checkout (the fake wave needs the Windows wave
-host substrate — elsewhere main() prints an honest 待跑 INFO and exits 0):
-  .venv/Scripts/python.exe ../benchmarks/usine/smoke_dry_run_wave.py
+Run it from the theatre checkout (théâtre venv; the scripted python
+programs use the canonical guest spelling on Windows - where python
+resolves it per-drive - and ~ / expanduser on POSIX, where a literal
+canonical path would hit the real host root; the gate needs a warm pnpm
+store or network once):
+  Windows: .venv/Scripts/python.exe ../benchmarks/usine/smoke_dry_run_wave.py
+  POSIX:   .venv/bin/python ../benchmarks/usine/smoke_dry_run_wave.py
 
 Clean up afterwards with (single top-level rm command; the smoke prints
 the exact path it used):
@@ -75,6 +81,8 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 _EXPLORATEUR_ROOT = _HERE.parents[1]
+
+IS_WINDOWS = sys.platform == "win32"
 
 # Wave-host convention is the D: layout; elsewhere (macOS/Linux dev boxes)
 # the same layout lives beside the explorateur checkout — pnpm refuses
@@ -134,21 +142,44 @@ WAVE_HANDOFF_JSON = (
     "}\n"
 )
 
-CURRICULUM_CODE = (
-    "import pathlib\n"
-    "\n"
-    'wave_root = pathlib.Path("/home/user/evolution_wave/'
-    + PROJECT_ID + '/evolution_project")\n'
-    'readme = wave_root / "theatre-fixture" / "README.md"\n'
-    "readme.parent.mkdir(parents=True, exist_ok=True)\n"
-    "readme.write_text(\n"
-    "    " + json.dumps(SCAFFOLD_README) + ",\n"
-    '    encoding="utf-8")\n'
-    'pathlib.Path("/home/user/phase1_wave.json").write_text(\n'
-    "    " + json.dumps(WAVE_HANDOFF_JSON) + ",\n"
-    '    encoding="utf-8")\n'
-    'print("dry-run wave scaffold and handoff published")\n'
-)
+if IS_WINDOWS:
+    # The canonical spelling inside program text resolves per-drive (the
+    # guest disk) on Windows - probe-validated.
+    CURRICULUM_CODE = (
+        "import pathlib\n"
+        "\n"
+        'wave_root = pathlib.Path("/home/user/evolution_wave/'
+        + PROJECT_ID + '/evolution_project")\n'
+        'readme = wave_root / "theatre-fixture" / "README.md"\n'
+        "readme.parent.mkdir(parents=True, exist_ok=True)\n"
+        "readme.write_text(\n"
+        "    " + json.dumps(SCAFFOLD_README) + ",\n"
+        '    encoding="utf-8")\n'
+        'pathlib.Path("/home/user/phase1_wave.json").write_text(\n'
+        "    " + json.dumps(WAVE_HANDOFF_JSON) + ",\n"
+        '    encoding="utf-8")\n'
+        'print("dry-run wave scaffold and handoff published")\n'
+    )
+else:
+    # POSIX twin: a literal canonical path inside program text would hit
+    # the REAL host root; ~ (HOME is pinned to the guest home) reaches the
+    # guest tree, exactly as the transport note teaches the real model.
+    CURRICULUM_CODE = (
+        "import os, pathlib\n"
+        "\n"
+        "home = pathlib.Path(os.path.expanduser('~'))\n"
+        "wave_root = home / 'evolution_wave/" + PROJECT_ID
+        + "/evolution_project'\n"
+        'readme = wave_root / "theatre-fixture" / "README.md"\n'
+        "readme.parent.mkdir(parents=True, exist_ok=True)\n"
+        "readme.write_text(\n"
+        "    " + json.dumps(SCAFFOLD_README) + ",\n"
+        '    encoding="utf-8")\n'
+        "(home / 'phase1_wave.json').write_text(\n"
+        "    " + json.dumps(WAVE_HANDOFF_JSON) + ",\n"
+        '    encoding="utf-8")\n'
+        'print("dry-run wave scaffold and handoff published")\n'
+    )
 
 # The gate record the actor adds to the tree. Audit-clean by construction:
 # no "feuille <grp> <cmd>" spelling, no USINE_ prefixed variable, no
@@ -217,32 +248,54 @@ RECONCILE_APPEND_TEXT = (
     "  branch of the first wave and the memory bank started empty.\n"
 )
 
-DISTILL_CODE = (
-    "import pathlib\n"
-    'memory = pathlib.Path("/home/user/.memory")\n'
-    "memory.mkdir(parents=True, exist_ok=True)\n"
-    "(memory / " + json.dumps(MEMORY_REL) + ").write_text(\n"
-    "    " + json.dumps(DISTILL_NOTE_TEXT) + ",\n"
-    '    encoding="utf-8")\n'
-    'print("memory note written")\n'
-)
-
-RECONCILE_CODE = (
-    "import pathlib\n"
-    "note = pathlib.Path(\"/home/user/.memory/" + MEMORY_REL + "\")\n"
-    'with note.open("a", encoding="utf-8") as handle:\n'
-    "    handle.write(\n"
-    "        " + json.dumps(RECONCILE_APPEND_TEXT) + ")\n"
-    'print("memory reconciled")\n'
-)
+if IS_WINDOWS:
+    DISTILL_CODE = (
+        "import pathlib\n"
+        'memory = pathlib.Path("/home/user/.memory")\n'
+        "memory.mkdir(parents=True, exist_ok=True)\n"
+        "(memory / " + json.dumps(MEMORY_REL) + ").write_text(\n"
+        "    " + json.dumps(DISTILL_NOTE_TEXT) + ",\n"
+        '    encoding="utf-8")\n'
+        'print("memory note written")\n'
+    )
+    RECONCILE_CODE = (
+        "import pathlib\n"
+        "note = pathlib.Path(\"/home/user/.memory/" + MEMORY_REL + "\")\n"
+        'with note.open("a", encoding="utf-8") as handle:\n'
+        "    handle.write(\n"
+        "        " + json.dumps(RECONCILE_APPEND_TEXT) + ")\n"
+        'print("memory reconciled")\n'
+    )
+else:
+    DISTILL_CODE = (
+        "import os, pathlib\n"
+        "memory = pathlib.Path(os.path.expanduser('~/.memory'))\n"
+        "memory.mkdir(parents=True, exist_ok=True)\n"
+        "(memory / " + json.dumps(MEMORY_REL) + ").write_text(\n"
+        "    " + json.dumps(DISTILL_NOTE_TEXT) + ",\n"
+        '    encoding="utf-8")\n'
+        'print("memory note written")\n'
+    )
+    RECONCILE_CODE = (
+        "import os, pathlib\n"
+        "note = pathlib.Path(os.path.expanduser("
+        + json.dumps("~/.memory/" + MEMORY_REL) + "))\n"
+        'with note.open("a", encoding="utf-8") as handle:\n'
+        "    handle.write(\n"
+        "        " + json.dumps(RECONCILE_APPEND_TEXT) + ")\n"
+        'print("memory reconciled")\n'
+    )
 
 # The memory file is written inside the guest by its Windows Python in
 # plain text mode (write_text / open("a") idioms a real model would use),
-# so every "\n" lands as "\r\n" on this substrate. The pipeline must
-# carry those exact bytes through pull -> journal -> install; if it ever
-# normalizes line endings, this assertion fails loudly.
-EXPECTED_MEMORY = ((DISTILL_NOTE_TEXT + RECONCILE_APPEND_TEXT)
-                   .replace("\n", "\r\n").encode("utf-8"))
+# so every "\n" lands as "\r\n" on that substrate.  The POSIX guest writes
+# plain "\n".  The pipeline must carry those exact bytes through pull ->
+# journal -> install on both; if it ever normalizes line endings, this
+# assertion fails loudly.
+_MEMORY_TEXT = DISTILL_NOTE_TEXT + RECONCILE_APPEND_TEXT
+EXPECTED_MEMORY = (
+    _MEMORY_TEXT.replace("\n", "\r\n") if IS_WINDOWS else _MEMORY_TEXT
+).encode("utf-8")
 
 
 def _program_reply(lang: str, code: str) -> str:
@@ -328,6 +381,11 @@ def build_fixture_repo() -> dict:
         name for name in _git_text(
             ["ls-files", "-z", "--", "usine/"], _EXPLORATEUR_ROOT
         ).split("\0") if name])
+    # git archive ships LFS gold assets as POINTER text; the gate probes
+    # them with real ffprobe/sharp, so overlay the smudged working-tree
+    # bytes for exactly those members (same helper the seed builder uses).
+    import run_usine
+    lfs_files = run_usine._lfs_smudge_overlay(_EXPLORATEUR_ROOT / "usine")
 
     extracted = 0
     with tarfile.open(fileobj=io.BytesIO(proc.stdout), mode="r:") as tf:
@@ -342,8 +400,17 @@ def build_fixture_repo() -> dict:
                 continue
             target = FIXTURE_DIR.joinpath(*rel.split("/"))
             target.parent.mkdir(parents=True, exist_ok=True)
-            handle = tf.extractfile(member)
-            target.write_bytes(handle.read())
+            overlay_path = lfs_files.get(rel)
+            if overlay_path is not None:
+                target.write_bytes(overlay_path.read_bytes())
+            else:
+                handle = tf.extractfile(member)
+                target.write_bytes(handle.read())
+            # git archive carries the exec bit (usine ships 100755 bin
+            # shims); dropping it would commit the fixture as 644 and
+            # POSIX git (core.filemode=true) calls the tree dirty the
+            # moment pnpm marks its bin shims executable again.
+            target.chmod(member.mode)
             extracted += 1
     _require(extracted == source_count,
              f"extracted {extracted} file(s) but the prefix tracks "
@@ -760,14 +827,11 @@ def check_real_usine_untouched(before: dict) -> None:
 # ----------------------------------------------------------------------- main
 
 def main() -> int:
-    if sys.platform != "win32":
-        # The scripted fake wave drives the WorktreeEnv substrate, which IS
-        # the Windows wave host (git-bash bash.exe + subst drives); the
-        # pipeline aborts with infra status everywhere else. SKIP is not
-        # PASS - this smoke runs only on the wave host.
-        print("INFO smoke: wave host 待跑 | the fake wave needs the Windows "
-              "wave host substrate (git-bash WorktreeEnv); run it there")
-        return 0
+    # POSIX prerequisite honesty: guest_env fails closed at WorktreeEnv
+    # construction without GNU coreutils in the guest PATH, and the gate
+    # preflight dies without node/pnpm - SKIP is not PASS, so this smoke
+    # runs its full battery on both substrates and lets those fail loudly
+    # where prerequisites are missing.
     t0 = time.time()
     print("== usine dry run: one scripted wave with a fake LLM ==")
 

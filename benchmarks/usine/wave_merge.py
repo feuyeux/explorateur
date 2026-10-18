@@ -86,9 +86,12 @@ PROJECT_ROOT_NAME = "evolution_project"
 # ``node_modules`` and ``dist`` are the TS-era regenerables (pnpm install /
 # pnpm test rebuild them); unpruned they would not just bloat archives but
 # also trip path_policy (``git check-ignore``) and drop whole candidates.
+# ``build`` is the gitignored evidence/regenerable output root (e.g. publish
+# 测试的 build/publish-verify 证据副本——注释里就写着「不入库」): untracked
+# gate side effects landing there must not ride into a candidate delta.
 # ``*.tsbuildinfo`` is the tsc incremental cache, same story.
 EXCLUDED_PARTS = frozenset({
-    ".git", "__pycache__", ".venv", "venv", "node_modules", "dist",
+    ".git", "__pycache__", ".venv", "venv", "node_modules", "dist", "build",
     ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox",
     ".ipynb_checkpoints", ".eggs",
 })

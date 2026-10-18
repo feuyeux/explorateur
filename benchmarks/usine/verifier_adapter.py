@@ -23,13 +23,18 @@ every stock role contract:
 * Programs run through the inherited ``_run_harness_script`` -> stock
   ``VM.run_script`` transport (b64 inline or streamed, GNU timeout tree kill,
   lossless cap=0) with ``USER``/``LOGNAME``/``VERIFIER_SCRATCH`` exported.
-  ``VERIFIER_SCRATCH`` and the staged program file use the drive-qualified
-  forward-slash spelling (``Z:/home/user/...``): it is the only form both
-  bash (MSYS) and the guest's Windows Python resolve identically.  Guest
+  ``VERIFIER_SCRATCH`` and the staged program file use the substrate
+  spelling that bash and the guest python resolve identically: the
+  drive-qualified forward-slash form (``Z:/home/user/...``) on the Windows
+  wave host, the scratch-absolute host form on POSIX
+  (``_substrate_path``).  Guest
   output is restored to the canonical ``/home/user/...`` spelling by the
-  execute server, so the drive form never reaches agent-visible text.  The
-  canonical spelling still works in Python programs (drive-relative
-  resolution, probe-validated) and in Look paths.
+  execute server, so the substrate form never reaches agent-visible text.
+  On Windows the canonical spelling still works in Python programs
+  (drive-relative resolution, probe-validated) and in Look paths; on POSIX
+  it works in Look paths only - inside program text it resolves against
+  the real host root, so the substrate note steers programs there to
+  ``$VERIFIER_SCRATCH`` / ``$HOME`` / ``~``.
 * ``export_scratch``/scratch restore are host-side tars of the workspace;
   member safety mirrors the stock restore (reject absolute/traversal/non
   regular members before extracting anything).
@@ -68,6 +73,7 @@ import re
 import secrets
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -114,27 +120,59 @@ def _drive_form(drive_letter: str, canonical: str) -> str:
         f"canonical path is outside the worktree roots: {canonical!r}")
 
 
-def _canonicalize_look_path(path):
-    """Map a drive-qualified guest spelling onto its canonical form.
+def _substrate_path(env, canonical: str) -> str:
+    """The one path form bash and the guest python resolve identically.
 
-    ``$VERIFIER_SCRATCH`` and ``$HOME`` carry drive-qualified values inside
+    Windows wave host: the drive-qualified form (``Z:/home/user/...``).
+    POSIX hosts: the scratch-absolute host form (the rewritten drive form,
+    ``<scratch>/guest/home/user/...``) - both bash and the guest python
+    resolve it against the real root, and the execute server restores it
+    to canonical spelling in all guest output.
+    """
+    if guest_env.IS_WINDOWS:
+        return _drive_form(env.drive_letter, canonical)
+    text = posixpath.normpath(str(canonical))
+    for prefix in _CANONICAL_ROOTS:
+        if text == prefix or text.startswith(prefix + "/"):
+            return env.p + text
+    raise ValueError(
+        f"canonical path is outside the worktree roots: {canonical!r}")
+
+
+def _canonicalize_look_path(path):
+    """Map a substrate-form guest spelling onto its canonical form.
+
+    ``$VERIFIER_SCRATCH`` and ``$HOME`` carry substrate-form values inside
     the guest, so Look paths copied from them must validate like the
-    canonical spelling.  Any other drive-qualified path is returned
-    unchanged, so the stock validator still rejects host paths such as
-    ``C:/Windows/...``.
+    canonical spelling.  Anything that is not a recognized substrate form
+    is returned unchanged, so the stock validator still rejects host paths
+    such as ``C:/Windows/...`` (Windows) or ``/etc/...`` (POSIX).
     """
     if not isinstance(path, str):
         return path
-    match = re.fullmatch(r"([A-Za-z]):[/\\]+(.*)", path)
-    if match is None:
+    if guest_env.IS_WINDOWS:
+        match = re.fullmatch(r"([A-Za-z]):[/\\]+(.*)", path)
+        if match is None:
+            return path
+        rest = match.group(2).replace("\\", "/")
+        if rest == "home/user" or rest.startswith("home/user/"):
+            return "/" + rest
+        if rest == "tmp" or rest.startswith("tmp/"):
+            return "/" + rest
+        if rest == "dev/shm" or rest.startswith("dev/shm/"):
+            return "/" + rest
         return path
-    rest = match.group(2).replace("\\", "/")
-    if rest == "home/user" or rest.startswith("home/user/"):
-        return "/" + rest
-    if rest == "tmp" or rest.startswith("tmp/"):
-        return "/" + rest
-    if rest == "dev/shm" or rest.startswith("dev/shm/"):
-        return "/" + rest
+    # POSIX: scratch-absolute spellings copied out of $VERIFIER_SCRATCH or
+    # $HOME re-root from the LAST canonical-root marker; the stock
+    # validator then re-checks roots and traversal on the canonical form.
+    # URL schemes are left untouched (they never start with "/" at the
+    # marker, and "file:///home/user/..." must stay rejected by stock).
+    if "://" in path:
+        return path
+    for marker in ("/home/user/", "/dev/shm/", "/tmp/"):
+        index = path.rfind(marker)
+        if index >= 0:
+            return path[index:]
     return path
 
 
@@ -174,6 +212,35 @@ def _stop_guest_processes(env) -> None:
     recorded in ADAPTATION.md.
     """
     drive = env.drive_letter
+    if not guest_env.IS_WINDOWS:
+        # POSIX twin: match this guest's scratch path in process command
+        # lines.  Windows file locks are not a POSIX concern, but a running
+        # guest process could keep writing into the restored tree, so the
+        # same best-effort sweep applies (its residuals are recorded in
+        # ADAPTATION.md identically).
+        needle = str(env.scratch)
+        try:
+            result = subprocess.run(
+                ["ps", "-axo", "pid=,command="],
+                capture_output=True, text=True, timeout=90)
+        except (OSError, subprocess.SubprocessError):
+            return
+        if result.returncode != 0:
+            return
+        mine = os.getpid()
+        for line in (result.stdout or "").splitlines():
+            stripped = line.strip()
+            if not stripped or needle not in stripped:
+                continue
+            pid_text = stripped.split(None, 1)[0]
+            if not pid_text.isdigit() or int(pid_text) == mine:
+                continue
+            try:
+                os.kill(int(pid_text), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                continue
+            log.info("rollback sweep killed pid %s", pid_text)
+        return
     lower = drive.lower()
     needles = (
         str(env.scratch),
@@ -425,14 +492,15 @@ class WorktreeVerifierExecutor(AgenticVerifierExecutor):
         ready_token = "__RSIAGENT_VERIFIER_MIRROR_READY_" + action_token + "__"
         program_path = (
             self._workspace + f"/program_{action_token}.{extension}")
-        scratch_drive = _drive_form(self._env.drive_letter, self._workspace)
-        program_drive = _drive_form(self._env.drive_letter, program_path)
+        scratch_drive = _substrate_path(self._env, self._workspace)
+        program_drive = _substrate_path(self._env, program_path)
         encoded = base64.b64encode(
             (code or "").encode("utf-8")).decode("ascii")
         # All interpolated values are harness tokens or base64 data; the
         # model program is decoded to a file and never parsed as wrapper
-        # source.  The drive-qualified spelling works from bash and from the
-        # guest's Windows Python identically; the server restores the
+        # source.  The substrate spelling works from bash and from the
+        # guest python identically (drive-qualified on the Windows wave
+        # host, scratch-absolute on POSIX); the server restores the
         # canonical spelling in all output.
         wrapper = f"""\
 set -eu
@@ -569,8 +637,8 @@ exit "$program_rc"
             if _is_private_path(resolved_guest, self._private_paths):
                 return None, "That path is private to the Actor Agent."
         executor = self
-        render_dir = _drive_form(
-            self._env.drive_letter, self._workspace + "/look_render")
+        render_dir = _substrate_path(
+            self._env, self._workspace + "/look_render")
 
         class _VerifierLookVM:
             # Document rendering on this substrate has no soffice/pdftoppm,
@@ -644,16 +712,7 @@ _SUBSTRATE_REPLACEMENTS = (
      "names your private writable directory"),
 )
 
-_SUBSTRATE_NOTE = (
-    "\n\nSubstrate facts: this is a POSIX worktree guest on a Windows host. "
-    "Use $VERIFIER_SCRATCH directly from both Bash and Python. Python "
-    "programs may also use canonical /home/user/... and /tmp/... paths "
-    "(including in Looks); in Bash programs prefer $VERIFIER_SCRATCH and "
-    "$HOME over literal /home/user and /tmp paths - a literal /tmp in Bash "
-    "resolves through a mount shared by other processes and is not reliable "
-    "in this guest. There is no apt-get, no systemd, and no GUI; screen "
-    "Looks are unavailable - inspect evidence with program output and file "
-    "Looks.\n"
+_CANDIDATE_TREE_FACTS = (
     "Candidate-tree facts: the candidate is a TypeScript pnpm monorepo. "
     "node_modules and dist are PRUNED from every capture by design (they "
     "are regenerable install/build output, symmetric on both the capture "
@@ -665,6 +724,35 @@ _SUBSTRATE_NOTE = (
     "then `pnpm verify` (typecheck plus every vitest suite) or `pnpm vitest "
     "run packages/<pkg>` for one package. Node 24+ and pnpm 11 are on PATH."
 )
+
+if guest_env.IS_WINDOWS:
+    _SUBSTRATE_NOTE = (
+        "\n\nSubstrate facts: this is a POSIX worktree guest on a Windows "
+        "host. Use $VERIFIER_SCRATCH directly from both Bash and Python. "
+        "Python programs may also use canonical /home/user/... and /tmp/... "
+        "paths (including in Looks); in Bash programs prefer $VERIFIER_SCRATCH "
+        "and $HOME over literal /home/user and /tmp paths - a literal /tmp "
+        "in Bash resolves through a mount shared by other processes and is "
+        "not reliable in this guest. There is no apt-get, no systemd, and "
+        "no GUI; screen Looks are unavailable - inspect evidence with "
+        "program output and file Looks.\n"
+        + _CANDIDATE_TREE_FACTS)
+else:
+    # POSIX twin: the Windows note's Python guidance is FALSE here - a
+    # literal canonical path inside program text resolves against the real
+    # host root, not the guest tree (there is no per-drive resolution).
+    _SUBSTRATE_NOTE = (
+        "\n\nSubstrate facts: this is a POSIX worktree guest on a macOS "
+        "host. Use $VERIFIER_SCRATCH directly from both Bash and Python "
+        "programs. LITERAL /home/user/... and /tmp/... paths in your program "
+        "text resolve against the REAL host root, not your guest tree - "
+        "reach your files through $VERIFIER_SCRATCH, $HOME, or ~ in both "
+        "Bash and Python (os.path.expanduser). Canonical /home/user/... and "
+        "/tmp/... spellings still work in Look paths (the host maps them "
+        "for you). There is no apt-get, no systemd, and no GUI; screen "
+        "Looks are unavailable - inspect evidence with program output and "
+        "file Looks.\n"
+        + _CANDIDATE_TREE_FACTS)
 
 
 def _substrate_system_prompt(base: str) -> str:

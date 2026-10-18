@@ -240,9 +240,9 @@ def test_corpus() -> None:
         check("audit: a pruned capture (no excluded members) stays clean",
               fresh.captured(str(pruned)) == [])
         info("audit: pruning is symmetric",
-             "capture-side exclude_parts (node_modules, dist) and merge-side "
-             "EXCLUDED_PARTS share one convention - what never enters the "
-             "archive never enters the audit face or the merge")
+             "capture-side exclude_parts (node_modules, dist, build) and "
+             "merge-side EXCLUDED_PARTS share one convention - what never "
+             "enters the archive never enters the audit face or the merge")
 
         unpruned = root / "capture_unpruned"
         unpruned.mkdir()

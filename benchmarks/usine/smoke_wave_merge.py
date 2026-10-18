@@ -323,14 +323,16 @@ def test_archives() -> None:
                     "dist/index.mjs": b"D1\n",
                     "packages/core/dist/index.mjs": b"D2\n",
                     "packages/core/node_modules/x/y.js": b"N2\n",
-                    "tsconfig.tsbuildinfo": b"T1\n"}
+                    "tsconfig.tsbuildinfo": b"T1\n",
+                    "build/publish-verify/mock-events.json": b"E1\n"}
         noise_cd = {"src/a.txt": b"A\n", ".venv/lib.py": b"V2\n",
                     "__pycache__/m.pyc": b"P2\n",
                     "node_modules/x/y.js": b"N3\n",
                     "dist/index.mjs": b"D3\n",
                     "packages/core/dist/index.mjs": b"D4\n",
                     "packages/core/node_modules/x/y.js": b"N4\n",
-                    "tsconfig.tsbuildinfo": b"T2\n"}
+                    "tsconfig.tsbuildinfo": b"T2\n",
+                    "build/publish-verify/mock-events.json": b"E2\n"}
         delta = wave_merge.candidate_delta(
             wave_merge.load_archive_inventory(
                 write_materials(root / "nfx", noise_fx), "nfx")["files"],
@@ -341,9 +343,10 @@ def test_archives() -> None:
         inv_cd = wave_merge.load_archive_inventory(
             write_materials(root / "ncd2", noise_cd), "ncd2")
         check("delta: TS regenerables are partitioned into excluded "
-              "(node_modules/dist at any depth, *.tsbuildinfo)",
+              "(node_modules/dist/build at any depth, *.tsbuildinfo)",
               sorted(inv_cd["excluded"]) == [
                   ".venv/lib.py", "__pycache__/m.pyc",
+                  "build/publish-verify/mock-events.json",
                   "dist/index.mjs", "node_modules/x/y.js",
                   "packages/core/dist/index.mjs",
                   "packages/core/node_modules/x/y.js",
@@ -654,9 +657,12 @@ def test_merge_policy_and_gate() -> None:
     with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-b4-") as tmp:
         root = pathlib.Path(tmp)
 
-        # gitignored added path -> whole-candidate path-policy skip
+        # gitignored added path -> whole-candidate path-policy skip.
+        # ``build/`` no longer fits this role: it is a symmetric capture/merge
+        # exclusion now (the dry-run's publish mock evidence must not skip a
+        # whole candidate) - pinned separately one block below.
         usine = make_repo(root / "ignored")
-        (usine / ".gitignore").write_text("build/\n", encoding="utf-8")
+        (usine / ".gitignore").write_text("ignored.bin\n", encoding="utf-8")
         subprocess.run(["git", "add", ".gitignore"], cwd=str(usine),
                        check=True, capture_output=True)
         subprocess.run(["git", "-c", "user.name=smoke",
@@ -665,9 +671,9 @@ def test_merge_policy_and_gate() -> None:
                        cwd=str(usine), check=True, capture_output=True)
         lineage = root / "ignored" / "lineage"
         fixture = dict(BASE_FILES)
-        fixture[".gitignore"] = b"build/\n"
+        fixture[".gitignore"] = b"ignored.bin\n"
         candidate = _green_candidate_files()
-        candidate["build/artifact.bin"] = b"BIN\n"
+        candidate["ignored.bin"] = b"BIN\n"
         make_episode(lineage, "ep001", 1, 1, "p-ign", "PASS",
                      fixture, candidate)
         report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
@@ -675,6 +681,24 @@ def test_merge_policy_and_gate() -> None:
               report["candidates"][0]["decision"] == "path_policy_skipped"
               and "ignore rules" in report["candidates"][0]["reason"]
               and gate_runs(usine) == 0, report["candidates"][0])
+
+        # build/ added path: symmetric exclusion, NOT a path-policy skip - the
+        # dry-run wave proved this exact shape (publish 测试的 build/
+        # publish-verify 证据副本是 guest 门禁的未跟踪副作用，不许它拖死整案).
+        usine = make_repo(root / "bnoise")
+        lineage = root / "bnoise" / "lineage"
+        candidate = _green_candidate_files()
+        candidate["build/publish-verify/mock-events.json"] = b"E\n"
+        make_episode(lineage, "ep001", 1, 1, "p-bnoise", "PASS",
+                     BASE_FILES, candidate)
+        report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        entry = report["candidates"][0]
+        check("merge: build/ noise is excluded, candidate still merges",
+              entry["decision"] == "merged"
+              and "build/publish-verify/mock-events.json"
+              not in entry["delta"]["added"]
+              and entry["excluded"] >= 1,
+              entry)
 
         # Windows reserved + trailing-dot names
         usine = make_repo(root / "reserved")

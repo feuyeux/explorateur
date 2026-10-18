@@ -29,8 +29,15 @@ seam the usine RSI adapter depends on:
     >32KiB programs stream losslessly
 
 Usage (théâtre venv; keep child argv ASCII on PowerShell 5.1):
-    cd D:\\coding\\personal\\explorateur\\théâtre
-    .\\.venv\\Scripts\\python.exe ..\\benchmarks\\usine\\smoke_verifier_adapter.py
+    cd <explorateur>\\théâtre
+    Windows: .\\.venv\\Scripts\\python.exe ..\\benchmarks\\usine\\smoke_verifier_adapter.py
+    POSIX:   .venv/bin/python ../benchmarks/usine/smoke_verifier_adapter.py
+
+The POSIX twin runs the same sections against the POSIX worktree substrate
+(scratch-absolute spellings instead of drive-qualified ones, ps+SIGKILL
+sweep instead of PowerShell+taskkill, chflags instead of an open file
+handle for the rollback-failure trigger).  Windows-only assertions are
+gated on sys.platform; shared assertions are platform-true on both.
 """
 
 from __future__ import annotations
@@ -46,6 +53,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 EXPLORATEUR = HERE.parents[1]
+IS_WINDOWS = sys.platform == "win32"
 
 
 def _find_theatre() -> Path:
@@ -82,12 +90,16 @@ def check(name: str, ok, detail: str = "") -> None:
 
 
 def _kill_sleeper_leak() -> None:
-    subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-         "Get-CimInstance Win32_Process | Where-Object { "
-         "$_.ProcessId -ne $PID -and $_.CommandLine -match 'sleeper' } | "
-         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"],
-        capture_output=True, timeout=60)
+    if IS_WINDOWS:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "Get-CimInstance Win32_Process | Where-Object { "
+             "$_.ProcessId -ne $PID -and $_.CommandLine -match 'sleeper' } | "
+             "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"],
+            capture_output=True, timeout=60)
+        return
+    subprocess.run(["pkill", "-f", "sleeper.py"],
+                   capture_output=True, timeout=60)
 
 
 # ----------------------------------------------------------------- A: install
@@ -122,18 +134,32 @@ def test_install_and_prompts() -> None:
     validate = verifier_runtime.validate_verifier_look_path
     check("look: canonical path accepted",
           validate("/home/user/work/x.png") == (True, ""))
-    check("look: drive-qualified accepted",
-          validate("Z:/home/user/work/x.png") == (True, ""))
-    check("look: drive backslash accepted",
-          validate("z:\\home\\user\\work\\x.png")[0] is True)
-    check("look: private rejected in drive form",
-          validate("Z:/home/user/.memory/x",
-                   hide_actor_memory=True)[0] is False)
+    if IS_WINDOWS:
+        check("look: drive-qualified accepted",
+              validate("Z:/home/user/work/x.png") == (True, ""))
+        check("look: drive backslash accepted",
+              validate("z:\\home\\user\\work\\x.png")[0] is True)
+        check("look: private rejected in drive form",
+              validate("Z:/home/user/.memory/x",
+                       hide_actor_memory=True)[0] is False)
+    else:
+        scratch_form = ("/Users/who/.cache/rsi-usine-vm/guest-0001/guest"
+                        "/home/user/.verifier/rsiagent-verifier-00112233")
+        check("look: scratch-absolute accepted",
+              validate(scratch_form + "/shot.png") == (True, ""))
+        check("look: private rejected in scratch form",
+              validate(scratch_form.replace("/.verifier/", "/.memory/")
+                      + "/x.md", hide_actor_memory=True)[0] is False)
+        check("look: last canonical marker re-roots the path",
+              validate("/tmp/before/home/user/work/x.png") == (True, ""))
+    # The stock validator only rejects non-"/"-prefixed spellings; a POSIX
+    # absolute host path like /etc/passwd is stock-VALID and refusal is the
+    # substrate's job (guest_to_host raises outside the worktree roots).
+    check("look: host path rejected", validate("C:/Windows/System32/x.png")[0]
+          is False)
     check("look: private rejected canonically",
           validate("/home/user/.memory/x",
                    hide_actor_memory=True)[0] is False)
-    check("look: host path rejected", validate("C:/Windows/System32/x.png")[0]
-          is False)
     check("look: screen still allowed", validate("screen:")[0] is True)
     check("look: relative still rejected", validate("rel/x.png")[0] is False)
     check("look: url scheme still rejected",
@@ -178,7 +204,9 @@ def test_executor_lifecycle() -> None:
               not in trace.stdout)
         check("program: VERIFIER_SCRATCH canonical in output",
               " SCRATCH=/home/user/.verifier/rsiagent-verifier-"
-              in trace.stdout and env.drive_letter not in trace.stdout,
+              in trace.stdout
+              and (env.drive_letter if IS_WINDOWS else env.p)
+              not in trace.stdout,
               trace.stdout[-200:])
         check("program: cwd restored to /home/user",
               "/home/user\n[exit 0]" in trace.stdout, trace.stdout[-120:])
@@ -218,13 +246,27 @@ def test_executor_lifecycle() -> None:
               trace.stdout[-160:])
 
         # -- candidate mutation + looks --------------------------------
-        trace = executor(
-            "python",
-            "open('/home/user/work/marker.txt', 'w').write('mutation\\n')\n"
-            "open('/home/user/work/shot.png', 'wb')"
-            ".write(bytes([0x89]) + b'PNG-fake-bytes')\n")
-        check("program: python canonical guest paths work",
-              trace.exit_code == 0, trace.stdout[-200:])
+        # On the Windows wave host the canonical spelling works inside
+        # program text (drive-relative resolution); on POSIX a literal
+        # canonical path would resolve against the real host root, so the
+        # program reaches the guest tree through ~ (HOME is pinned to the
+        # guest home on both substrates).
+        if IS_WINDOWS:
+            mutation_code = (
+                "open('/home/user/work/marker.txt', 'w').write('mutation\\n')\n"
+                "open('/home/user/work/shot.png', 'wb')"
+                ".write(bytes([0x89]) + b'PNG-fake-bytes')\n")
+            mutation_name = "program: python canonical guest paths work"
+        else:
+            mutation_code = (
+                "import os\n"
+                "open(os.path.expanduser('~/work/marker.txt'), 'w')"
+                ".write('mutation\\n')\n"
+                "open(os.path.expanduser('~/work/shot.png'), 'wb')"
+                ".write(bytes([0x89]) + b'PNG-fake-bytes')\n")
+            mutation_name = "program: python guest paths work via ~"
+        trace = executor("python", mutation_code)
+        check(mutation_name, trace.exit_code == 0, trace.stdout[-200:])
         data, error = executor.fetch_look_image("/home/user/work/shot.png")
         check("look: candidate image fetched host-side",
               data is not None
@@ -235,8 +277,8 @@ def test_executor_lifecycle() -> None:
         check("look: private scratch file readable",
               data is not None and data == b"\x89PNG-scratch" and not error,
               str(error))
-        drive_look = (f"{env.drive_letter}:{executor._workspace}"
-                      "/scratch-shot.png")
+        drive_look = verifier_adapter._substrate_path(
+            env, executor._workspace + "/scratch-shot.png")
         allowed, reason = verifier_runtime.validate_verifier_look_path(
             drive_look)
         data, error = executor.fetch_look_image(drive_look)
@@ -251,6 +293,11 @@ def test_executor_lifecycle() -> None:
               data is None and "unavailable" in (error or ""), str(error))
         data, error = executor.fetch_look_image("/home/user/work/missing.png")
         check("look: missing file errors", data is None and bool(error))
+        # Stock-valid absolute path OUTSIDE the substrate: the validator
+        # passes it, the substrate must refuse it (guest_to_host raises).
+        data, error = executor.fetch_look_image("/etc/passwd")
+        check("look: outside-substrate path refused",
+              data is None and bool(error), str(error))
 
         # -- export + rollback ------------------------------------------
         archive = executor.export_scratch()
@@ -299,7 +346,10 @@ def test_executor_lifecycle() -> None:
         check("close without init: no-op rollback, guest intact",
               "candidate-body" in listing, listing)
 
-        # -- rollback failure semantics (host-side file lock) ------------
+        # -- rollback failure semantics (a restore-blocking lock) ---------
+        # Windows: a host-side open handle blocks the restore (file locks).
+        # POSIX: open handles never block unlink, so the user-immutable
+        # flag (chflags uchg) is the honest equivalent trigger.
         vm.run_command(
             "mkdir -p ~/work/lockdir; printf locked > ~/work/lockdir/locked.txt")
         executor4 = verifier_adapter.WorktreeVerifierExecutor(
@@ -308,40 +358,61 @@ def test_executor_lifecycle() -> None:
         check("locked-file run: program executed", trace.exit_code == 0,
               trace.stdout[-120:])
         lock_host = env.guest_to_host("/home/user/work/lockdir/locked.txt")
-        handle = open(lock_host, "r")
-        try:
+        handle = None
+        locked_with_chflags = False
+        if IS_WINDOWS:
+            handle = open(lock_host, "r")
+        elif subprocess.run(["which", "chflags"], capture_output=True
+                            ).returncode == 0:
+            subprocess.run(["chflags", "uchg", str(lock_host)], check=True)
+            locked_with_chflags = True
+        else:
+            record("INFO", "rollback failure trigger unavailable "
+                  "(no chflags on this POSIX host); failure-semantics "
+                  "section skipped", "accepted")
+        if handle is not None or locked_with_chflags:
             try:
-                executor4.close()
-                check("rollback failure: raises infra error", False,
-                      "no exception")
-            except AgenticVerifierInfrastructureError as exc:
-                check("rollback failure: raises infra error",
-                      "not safe to grade" in str(exc), str(exc)[:200])
-            checkpoint = executor4._rollback_transaction._snapshot
-            check("rollback failure: checkpoint retained for recovery",
-                  checkpoint is not None and checkpoint.is_dir())
-            check("rollback failure: quarantine retained",
-                  executor4._quarantine_dir is not None
-                  and executor4._quarantine_dir.is_dir())
-        finally:
-            handle.close()
-        for entry in list(env.disk_root.iterdir()):
-            verifier_adapter._remove_entry(entry)
-        for entry in list(checkpoint.iterdir()):
-            verifier_adapter._copy_entry(
-                entry, env.disk_root / entry.name)
-        listing = vm.run_command("cat ~/work/candidate.txt; ls ~/.memory")
-        check("recovery: manual restore from the retained checkpoint",
-              "candidate-body" in listing, listing)
-        verifier_adapter.rmtree_force(checkpoint)
-        if executor4._quarantine_dir is not None:
-            verifier_adapter.rmtree_force(executor4._quarantine_dir)
+                try:
+                    executor4.close()
+                    check("rollback failure: raises infra error", False,
+                          "no exception")
+                except AgenticVerifierInfrastructureError as exc:
+                    check("rollback failure: raises infra error",
+                          "not safe to grade" in str(exc), str(exc)[:200])
+                checkpoint = executor4._rollback_transaction._snapshot
+                check("rollback failure: checkpoint retained for recovery",
+                      checkpoint is not None and checkpoint.is_dir())
+                check("rollback failure: quarantine retained",
+                      executor4._quarantine_dir is not None
+                      and executor4._quarantine_dir.is_dir())
+            finally:
+                if handle is not None:
+                    handle.close()
+                else:
+                    subprocess.run(["chflags", "nouchg", str(lock_host)],
+                                   check=True)
+            for entry in list(env.disk_root.iterdir()):
+                verifier_adapter._remove_entry(entry)
+            for entry in list(checkpoint.iterdir()):
+                verifier_adapter._copy_entry(
+                    entry, env.disk_root / entry.name)
+            listing = vm.run_command("cat ~/work/candidate.txt; ls ~/.memory")
+            check("recovery: manual restore from the retained checkpoint",
+                  "candidate-body" in listing, listing)
+            verifier_adapter.rmtree_force(checkpoint)
+            if executor4._quarantine_dir is not None:
+                verifier_adapter.rmtree_force(executor4._quarantine_dir)
+        else:
+            executor4.close()
 
         # -- process sweep before rollback --------------------------------
         sleeper_local = HERE / "_smoke_sleeper_tmp.py"
+        # ~ resolves to the guest home on both substrates (USERPROFILE/HOME
+        # are pinned by guest_env), so the literal canonical spelling is
+        # never needed here.
         sleeper_local.write_text(
-            "import time\n"
-            "f = open('/home/user/work/sleeper-held.txt', 'w')\n"
+            "import os, time\n"
+            "f = open(os.path.expanduser('~/work/sleeper-held.txt'), 'w')\n"
             "time.sleep(600)\n",
             encoding="utf-8", newline="\n")
         ok, why = vm.push_file(
@@ -374,16 +445,24 @@ def test_executor_lifecycle() -> None:
         except AgenticVerifierInfrastructureError as exc:
             check("sweep: rollback succeeds despite the held file", False,
                   str(exc)[:200])
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             "Get-CimInstance Win32_Process | Where-Object { "
-             "$_.ProcessId -ne $PID -and $_.CommandLine -match 'sleeper' } | "
-             "ForEach-Object { $_.ProcessId }"],
-            capture_output=True, text=True, timeout=60)
+        if IS_WINDOWS:
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                 "Get-CimInstance Win32_Process | Where-Object { "
+                 "$_.ProcessId -ne $PID "
+                 "-and $_.CommandLine -match 'sleeper' } | "
+                 "ForEach-Object { $_.ProcessId }"],
+                capture_output=True, text=True, timeout=60)
+            sweep_clean = (result.returncode == 0
+                           and not (result.stdout or "").strip())
+        else:
+            result = subprocess.run(
+                ["ps", "-axo", "command="],
+                capture_output=True, text=True, timeout=60)
+            sweep_clean = (result.returncode == 0
+                           and "sleeper.py" not in (result.stdout or ""))
         check("sweep: sleeper process killed by the rollback sweep",
-              result.returncode == 0
-              and not (result.stdout or "").strip(),
-              (result.stdout or "")[:120])
+              sweep_clean, (result.stdout or "")[:120])
         record("INFO", "rollback sweep matches command lines only; a guest "
               "process with no guest path in argv but cwd on the drive may "
               "survive (documented residual)", "accepted")
@@ -443,23 +522,19 @@ def test_executor_lifecycle() -> None:
         if sleeper_may_leak:
             _kill_sleeper_leak()
         env.close()
-    check("env: close released drive and scratch",
-          not Path(f"{env.drive_letter}:/").exists()
-          and not env.scratch.exists())
+    if IS_WINDOWS:
+        check("env: close released drive and scratch",
+              not Path(f"{env.drive_letter}:/").exists()
+              and not env.scratch.exists())
+    else:
+        check("env: close released scratch", not env.scratch.exists())
 
 
 def main() -> None:
-    if sys.platform != "win32":
-        # Every section below needs the WorktreeEnv substrate, which IS the
-        # Windows wave host (git-bash bash.exe + subst drives + powershell
-        # sweep). Nothing here can run elsewhere; SKIP is not PASS - the
-        # full smoke runs only on the wave host.
-        record("INFO", "smoke: wave host 待跑",
-               "WorktreeEnv/powershell sweep need the Windows wave host; "
-               "run the full smoke there")
-        print()
-        print("smoke_verifier_adapter: 0 PASS / 0 FAIL / 1 INFO")
-        sys.exit(0)
+    # POSIX hosts: the worktree substrate needs GNU coreutils in the guest
+    # PATH (guest_env fails closed without them) - SKIP is not PASS, so
+    # absent prerequisites raise inside WorktreeEnv instead of being
+    # papered over here.
     test_install_and_prompts()
     test_executor_lifecycle()
     passed = sum(1 for s, _, _ in RESULTS if s == "PASS")

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""run_usine.py — orchestrate RSI waves over the usine production line (Windows).
+"""run_usine.py — orchestrate RSI waves over the usine production line.
 
 Phase-1 wave loop for the usine (feuille) multilingual video production line,
-adapted onto this Windows host through benchmarks/usine/{guest_env,
-verifier_adapter,usine_hooks,wave_merge}.py.  The stock wave machinery
-(explore/phase1_wave.py) is reused untouched; this orchestrator only assembles
-the adaptation layer around it.
+adapted onto the worktree substrate through benchmarks/usine/{guest_env,
+verifier_adapter,usine_hooks,wave_merge}.py.  Two hosts can drive it: the
+Windows wave host (git-bash + subst drives) and POSIX dev hosts such as this
+Mac (bash + scratch-disk prefix; guest_env/verifier_adapter branch on
+os.name with the Windows code path byte-identical).  The stock wave
+machinery (explore/phase1_wave.py) is reused untouched; this orchestrator
+only assembles the adaptation layer around it.
 
 Assembly contract (order is load-bearing)
 -----------------------------------------
@@ -89,22 +92,56 @@ that teach the same surface) — with the guard machinery pinned: approval-gated
 tools keep failing closed, publishing stays unreachable by default, and the
 red-line/parity suites may be extended but never relaxed.
 
-Windows wave-host readiness checklist (this Mac cannot run these; SKIP is
-not PASS — run them there before the first real wave):
+Wave-host readiness checklist (SKIP is not PASS — run the checklist on the
+host that will drive the wave, before the first real wave there):
+
+Both hosts additionally require the harness ``link:`` anchor: a
+``deepseek-harness`` checkout five levels above the usine tree (what the
+dsh-plugin ``link:`` devDependencies resolve against:
+``vendor/cordis`` + ``packages/core/tools``).  The guest copy of the
+tree is deeper, so the VM factory (``_harness_staging_vm_factory``)
+stages the harness checkout root as a single symlink at every guest
+disk root (a copy breaks the checkout's internal symlink closure; the
+worktree guest is a path-REWRITE illusion, not an OS sandbox - guest
+programs already resolve any absolute host path, and the publish/login
+red lines are enforced by the VM facade and gates, not filesystem
+isolation); without the real checkout to link to, guest creation fails
+closed BEFORE any token is spent (every wave would be structurally
+doomed to a gate-red typecheck).
+
+Windows wave host:
   * toolchain: standalone pnpm.exe (NOT an npm shim) + Node >= 24 on PATH,
     warm pnpm store or network for the first install; GNU coreutils inside
     the guest (sha256sum/stat -c for capture replay).
-  * smokes (theâtre venv, PowerShell): smoke_dry_run_wave.py (now passes
-    --gate-install: the git-archive fixture carries no node_modules),
-    smoke_verifier_adapter.py, smoke_guest_env.py — plus re-running the
-    POSIX-runnable set (wave_merge / usine_hooks / distribution_fence) and
-    the provisioning engine tests, whose 3 broken-symlink replay cases need
-    GNU coreutils this Mac lacks.
+  * smokes (theâtre venv, PowerShell): smoke_dry_run_wave.py (the
+    git-archive fixture carries no node_modules, so it needs the
+    --gate-install path on a cold tree), smoke_verifier_adapter.py,
+    smoke_guest_env.py — plus re-running the POSIX-runnable set
+    (wave_merge / usine_hooks / distribution_fence) and the provisioning
+    engine tests, whose 3 broken-symlink replay cases need GNU coreutils.
+    NOTE: smoke_dry_run_wave had never been green on ANY host before the
+    2026-10-18 POSIX port brought the full scripted wave up (it exposed
+    the harness-link anchor gap) — the wave host must re-run it after
+    syncing the unpushed local commits.
   * probe_env.py for the guest-side node/pnpm probe.
   * first real wave: only on explicit user go ("喊跑才跑").
 
+POSIX dev host (macOS), same loop through the POSIX substrate branch:
+  * toolchain: brew coreutils (the guest PATH gets the gnubin overlay;
+    guest_env fails closed without GNU stat/timeout) + the gnubin export
+    in ~/.bash_profile for bash login shells (engine replay tests run
+    bash -lc and macOS path_helper demotes a mere PATH prefix),
+    standalone pnpm + Node >= 24 on PATH (pnpm must not be an npm shim).
+  * smokes (théâtre venv): the same three substrate smokes
+    (smoke_guest_env / smoke_verifier_adapter / smoke_dry_run_wave) plus
+    the POSIX-runnable set and the provisioning engine tests — with
+    coreutils installed the 3 broken-symlink replay cases pass here too.
+  * probe_env.py remains Windows-specific; the POSIX guest toolchain probe
+    is the in-seed node/pnpm check run_usine does itself.
+  * first real wave: only on explicit user go ("喊跑才跑").
+
 Red lines: zero live platform publishing/login (three layers: VM facade,
-guest-home USERPROFILE pin, offline-only gates); one commit per accepted
+guest-home USERPROFILE/HOME pin, offline-only gates); one commit per accepted
 candidate; every wave tagged theatre/wave-N; no push; zero H3/mcode-tools
 credit-spending calls outside an explicit per-call human approval.
 """
@@ -142,14 +179,37 @@ DEFAULT_RUNS_ROOT = (_EXPLORATEUR_ROOT.parents[0]
 DEFAULT_LLM_CONFIG = Path.home() / ".minimax" / "config.yaml"
 DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # TS 迁移（usine P0-P8）后的门禁：pnpm verify（typecheck + vitest 全量）。
-# 真 wave 跑之前须在 wave host 落实的前置条件：Node >= 24 + pnpm 11（standalone
-# 安装，.cmd shim 会被 merge 的无 shell subprocess 拒掉）；首跑 pnpm install 需
-# 网络（或暖 pnpm store）。node_modules/dist 落树内——capture 与合并两侧现已
-# 对称剪枝（provisioning.exclude_parts + wave_merge.EXCLUDED_PARTS），门禁可跑
-# 性由 gate_preflight 在花任何额度之前 fail-closed 预检（真 wave 仍喊跑才跑）。
+# 真 wave 跑之前须在驱动宿主（Windows wave host 或 POSIX 宿主）落实的前置条件：
+# Node >= 24 + pnpm 11（Windows 上须 standalone 安装，.cmd shim 会被 merge 的
+# 无 shell subprocess 拒掉）；首跑 pnpm install 需网络（或暖 pnpm store）；
+# POSIX 宿主另需 brew coreutils（guest PATH 走 gnubin overlay）。node_modules/
+# dist 落树内——capture 与合并两侧现已对称剪枝（provisioning.exclude_parts +
+# wave_merge.EXCLUDED_PARTS），门禁可跑性由 gate_preflight 在花任何额度之前
+# fail-closed 预检（真 wave 仍喊跑才跑）。
 DEFAULT_GATE_ARGV = ("pnpm", "verify")
 
 # ---------------------------------------------------------- gate preflight
+
+def _posix_host_no_browser() -> None:
+    """POSIX only: default this orchestrator to a browserless host policy.
+
+    On macOS every Chromium launch writes a per-launch GUID-named keychain
+    item and pops a keychain prompt on the user's screen (see
+    guest_env._disable_in_guest_browser for the full measurement record) —
+    no flag, shim, or pre-authorization suppresses it.  The guest already
+    exports a no-browser sentinel; the host-side merge gate
+    (wave_merge.run_gate inherits this process's environment) must not
+    undo that policy by resolving the real Edge out of its candidate list.
+    setdefault keeps an operator's explicit FEUILLE_BROWSER (a deliberate
+    browserful run) authoritative.  Windows is untouched: its Chromium
+    uses DPAPI, and the Windows wave host owns the real browser coverage.
+    """
+    if sys.platform == "win32":
+        return
+    os.environ.setdefault(
+        "FEUILLE_BROWSER",
+        str(_HERE / ".no-browser-on-this-posix-host"))
+
 
 _NODE_MIN_MAJOR = 24
 _PNPM_MIN_MAJOR = 11
@@ -382,17 +442,32 @@ def _install_paths() -> Path:
 # once in BOTH stock variants; each look bullet is exclusive to its variant.
 _TASK_LINE_OLD = ("You solve ONE task on a real Ubuntu machine by WRITING "
                   "PROGRAMS.")
-_TASK_LINE_NEW = ("You solve ONE task on a real Windows machine driven "
-                  "through git-bash by WRITING PROGRAMS.")
+# Substrate-true per host: the Windows wave host drives git-bash, POSIX
+# dev hosts (macOS) drive plain bash.  The replacement text is
+# platform-branched so the patched prompt never lies about the machine.
+_TASK_LINE_NEW = (
+    ("You solve ONE task on a real Windows machine driven "
+     "through git-bash by WRITING PROGRAMS.")
+    if os.name == "nt" else
+    ("You solve ONE task on a real POSIX machine (macOS) driven "
+     "through bash by WRITING PROGRAMS."))
 _MACHINE_FACTS_OLD = ("MACHINE FACTS: Ubuntu with python3. You may install "
                       "tools you need (pip3 / apt-get).")
-# Honest replacement: the théâtre venv has NO pip, the host has no apt-get,
-# and installing packages is not part of this environment.
-_MACHINE_FACTS_NEW = ("MACHINE FACTS: Windows host driven through git-bash "
-                      "with python3. Installing packages is NOT available "
-                      "here (no pip3, no apt-get); work with the tools "
-                      "already on the machine. There is no systemd and no "
-                      "GUI desktop.")
+# Honest replacement: the théâtre venv has NO pip (probe-verified on both
+# hosts), and installing packages is not part of this environment — brew
+# exists on the POSIX host PATH but must not be used.
+_MACHINE_FACTS_NEW = (
+    ("MACHINE FACTS: Windows host driven through git-bash "
+     "with python3. Installing packages is NOT available "
+     "here (no pip3, no apt-get); work with the tools "
+     "already on the machine. There is no systemd and no "
+     "GUI desktop.")
+    if os.name == "nt" else
+    ("MACHINE FACTS: macOS host driven through bash "
+     "with python3 (no pip). Installing packages is NOT available "
+     "here; work with the tools already on the machine — brew exists "
+     "but must not be used to install anything. There is no systemd "
+     "and no GUI desktop."))
 _NATIVE_LOOK_OLD = (
     'You may look directly at a DOCUMENT file (it is rendered to an image '
     'for you) and at the LIVE SCREEN with path "screen:" (the running '
@@ -417,7 +492,8 @@ _USINE_PROMPT_REPLACEMENTS = (
     (_BLIND_LOOK_OLD, _LOOK_NEW),
 )
 
-_USINE_TRANSPORT_NOTE = """
+if os.name == "nt":
+    _USINE_TRANSPORT_NOTE = """
 USINE TRANSPORT FACTS (Windows git-bash guest):
 - Your programs are delivered through a base64 envelope and executed with
   "python3 -u" (python) or "bash" (bash); nothing rewrites paths inside your
@@ -429,6 +505,26 @@ USINE TRANSPORT FACTS (Windows git-bash guest):
   (your home directory) instead. For scratch space in bash use $HOME too
   (e.g. "$HOME/scratch"); a literal /tmp in bash resolves through a mount
   shared by other processes and is NOT reliable in your guest.
+"""
+else:
+    # POSIX twin: the Windows note's PYTHON paragraph is FALSE here - a
+    # literal canonical path inside program text resolves against the REAL
+    # host root (no per-drive resolution), so both languages must use
+    # $HOME/~.  The gate/pnpm/node_modules paragraphs are shared verbatim.
+    _USINE_TRANSPORT_NOTE = """
+USINE TRANSPORT FACTS (POSIX bash guest on a macOS host):
+- Your programs are delivered through a base64 envelope and executed with
+  "python3 -u" (python) or "bash" (bash); nothing rewrites paths inside your
+  program text.
+- Program paths: a LITERAL /home/user, /tmp or /dev/shm inside your program
+  text resolves against the REAL host root, NOT against your guest tree -
+  in Bash AND in Python alike. Reach your files through $HOME or ~ (your
+  home directory; Python: os.path.expanduser), so $HOME/evolution_project
+  is the project root and "$HOME/scratch" is scratch space; /dev/shm exists
+  in your guest.
+"""
+
+_USINE_TRANSPORT_NOTE += """
 - The offline verification gate is "pnpm verify" (a TypeScript pnpm
   monorepo: typecheck plus every vitest suite), run from the project root
   after a one-time "pnpm install":
@@ -691,6 +787,72 @@ def _resolve_endpoints(llm_config_path: Path, needed: set) -> dict:
 
 # ------------------------------------------------------------------- seeding
 
+def _lfs_smudge_overlay(usine_dir) -> dict[str, Path]:
+    """LFS-tracked files under the usine prefix -> smudged working-tree
+    paths, keyed by prefix-relative posix path.
+
+    ``git archive`` carries LFS-tracked binaries as POINTER text, but the
+    usine gate probes its gold assets with real ffprobe/sharp - a pointer
+    file is not a valid mp3/png and the gate goes red for a seeding
+    reason on EVERY host.  Seed and fixture builders overlay the real
+    bytes for exactly these members (the tree is asserted clean, so the
+    smudged working-tree bytes ARE the committed content).  Fails closed
+    when the local checkout still holds pointer text (a clone without
+    ``git lfs pull``): the gold-dependent gate cannot honestly pass
+    there, and a seeding that silently ships pointers would be
+    fabricating a green-looking red.
+    """
+    import wave_merge
+
+    ctx = wave_merge._repo_context(Path(usine_dir))
+    prefix = str(ctx["prefix"])
+    base = prefix if prefix.endswith("/") else prefix + "/"
+    ls_argv = ["git", "-C", ctx["toplevel"], "ls-files", "-z"]
+    if prefix:
+        ls_argv += ["--", base]
+    ls = subprocess.run(ls_argv, stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, timeout=300)
+    if ls.returncode != 0:
+        raise RuntimeError("git ls-files for the LFS overlay failed: "
+                           + ls.stderr.decode("utf-8", "replace")[:300])
+    paths = [p for p in ls.stdout.split(b"\0") if p]
+    if not paths:
+        return {}
+    ca = subprocess.run(
+        ["git", "-C", ctx["toplevel"], "check-attr", "-z", "--stdin",
+         "filter"],
+        input=b"\0".join(paths), stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=300)
+    if ca.returncode != 0:
+        raise RuntimeError("git check-attr for the LFS overlay failed: "
+                           + ca.stderr.decode("utf-8", "replace")[:300])
+    overlay: dict[str, Path] = {}
+    fields = ca.stdout.split(b"\0")
+    for i in range(0, len(fields) - 2, 3):
+        path_b, attr, value = fields[i], fields[i + 1], fields[i + 2]
+        if attr != b"filter" or value != b"lfs":
+            continue
+        rel = path_b.decode("utf-8", "surrogateescape")
+        key = rel[len(base):] if prefix else rel
+        worktree = Path(ctx["toplevel"]).joinpath(*PurePosixPath(rel).parts)
+        if not worktree.is_file():
+            raise RuntimeError(
+                f"LFS-tracked gold file is missing from the working tree: "
+                f"{rel}")
+        with worktree.open("rb") as handle:
+            if handle.read(64).startswith(b"version https://git-lfs"):
+                raise RuntimeError(
+                    f"LFS-tracked gold file is un-smudged pointer text: "
+                    f"{rel}; run `git lfs pull` before driving a wave "
+                    "(the gate probes these assets with real "
+                    "ffprobe/sharp)")
+        overlay[key] = worktree
+    if overlay:
+        log.info("LFS gold overlay: %d file(s) smudged from the working "
+                 "tree", len(overlay))
+    return overlay
+
+
 def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     """git-archive the committed usine prefix into an evolution_project seed.
 
@@ -699,9 +861,11 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     Member names are rewritten ``<prefix>/<rel>`` -> ``evolution_project/
     <rel>``; directory members are dropped (extraction creates parents) and
     non-regular members are skipped and counted (symlinks have no faithful
-    Windows guest semantics).  With ``write_to`` the compressed seed is
-    written atomically next to a manifest; without it nothing is written
-    (preflight preview).
+    Windows guest semantics).  LFS-tracked members are overlaid with their
+    smudged working-tree bytes (git archive ships pointer text, the gate
+    probes the gold assets for real).  With ``write_to`` the compressed
+    seed is written atomically next to a manifest; without it nothing is
+    written (preflight preview).
     """
     import wave_merge
 
@@ -726,6 +890,8 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     out = io.BytesIO()
     files = 0
     skipped = 0
+    lfs_files = _lfs_smudge_overlay(usine_dir)
+    lfs_overlaid = 0
     with (tarfile.open(fileobj=io.BytesIO(proc.stdout), mode="r:") as src,
           tarfile.open(fileobj=out, mode="w",
                        format=tarfile.GNU_FORMAT) as dst):
@@ -749,7 +915,14 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
                 continue
             fresh = copy.copy(member)
             fresh.name = "evolution_project/" + rel
-            dst.addfile(fresh, src.extractfile(member))
+            overlay_path = lfs_files.get(rel)
+            if overlay_path is not None:
+                payload = overlay_path.read_bytes()
+                fresh.size = len(payload)
+                dst.addfile(fresh, io.BytesIO(payload))
+                lfs_overlaid += 1
+            else:
+                dst.addfile(fresh, src.extractfile(member))
             files += 1
     if not files:
         raise RuntimeError("the usine seed would be empty")
@@ -760,6 +933,7 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
         "prefix": prefix or "(repo root)",
         "members": files,
         "skipped_non_regular": skipped,
+        "lfs_overlaid": lfs_overlaid,
         "bytes": len(data),
         "sha256": sha,
         "written": False,
@@ -778,6 +952,128 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
         log.info("usine seed rebuilt at HEAD %s: %d member(s), %d bytes",
                  head[:10], files, len(data))
     return info
+
+
+def _stage_harness_link_targets(env, usine_dir) -> None:
+    """Stage the out-of-tree ``link:`` devDependencies where the guest tree
+    resolves them.
+
+    ``packages/dsh-plugin`` typechecks against two harness packages that
+    live OUTSIDE the usine checkout (``link:../../../../../deepseek-harness/
+    ...`` devDependencies).  The seeded guest tree sits deeper than the
+    real checkout (disk_root/home/user/evolution_project/...), and the
+    ``..`` walk from there anchors at the guest disk root on both
+    substrates (POSIX: the scratch disk path; Windows: the subst drive
+    root) - so the shared harness checkout root must exist there.  It is
+    staged as a single symlink (POSIX) to the real checkout, not copied:
+    the harness' internal per-package ``node_modules`` are relative
+    symlinks into sibling packages, so only the intact checkout resolves
+    the full type closure.  This grants no new reach: the worktree guest
+    is a path-REWRITE illusion, not an OS sandbox - guest programs
+    already resolve any absolute host path, and the publish/login red
+    lines are enforced by the VM facade and gates, not by filesystem
+    isolation.  Scratch release stays safe: rmtree never follows the
+    link (rmtree_force chmods a link's PARENT, never through the link).
+    Fail-closed before any token is spent: an unresolvable harness
+    checkout means every wave on this host is structurally doomed to a
+    gate-red typecheck.
+    """
+    dsh_dir = Path(usine_dir) / "packages" / "dsh-plugin"
+    manifest_path = dsh_dir / "package.json"
+    try:
+        dev_deps = json.loads(manifest_path.read_text(
+            encoding="utf-8")).get("devDependencies", {})
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(
+            f"cannot read {manifest_path} to resolve the harness link "
+            f"dependencies: {exc}") from exc
+    disk_root = Path(str(getattr(env, "disk_root", "")))
+    if not disk_root.is_dir():
+        raise RuntimeError("usine seeding VM has no disk_root to stage "
+                           "harness link targets into")
+    links = []
+    for name, spec in sorted(dev_deps.items()):
+        spec = str(spec)
+        if not spec.startswith("link:"):
+            continue
+        rel = PurePosixPath(spec[len("link:"):])
+        rel_parts = list(rel.parts)
+        anchor_at = next(
+            (i for i, p in enumerate(rel_parts) if p != ".."), None)
+        if anchor_at is None:
+            raise RuntimeError(
+                f"harness link dependency {name} has a bare relative "
+                f"specifier: {spec!r}")
+        if ".." in rel_parts[anchor_at + 1:]:
+            raise RuntimeError(
+                f"harness link dependency {name} has an unanchored "
+                f"relative specifier: {spec!r}")
+        # Leading ``..``s are the walk up to the shared checkout parent;
+        # everything after them must descend from a single anchor name
+        # (the one directory staged at the guest disk root).
+        parts = rel_parts[anchor_at:]
+        source = (dsh_dir / spec[len("link:"):]).resolve()
+        if not (source / "package.json").is_file():
+            raise RuntimeError(
+                f"harness link dependency {name} does not resolve to a "
+                f"package (specifier {spec!r} -> {source}); the guest-side "
+                "pnpm gate would be structurally red - stage the harness "
+                "checkout the usine tree links against")
+        root_source = source
+        for _ in parts[1:]:
+            root_source = root_source.parent
+        links.append((name, parts, root_source))
+    staged_roots = 0
+    roots_done = set()
+    for name, parts, root_source in links:
+        dest = disk_root.joinpath(*parts)
+        if (dest / "package.json").is_file():
+            continue
+        root_name = parts[0]
+        dest_root = disk_root / root_name
+        if root_name not in roots_done:
+            roots_done.add(root_name)
+            if dest_root.is_symlink() or dest_root.exists():
+                raise RuntimeError(
+                    f"harness anchor {dest_root} already exists on the "
+                    "guest disk but is not the staged link layout")
+            if os.name == "nt":
+                raise RuntimeError(
+                    "harness link-anchor staging needs a directory "
+                    "junction on Windows (os.symlink requires elevated "
+                    "privileges; _winapi.CreateJunction is the port) - "
+                    "port it on the wave host before the first real wave "
+                    "there (the guest gate is structurally red without "
+                    "the anchor)")
+            os.symlink(root_source, dest_root, target_is_directory=True)
+            staged_roots += 1
+        if not (dest / "package.json").is_file():
+            raise RuntimeError(
+                f"harness link dependency {name} does not resolve "
+                f"through the staged anchor {dest_root} -> {root_source}"
+                "; the guest-side pnpm gate would be structurally red")
+    if staged_roots:
+        log.info("usine harness link anchor staged into the guest disk "
+                 "root: %d root(s)", staged_roots)
+
+
+def _harness_staging_vm_factory(inner_factory, state: dict):
+    """Wrap the VM factory: stage the harness ``link:`` anchor for EVERY
+    guest, not just the seed-time one.  Later nights (Actor, Verifier,
+    memory) replay the captured tree through the engine's provisioning
+    stage path, which never passes through ``_seed_guest`` - but every
+    guest that replays the usine tree and might run the pnpm gate needs
+    the anchor at its own disk root.  Staging is idempotent and skipped
+    for non-Worktree VMs (no scratch)."""
+    def factory():
+        pair = inner_factory()
+        vm = pair[1] if isinstance(pair, tuple) else pair
+        env = getattr(vm, "env", None)
+        scratch = str(getattr(env, "scratch", "")) if env is not None else ""
+        if scratch:
+            _stage_harness_link_targets(env, state["usine_dir"])
+        return pair
+    return factory
 
 
 def _seed_guest(vm, state: dict) -> None:
@@ -841,10 +1137,12 @@ def _seed_guest(vm, state: dict) -> None:
 # capture 剪枝：guest 工作树里可再生重物不入 capture。usine 是 pnpm TS
 # monorepo：node_modules（根 + 每包嵌套，万级符号链接）与 dist（`pnpm test`
 # 重建 dsh-plugin 的构建产物）由 install/build 完全再生，不是工作成果；
+# build（gitignored 证据/再生输出根，如 publish 测试的 build/publish-verify
+# 证据副本）同理——无栏杆时 guest 门禁的未跟踪副作用会混进候选 delta。
 # 不剪枝会炸 120s tar 超时/无界 fetch/回放逐文件校验，且未设栏的第三方
 # 内容会撑爆 UsineAudit 审计面。与 wave_merge.EXCLUDED_PARTS 同一约定，
 # 两头对称：capture 进不来的东西，合并侧也不会试图捡回去。
-_CAPTURE_EXCLUDE_PARTS = ("node_modules", "dist")
+_CAPTURE_EXCLUDE_PARTS = ("node_modules", "dist", "build")
 
 
 def _seeded_capture(inner, state: dict):
@@ -1077,6 +1375,7 @@ def main(argv: list | None = None) -> int:
     import usine_hooks
     import wave_merge
     _install_actor_prompt_patch()
+    _posix_host_no_browser()
 
     distribution_path = _resolve_input_file(
         args.distribution_file, repo_root=_HERE)
@@ -1285,6 +1584,7 @@ def main(argv: list | None = None) -> int:
     hooks.capture_project = _seeded_capture(hooks.capture_project, seed_state)
     vm_factory = usine_hooks.publish_blacklist_vm_factory(
         guest_env.worktree_vm_factory())
+    vm_factory = _harness_staging_vm_factory(vm_factory, seed_state)
 
     def logger(event_type, **kwargs):
         _append_event(events_path, event_type, **kwargs)
