@@ -225,3 +225,32 @@ audio/timeline 金样本沿用 P0 采集（filter_graph 逐字节、enrich_lines
 门禁：typecheck 干净；vitest 96 passed / 2 skipped（live 门控）；
 Python verify_tts 16 PASS、verify_audio 8 PASS、verify_timeline 13 PASS
 （双轨期 Python 门禁持续在跑）。
+
+## P3c：textlayer（Edge 渲字层）
+
+`packages/core/src/textlayer.ts`：htmlEscape / page（金样本逐字节）+
+viewportDeficit（**memoize 设计内置**：亏空按 (browser, nominal) 键进程内缓存，
+Python 侧每次截图都要多开一次浏览器探亏空；命中不写探测 HTML——测试以此
+为证）+ edgeScreenshot / shootMatte（execFileSync 同步 spawn，串行纪律由
+机制天然承载）。matte 数学沿用 spike 2 的 imaging/matte.ts。
+
+### parity 结果
+
+- html_escape / page：与 Python 逐字节（金样本 4+2 例）。
+- matte：**金样本双底输入对 → 与 Python PIL 输出逐像素零差异**（matte 只做
+  解码后的纯浮点同序数学，证明 spike 2 的口径移植是精确的）。
+- 合成夹具（verify_textlayer §1 移植）：alpha ≈128 ±2 区内均匀、去预乘
+  R ≈200 ±4、底区全透明、全不透明 ≥253——「双底除底色外逐字节同构」契约
+  的数学验收。
+- 真机（同机桶）：视口亏空 84px 与金样本一致；中文单次截图裁齐 (400,300)；
+  **阿拉伯 RTL + text-shadow 渲字**的 alpha 结构统计（coverage/均值/包围盒）
+  与金样本逐值一致——这正是「文字必须走 Edge 截图不许成像库画字」铁律的
+  活证据。
+
+### 观察项（不追）
+
+- packaging.test.ts 出现过一次「zip truncated」后连续 4 轮全绿——一次性
+  文件系统抖动，暂记录在案；复发再查。
+
+门禁：typecheck 干净；vitest 105 passed / 2 skipped；Python verify_textlayer
+12 PASS（双轨）。
