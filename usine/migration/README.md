@@ -167,3 +167,61 @@ vitest 68 passed / 1 skipped、Python 侧对应四套 verify_*.py 全绿（rc=0�
 - 已知且不追的量化差：diffPng 热力图的 601 灰度量化与 PIL convert("L") 的
   定点舍入可差 ±1——它是人看的证据图不是判据，权重（299/587/114）与结构
   对齐即可。slug 的 Unicode isalnum 差异同理（桶名各段实际都是 ASCII）。
+
+## P3 中间收口（批次 3）：tts 全量（分片/缓存）+ audio + timeline + num
+
+金样本批次 3：`migration/golden/tts_split.json`（edge-tts 7.3.1
+`split_text_by_byte_length` 十例，逐字节 b64 对齐——含**上游 quirk**：无分隔符
+长文本的安全切点在整段剩余文本上求最大合法 UTF-8 前缀，会产出超过限长的单块，
+实测 `"a"*9000 / 4096 → 一个 9000 字节块`。按行为钉住，不"顺手修"）。
+audio/timeline 金样本沿用 P0 采集（filter_graph 逐字节、enrich_lines 对
+金样本 mp3 实测、karaoke_points/frac_at 浮点逐位）。
+
+- `tts/split.ts`：字节级移植（Buffer.lastIndexOf 对 rfind、fatal TextDecoder
+  对 UTF-8 安全点、& 实体回退、ASCII 空白 strip、切点 0 前进 1）。
+- `tts/client.ts`：多段重构——转义+清洗后按 4096 切，每段各开连接、各重置
+  chunkAudioBytes、各享一次 403 偏斜重试；段间 CBR 补偿不变。
+  live 测试加长文本多段用例（FEUILLE_LIVE=1 门控）。
+- `tts/synth.ts`：synth_cached 移植 + **时长边车 `{key}.dur`**（设计内置的
+  性能修复：HIT 读边车零 ffprobe，边车缺失探测一次并补写；哨兵值测试钉契约）。
+  `{key}.json` 保持纯数组形态（与 Python 迁移期缓存互读），readMeta 兼容老
+  `{words:[…]}` 形态。
+- `audio.ts`：filter_graph（adelay/amix|anull/apad→loudnorm→atrim，坑③顺序
+  纪律由测试断言钉住）、compose_track、probe_duration；整值浮点走 pyFloat
+  （`10.0` 带 `.0` 尾）保滤镜图字符串跨语言逐字节。
+- `timeline.ts`：compute_starts / enrich_lines / karaoke_points / frac_at；
+  enrichLines 增设可选 `durs` 实测时长表（synthCached 的时长直通——全缓存
+  命中时零探测；缺省仍逐行 ffprobe，Python 口径不变）。karaoke 字符进度按
+  **码点**（Python len()），不用 UTF-16 .length（增补平面字符会双计）。
+- `num.ts roundHalfEven`：Python round 的真移植。**两次翻车的实录**：
+  1. 乘积判平手不可靠——`2.6749…×100` 的浮点乘积会拉回精确的 `267.5`，
+     假平手 → round(2.675, 2) 得 2.68（Python 2.67）；
+  2. BigInt 精确展开（值 = m·5^s/10^s，s=-e）重写时丢了 `×5^s` 一步，
+     全函数归零（插桩定位）。
+  终版：double 位拆解 → BigInt 精确十进制 → 整除平手取偶；对 Python round
+  **2000 例随机 fuzz 逐位一致**（含 0.5/0.125 精确平手与 2.675 类二进制陷阱）。
+
+### 本批移植新坑
+
+- **`x*10^d` 判平手是假平手**（见上）：必须取二进制精确值的十进制展开。
+  Python round 与 JS toFixed 的口径差异也在此——toFixed 在 V8 对 2.675
+  这类值同样不可靠，不可用作替身。
+- **测试里 contentHash 参数序**：synthCached 的键序是 (voice, rate, pitch,
+  text)；测试按 (text, voice, …) 预置缓存会静默 miss（还把离线测试逼去
+  真网络直到超时）。反向面：key 序敏感性本身有测试钉住。
+- **karaoke 点位下标**：词首点在前、`c += 词距` 在词首点之后——测试里
+  "首词尾点"实际是 pts[2]（含词距）不是 pts[1]。
+
+### 口径对齐明细
+
+- filter_graph 三形态逐字节（含 `whole_dur=10.0` 的 Python float repr）；
+  adelay 毫秒 = Python `int(round(s*1000))` 的银行家舍入。
+- probe_duration 对金样本 mp3 逐值一致（同机 ffprobe 桶内确定性）；
+  enrich_lines 的 file_dur/tail_silence/start/total/span 对金样本全对齐。
+- compute_starts 四形态、karaoke_points/frac_at 浮点逐位一致
+  （末点 `5.050000000000001` 这类二进制痕迹逐位复现）。
+- 分片十例逐字节一致（换行优先/空格/UTF-8 边界/& 实体/strip/超限单块 quirk）。
+
+门禁：typecheck 干净；vitest 96 passed / 2 skipped（live 门控）；
+Python verify_tts 16 PASS、verify_audio 8 PASS、verify_timeline 13 PASS
+（双轨期 Python 门禁持续在跑）。

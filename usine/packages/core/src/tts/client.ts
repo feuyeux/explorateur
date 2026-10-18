@@ -11,7 +11,9 @@
 // - NoAudioReceived：偶发瞬时抖动，同文本重试即成功；参数错误稳定复现——
 //   只对它重试，其余异常第一次就抛。
 //
-// spike 1 范围：单段文本（< 4096 字节）；4096 字节分片属 P3 全量移植。
+// 长文本分片（edge-tts 7.3.1 口径）：转义+清洗后按 4096 字节切（split.ts），
+// 每段各开一条连接、各重置 chunkAudioBytes、各享一次 403 偏斜重试；段间
+// 词级时间戳用 CBR 字节数精确折算补偿（见 turn.end 分支）。
 import WebSocket, { type RawData } from "ws"
 
 import {
@@ -23,6 +25,7 @@ import {
   headersWithMuid,
 } from "./drm.js"
 import type { Word } from "./pure.js"
+import { splitTextByByteLength } from "./split.js"
 
 // 重试退避基数（秒，线性 × 尝试次数）。测试把它改 0，免得反向验证慢。
 export let RETRY_BACKOFF = 1.2
@@ -176,7 +179,11 @@ interface StreamState {
   cumulativeAudioBytes: number
 }
 
-async function* streamOnce(req: TTSRequest, state: StreamState): AsyncGenerator<Chunk> {
+async function* streamOnce(
+  req: TTSRequest,
+  segment: Buffer,
+  state: StreamState,
+): AsyncGenerator<Chunk> {
   const connectionId = connectId()
   const url =
     `${WSS_URL}&ConnectionId=${connectionId}` +
@@ -227,7 +234,7 @@ async function* streamOnce(req: TTSRequest, state: StreamState): AsyncGenerator<
       "Content-Type:application/ssml+xml\r\n" +
       `X-Timestamp:${dateToString()}Z\r\n` + // 尾部 Z 不是笔误——微软的 bug，Python 侧注释同源
       "Path:ssml\r\n\r\n" +
-      mkssml(req, escapeXml(removeIncompatibleCharacters(req.text))),
+      mkssml(req, segment.toString("utf8")),
   )
 
   let audioWasReceived = false
@@ -312,7 +319,7 @@ function parseMetadata(raw: string, state: StreamState): BoundaryChunk {
   throw new UnexpectedResponse("No WordBoundary metadata found")
 }
 
-/** 403 → 按 Date 头修偏斜重试一次（Python stream() 的口径）。 */
+/** 403 → 按 Date 头修偏斜重试一次（Python stream() 的口径；逐段各享一次）。 */
 async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
   const state: StreamState = {
     offsetCompensation: 0,
@@ -320,19 +327,27 @@ async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
     chunkAudioBytes: 0,
     cumulativeAudioBytes: 0,
   }
-  state.chunkAudioBytes = 0
-  try {
-    yield* streamOnce(req, state)
-  } catch (e) {
-    if (e instanceof HttpHandshakeError && e.status === 403) {
-      if (!e.serverDate) throw new Error("No server date in headers.")
-      const serverTs = Date.parse(e.serverDate) / 1000
-      if (!Number.isFinite(serverTs)) throw new Error(`Failed to parse server date: ${e.serverDate}`)
-      adjustClockSkewSeconds(serverTs - currentUnixTimestamp())
-      state.chunkAudioBytes = 0
-      yield* streamOnce(req, state)
-    } else {
-      throw e
+  const segments = splitTextByByteLength(
+    escapeXml(removeIncompatibleCharacters(req.text)),
+    4096,
+  )
+  for (const segment of segments) {
+    state.chunkAudioBytes = 0
+    try {
+      yield* streamOnce(req, segment, state)
+    } catch (e) {
+      if (e instanceof HttpHandshakeError && e.status === 403) {
+        if (!e.serverDate) throw new Error("No server date in headers.")
+        const serverTs = Date.parse(e.serverDate) / 1000
+        if (!Number.isFinite(serverTs)) {
+          throw new Error(`Failed to parse server date: ${e.serverDate}`)
+        }
+        adjustClockSkewSeconds(serverTs - currentUnixTimestamp())
+        state.chunkAudioBytes = 0
+        yield* streamOnce(req, segment, state)
+      } else {
+        throw e
+      }
     }
   }
 }
@@ -371,10 +386,11 @@ export async function synthLine(
   req: TTSRequest,
   tries: number = RETRY_TRIES,
 ): Promise<{ mp3: Uint8Array; words: Word[] }> {
+  const once = synthOnceOverride ?? synthOnce
   let last: unknown
   for (let attempt = 1; attempt <= tries; attempt++) {
     try {
-      return await synthOnce(req)
+      return await once(req)
     } catch (e) {
       if (!(e instanceof NoAudioReceived)) throw e
       last = e
@@ -384,4 +400,12 @@ export async function synthLine(
     }
   }
   throw last
+}
+
+// 反向验证的测试接缝（Python 侧靠 monkeypatch tts._synth_once；ESM 导出
+// 绑定不可外部改写，故显式开口）。生产代码不碰。
+type SynthOnceFn = (req: TTSRequest) => Promise<{ mp3: Uint8Array; words: Word[] }>
+let synthOnceOverride: SynthOnceFn | null = null
+export function overrideSynthOnceForTests(fn: SynthOnceFn | null): void {
+  synthOnceOverride = fn
 }

@@ -124,6 +124,38 @@ def capture_tts() -> None:
     _save("tts", data)
 
 
+# ------------------------------------------------------------- tts split
+# 4096 字节分片是 edge-tts 7.3.1 的字节级算法（换行>空格>UTF-8 安全点>& 实体
+# 调整），跨语言逐字节可对齐——含上游 quirk（无分隔符长文本的安全切点在整段
+# 剩余文本上求，可能产出超限单块）：按行为钉住，不"顺手修"。
+
+def capture_tts_split() -> None:
+    import base64 as b64mod
+    from edge_tts.communicate import split_text_by_byte_length
+
+    corpus = [
+        ("long_ascii_spaces", "word " * 1200, 4096),             # 空格优先
+        ("long_ascii_newlines", "line of text\n" * 400, 4096),   # 换行优先于空格
+        ("long_ascii_nospace", "a" * 9000, 4096),                # 无分隔 → 超限单块 quirk
+        ("chinese", "落叶知秋，岁月如歌。" * 300, 4096),           # 多字节边界
+        ("arabic", "أوراق الخريف تتناثر في الريح. " * 200, 4096),
+        ("entity_amp", "cat &amp; dog; " * 500, 4096),           # 实体整体不被切断
+        ("entity_raw", "a & b & c; d & e", 4),                   # & 调整到 0 → 前进 1
+        ("small", "落叶知秋", 4096),                               # 单段 + strip
+        ("padded", "   \n\t 落叶知秋  \r\n ", 4096),               # 首尾空白剥除
+        ("tiny_limit", "落叶知秋，岁月如歌。", 16),                 # 极小限长（多字节切点）
+    ]
+    data = {"cases": []}
+    for label, text, limit in corpus:
+        chunks = list(split_text_by_byte_length(text, limit))
+        data["cases"].append({
+            "label": label, "text": text, "byte_length": limit,
+            "chunks_b64": [b64mod.b64encode(c).decode("ascii") for c in chunks],
+            "chunk_bytes": [len(c) for c in chunks],
+        })
+    _save("tts_split", data)
+
+
 # ------------------------------------------------------------------- audio
 
 def capture_audio() -> None:
@@ -358,7 +390,8 @@ def capture_framehash() -> None:
 
 def main(argv: list[str]) -> int:
     steps = {
-        "tts": capture_tts, "audio": capture_audio,
+        "tts": capture_tts, "tts_split": capture_tts_split,
+        "audio": capture_audio,
         "timeline": capture_timeline, "textlayer": capture_textlayer,
         "ledger": capture_ledger, "framehash": capture_framehash,
     }

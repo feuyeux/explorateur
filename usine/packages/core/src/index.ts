@@ -22,3 +22,8 @@ export * as errors from './errors.js'
 export * as packaging from './packaging.js'
 export * as ledger from './ledger.js'
 export * as framehash from './framehash.js'
+
+// ---- P3 音画内核（flat 导出：tts/imaging 已在顶层）----
+export { roundHalfEven } from './num.js'
+export * as audio from './audio.js'
+export * as timeline from './timeline.js'

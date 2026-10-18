@@ -37,4 +37,24 @@ describe.skipIf(!LIVE)("edge-tts v2 客户端真机合成 parity", () => {
         .toBeLessThanOrEqual(64)
     }
   })
+
+  it("长文本多段（>4096 字节）：跨段连接、词级时间戳单调连续（CBR 补偿）", { timeout: 180_000 }, async () => {
+    // 带空格分隔（无分隔文本会触发上游超限单块 quirk，不走多段路径）
+    const unit = "落叶知秋 岁月如歌 微风过隙 落地成霜"
+    const text = Array.from({ length: 200 }, () => unit).join(" ")
+    expect(Buffer.byteLength(text, "utf8")).toBeGreaterThan(4096 * 2) // 至少 3 段
+    const { mp3, words } = await synthLine({
+      text, voice: "zh-CN-XiaoxiaoNeural", rate: "+0%", pitch: "+0Hz",
+    })
+    expect(words.length).toBeGreaterThan(100)
+    for (let i = 1; i < words.length; i++) {
+      expect(words[i]!.t, `第 ${i} 词时刻不回退（段间补偿失效会跳变/回退）`)
+        .toBeGreaterThanOrEqual(words[i - 1]!.t)
+    }
+    // 末词结束 + 垫尾应贴着 mp3 时长（CBR 48kbps 折算：bytes/6000 ≈ 秒）
+    const lastEnd = words[words.length - 1]!.t + words[words.length - 1]!.d
+    const seconds = mp3.length / 6000
+    expect(lastEnd).toBeLessThanOrEqual(seconds)
+    expect(lastEnd).toBeGreaterThan(seconds - 2)
+  })
 })
