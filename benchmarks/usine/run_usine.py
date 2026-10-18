@@ -652,8 +652,13 @@ def _check_lineup(configs: dict, escalation_cfg) -> dict:
     verifier = configs["verifier"]
     control = configs["verifier_control"]
 
-    if actor.model != "MiniMax-M3":
-        raise RuntimeError("usine Actor Agent must be MiniMax-M3")
+    # 2026-10-18 lineup switch (user decision): M3 actor thrashed on wave-1r
+    # (220+ iters, one 570s timeout with 25 MB stdout); the Actor and its
+    # memory twin move to fuyao-coding.  The control seat (target-usine) stays
+    # on MiniMax-M3: it is the escalated-verifier fallback and its vision /
+    # cross-model invariants below are pinned to the M3 family.
+    if actor.model != "fuyao-coding":
+        raise RuntimeError("usine Actor Agent must be fuyao-coding")
     if actor.vision_model != "":
         raise RuntimeError("usine Actor Agent must use native vision")
     if curriculum.model != "fuyao-work":

@@ -4,11 +4,11 @@
 # durable memory with the same identity that must transfer it back. Numeric
 # limits are emergency watchdogs, not semantic stopping criteria.
 #
-# usine seats: MiniMax-M3 with NATIVE vision (vision_model ""); the model
-# reads pixels itself, no delegated eye. provider_order stays empty:
+# usine seats: fuyao-coding (2026-10-18 lineup switch; M3 actor thrashed —
+# 220 iters + one 570s timeout with 25MB stdout). Text-only seat, no vision.
 # RSIAGENT_LLM_ENDPOINTS_FILE routes every slug to its own gateway, and an
 # OpenRouter provider pin would be a foreign request field there.
-model: MiniMax-M3
+model: fuyao-coding
 provider_order: []
 provider_allow_fallbacks: true
 provider_require_parameters: true

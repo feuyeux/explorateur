@@ -1,0 +1,622 @@
+2026-10-18 22:17:21,656 rsiagent.usine.verifier_adapter INFO verifier adapter installed: WorktreeVerifierExecutor + substrate-true verifier system prompt
+2026-10-18 22:17:21,801 rsiagent.usine.run INFO actor system prompt patched for the usine substrate (core.actor + core.loop)
+2026-10-18 22:17:21,817 rsiagent.usine.run INFO resolved LLM endpoints for 3 model slug(s)
+2026-10-18 22:17:22,014 rsiagent.usine.run INFO distribution fence clear: 712 shingle(s) disjoint from 707 audited source(s) (331 tracked usine file(s), 14 binary skipped)
+2026-10-18 22:17:22,214 rsiagent.usine.run INFO endpoints map written for 3 model slug(s) (values never logged)
+2026-10-18 22:17:22,214 rsiagent.usine.hooks INFO usine corpus built: 712 shingles from 1 text(s) -> /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/corpus_shingles.json
+2026-10-18 22:17:22,239 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-2a49831b0c65 (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:17:22,239 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:17:37,868 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 5312}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:17:37,962 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:17:37,962 rsiagent.llm INFO fuyao-work usage: in=4770 out=5312
+2026-10-18 22:17:37,963 rsiagent.loop INFO iter 1: program (python, 3062 chars)
+2026-10-18 22:17:38,596 rsiagent.loop INFO iter 1: exit=0 secs=1 out=1035 chars
+2026-10-18 22:17:45,853 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 2291}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:17:45,858 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:17:45,858 rsiagent.llm INFO fuyao-work usage: in=6426 out=2291
+2026-10-18 22:17:45,859 rsiagent.loop INFO iter 2: program (python, 2167 chars)
+2026-10-18 22:17:47,809 rsiagent.loop INFO iter 2: exit=0 secs=2 out=3123 chars
+2026-10-18 22:17:58,563 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 1973}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:17:58,566 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:17:58,566 rsiagent.llm INFO fuyao-work usage: in=8656 out=1973
+2026-10-18 22:17:58,568 rsiagent.loop INFO iter 3: program (bash, 1434 chars)
+2026-10-18 22:17:59,220 rsiagent.loop INFO iter 3: exit=0 secs=1 out=4188 chars
+2026-10-18 22:18:08,734 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 2764}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:08,744 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:08,744 rsiagent.llm INFO fuyao-work usage: in=10911 out=2764
+2026-10-18 22:18:08,746 rsiagent.loop INFO iter 4: program (bash, 783 chars)
+2026-10-18 22:18:08,857 rsiagent.loop INFO iter 4: exit=0 secs=0 out=3048 chars
+2026-10-18 22:18:34,785 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 4648}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:34,824 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:34,824 rsiagent.llm INFO fuyao-work usage: in=12743 out=4648
+2026-10-18 22:18:34,826 rsiagent.loop INFO iter 5: program (python, 1493 chars)
+2026-10-18 22:18:35,218 rsiagent.loop INFO iter 5: exit=0 secs=0 out=2736 chars
+2026-10-18 22:18:36,894 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 394}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:36,895 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:36,895 rsiagent.llm INFO fuyao-work usage: in=14377 out=394
+2026-10-18 22:18:39,251 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 783}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:39,251 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:39,251 rsiagent.llm INFO fuyao-work usage: in=14623 out=783
+2026-10-18 22:18:39,252 rsiagent.loop INFO iter 6: program (python, 1940 chars)
+2026-10-18 22:18:39,332 rsiagent.loop INFO iter 6: exit=0 secs=0 out=9499 chars
+2026-10-18 22:18:41,949 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 713}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:41,950 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:41,950 rsiagent.llm INFO fuyao-work usage: in=18093 out=713
+2026-10-18 22:18:41,950 rsiagent.loop INFO iter 7: program (python, 1331 chars)
+2026-10-18 22:18:41,998 rsiagent.loop INFO iter 7: exit=0 secs=0 out=11564 chars
+2026-10-18 22:18:44,785 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 754}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:44,788 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:44,788 rsiagent.llm INFO fuyao-work usage: in=23084 out=754
+2026-10-18 22:18:44,789 rsiagent.loop INFO iter 8: program (python, 1426 chars)
+2026-10-18 22:18:44,847 rsiagent.loop INFO iter 8: exit=0 secs=0 out=8435 chars
+2026-10-18 22:18:51,492 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 1202}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:18:51,495 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:18:51,495 rsiagent.llm INFO fuyao-work usage: in=26759 out=1202
+2026-10-18 22:18:51,501 rsiagent.loop INFO iter 9: program (python, 2673 chars)
+2026-10-18 22:18:51,557 rsiagent.loop INFO iter 9: exit=0 secs=0 out=16223 chars
+2026-10-18 22:19:16,263 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 4385}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:19:16,342 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:19:16,342 rsiagent.llm INFO fuyao-work usage: in=35026 out=4385
+2026-10-18 22:19:16,344 rsiagent.loop INFO iter 10: program (python, 2308 chars)
+2026-10-18 22:19:16,402 rsiagent.loop INFO iter 10: exit=1 secs=0 out=23805 chars
+2026-10-18 22:19:57,374 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 6720}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:19:57,458 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:19:57,458 rsiagent.llm INFO fuyao-work usage: in=45725 out=6720
+2026-10-18 22:19:57,461 rsiagent.loop INFO iter 11: program (python, 449 chars)
+2026-10-18 22:19:57,515 rsiagent.loop INFO iter 11: exit=0 secs=0 out=25696 chars
+2026-10-18 22:20:17,753 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 3629}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:20:17,803 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:20:17,804 rsiagent.llm INFO fuyao-work usage: in=54633 out=3629
+2026-10-18 22:20:17,806 rsiagent.loop INFO iter 12: program (python, 2821 chars)
+2026-10-18 22:20:17,866 rsiagent.loop INFO iter 12: exit=0 secs=0 out=34692 chars
+2026-10-18 22:21:23,343 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 11343}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:21:23,503 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:21:23,503 rsiagent.llm INFO fuyao-work usage: in=70785 out=11343
+2026-10-18 22:21:23,506 rsiagent.loop INFO iter 13: program (python, 3374 chars)
+2026-10-18 22:21:23,575 rsiagent.loop INFO iter 13: exit=0 secs=0 out=23966 chars
+2026-10-18 22:22:01,358 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 8277}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:22:01,452 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:22:01,452 rsiagent.llm INFO fuyao-work usage: in=80742 out=8277
+2026-10-18 22:22:01,454 rsiagent.loop INFO iter 14: program (python, 3163 chars)
+2026-10-18 22:22:01,516 rsiagent.loop INFO iter 14: exit=0 secs=0 out=27964 chars
+2026-10-18 22:22:43,270 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 9807}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:22:43,393 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:22:43,393 rsiagent.llm INFO fuyao-work usage: in=92711 out=9807
+2026-10-18 22:22:45,658 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 462}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:22:45,665 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:22:45,666 rsiagent.llm INFO fuyao-work usage: in=92888 out=462
+2026-10-18 22:22:49,333 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 1083}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:22:49,335 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:22:49,335 rsiagent.llm INFO fuyao-work usage: in=93068 out=1083
+2026-10-18 22:22:49,337 rsiagent.loop INFO iter 15: program (python, 3206 chars)
+2026-10-18 22:22:49,399 rsiagent.loop INFO iter 15: exit=1 secs=0 out=28538 chars
+2026-10-18 22:23:34,435 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 10549}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:23:34,557 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:23:34,558 rsiagent.llm INFO fuyao-work usage: in=105269 out=10549
+2026-10-18 22:23:36,760 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 1005}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:23:36,763 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:23:36,763 rsiagent.llm INFO fuyao-work usage: in=106552 out=1005
+2026-10-18 22:23:36,766 rsiagent.loop INFO iter 16: program (python, 2776 chars)
+2026-10-18 22:23:36,837 rsiagent.loop INFO iter 16: exit=0 secs=0 out=17667 chars
+2026-10-18 22:24:46,172 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 16563}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:24:46,356 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:24:46,356 rsiagent.llm INFO fuyao-work usage: in=114022 out=16563
+2026-10-18 22:24:46,360 rsiagent.loop INFO iter 17: program (python, 5340 chars)
+2026-10-18 22:24:46,432 rsiagent.loop INFO iter 17: exit=0 secs=0 out=10598 chars
+2026-10-18 22:26:06,302 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 12709}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:26:06,460 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:26:06,460 rsiagent.llm INFO fuyao-work usage: in=120030 out=12709
+2026-10-18 22:26:06,461 rsiagent.loop INFO iter 18: program (python, 2728 chars)
+2026-10-18 22:26:06,553 rsiagent.loop INFO iter 18: exit=0 secs=0 out=9572 chars
+2026-10-18 22:28:06,564 rsiagent.llm WARNING fuyao-work erred with optional request fields (APITimeoutError); dropping them and retrying
+2026-10-18 22:29:57,593 httpx2 INFO HTTP Request: POST https://fuyao-ai-gateway.xiaopeng.link/v1/chat/completions "HTTP/1.1 200 OK"
+/Users/han/coding/personal/feuille/.venv/theatre-mac/lib/python3.12/site-packages/pydantic/main.py:520: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected `str` - serialized value may not be as expected [field_name='metadata', input_value=[{'version': 'default', 'start': 0, 'end': 8973}], input_type=list])
+  return self.__pydantic_serializer__.to_python(
+2026-10-18 22:29:57,596 rsiagent.llm INFO fuyao-work provider: <unreported>
+2026-10-18 22:29:57,596 rsiagent.llm INFO fuyao-work usage: in=124630 out=8973
+2026-10-18 22:29:57,601 rsiagent.loop INFO iter 19: program (python, 19867 chars)
+2026-10-18 22:29:57,654 rsiagent.loop INFO iter 19: exit=0 secs=0 out=1095 chars
+2026-10-18 22:29:57,691 rsiagent.loop INFO iter 19: canonical terminal handoff published
+2026-10-18 22:29:57,921 rsiagent.usine.run INFO LFS gold overlay: 15 file(s) smudged from the working tree
+2026-10-18 22:29:58,377 rsiagent.usine.run INFO usine seed rebuilt at HEAD bb60db9974: 331 member(s), 33635947 bytes
+2026-10-18 22:29:59,419 rsiagent.usine.hooks INFO usine audit skipped 14 binary member(s) under /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/episodes/ep001/fixtures (names still audited)
+2026-10-18 22:30:00,475 rsiagent.usine.hooks INFO usine audit skipped 14 binary member(s) under /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/episodes/ep002/fixtures (names still audited)
+2026-10-18 22:30:01,537 rsiagent.usine.hooks INFO usine audit skipped 14 binary member(s) under /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/episodes/ep003/fixtures (names still audited)
+2026-10-18 22:30:02,599 rsiagent.usine.hooks INFO usine audit skipped 14 binary member(s) under /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/episodes/ep004/fixtures (names still audited)
+2026-10-18 22:30:03,671 rsiagent.usine.hooks INFO usine audit skipped 14 binary member(s) under /Users/han/coding/personal/theatre-usine-runs/usine-20261018-wave1/phase1/episodes/ep005/fixtures (names still audited)
+2026-10-18 22:30:03,948 rsiagent.usine.guest_env INFO worktree guest down: /Users/han/.cache/rsi-usine-vm/guest-2a49831b0c65
+2026-10-18 22:30:03,968 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-6b6433b84fdd (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:30:03,968 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:30:03,968 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-0a72664d402e (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:30:03,969 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-bd599d0c6663 (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:30:03,970 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:30:03,970 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:30:03,971 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-6449431e82fe (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:30:03,971 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:30:04,729 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:04,730 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:04,814 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:04,815 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:04,825 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:04,826 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:04,913 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:04,913 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:04,917 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:04,917 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:05,001 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:05,003 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:05,020 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:05,021 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:05,101 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:05,103 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:08,901 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:08,902 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:09,012 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:09,013 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:09,101 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:09,102 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:09,187 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:09,188 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:15,162 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:15,162 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:15,162 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:15,276 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:15,277 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:15,277 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:15,285 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:15,286 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:15,286 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:15,378 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:15,380 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:15,380 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:45,437 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,437 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:45,513 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,515 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:45,544 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,545 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:45,625 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,625 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:45,635 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,635 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:45,722 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,723 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:45,743 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,744 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:30:45,828 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:45,829 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:30:49,622 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:49,623 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:49,710 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:49,711 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:49,808 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:49,809 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:49,920 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:49,921 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:30:55,885 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:55,886 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:55,886 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:55,995 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:55,999 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:55,999 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:56,006 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:56,007 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:56,007 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:30:56,079 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:30:56,083 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:30:56,083 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:31:26,141 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,141 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:31:26,228 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,229 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:31:26,259 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,260 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:31:26,346 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,347 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:31:26,366 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,367 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:31:26,443 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,445 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:31:26,463 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,464 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:31:26,540 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:26,542 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:31:30,313 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:30,314 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:31:30,438 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:30,439 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:31:30,529 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:30,531 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:31:30,620 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:30,621 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:31:36,581 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:36,581 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:31:36,582 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:31:36,704 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:36,704 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:36,705 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:31:36,706 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:31:36,706 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:31:36,706 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:31:36,792 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:31:36,793 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:31:36,794 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:06,860 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:06,861 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:06,947 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:06,947 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:06,970 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:06,971 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:07,056 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:07,056 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:07,060 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:07,061 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:07,142 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:07,143 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:07,179 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:07,180 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:07,255 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:07,259 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:11,042 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:11,043 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:11,157 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:11,158 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:11,241 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:11,243 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:11,340 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:11,341 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:17,340 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:17,340 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:17,340 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:17,421 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:17,421 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:17,421 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:17,443 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:17,443 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:17,443 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:17,529 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:17,531 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:17,531 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:47,589 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,590 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:47,660 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,661 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:47,690 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,691 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:47,768 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,768 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:47,789 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,790 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:47,867 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,869 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:47,881 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,882 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:32:47,958 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:47,959 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:32:51,744 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:51,745 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:51,853 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:51,855 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:51,961 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:51,962 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:52,039 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:52,040 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:32:57,998 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:57,999 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:57,999 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:58,100 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:58,101 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:58,101 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:58,124 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:58,125 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:58,125 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:32:58,231 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:32:58,233 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:32:58,233 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:33:28,263 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,265 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:33:28,342 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,343 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:33:28,360 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,360 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:33:28,438 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,438 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:33:28,478 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,479 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:33:28,547 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,548 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:33:28,562 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,563 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:33:28,641 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:28,642 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:33:32,436 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:32,438 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:33:32,525 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:32,526 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:33:32,649 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:32,650 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:33:32,721 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:32,722 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:33:38,702 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:38,702 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:33:38,702 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:33:38,810 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:38,810 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:33:38,811 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:33:38,821 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:38,821 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:33:38,821 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:33:38,921 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:33:38,922 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:33:38,922 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:34:08,984 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:08,985 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:09,059 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,060 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:09,084 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,085 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:09,168 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,169 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:09,190 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,190 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:09,275 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,278 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:09,301 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,303 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:09,391 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:09,393 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:13,144 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:13,145 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:13,262 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:13,264 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:13,368 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:13,370 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:13,477 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:13,478 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:19,402 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:19,403 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:34:19,403 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:34:19,522 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:19,522 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:34:19,522 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:34:19,552 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:19,552 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:34:19,553 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:34:19,600 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:19,601 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:34:19,601 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:34:49,671 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,672 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:49,758 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,760 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:49,806 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,807 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:49,882 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,882 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:49,912 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,913 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:49,994 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:49,996 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:34:50,000 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:50,001 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:50,094 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:50,095 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:34:53,833 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:53,834 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:53,982 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:53,983 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:54,086 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:54,087 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:34:54,178 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:34:54,178 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:35:00,118 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:00,118 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:00,118 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:00,242 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:00,243 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:00,244 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:00,277 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:00,279 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:00,280 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:00,371 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:00,372 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:00,372 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:30,400 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,400 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:35:30,490 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,490 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:35:30,500 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,501 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:35:30,590 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,590 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:35:30,602 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,602 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:35:30,679 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,681 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:35:30,698 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,699 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:35:30,777 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:30,779 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:35:34,584 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:34,585 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:35:34,680 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:34,684 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:35:34,772 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:34,774 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:35:34,858 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:34,859 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:35:40,853 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:40,854 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:40,854 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:40,945 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:40,946 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:40,946 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:40,954 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:40,955 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:40,955 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:35:41,058 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:35:41,059 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:35:41,060 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:36:11,105 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,105 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:11,186 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,186 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:11,214 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,216 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:11,287 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,288 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:11,307 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,307 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:11,374 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,374 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:11,381 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,381 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:11,460 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:11,462 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:15,265 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:15,267 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:15,371 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:15,372 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:15,463 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:15,465 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:15,549 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:15,551 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:21,524 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:21,524 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:36:21,524 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:36:21,635 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:21,635 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:36:21,635 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:36:21,639 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:21,639 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:36:21,639 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:36:21,740 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:21,741 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:36:21,741 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:36:51,797 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:51,798 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:51,884 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:51,885 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:51,914 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:51,916 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:51,991 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:51,991 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:52,006 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:52,007 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:52,099 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:52,100 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:36:52,103 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:52,104 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:52,186 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:52,188 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:36:55,975 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:55,980 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:56,089 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:56,091 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:56,202 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:56,203 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:36:56,276 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:36:56,278 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:37:02,199 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,199 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:02,199 rsiagent.loop ERROR Actor Agent transport still failing after 10 pauses (HTTP 401); escalating to terminal infrastructure error
+2026-10-18 22:37:02,271 rsiagent.usine.guest_env INFO worktree guest down: /Users/han/.cache/rsi-usine-vm/guest-6b6433b84fdd
+2026-10-18 22:37:02,278 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,279 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:02,280 rsiagent.loop ERROR Actor Agent transport still failing after 10 pauses (HTTP 401); escalating to terminal infrastructure error
+2026-10-18 22:37:02,290 rsiagent.usine.guest_env INFO worktree guest up: posix -> /Users/han/.cache/rsi-usine-vm/guest-9a75ab6261b3 (python=/Users/han/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12)
+2026-10-18 22:37:02,290 rsiagent.usine.run INFO usine harness link anchor staged into the guest disk root: 1 root(s)
+2026-10-18 22:37:02,358 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,359 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:02,359 rsiagent.loop ERROR Actor Agent transport still failing after 10 pauses (HTTP 401); escalating to terminal infrastructure error
+2026-10-18 22:37:02,363 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,363 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:02,363 rsiagent.loop ERROR Actor Agent transport still failing after 10 pauses (HTTP 401); escalating to terminal infrastructure error
+2026-10-18 22:37:02,714 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,714 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:37:02,777 rsiagent.usine.guest_env INFO worktree guest down: /Users/han/.cache/rsi-usine-vm/guest-bd599d0c6663
+2026-10-18 22:37:02,778 rsiagent.usine.guest_env INFO worktree guest down: /Users/han/.cache/rsi-usine-vm/guest-0a72664d402e
+2026-10-18 22:37:02,786 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:02,786 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:37:02,794 rsiagent.usine.guest_env INFO worktree guest down: /Users/han/.cache/rsi-usine-vm/guest-6449431e82fe
+2026-10-18 22:37:06,889 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:06,890 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:37:13,142 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:13,142 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:13,142 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
+2026-10-18 22:37:43,391 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:43,393 rsiagent.llm WARNING MiniMax-M3 erred with optional request fields (AuthenticationError); dropping them and retrying
+2026-10-18 22:37:43,479 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:43,480 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 2 after backoff
+2026-10-18 22:37:47,560 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:47,560 rsiagent.llm WARNING MiniMax-M3 API error (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; retry 3 after backoff
+2026-10-18 22:37:53,830 httpx2 INFO HTTP Request: POST https://agent.minimax.cn/mavis/api/v1/llm/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-10-18 22:37:53,831 rsiagent.llm WARNING MiniMax-M3 failed after retries (AuthenticationError) body={'code': 401, 'message': 'auth failed'}; raising recoverable transport failure (no agent turn created)
+2026-10-18 22:37:53,832 rsiagent.loop WARNING Actor Agent infrastructure pause (HTTP 401); preserving the same Agent context and retrying unchanged in 30s
