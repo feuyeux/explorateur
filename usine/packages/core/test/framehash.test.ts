@@ -230,3 +230,41 @@ describe('金样本批次 2：纯函数跨语言逐字节 parity', () => {
     expect(fh.readBaseline(p)).toEqual(GOLDEN.data.baseline_roundtrip)
   })
 })
+
+// probeFps 契约：解不出帧率必须抛，不得回落到一个「像那么回事」的常数。
+// 旧实现返回 FPS_DEFAULT(30)——把「测不到」写成「就是 30」，帧数跟着算错
+// 却毫无提示（纪律 8 / 19）。反向验证：好数据给真值，坏数据必须炸。
+describe.skipIf(FFMPEG === null || platform.ffprobe() === null)(
+  'probeFps：真值放行 / 测不到即抛（不做静默默认）', () => {
+  it('好数据：lavfi r=25 的视频量出 25', () => {
+    const d = freshDir()
+    const v = join(d, 'fps25.mp4')
+    execFileSync(
+      FFMPEG!,
+      ['-y', '-f', 'lavfi', '-i', 'color=c=red:s=320x240:d=0.5:r=25',
+       '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', v],
+      { stdio: 'pipe' },
+    )
+    // 判据不依赖被测字段的采样点：只断言「是个接近声明帧率的正数」
+    const fps = fh.probeFps(v)
+    expect(fps).toBeGreaterThan(24)
+    expect(fps).toBeLessThan(26)
+  })
+
+  it('反向①：文件不存在 → 抛错，不返回 30', () => {
+    expect(() => fh.probeFps(join(freshDir(), 'nope.mp4'))).toThrow()
+  })
+
+  it('反向②：非视频输入（纯文本） → 抛错，不返回 30', () => {
+    const d = freshDir()
+    const p = join(d, 'notavideo.mp4')
+    writeFileSync(p, 'this is not a video', 'utf-8')
+    expect(() => fh.probeFps(p)).toThrow()
+  })
+
+  it('反向③：源码里不再有「测不到就回落到常数」的分支', () => {
+    const src = readFileSync(fileURLToPath(new URL('../src/framehash.ts', import.meta.url)), 'utf8')
+    const body = src.slice(src.indexOf('export function probeFps'))
+    expect(body).not.toMatch(/FPS_DEFAULT|return 30/)
+  })
+})

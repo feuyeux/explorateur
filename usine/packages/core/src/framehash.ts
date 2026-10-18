@@ -27,7 +27,9 @@ import sharp from 'sharp'
 import { browser, ffmpeg as resolveFfmpeg, ffprobe as resolveFfprobe, machineArch, systemName } from './platform.js'
 import { FeuilleError } from './errors.js'
 
-export const FPS_DEFAULT = 30.0
+// 注意：这里曾有 `FPS_DEFAULT = 30.0`，probeFps 拿它当「解不出帧率」的返回值。
+// 那等于把「测不到」写成「就是 30」，帧数会跟着算错且无任何提示。已删除——
+// probeFps 现在与 framehash / perFrame 同契约：解不出就抛。
 
 // ---------------------------------------------------------------- 哈希（memoize）
 
@@ -91,23 +93,28 @@ export function perFrame(path: string): string[] {
     .map((ln) => (ln.split(',', 2)[1] ?? '').trim())
 }
 
+/** 视频平均帧率。缺 ffprobe 或解不出数字一律抛——与 framehash/perFrame 同契约。
+ *
+ * 旧实现返回 FPS_DEFAULT(30)，那是把「我不知道」写成「就是 30」：帧率错会
+ * 直接算错帧数，且静默值比报错更坏（纪律 8：没数据留 null 不填 0；纪律 19：
+ * 任何「失败退回默认值」的静默兜底都禁止）。 */
 export function probeFps(path: string): number {
   const ffprobe = resolveFfprobe()
-  if (ffprobe === null) return FPS_DEFAULT
+  if (ffprobe === null) throw new FeuilleError('缺 ffprobe（resolver 未找到）')
   const r = runCapture([
     ffprobe, '-v', 'error', '-select_streams', 'v:0', '-show_entries',
     'stream=avg_frame_rate', '-of', 'csv=p=0', path,
   ])
-  try {
-    const s = r.stdout.trim()
-    const slash = s.indexOf('/')
-    const num = slash < 0 ? s : s.slice(0, slash)
-    const den = slash < 0 ? '1' : s.slice(slash + 1)
-    const f = Number(num) / Number(den)
-    return f > 0 && Number.isFinite(f) ? f : FPS_DEFAULT
-  } catch {
-    return FPS_DEFAULT
+  if (r.code !== 0) throw new Error(`ffprobe avg_frame_rate 失败 ${path}: ${r.stderr.trim()}`)
+  const s = r.stdout.trim()
+  const slash = s.indexOf('/')
+  const num = slash < 0 ? s : s.slice(0, slash)
+  const den = slash < 0 ? '1' : s.slice(slash + 1)
+  const f = Number(num) / Number(den)
+  if (!(f > 0) || !Number.isFinite(f)) {
+    throw new Error(`ffprobe 未给出可用帧率 ${path}（avg_frame_rate=${s || '<空>'}）`)
   }
+  return f
 }
 
 /** (第一处不同的帧号, 末处不同的帧号)。帧数不同也算漂移（丢帧尾巴的症状）。 */

@@ -24,7 +24,7 @@ import type { RGB } from '@feuille/core'
 import * as st from '../src/index.js'
 import {
   GEO, buildCardHtml, drawStageBack, drawStageFront, matteUnpremultiply,
-  shotTransform, synthGavel,
+  renderWordCard, shotTransform, synthGavel,
 } from '../src/render_act_frames.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
@@ -222,7 +222,13 @@ describe('render e2e：真 Edge 字卡 + lavfi 静音 mp3 → 帧序列', () => 
     }))
   }
 
-  it('缺 TTS 产物 → FAIL（错误信息指 feuille karaoke tts，不再指 gen_tts.py）', async () => {
+  // 这两条错误路径断言要走到参数校验，而 render 前置的浏览器探测在无浏览器
+  // 主机（RSI macOS guest 的 FEUILLE_BROWSER 哨兵）上先行报缺——按本文件
+  // 惯例跳过并明说；SKIP 不是 PASS，浏览器真机覆盖归 Windows wave host。
+  it(HAS_BROWSER
+    ? '缺 TTS 产物 → FAIL（错误信息指 feuille karaoke tts，不再指 gen_tts.py）'
+    : '跳过：本机无 Chromium 系浏览器', async () => {
+    if (!HAS_BROWSER) return
     mkdirSync(join(d, 'tts'), { recursive: true })
     writeFileSync(join(d, 'acts.json'), JSON.stringify({
       storyteller_id: 'changlianke',
@@ -233,7 +239,10 @@ describe('render e2e：真 Edge 字卡 + lavfi 静音 mp3 → 帧序列', () => 
       .rejects.toThrow(/缺 TTS 产物 .*先跑 feuille karaoke tts/)
   })
 
-  it('--act 未知幕 → FAIL：幕表里没有', async () => {
+  it(HAS_BROWSER
+    ? '--act 未知幕 → FAIL：幕表里没有'
+    : '跳过：本机无 Chromium 系浏览器', async () => {
+    if (!HAS_BROWSER) return
     writeFixture()
     await expect(st.render_act_frames.main(
       [join(d, 'acts.json'), join(d, 'out-act'), '--act', 'nope']))
@@ -277,6 +286,34 @@ describe('render e2e：真 Edge 字卡 + lavfi 静音 mp3 → 帧序列', () => 
       const f = join(out, `fa1-${String(k).padStart(4, '0')}.png`)
       expect(readFileSync(f).toString('base64')).toBe(hashes[k])
     }
+  })
+
+  // AGENTS.md：截图后跑白页哨兵。文件存在 ≠ 渲对了——file:// URL 写错时
+  // headless 抓的是一张近纯白的错误页：尺寸合法、有文件、exit 0。没有这道
+  // 判据，白页会一路静默流进字卡视频（这是纪律12「没验不许长得像验过了」）。
+  it(HAS_BROWSER
+    ? '白页哨兵：真页面放行，近纯白页面当场判失败'
+    : '跳过：本机无 Chromium 系浏览器', { timeout: 180_000 }, async () => {
+    if (!HAS_BROWSER) return
+    const browser = platform.browserPath()!
+
+    // (a) 真页面（有字）→ 放行
+    const good = join(d, 'card-good.html')
+    const goodPng = join(d, 'card-good.png')
+    writeFileSync(good,
+      '<!DOCTYPE html><html><body style="margin:0;background:#101010;color:#fff">'
+      + '<h1>开讲</h1></body></html>', 'utf-8')
+    await expect(renderWordCard(good, goodPng, 400, 700, '', browser)).resolves
+      .toBeUndefined()
+
+    // (b) 近纯白页面 → BLANK RENDER。构造方式与真实故障同源：URL 抓不到
+    //     目标时 headless 给出的就是一张空白底
+    const blank = join(d, 'card-blank.html')
+    const blankPng = join(d, 'card-blank.png')
+    writeFileSync(blank,
+      '<!DOCTYPE html><html><body style="margin:0;background:#fff"></body></html>', 'utf-8')
+    await expect(renderWordCard(blank, blankPng, 400, 700, '', browser))
+      .rejects.toThrow(/BLANK RENDER/)
   })
 })
 

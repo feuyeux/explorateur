@@ -120,13 +120,16 @@ const STATIC_PW_IMPORT = [
 
 // ---------------------------------------------------------------- 离线行
 describe('发布系统反向验证（离线行，零平台流量）', () => {
-  it('resolveChrome() 解析到真实存在的 Chrome', () => {
+  // 「解析到真浏览器」契约需要真 Chromium 在场：无浏览器主机（RSI macOS
+  // guest 的 FEUILLE_BROWSER 哨兵）上 skipIf 跳过——SKIP 不是 PASS，
+  // 浏览器真机覆盖归 Windows wave host（DPAPI，无钥匙串弹窗）。
+  it.skipIf(pt.browserPath() === null)('resolveChrome() 解析到真实存在的 Chrome', () => {
     const got = base.resolveChrome()
     expect(got.length).toBeGreaterThan(0)
     expect(statSync(got).isFile(), `resolveChrome() 解析到真实存在的 Chrome：${got}`).toBe(true)
   })
 
-  it('resolveChrome 与 platform.browser(only=chrome) 同源（无第二事实源）', () => {
+  it.skipIf(pt.browserPath() === null)('resolveChrome 与 platform.browser(only=chrome) 同源（无第二事实源）', () => {
     const got = base.resolveChrome()
     const b = pt.browser('chrome')
     expect(b).not.toBeNull()
@@ -134,11 +137,16 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
   })
 
   it('FEUILLE_BROWSER 坏路径 → 显式报缺不静默换人', () => {
+    const old = process.env['FEUILLE_BROWSER']
     process.env['FEUILLE_BROWSER'] = '/definitely/not/a/chrome'
     try {
       expect(() => base.resolveChrome()).toThrow(FeuilleError)
     } finally {
-      delete process.env['FEUILLE_BROWSER']
+      // singleFork worker 里所有 edge 文件共用本进程：恢复必须还原原值，
+      // 无条件 delete 会抹掉调用方注入的 FEUILLE_BROWSER（RSI guest 的
+      // 无浏览器哨兵），毒化之后跑的每个浏览器门控用例。
+      if (old === undefined) delete process.env['FEUILLE_BROWSER']
+      else process.env['FEUILLE_BROWSER'] = old
     }
   })
 

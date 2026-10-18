@@ -124,11 +124,22 @@ export function synthGavel(path: string, fps: number, ffmpegBin: string): void {
   }
 }
 
+/** 近纯白像素占比（min(R,G,B) >= 250；与 karaoke build_video 白页哨兵同口径）。 */
+async function whiteRatio(png: string, w: number, h: number): Promise<number> {
+  const { data } = await sharp(png).removeAlpha().resize(w, h).raw()
+    .toBuffer({ resolveWithObject: true })
+  let white = 0
+  for (let i = 0; i < data.length; i += 3) {
+    if (data[i]! >= 250 && data[i + 1]! >= 250 && data[i + 2]! >= 250) white++
+  }
+  return white / (w * h)
+}
+
 /** 字卡层截图（Edge headless；参数组与 Python 版同集，不带 user-data-dir）。 */
-export function renderWordCard(
+export async function renderWordCard(
   htmlPath: string, png: string, w: number, h: number,
   query: string, browser: string,
-): void {
+): Promise<void> {
   const url = pathToFileURL(resolve(htmlPath)).href + query
   const r = spawnSync(browser, ['--headless=new', '--disable-gpu',
     ...platform.HEADLESS_FLAGS,
@@ -140,7 +151,18 @@ export function renderWordCard(
     throw new FeuilleError(`FAILED: ${browser} --screenshot=${png}\n${r.error?.message ?? ''}`)
   }
   if (!existsSync(png)) {
-    throw new FeuilleError(`字卡渲染失败：${png}`)
+    // 退出 0 但没出图 = 被已开着的桌面浏览器 singleton 锁抢走（singleton 移交）。
+    // 这条消息要能直接指到处置动作，否则报出来只是个没有下一步的 FAILED。
+    throw new FeuilleError(
+      `浏览器退出 0 但没有写出 ${png}——大概率被已开着的桌面浏览器抢占`
+      + `（singleton 移交）。关掉桌面浏览器后重试。\nURL was: ${url}`)
+  }
+  // 白页哨兵（AGENTS.md：截图后跑白页哨兵）：文件存在 ≠ 渲对了。file:// URL
+  // 写错时 headless 抓的是一张近纯白的错误页，尺寸合法、有文件、exit 0——
+  // 没有这道判据，它会一路静默流进字卡视频。
+  if (await whiteRatio(png, 64, 36) > 0.9) {
+    throw new FeuilleError(
+      `BLANK RENDER (页面没渲出来？): ${png}\nURL was: ${url}`)
   }
 }
 
@@ -579,7 +601,7 @@ export async function main(argv: string[]): Promise<number> {
       const key = `${actId}-${state >= 0 ? state : 'pre'}`
       const cardCache = join(cardsDir, `${key}.png`)
       if (!existsSync(cardCache)) {
-        renderWordCard(buildHtml, cardCache, W, H, `?lang=${locale}&state=${state}`, browser)
+        await renderWordCard(buildHtml, cardCache, W, H, `?lang=${locale}&state=${state}`, browser)
       }
       const card = await matteUnpremultiply(cardCache)
       let frame = sharp(bgRaw.data, {

@@ -517,6 +517,66 @@ describe('check_overlay：层间配准', () => {
 
 // ============ render e2e（Edge/Chrome headless——免费本机渲字，零额度） ============
 
+// AGENTS.md 铁律的反向验证：headless 渲染**一律不带 --user-data-dir**。
+// 实测 macOS + Edge 上带它时图能出但进程永不退出，整个 build 挂死（不带它
+// 1.7s 退出）。render_poster 曾是五个渲染口里唯一的例外——这里把它钉死，
+// 任何一侧（判据与被测不同源：判据是 AGENTS.md 纪律，被测是源码字面量）。
+describe('headless 渲染旗标纪律（反向验证）', () => {
+  const RENDER_SOURCES = [
+    ['poster/render_poster', 'packages/poster/src/render_poster.ts'],
+    ['poster/render_page', 'packages/poster/src/render_page.ts'],
+    ['poster/measure_korean', 'packages/poster/src/measure_korean.ts'],
+    ['core/textlayer', 'packages/core/src/textlayer.ts'],
+    ['karaoke/build_video', 'packages/karaoke/src/build_video.ts'],
+    ['storyteller/render_act_frames', 'packages/storyteller/src/render_act_frames.ts'],
+  ] as const
+
+  for (const [name, rel] of RENDER_SOURCES) {
+    it(`${name}：启动参数里没有 --user-data-dir`, () => {
+      const src = readFileSync(join(USINE, rel), 'utf-8')
+      // 只看真正 spawn 浏览器的参数构造：注释里复述这条纪律不算违规
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+      expect(code).not.toContain('--user-data-dir')
+    })
+  }
+
+  it('render_poster：timeout 由 spawnSync 自己兜，不依赖 GNU coreutils', () => {
+    const src = readFileSync(
+      join(USINE, 'packages/poster/src/render_poster.ts'), 'utf-8')
+    // 外部 `timeout` 命令只在装了 coreutils 的机器上有；挂死兜底不能挂在它上面
+    expect(src).toContain('timeout:')
+    expect(src).not.toContain("spawnSync('timeout'")
+  })
+})
+
+describe('render_poster 浏览器解析契约', () => {
+  it('CHROME_BIN 解析不到 → 显式报缺，不静默换浏览器', () => {
+    const old = process.env['CHROME_BIN']
+    // FEUILLE_BROWSER 在本用例里必须缺席（CHROME_BIN 才是被测来源），但
+    // edge project 是 singleFork：所有文件共用一个 worker 进程，恢复时
+    // 必须还原原值——无条件 delete 会把调用方注入的 FEUILLE_BROWSER
+    // （如 RSI guest 的无浏览器哨兵）连带抹掉，毒化同 worker 里之后
+    // 跑的每个浏览器门控用例。
+    const oldFb = process.env['FEUILLE_BROWSER']
+    delete process.env['FEUILLE_BROWSER']
+    process.env['CHROME_BIN'] = '/definitely/not/a/browser'
+    const errs: string[] = []
+    const realErr = console.error
+    console.error = (...a: unknown[]) => { errs.push(a.join(' ')) }
+    try {
+      expect(poster.render_poster.main(['x.html', 'out.png'])).toBe(1)
+    } finally {
+      console.error = realErr
+      if (old === undefined) delete process.env['CHROME_BIN']
+      else process.env['CHROME_BIN'] = old
+      if (oldFb === undefined) delete process.env['FEUILLE_BROWSER']
+      else process.env['FEUILLE_BROWSER'] = oldFb
+    }
+    // 错误信息必须点名那个坏值，否则用户无从判断是哪个来源配错了
+    expect(errs.join('\n')).toContain('/definitely/not/a/browser')
+  })
+})
+
 describe('render e2e', () => {
   const d = makeTmp()
   afterAll(() => rmSync(d, { recursive: true, force: true }))
