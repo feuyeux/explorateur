@@ -1,6 +1,9 @@
 # ARCHITECTURE — théâtre × usine：RSI 引擎与适配层
 
-状态：**v1 实现完成**（2026-10-16）；假 LLM 干跑 12/12 全绿（见 §9）。
+状态：v1 实现完成（2026-10-16，§9 的 12/12 干跑为 Python 时代 usine 的记录）；
+2026-10-18 P9 真作用力改造后 usine 已是 TS pnpm monorepo、门禁为 `pnpm verify`、
+改进方向含智能体面——**现行运行手册（怎么跑 wave、怎么校验产物）见
+[../benchmarks/usine/README.md](../benchmarks/usine/README.md)**。
 本文是常青文档，图随代码维护。纪律与补丁清单见 [PROVENANCE.md](PROVENANCE.md)；
 实现相对设计稿的偏离记录见 [ADAPTATION.md](ADAPTATION.md)；跨平台补丁的病根见
 [PORTING-NOTES.md](PORTING-NOTES.md)；上游 [README.md](README.md) 与 `docs/` 冻结不动。
@@ -333,9 +336,10 @@ flowchart TD
     class REJ neutral
 ```
 
-v1 已知限制（如实记录在 merge_report）：symlink 变更不合并、mode/exec-bit
-不合并。备注：gate 会在 usine-dir 根部落一个未跟踪 `.venv/`（无害；旋钮
-`UsineMergeConfig.gate_env` 存在但 CLI 未暴露）。
+已知限制（如实记录在 merge_report）：symlink 变更不合并（mode/exec-bit 自 P9 起
+已修复：候选归档位 ∪ git 已跟踪 100755 则保留，`bin/feuille.js` 为锚点用例）。
+备注：Python 时代的 gate 曾在 usine-dir 根部落一个未跟踪 `.venv/`；现行 pnpm
+门禁不再落此类目录。
 
 ---
 

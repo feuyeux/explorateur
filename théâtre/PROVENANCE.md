@@ -6,8 +6,10 @@
 - **Upstream license**: Apache License 2.0（保留于本目录 `LICENSE`；本 fork 的改动同样按 Apache-2.0 提供）
 - **Fork date**: 2026-10-16
 - **Purpose**: 作为 `explorateur/usine`（feuille 多语种视频生产线）的 RSI 执行骨架。
-  适配层（`benchmarks/usine/`，**已建成**：2026-10-16 假 LLM 干跑 12/12 全绿）负责
-  环境嫁接；本目录内代码保持可向上游回步。fork 文档集：PROVENANCE（本文件，
+  适配层（`benchmarks/usine/`）负责环境嫁接（v1 于 2026-10-16 建成并假 LLM 干跑
+  12/12 全绿；2026-10-18 P9 真作用力改造后，现行运行手册见
+  [../benchmarks/usine/README.md](../benchmarks/usine/README.md)）；本目录内代码
+  保持可向上游回步。fork 文档集：PROVENANCE（本文件，
   纪律与补丁清单）、PORTING-NOTES（跨平台病根）、ADAPTATION（实现相对设计稿的
   偏离）、ARCHITECTURE（机制与图表）；上游 `README.md` 与 `docs/` 冻结不动。
 

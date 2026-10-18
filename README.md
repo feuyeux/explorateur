@@ -12,11 +12,11 @@
 |---|---|---|---|---|
 | [`humming/`](humming/) | **HummingScore** 哼唱识谱：哼一段 → 实时转五线谱 / 简谱 / MIDI / MusicXML | Tauri 2 + 原生 JS（无框架） | 32 文件 / 7853 行 | [README](humming/README.md) · [使用指南](humming/docs/使用指南.md) · [架构](humming/docs/设计/架构.md) |
 | [`reading/`](reading/) | **Ready Reader** 外语原著精读：导入 Markdown → LLM 结构化拆解 → 双栏逐句精读 | Tauri 2 + 纯 Rust 后端 | 30 文件 / 8119 行 | [README](reading/README.md) · [使用指南](reading/docs/使用指南.md) · [架构](reading/docs/设计/架构.md) |
-| [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | Python 3.12 + uv | 36 归属模块 / 约 1.13 万行 | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) · [架构](usine/docs/architecture.md) |
+| [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | TS pnpm monorepo（Node ≥24） | 10 包 / 约 3.2 万行 TS | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) · [架构](usine/docs/architecture.md) |
 
 规模一栏的口径：`humming` / `reading` 统计 `.js`/`.mjs`/`.rs`/`.css`/`.html`/`.sql`
 源文件及其行数，已排除 `target/`、`node_modules/`、`src/vendor/` 等构建产物；
-`usine` 按 `src/feuille` 归属模块与行数计（口径见 [usine/README.md](usine/README.md)）。
+`usine` 按 `packages/` 各包 TS 源文件行数计（排除 `node_modules/`、`dist/`；口径见 [usine/README.md](usine/README.md)）。
 
 `humming` 与 `reading` 是两个**应用**（可打包成安装包分发的桌面程序）；`usine` 是一个**库层**（被其它内容项目复用的机制 + 体例 + 纪律，不直接分发）。
 
@@ -30,7 +30,7 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 | 目录 | 是什么 | 入口 |
 |---|---|---|
 | [`théâtre/`](théâtre/) | vendored RSIAgent 引擎（上游 `4d7ef43`；内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [PROVENANCE.md](théâtre/PROVENANCE.md)（补丁纪律）· [ADAPTATION.md](théâtre/ADAPTATION.md)（实现偏离） |
-| [`benchmarks/usine/`](benchmarks/usine/) | 适配层：装配 / 传输 / 围栏 / 合并（假 LLM 干跑 12/12 全绿） | `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token） |
+| [`benchmarks/usine/`](benchmarks/usine/) | 适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检；**改进方向含智能体面（dsh 插件工具面）** | [README](benchmarks/usine/README.md)（**运行手册：怎么跑一次 wave、怎么校验自进化产物**）· `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token；真波次喊跑才跑，且只能在 Windows wave host 上跑） |
 | [`plan/`](plan/) | 排产与调研文档 | [rsiagent-memory.md](plan/rsiagent-memory.md)（RSI 调研） |
 
 红线：发布 / 登录永不自动执行（VM 门面三层防线）；一候选一 commit，每波 tag
@@ -45,7 +45,7 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 |---|---|
 | `humming` | Rust 1.77.2+、tauri-cli 2.x、Node（仅用于 vendor 构建依赖） |
 | `reading` | Rust 1.77.2+、tauri-cli 2.x。**前端无 npm 依赖，不需要 Node** |
-| `usine` | uv；发布相关依赖走可选组 `uv sync --group publish` |
+| `usine` | Node ≥24、pnpm ≥11（standalone）；`pnpm install` 一次后 `pnpm verify` 全量门禁 |
 
 `humming` 与 `reading` 的 `cargo tauri` 命令要在**各自项目根目录**（`humming/`、`reading/`）执行，不是仓库根目录。
 
@@ -62,11 +62,12 @@ cd humming && npm install && npm test
 # reading —— 119 个 Rust 测试：单元 + command 调度 + 前后端契约 + 全链路冒烟
 cd reading/src-tauri && cargo test
 
-# usine —— 21 套 370+ 项反向验证（verify_probes 聚合）
-cd usine && uv sync && uv run feuille verify
+# usine —— pnpm monorepo 全量门禁：typecheck + 全部 vitest 套件（545 用例 / 4 跳过，2026-10-18 基线）
+cd usine && pnpm install && pnpm verify
 ```
 
-`usine` 的验证是**反向验证**（好数据必须全 PASS，坏数据必须 FAIL），不是常规单测——详见 `usine/AGENTS.md`。
+`usine` 的验证继承**反向验证**纪律（好数据必须全 PASS，坏数据必须 FAIL）并叠加钉版对账
+（dsh 工具面 ↔ CLI 路由 ↔ SKILL 积分表），全部进 `pnpm verify`——详见 `usine/AGENTS.md`。
 
 ---
 

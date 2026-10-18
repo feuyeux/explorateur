@@ -1347,3 +1347,29 @@ Actor 改 dsh-plugin 源码/skills → capture 剪枝 → Verifier 复核（底�
    改动无关）。smoke_dry_run_wave / smoke_verifier_adapter / smoke_guest_env
    需 Windows wave host（git-bash WorktreeEnv）——就绪清单见 run_usine.py
    docstring；真 wave 喊跑才跑。
+
+## P9 后续：dsh 宿主真跑首任务（2026-10-18，✅ 通过）
+
+P8 遗留项 4（「dsh Web UI 实测」）以 dsh SDK 路线收口（用户裁定：基于 SDK 跑、
+非 web UI）。全套现场归档 `benchmarks/usine/runs/dsh-sdk-first-task-20261018/`
+（零 LLM 成本 preflight + 真跑 run.mjs + 双轮完整日志）。
+
+- **两个真宿主发现（vitest 面结构性不可见）**：
+  1. **require 互操作缺口**：esbuild 产物内联 `__require` 在 Node 原生 ESM 下
+     （dsh 入口加载器）对未打包 CJS 依赖（yazl）抛 "Dynamic require not
+     supported"——vitest 有 CJS interop 所以一直绿。垫片 = 加载入口先
+     `globalThis.require = createRequire(<dist>)` 再 import dist。
+     **wave host 的 dsh web 直接吃 dist 会撞同一堵墙**，须复用同款垫片。
+  2. **inject 缺 `approval`**：`videoGenerationTool` apply 期即取 `ctx.approval`，
+     真 cordis 未声明就抛 "cannot get property ... without inject"——插件
+     整个加载失败、17 工具面全丢，而 dsh boot 静默吞错照常启动。fakeCtx 不校验
+     inject，测试面永远看不见。修复 commit 78da4dc（inject 补声明 + 断言钉死）。
+     旁证：事故轮模型诚实报告「工具面不存在」并拒绝编造结果——AGENTS.md 纪律
+     文本生效。
+- **修复后真跑（fuyao-work 真 LLM，approval policy=never 确定性拒绝、零 H3）**：
+  usine_version → `0.1.0`；usine_verify → exit 0（545 过 / 0 败 / 4 跳，与本机
+  手跑一致）；usine_video_generation（768P/6s 提交）→ `approval/asked` →
+  `approval/decided(rejected)` → 返回 `asked-rejected`、无 task_id、零额度。
+  全程零 shell 误调；模型思考中原样引用纪律「额度自查先行」——纪律节注入生效。
+- **现行运行手册**：怎么跑一次 wave、怎么三层校验自进化产物（合并完整性 /
+  门禁 / 智能体面真验），常青维护于 `benchmarks/usine/README.md`。

@@ -1,8 +1,10 @@
 # ADAPTATION — théâtre v1 × usine：实现相对设计稿的偏离记录
 
-状态：**v1 实现完成**（2026-10-16）；假 LLM 干跑 12/12 全绿（实录见
-[ARCHITECTURE.md](ARCHITECTURE.md) §9）。本文件只记**实现相对设计稿的偏离与
-裁定**；机制、图表与装配次序见 [ARCHITECTURE.md](ARCHITECTURE.md)；跨平台
+状态：v1 实现完成（2026-10-16）。本文件只记**实现相对设计稿的偏离与
+裁定**，是 v1 当时的记录——其中「usine 保持 Python」「uv 门禁」等表述随
+P7 TS 迁移与 P9 真作用力改造（2026-10-18）失效：现行门禁为 `pnpm verify`，
+现行机制与运行手册见 [../benchmarks/usine/README.md](../benchmarks/usine/README.md)。
+机制、图表与装配次序见 [ARCHITECTURE.md](ARCHITECTURE.md)；跨平台
 补丁清单见 [PROVENANCE.md](PROVENANCE.md)；POSIX 病根见
 [PORTING-NOTES.md](PORTING-NOTES.md)。本文件的设计稿形态（v0）在 git 历史。
 
