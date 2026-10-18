@@ -1,0 +1,34 @@
+# dsh SDK 首任务实测的 patch 层（--profile sdk 的临时叠加，不动 ~/.dsh 剖面）：
+#  1. llm-pi-ai 补 fuyao provider（规格逐字照抄 ~/.dsh/profiles/desktop/cordis.patch.yml
+#     的 fuyao-work 条目；凭据走 apiKeyEnv=FUYAO_API_KEY，dsh 从 $DSH_HOME 凭据店解析）；
+#  2. insert feuille-usine 插件——入口指 require 互操作垫片（feuille-usine-loader.mjs），
+#     它再加载 usine/packages/dsh-plugin/dist/index.mjs（波次改进要直达的那个智能体面）；
+#  3. approval policy=never：所有审批问询确定性自动拒绝——红线双保险，视频生成提交
+#     必停在审批，本运行全程零 H3/额度调用。
+- id: llm-pi-ai
+  config:
+    providers:
+      fuyao:
+        displayName: Fuyao AI Gateway
+        api: openai-completions
+        baseURL: https://fuyao-ai-gateway.xiaopeng.link/v1
+        apiKeyEnv: FUYAO_API_KEY
+        defaultInput:
+          - text
+        models:
+          - id: fuyao-work
+            name: Fuyao Work
+            contextWindow: 1000000
+            maxTokens: 65536
+            input:
+              - text
+            reasoningEfforts:
+              low: low
+              high: high
+              max: max
+- insert:
+    - id: feuille-dsh-plugin
+      name: /Users/han/coding/personal/feuille/benchmarks/usine/runs/dsh-sdk-first-task-20261018/feuille-usine-loader.mjs
+- id: approval
+  config:
+    policy: never
