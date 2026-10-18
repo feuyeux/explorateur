@@ -131,7 +131,6 @@ export function renderWordCard(
 ): void {
   const url = pathToFileURL(resolve(htmlPath)).href + query
   const r = spawnSync(browser, ['--headless=new', '--disable-gpu',
-    ...platform.HEADLESS_FLAGS,
     '--hide-scrollbars', '--force-device-scale-factor=1',
     `--window-size=${w},${h}`, `--screenshot=${png}`,
     '--virtual-time-budget=10000', url],

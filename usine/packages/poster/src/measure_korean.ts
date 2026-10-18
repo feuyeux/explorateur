@@ -534,8 +534,7 @@ let CHROME = '' // main 里解析（模块级可变，镜像 Python global）
 /** 参数与 library 的 `textlayer._shot_args` 对齐（实测过的组合）。
  * ⚠ 不要加 --user-data-dir：macOS + Edge 上带它图能出来但进程永不退出。 */
 function renderChrome(url: string, w: number, h: number, out: string | null, dom = false): string {
-  const args = [CHROME, '--headless=new', '--disable-gpu',
-    ...platform.HEADLESS_FLAGS, '--no-sandbox',
+  const args = [CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
     '--virtual-time-budget=10000', `--window-size=${w},${h}`,
     '--force-device-scale-factor=1', '--hide-scrollbars']
   if (dom) args.push('--dump-dom', url)

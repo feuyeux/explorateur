@@ -48,8 +48,7 @@ function fileUrl(p: string): string {
 }
 
 function baseCmd(w: string, h: string): string[] {
-  return [chrome(), '--headless=new', '--disable-gpu',
-    ...platform.HEADLESS_FLAGS, '--no-sandbox',
+  return [chrome(), '--headless=new', '--disable-gpu', '--no-sandbox',
     '--virtual-time-budget=10000', `--window-size=${w},${h}`,
     '--force-device-scale-factor=1', '--hide-scrollbars']
 }
