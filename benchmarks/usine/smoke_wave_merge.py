@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -87,10 +88,15 @@ def expect_raise(name: str, callable_, *args, **kwargs) -> None:
 PREFIX = "evolution_project/"
 
 
-def write_materials(directory: pathlib.Path, files: dict, links=None) -> pathlib.Path:
-    """Build a materials archive + sidecars byte-compatible with capture."""
+def write_materials(directory: pathlib.Path, files: dict, links=None,
+                    modes=None) -> pathlib.Path:
+    """Build a materials archive + sidecars byte-compatible with capture.
+
+    ``modes`` maps rel -> tar member mode for entries that must carry the
+    executable bit (the default 0644 matches a plain write)."""
     directory.mkdir(parents=True, exist_ok=True)
     links = links or {}
+    modes = modes or {}
     manifest: dict[str, str] = {}
     link_map: dict[str, str] = {}
     buf = io.BytesIO()
@@ -100,6 +106,7 @@ def write_materials(directory: pathlib.Path, files: dict, links=None) -> pathlib
             info_ = tarfile.TarInfo(PREFIX + rel)
             info_.size = len(data)
             info_.mtime = 1700000000
+            info_.mode = modes.get(rel, 0o644)
             tf.addfile(info_, io.BytesIO(data))
             manifest[PREFIX + rel] = hashlib.sha256(data).hexdigest()
         for rel in sorted(links):
@@ -197,14 +204,14 @@ from pathlib import PurePosixPath  # noqa: E402
 def make_episode(lineage: pathlib.Path, name: str, wave: int,
                  project_index: int, project_id: str, outcome: str,
                  fixture_files: dict, candidate_files=None,
-                 fixture_links=None, candidate_links=None) -> pathlib.Path:
+                 candidate_links=None, candidate_modes=None) -> pathlib.Path:
     episode = lineage / "episodes" / name
-    write_materials(episode / "fixtures", fixture_files, fixture_links)
+    write_materials(episode / "fixtures", fixture_files)
     if candidate_files is not None or candidate_links is not None:
         write_materials(
             episode / "candidates" / "cycle_001",
             fixture_files if candidate_files is None else candidate_files,
-            fixture_links or {} if candidate_links is None else candidate_links)
+            candidate_links or {}, candidate_modes)
     (episode / "outcome.json").write_text(json.dumps({
         "schema_version": 2, "wave_index": wave,
         "project_index": project_index, "project_id": project_id,
@@ -311,9 +318,19 @@ def test_archives() -> None:
                         "deleted": ["old.txt"]}, delta)
 
         noise_fx = {"src/a.txt": b"A\n", ".venv/lib.py": b"V1\n",
-                    "__pycache__/m.pyc": b"P1\n"}
+                    "__pycache__/m.pyc": b"P1\n",
+                    "node_modules/x/y.js": b"N1\n",
+                    "dist/index.mjs": b"D1\n",
+                    "packages/core/dist/index.mjs": b"D2\n",
+                    "packages/core/node_modules/x/y.js": b"N2\n",
+                    "tsconfig.tsbuildinfo": b"T1\n"}
         noise_cd = {"src/a.txt": b"A\n", ".venv/lib.py": b"V2\n",
-                    "__pycache__/m.pyc": b"P2\n"}
+                    "__pycache__/m.pyc": b"P2\n",
+                    "node_modules/x/y.js": b"N3\n",
+                    "dist/index.mjs": b"D3\n",
+                    "packages/core/dist/index.mjs": b"D4\n",
+                    "packages/core/node_modules/x/y.js": b"N4\n",
+                    "tsconfig.tsbuildinfo": b"T2\n"}
         delta = wave_merge.candidate_delta(
             wave_merge.load_archive_inventory(
                 write_materials(root / "nfx", noise_fx), "nfx")["files"],
@@ -321,6 +338,16 @@ def test_archives() -> None:
                 write_materials(root / "ncd", noise_cd), "ncd")["files"])
         check("delta: symmetric exclusions never enter the delta",
               delta == {"modified": [], "added": [], "deleted": []}, delta)
+        inv_cd = wave_merge.load_archive_inventory(
+            write_materials(root / "ncd2", noise_cd), "ncd2")
+        check("delta: TS regenerables are partitioned into excluded "
+              "(node_modules/dist at any depth, *.tsbuildinfo)",
+              sorted(inv_cd["excluded"]) == [
+                  ".venv/lib.py", "__pycache__/m.pyc",
+                  "dist/index.mjs", "node_modules/x/y.js",
+                  "packages/core/dist/index.mjs",
+                  "packages/core/node_modules/x/y.js",
+                  "tsconfig.tsbuildinfo"], inv_cd["excluded"])
 
         links_same = wave_merge.symlink_changes({"l": "a"}, {"l": "a"})
         links_diff = wave_merge.symlink_changes({"l": "a", "g": "b"},
@@ -409,6 +436,75 @@ def test_merge_green() -> None:
         check("merge: re-merging a reported wave is a no-op",
               again.get("skipped") == "report_exists" and heads == "2",
               (again.get("skipped"), heads))
+
+
+def test_merge_exec_bits() -> None:
+    """bin/feuille.js is committed 100755: byte-only apply must not flip it.
+
+    The byte-replace (staged temp + os.replace) lands with default bits, so
+    the merge restores the executable bit from the tracked index mode (for
+    modified paths) or from the archive member mode (for added paths), and
+    rollback restores the exact pre-apply mode.  These are POSIX filesystem
+    facts; on Windows git keeps the index mode untouched by the working
+    tree and os.chmod is a near no-op, so the checks run POSIX-only."""
+    if os.name != "posix":
+        info("merge: exec bits", "POSIX-only checks; on Windows the index "
+             "mode is authoritative and chmod is a no-op — skipped")
+        return
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-b7-") as tmp:
+        root = pathlib.Path(tmp)
+        base_files = dict(BASE_FILES)
+        base_files["bin/feuille.js"] = b"#!/usr/bin/env node\nconsole.log(1)\n"
+        cand = dict(base_files)
+        cand["bin/feuille.js"] = b"#!/usr/bin/env node\nconsole.log(2)\n"
+        cand["scripts/deploy.sh"] = b"#!/bin/sh\necho deploy\n"
+
+        usine = make_repo(root, base_files)
+        os.chmod(usine / "bin/feuille.js", 0o755)
+        commit_all(usine, "baseline carries 100755")
+        check("merge: baseline fixture is tracked 100755",
+              git_read(usine, "ls-files", "-s", "--", "bin/feuille.js"
+                       ).split()[0] == "100755",
+              git_read(usine, "ls-files", "-s", "--", "bin/feuille.js"))
+
+        lineage = root / "lineage"
+        make_episode(lineage, "ep001", 1, 1, "p-exec", "PASS", base_files,
+                     cand, candidate_modes={"scripts/deploy.sh": 0o755})
+        report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        entry = report["candidates"][0]
+        check("merge: green candidate with exec paths commits",
+              entry["decision"] == "merged" and len(report["commits"]) == 1,
+              entry)
+        exec_file = usine / "bin/feuille.js"
+        added = usine / "scripts/deploy.sh"
+        check("merge: modified 100755 keeps the exec bit through byte change",
+              exec_file.read_bytes() == b"#!/usr/bin/env node\nconsole.log(2)\n"
+              and exec_file.stat().st_mode & 0o111
+              and git_read(usine, "ls-files", "-s", "--",
+                           "bin/feuille.js").split()[0] == "100755",
+              git_read(usine, "ls-files", "-s", "--", "bin/feuille.js"))
+        check("merge: archive exec bit lands for added paths",
+              added.read_bytes() == b"#!/bin/sh\necho deploy\n"
+              and added.stat().st_mode & 0o111)
+
+        red = make_repo(root / "red", base_files)
+        os.chmod(red / "bin/feuille.js", 0o755)
+        commit_all(red, "baseline carries 100755")
+        (red / "gate-fail").write_text("1", encoding="utf-8")
+        lineage_red = root / "red" / "lineage"
+        make_episode(lineage_red, "ep001", 1, 1, "p-exec2", "PASS",
+                     base_files, cand,
+                     candidate_modes={"scripts/deploy.sh": 0o755})
+        report_red = wave_merge.merge_wave(
+            str(lineage_red), 1, config_for(red))
+        entry_red = report_red["candidates"][0]
+        check("merge: gate red rolls back bytes AND mode",
+              entry_red["decision"] == "gate_rejected"
+              and (red / "bin/feuille.js").read_bytes()
+              == b"#!/usr/bin/env node\nconsole.log(1)\n"
+              and (red / "bin/feuille.js").stat().st_mode & 0o111
+              and not (red / "scripts/deploy.sh").exists(),
+              entry_red)
 
 
 def test_merge_rejections() -> None:
@@ -807,6 +903,7 @@ def test_sink_and_catchup() -> None:
 def main() -> int:
     test_archives()
     test_merge_green()
+    test_merge_exec_bits()
     test_merge_rejections()
     test_merge_serial()
     test_merge_policy_and_gate()

@@ -22,9 +22,12 @@ Merge contract (v1)
   the capture-seam fixture strategy, where the usine baseline IS the fixture).
 * Delta. Full-tree sha256 inventories (stock ``_inventory_from_tgz``), member
   prefix ``evolution_project/`` stripped, with symmetric exclusions
-  (``.git``, ``__pycache__``, ``.venv``/``venv``, ``node_modules``, caches,
-  ``*.pyc``/``*.pyo``, ``.DS_Store``). Content only — mode/exec-bit changes
-  are not merged (documented limitation).
+  (``.git``, ``__pycache__``, ``.venv``/``venv``, ``node_modules``, ``dist``,
+  caches, ``*.pyc``/``*.pyo``, ``*.tsbuildinfo``, ``.DS_Store``).
+  Content deltas carry the executable bit by convention: a delta path is
+  staged executable when the candidate archive carried the bit OR the path
+  is already tracked with git mode ``100755`` (bin/feuille.js is the anchor).
+  Everything else about modes stays HEAD's (v1).
 * Per-file tri-state against the working tree: bytes already equal to the
   candidate -> pre-applied (idempotent catch-up); bytes equal to the baseline
   -> fresh; anything else -> the whole candidate is drift-skipped, never
@@ -80,13 +83,17 @@ PROJECT_ROOT_PREFIX = "evolution_project/"
 PROJECT_ROOT_NAME = "evolution_project"
 
 # Symmetric fixture/candidate exclusions: never part of a merge delta.
+# ``node_modules`` and ``dist`` are the TS-era regenerables (pnpm install /
+# pnpm test rebuild them); unpruned they would not just bloat archives but
+# also trip path_policy (``git check-ignore``) and drop whole candidates.
+# ``*.tsbuildinfo`` is the tsc incremental cache, same story.
 EXCLUDED_PARTS = frozenset({
-    ".git", "__pycache__", ".venv", "venv", "node_modules",
+    ".git", "__pycache__", ".venv", "venv", "node_modules", "dist",
     ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox",
     ".ipynb_checkpoints", ".eggs",
 })
 EXCLUDED_NAMES = frozenset({".DS_Store"})
-EXCLUDED_SUFFIXES = (".pyc", ".pyo", ".egg-info")
+EXCLUDED_SUFFIXES = (".pyc", ".pyo", ".egg-info", ".tsbuildinfo")
 
 _RESERVED_BASENAME = re.compile(
     r"^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", re.IGNORECASE)
@@ -422,20 +429,72 @@ def path_policy_violations(added, ctx, usine_dir) -> dict:
 
 # ------------------------------------------------------------------ apply/rollback
 
+def _file_mode(root: pathlib.Path, rel: str):
+    """Current permission bits of a delta path (None = absent/unreadable)."""
+    try:
+        return stat_module.S_IMODE(
+            root.joinpath(*PurePosixPath(rel).parts).stat().st_mode)
+    except OSError:
+        return None
+
+
+def _archive_exec_bits(host_dir, rels) -> set[str]:
+    """Wanted archive members that carry any executable bit."""
+    wanted = {PROJECT_ROOT_PREFIX + rel: rel for rel in rels}
+    out: set[str] = set()
+    with tarfile.open(pathlib.Path(host_dir) / "materials.tgz", "r:gz") as tf:
+        for member in tf:
+            rel = wanted.get(PurePosixPath(member.name).as_posix())
+            if rel is not None and (member.isfile() or member.islnk()) \
+                    and member.mode & 0o111:
+                out.add(rel)
+    return out
+
+
+def _tracked_exec_bits(ctx, rels) -> set[str]:
+    """Wanted paths already tracked with git mode 100755 in the index.
+
+    Byte replacement (staged temp + os.replace) lands with default bits, so
+    without this look-up every merged edit of bin/feuille.js would silently
+    flip the tracked mode to 100644 on POSIX.  On Windows git never probes
+    the filesystem for the bit and keeps the index mode anyway; the chmod
+    downstream is a no-op there.
+    """
+    prefix = ctx["prefix"]
+    env = dict(os.environ)
+    env["GIT_LITERAL_PATHSPECS"] = "1"
+    rels = list(rels)
+    out: set[str] = set()
+    for i in range(0, len(rels), _ADD_BATCH):
+        batch = [prefix + rel for rel in rels[i:i + _ADD_BATCH]]
+        text = _git(["ls-files", "-s", "--", *batch],
+                     cwd=ctx["toplevel"], env=env).stdout.decode(
+                         "utf-8", "replace")
+        for line in text.splitlines():
+            meta, sep, path = line.partition("\t")
+            if sep and meta.split()[:1] == ["100755"] and path:
+                out.add(path[len(prefix):]
+                        if prefix and path.startswith(prefix) else path)
+    return out
+
+
 def _snapshot_tree(usine_dir, delta: dict) -> dict:
-    """Current bytes of every delta path (None = absent) for byte rollback."""
+    """Current bytes and modes of every delta path (None = absent) for
+    byte-and-mode rollback."""
     root = pathlib.Path(usine_dir)
-    snapshot: dict[str, bytes | None] = {}
+    snapshot: dict[str, tuple[bytes | None, int | None]] = {}
     for rel in (*delta["modified"], *delta["added"], *delta["deleted"]):
         try:
-            snapshot[rel] = root.joinpath(
+            data = root.joinpath(
                 *PurePosixPath(rel).parts).read_bytes()
         except OSError:
-            snapshot[rel] = None
+            data = None
+        snapshot[rel] = (data, _file_mode(root, rel))
     return snapshot
 
 
-def _apply_delta(usine_dir, delta: dict, wanted: dict) -> None:
+def _apply_delta(usine_dir, delta: dict, wanted: dict,
+                 executable: set[str] | None = None) -> None:
     root = pathlib.Path(usine_dir)
     for rel in (*delta["modified"], *delta["added"]):
         target = root.joinpath(*PurePosixPath(rel).parts)
@@ -446,6 +505,8 @@ def _apply_delta(usine_dir, delta: dict, wanted: dict) -> None:
         staged = target.with_name(target.name + ".rsiagent-merge-part")
         staged.write_bytes(wanted[rel])
         os.replace(staged, target)
+        if executable and rel in executable:
+            os.chmod(target, _file_mode(root, rel) | 0o111)
     for rel in delta["deleted"]:
         target = root.joinpath(*PurePosixPath(rel).parts)
         if target.is_file():
@@ -458,7 +519,7 @@ def _apply_delta(usine_dir, delta: dict, wanted: dict) -> None:
 
 def _rollback_delta(usine_dir, delta: dict, snapshot: dict) -> None:
     root = pathlib.Path(usine_dir)
-    for rel, data in snapshot.items():
+    for rel, (data, mode) in snapshot.items():
         target = root.joinpath(*PurePosixPath(rel).parts)
         try:
             if data is None:
@@ -469,6 +530,10 @@ def _rollback_delta(usine_dir, delta: dict, snapshot: dict) -> None:
                 staged = target.with_name(target.name + ".rsiagent-merge-part")
                 staged.write_bytes(data)
                 os.replace(staged, target)
+                if mode is not None:
+                    # restore the exact pre-apply bits: byte replacement
+                    # alone would leave a rejected candidate's mode drift
+                    os.chmod(target, mode)
         except OSError as exc:
             raise UsineMergeError(f"rollback failed for {rel}: {exc}") from exc
 
@@ -757,9 +822,14 @@ def merge_wave(lineage_root, wave_index: int,
         wanted = _extract_members(
             candidate_dir, [*delta["modified"], *delta["added"]],
             candidate["files"])
+        executable = (_archive_exec_bits(
+            candidate_dir, [*delta["modified"], *delta["added"]])
+            | _tracked_exec_bits(
+                ctx, [rel for rel in delta["modified"]
+                      if rel not in delta["added"]]))
         snapshot = _snapshot_tree(usine, delta)
         try:
-            _apply_delta(usine, delta, wanted)
+            _apply_delta(usine, delta, wanted, executable)
             gate = run_gate(config, usine)
             entry["gate"] = gate
             gate_seconds += gate["seconds"]

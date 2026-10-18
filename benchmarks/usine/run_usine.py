@@ -54,15 +54,59 @@ Assembly contract (order is load-bearing)
     (baseline wins collisions; the Curriculum scaffold is preserved), and the
     captured fixture — the merge baseline — becomes scaffold UNION baseline.
     Candidate captures (``phase1-candidate-*``) and blocked-draft captures
-    are never seeded.
+    are never seeded.  Every capture (fixture and candidate alike) prunes the
+    regenerable heavy directories (node_modules, dist: _CAPTURE_EXCLUDE_PARTS
+    -> provisioning exclude_parts, unanchored at any depth) — what capture
+    never picks up, wave_merge.EXCLUDED_PARTS never tries to merge back, and
+    the leakage audit never has to scan.
 11. Every completed wave merges into the real usine repository through the
     wave-merge event sink (one commit per accepted candidate, one tag per
-    wave).  Publishing stays impossible: the VM facade refuses
-    publish-shaped programs before execution.
+    wave).  Merged delta paths keep the executable bit when the candidate
+    archive carried it or git already tracks the path as 100755
+    (bin/feuille.js is the anchor).  The gate ("pnpm verify") runs BEFORE the
+    commit; a green merge rebuilds the gitignored dsh-plugin dist/index.mjs,
+    so an accepted improvement reaches the `dsh web --patch`-loaded agent
+    surface without any extra plumbing.  Publishing stays impossible: the
+    VM facade refuses publish-shaped programs before execution.
+12. Gate-runnability preflight (gate_preflight) runs on BOTH entrypoints
+    before a single token is spent: the gate command must resolve on PATH
+    (a Windows .cmd/.bat shim is rejected — the merge spawns the gate with
+    shell=False and CreateProcess cannot run shims; install standalone
+    pnpm), pnpm-shaped gates need Node >= 24 and pnpm >= 11 plus a
+    package.json and an installed tree (--gate-install opts into running
+    `pnpm install --frozen-lockfile --prefer-offline`; the read-only
+    --preflight report never installs).  A red gate at merge time is a
+    data-level gate_rejected — silent total candidate loss — so an
+    unrunnable gate must die here, before the wave.
+13. The seeded guest is probed once for its toolchain (node/pnpm versions)
+    fail-closed before waves spend anything on a guest that cannot even
+    attempt the gate.
+
+Improvement directions: the distribution sanctions BOTH the operator-facing
+pipeline and the agent surface (the dsh plugin package: tool descriptions,
+request schemas, discipline/refusal/approval wording, and the skills howtos
+that teach the same surface) — with the guard machinery pinned: approval-gated
+tools keep failing closed, publishing stays unreachable by default, and the
+red-line/parity suites may be extended but never relaxed.
+
+Windows wave-host readiness checklist (this Mac cannot run these; SKIP is
+not PASS — run them there before the first real wave):
+  * toolchain: standalone pnpm.exe (NOT an npm shim) + Node >= 24 on PATH,
+    warm pnpm store or network for the first install; GNU coreutils inside
+    the guest (sha256sum/stat -c for capture replay).
+  * smokes (theâtre venv, PowerShell): smoke_dry_run_wave.py (now passes
+    --gate-install: the git-archive fixture carries no node_modules),
+    smoke_verifier_adapter.py, smoke_guest_env.py — plus re-running the
+    POSIX-runnable set (wave_merge / usine_hooks / distribution_fence) and
+    the provisioning engine tests, whose 3 broken-symlink replay cases need
+    GNU coreutils this Mac lacks.
+  * probe_env.py for the guest-side node/pnpm probe.
+  * first real wave: only on explicit user go ("喊跑才跑").
 
 Red lines: zero live platform publishing/login (three layers: VM facade,
 guest-home USERPROFILE pin, offline-only gates); one commit per accepted
-candidate; every wave tagged theatre/wave-N; no push.
+candidate; every wave tagged theatre/wave-N; no push; zero H3/mcode-tools
+credit-spending calls outside an explicit per-call human approval.
 """
 
 from __future__ import annotations
@@ -77,6 +121,8 @@ import json
 import logging
 import os
 import re
+import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -96,12 +142,135 @@ DEFAULT_RUNS_ROOT = (_EXPLORATEUR_ROOT.parents[0]
 DEFAULT_LLM_CONFIG = Path.home() / ".minimax" / "config.yaml"
 DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # TS 迁移（usine P0-P8）后的门禁：pnpm verify（typecheck + vitest 全量）。
-# 真 wave 跑之前须在 wave host 落实的前置条件：Node >= 24 + pnpm 11；首跑
-# pnpm install 需网络（或暖 pnpm store）。node_modules 落在树内——uv 时代
-# 「环境放树外保 capture 干净」的技巧不可移植到 pnpm；wave_merge 已对称排除
-# node_modules，但 capture/seed 缝对 node_modules 的体量与审计面须在真 wave
-# 前复核（真 wave 本就顺延至迁移完成后，届时另行喊跑）。
+# 真 wave 跑之前须在 wave host 落实的前置条件：Node >= 24 + pnpm 11（standalone
+# 安装，.cmd shim 会被 merge 的无 shell subprocess 拒掉）；首跑 pnpm install 需
+# 网络（或暖 pnpm store）。node_modules/dist 落树内——capture 与合并两侧现已
+# 对称剪枝（provisioning.exclude_parts + wave_merge.EXCLUDED_PARTS），门禁可跑
+# 性由 gate_preflight 在花任何额度之前 fail-closed 预检（真 wave 仍喊跑才跑）。
 DEFAULT_GATE_ARGV = ("pnpm", "verify")
+
+# ---------------------------------------------------------- gate preflight
+
+_NODE_MIN_MAJOR = 24
+_PNPM_MIN_MAJOR = 11
+_PNPM_NAMES = frozenset({"pnpm", "pnpm.exe", "pnpm.cmd", "pnpm.bat"})
+
+
+def _command_version(argv0: str) -> str | None:
+    """First line of ``<argv0> --version``, or None when it cannot run."""
+    try:
+        proc = subprocess.run(
+            [argv0, "--version"], stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, timeout=120, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    text = proc.stdout.decode("utf-8", "replace").strip()
+    return text.splitlines()[0] if text else None
+
+
+def _version_major(version: str | None) -> int | None:
+    match = re.search(r"(\d+)", version or "")
+    return int(match.group(1)) if match else None
+
+
+def gate_preflight(usine_dir: Path, gate_argv: tuple,
+                   *, allow_install: bool = False) -> dict:
+    """Fail-closed gate-runnability preflight; {ok: bool, ...}.
+
+    A red gate at merge time is a data-level ``gate_rejected`` — the whole
+    candidate is lost with no retry.  A gate that cannot run AT ALL (missing
+    toolchain, .cmd shim, uninstalled tree) must therefore be caught here,
+    BEFORE a single token is spent, not after a wave's worth of Actor work.
+
+    Pnpm-shaped gates additionally require Node >= 24 and pnpm >= 11 on
+    PATH (the documented wave-host prerequisites), a package.json at the
+    usine root, and an installed tree; ``allow_install`` opts into running
+    ``pnpm install --frozen-lockfile --prefer-offline`` right here."""
+    argv0 = str(gate_argv[0])
+    errors: list[str] = []
+    actions: list[str] = []
+    info: dict = {"gate_argv": [str(a) for a in gate_argv]}
+    resolved = shutil.which(argv0)
+    if resolved is None:
+        errors.append(f"gate command {argv0!r} was not found on PATH")
+    elif os.path.basename(resolved).lower().endswith((".cmd", ".bat")):
+        # Windows trap: the merge runs the gate with shell=False; CreateProcess
+        # executes .exe, not .cmd shims — an npm-installed pnpm.cmd would die
+        # as an unrunnable gate AFTER the wave, i.e. silent candidate loss.
+        errors.append(
+            f"{argv0!r} resolves to {resolved!r}: a .cmd/.bat shim cannot "
+            "be spawned by the merge's shell-less subprocess — install the "
+            "standalone pnpm (pnpm.exe) from the official installer")
+    else:
+        info["gate_resolved"] = resolved
+        version = _command_version(argv0)
+        info["gate_version"] = version
+        if version is None:
+            errors.append(
+                f"gate command {argv0!r} was found but --version failed to run")
+    if os.path.basename(argv0).lower() in _PNPM_NAMES:
+        node_version = _command_version("node") if shutil.which("node") \
+            else None
+        info["node_version"] = node_version
+        if node_version is None:
+            errors.append(
+                "node was not found on PATH: the pnpm gate needs "
+                f"Node >= {_NODE_MIN_MAJOR} (wave-host prerequisite)")
+        elif (_version_major(node_version) or 0) < _NODE_MIN_MAJOR:
+            errors.append(
+                f"node {node_version} is too old: the pnpm gate needs "
+                f"Node >= {_NODE_MIN_MAJOR}")
+        pnpm_version = info.get("gate_version")
+        if pnpm_version is not None \
+                and (_version_major(pnpm_version) or 0) < _PNPM_MIN_MAJOR:
+            errors.append(
+                f"pnpm {pnpm_version} is too old: pnpm >= {_PNPM_MIN_MAJOR} "
+                "is required (workspace lockfile format)")
+        if not (usine_dir / "package.json").is_file():
+            errors.append(
+                f"{usine_dir} has no package.json: --usine-dir must name the "
+                "pnpm workspace root of the TS monorepo")
+        else:
+            installed = (usine_dir / "node_modules").is_dir()
+            if not installed and allow_install:
+                log.info("gate preflight: tree not installed; running "
+                         "pnpm install --frozen-lockfile --prefer-offline")
+                try:
+                    proc = subprocess.run(
+                        [argv0, "install", "--frozen-lockfile",
+                         "--prefer-offline"], cwd=str(usine_dir),
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        timeout=1800, check=False)
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    errors.append(f"pnpm install failed to start: {exc}")
+                    proc = None
+                if proc is not None:
+                    tail = proc.stdout.decode("utf-8", "replace")[-800:]
+                    info["install_exit"] = proc.returncode
+                    if proc.returncode != 0:
+                        errors.append(
+                            f"pnpm install exited {proc.returncode}; tail: "
+                            f"{tail!r}")
+                    else:
+                        actions.append(
+                            "ran pnpm install --frozen-lockfile "
+                            "--prefer-offline")
+                        installed = (usine_dir / "node_modules").is_dir()
+                        if not installed:
+                            errors.append(
+                                "pnpm install exited 0 but node_modules is "
+                                "still absent")
+            if not installed and not allow_install:
+                errors.append(
+                    "the usine tree is not installed (no node_modules): run "
+                    "`pnpm install --frozen-lockfile --prefer-offline` from "
+                    f"{usine_dir} — or pass --gate-install to let the "
+                    "preflight install it")
+    return {"ok": not errors, "errors": errors, "actions": actions, **info}
+
+
 
 EXECUTE_ACK = "RUN-USINE-PHASE1-WAVES"
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+\Z")
@@ -267,6 +436,16 @@ USINE TRANSPORT FACTS (Windows git-bash guest):
   Node 24+ and pnpm 11 must be on PATH. The first install fills the pnpm
   store (needs network once); later runs reuse it. Never edit anything
   under node_modules - it is installed material, not work.
+  EACH of your programs is limited to 600 seconds (the in-guest kill fires
+  30 seconds earlier and the partial output survives): run the one-time
+  "pnpm install" and the later "pnpm verify" as SEPARATE programs, never
+  as one chained command - an install-then-verify chain risks the kill in
+  the middle of the suite.
+  node_modules and dist are NOT part of your captured work: the capture
+  prunes them by name at any depth, and the merge side prunes them too.
+  They are fully regenerable (pnpm install / build) and are rebuilt
+  automatically after a green merge - spend your turns on tracked source,
+  never on them.
   "pnpm vitest run packages/<pkg>" runs one package's suite. Live platform
   publishing and platform login never run in this environment: those
   programs are refused before execution, so develop and verify offline only."""
@@ -632,6 +811,40 @@ def _seed_guest(vm, state: dict) -> None:
         timeout=900) or ""
     if "USINE_SEED_RC=0" not in out:
         raise RuntimeError(f"usine seed extraction failed: {out[-400:]}")
+    # Guest toolchain probe: the Actor reaches node only through bash-wrapped
+    # pnpm/node programs, so a guest without the toolchain cannot even
+    # attempt the gate — probe once per seeded guest, fail-closed BEFORE any
+    # token is spent on waves that are structurally doomed to gate-red.
+    out = vm.run_command(
+        "node --version; pnpm --version; echo USINE_TOOLCHAIN_RC=$?",
+        timeout=300) or ""
+    lines = [line.strip() for line in out.strip().splitlines()
+             if line.strip()]
+    if (len(lines) < 3 or lines[-1] != "USINE_TOOLCHAIN_RC=0"):
+        raise RuntimeError(
+            "guest toolchain probe failed: node/pnpm are not runnable in "
+            "the seeded guest (waves need Node >= "
+            f"{_NODE_MIN_MAJOR} and pnpm >= {_PNPM_MIN_MAJOR} inside the "
+            "guest image); probe tail: " + out[-300:])
+    node_major = _version_major(lines[0])
+    pnpm_major = _version_major(lines[1])
+    if node_major is None or node_major < _NODE_MIN_MAJOR:
+        raise RuntimeError(
+            f"guest node too old for the pnpm gate: {lines[0]!r} (need "
+            f">= {_NODE_MIN_MAJOR})")
+    if pnpm_major is None or pnpm_major < _PNPM_MIN_MAJOR:
+        raise RuntimeError(
+            f"guest pnpm too old for the workspace gate: {lines[1]!r} "
+            f"(need >= {_PNPM_MIN_MAJOR})")
+
+
+# capture 剪枝：guest 工作树里可再生重物不入 capture。usine 是 pnpm TS
+# monorepo：node_modules（根 + 每包嵌套，万级符号链接）与 dist（`pnpm test`
+# 重建 dsh-plugin 的构建产物）由 install/build 完全再生，不是工作成果；
+# 不剪枝会炸 120s tar 超时/无界 fetch/回放逐文件校验，且未设栏的第三方
+# 内容会撑爆 UsineAudit 审计面。与 wave_merge.EXCLUDED_PARTS 同一约定，
+# 两头对称：capture 进不来的东西，合并侧也不会试图捡回去。
+_CAPTURE_EXCLUDE_PARTS = ("node_modules", "dist")
 
 
 def _seeded_capture(inner, state: dict):
@@ -641,11 +854,16 @@ def _seeded_capture(inner, state: dict):
     capture the merge baseline, so the seed merges into the tree right
     here — the captured fixture (and every branch VM replaying it) becomes
     scaffold UNION baseline.  Candidate captures (``phase1-candidate-*``)
-    and blocked-draft captures are forwarded untouched.
+    and blocked-draft captures are forwarded untouched.  Every capture —
+    fixture and candidate alike — prunes the regenerable heavy directories
+    declared in ``_CAPTURE_EXCLUDE_PARTS`` (the engine seam is a no-op when
+    the tree carries no such directories, so the pruned fixture and the
+    pruned candidate stay symmetric).
     """
     def capture_project(vm, key, host_dir, *args, **kwargs):
         if isinstance(key, str) and key.startswith("phase1-project-"):
             _seed_guest(vm, state)
+        kwargs.setdefault("exclude_parts", _CAPTURE_EXCLUDE_PARTS)
         return inner(vm, key, host_dir, *args, **kwargs)
     return capture_project
 
@@ -817,6 +1035,12 @@ def _parser() -> argparse.ArgumentParser:
               "directory before every merge commit"))
     parser.add_argument("--gate-timeout", type=float, default=1800.0)
     parser.add_argument(
+        "--gate-install", action="store_true",
+        help=("let the gate preflight run `pnpm install --frozen-lockfile "
+              "--prefer-offline` inside the usine tree when node_modules is "
+              "missing (default: fail closed and print the fix command; "
+              "ignored by the read-only --preflight report)"))
+    parser.add_argument(
         "--llm-config", default=str(DEFAULT_LLM_CONFIG),
         help="host credential store (provider/custom_provider sections)")
     parser.add_argument(
@@ -882,13 +1106,23 @@ def main(argv: list | None = None) -> int:
     # no endpoints file, no run root, no corpus has been touched yet).
     fence = _check_distribution_fences(distribution, theatre, usine_dir)
 
+    # Gate-runnability preflight, same fail-closed logic on both
+    # entrypoints: a gate that cannot run AT ALL must die here, before a
+    # single token is spent — a red gate at merge time is a data-level
+    # gate_rejected (silent total candidate loss).  The read-only
+    # --preflight report never installs; --execute fails closed on the
+    # same section and may auto-install only with explicit --gate-install.
+    gate_pre = gate_preflight(
+        usine_dir, gate_argv,
+        allow_install=bool(args.gate_install) and not args.preflight)
+
     corpus_path = run_root / "corpus_shingles.json"
     corpus_mode = "resume" if args.resume_completed_boundary else "fresh"
 
     if args.preflight:
         seed_preview = _build_seed(usine_dir, write_to=None)
         payload = {
-            "status": "ready",
+            "status": "ready" if gate_pre["ok"] else "gate_preflight_failed",
             "phase": "usine_production_line_rsi_waves",
             "study_design": (
                 "target_conditioned_adaptation"
@@ -933,6 +1167,7 @@ def main(argv: list | None = None) -> int:
             "seed_preview": seed_preview,
             "gate": {"argv": list(gate_argv),
                      "timeout": float(args.gate_timeout)},
+            "gate_preflight": gate_pre,
             "llm_endpoints": {
                 "config": str(Path(args.llm_config).expanduser()),
                 "resolved": {slug: {"base_url": True, "api_key": True}
@@ -945,10 +1180,16 @@ def main(argv: list | None = None) -> int:
             ],
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
-        return 0
+        return 0 if gate_pre["ok"] else 1
 
     if args.execute != EXECUTE_ACK:
         raise RuntimeError(f"--execute must equal {EXECUTE_ACK}")
+    if not gate_pre["ok"]:
+        raise RuntimeError(
+            "gate preflight failed — a gate that cannot run would silently "
+            "destroy every merged candidate at verify time (fix the "
+            "toolchain, or pass --gate-install for a missing tree): "
+            + "; ".join(gate_pre["errors"]))
 
     if (run_root.exists() and any(run_root.iterdir())
             and not args.resume_completed_boundary):
