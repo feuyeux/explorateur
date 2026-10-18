@@ -193,6 +193,64 @@ def test_chunked_capture_fallback_decodes_each_chunk_independently(tmp_path,
     assert (tmp_path / P.MATERIALS).read_bytes() == payload
 
 
+def test_guest_file_size_handles_bsd_stat_dialect(tmp_path):
+    """v35: `stat -c` is GNU-only. A BSD/macOS guest rejects it, and the old
+    code turned that rejection into sz=0 — indistinguishable from "the file is
+    empty", so `if sz:` SILENTLY skipped the chunked fallback and the capture
+    died with no diagnostic. This is rule 8's conflation of unknown with zero.
+
+    REVERSE: the BSD-only guest must still measure, and the size-0 fallback
+    must be reachable — a guest speaking neither dialect reports unknown, not 0.
+    """
+    class _BSDGuestVM:
+        def __init__(self, payload):
+            self.payload = payload
+            self.cmds = []
+
+        def run_command(self, cmd, timeout=None, cap=None):
+            self.cmds.append(cmd)
+            if "tar czf" in cmd:
+                return "TAR_RC=0"
+            if cmd.startswith("stat -c %s"):
+                return "stat: illegal option -- c\nusage: stat [-FLnq]"
+            if cmd.startswith("stat -f %z"):
+                return str(len(self.payload))
+            if cmd.startswith("dd if="):
+                m = re.search(r"bs=(\d+) skip=(\d+)", cmd)
+                size, index = map(int, m.groups())
+                return base64.b64encode(
+                    self.payload[index * size:(index + 1) * size]).decode("ascii")
+            return ""
+
+        def fetch_file(self, _path, max_bytes=None):
+            return None, "force fallback"
+
+    # (a) BSD guest: the chunked fallback must still WORK end to end
+    payload = _tgz_of({"raw/large.bin": os.urandom(P._PULL_CHUNK + 17)})
+    vm = _BSDGuestVM(payload)
+    result = P.capture_project_materials(vm, "bsd", str(tmp_path), attempts=1)
+    assert result["ok"], "BSD guest could not capture via chunked fallback"
+    assert (tmp_path / P.MATERIALS).read_bytes() == payload
+    assert any(c.startswith("stat -f %z") for c in vm.cmds), "BSD dialect never probed"
+
+    # (b) GOOD DATA still passes first: a GNU guest must not regress to -f
+    class _GNUGuestVM(_BSDGuestVM):
+        def run_command(self, cmd, timeout=None, cap=None):
+            if cmd.startswith("stat -c %s"):
+                return str(len(self.payload))
+            return super().run_command(cmd, timeout=timeout, cap=cap)
+
+    gnu = _GNUGuestVM(payload)
+    assert P._guest_file_size(gnu, "/tmp/proj_materials.tgz") == len(payload)
+    assert not any(c.startswith("stat -f %z") for c in gnu.cmds), "GNU guest fell through to -f"
+
+    # (c) neither dialect answers -> None (unknown), never a silent 0
+    class _NoDialectVM:
+        def run_command(self, cmd, timeout=None, cap=None):
+            return "not a number"
+    assert P._guest_file_size(_NoDialectVM(), "/tmp/x") is None
+
+
 def test_capture_default_dirs_is_raw_only(tmp_path):
     vm = _GuestVM({**RAW, "instance_next.md": b"stray seat file"})
     r = P.capture_project_materials(vm, "p01", str(tmp_path))

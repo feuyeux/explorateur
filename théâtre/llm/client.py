@@ -14,6 +14,7 @@ import os
 import threading
 import time
 
+import openai
 from openai import APIConnectionError, APIError, APITimeoutError, OpenAI
 
 from config.runtime_paths import resolve_env_file
@@ -61,6 +62,9 @@ _client = None
 # pop must retrieve this execution thread's response, never another branch's.
 _LAST_REASONING = threading.local()
 _PROVIDER_COUNTS = {}              # model -> provider -> successful response count
+# Guarded by its own lock: concurrent branches increment this from several
+# threads, and setdefault/get/+1/store is not atomic (see chat()).
+_PROVIDER_LOCK = threading.Lock()
 
 # Internal transcript field for exact image bytes that a native-sighted agent has
 # already received. The field is deliberately separate from ``content`` so existing
@@ -210,6 +214,9 @@ class LLMTransportError(RuntimeError):
         self.recoverable = bool(recoverable)
         self.status_code = status_code
         self.detail = detail
+        # Consecutive recoverable pauses the runtime already spent before giving
+        # up (set by core.loop._call_with_transport_pause when its cap trips).
+        self.pauses = 0
         status = f" HTTP {status_code}" if status_code is not None else ""
         suffix = f"{status}: {detail}" if detail else status
         super().__init__(f"{model} transport failure{suffix}")
@@ -274,12 +281,14 @@ def _recoverable_transport(exc) -> bool:
 
 def reset_provider_counts() -> None:
     """Reset per-process routing provenance before one benchmark task starts."""
-    _PROVIDER_COUNTS.clear()
+    with _PROVIDER_LOCK:
+        _PROVIDER_COUNTS.clear()
 
 
 def provider_counts() -> dict:
     """Return a JSON-safe snapshot of providers observed in successful responses."""
-    return {model: dict(counts) for model, counts in _PROVIDER_COUNTS.items()}
+    with _PROVIDER_LOCK:
+        return {model: dict(counts) for model, counts in _PROVIDER_COUNTS.items()}
 
 
 def pop_last_reasoning() -> str:
@@ -292,10 +301,30 @@ def pop_last_reasoning() -> str:
     return r
 
 
+def _sdk_timeout():
+    """Explicit per-request timeout. Never left to the SDK default.
+
+    openai's DEFAULT_TIMEOUT is read=600s (plus 2 internal retries), so one
+    create() could block ~10 minutes before our own 4-attempt transport loop
+    even saw an error — a provider that accepts the connection and then stalls
+    looks like "slow", not "down". Bounding it here means a stalled provider
+    surfaces as a transport error the pause/cap machinery can act on.
+    """
+    raw = os.environ.get("RSIAGENT_LLM_TIMEOUT_SECS", "").strip()
+    try:
+        secs = float(raw) if raw else 120.0
+    except ValueError:
+        secs = 120.0
+    # 0/negative means "operator wants the SDK default" — pass it through
+    # unchanged rather than silently substituting our own number.
+    return secs if secs > 0 else openai._constants.DEFAULT_TIMEOUT
+
+
 def _c() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI(base_url=_base_url(), api_key=_api_key())
+        _client = OpenAI(base_url=_base_url(), api_key=_api_key(),
+                         timeout=_sdk_timeout(), max_retries=0)
     return _client
 
 
@@ -346,7 +375,8 @@ def _client_for(model: str) -> OpenAI:
     client = _MODEL_CLIENTS.get(model)
     if client is None:
         client = OpenAI(base_url=endpoint["base_url"],
-                        api_key=endpoint["api_key"])
+                        api_key=endpoint["api_key"],
+                        timeout=_sdk_timeout(), max_retries=0)
         _MODEL_CLIENTS[model] = client
     return client
 
@@ -450,8 +480,14 @@ def chat(model: str, system: str, user: str,
         raise LLMTransportError(model, cause, recoverable=True,
                                 detail=str(cause)) from cause
     provider = _response_provider(resp)
-    model_counts = _PROVIDER_COUNTS.setdefault(model, {})
-    model_counts[provider] = model_counts.get(provider, 0) + 1
+    # This module is used from concurrent threads (see the module docstring), and
+    # setdefault + get + 1 + store is four separate steps — two threads can read
+    # the same count and one increment is lost. Provider provenance is audit data
+    # (it is how a wave's routing decisions get reviewed afterwards), so it must
+    # not under-count silently.
+    with _PROVIDER_LOCK:
+        model_counts = _PROVIDER_COUNTS.setdefault(model, {})
+        model_counts[provider] = model_counts.get(provider, 0) + 1
     log.info("%s provider: %s", model, provider)
     u = getattr(resp, "usage", None)               # v35.1 observability: per-call token
     if u is not None:                              # usage — cross-model context-compression

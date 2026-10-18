@@ -62,7 +62,7 @@ _BODY_DELETE = re.compile(                          # deletes/moves/renames: nev
     r"|\.unlink\s*\(|\brmtree\s*\(|\bunlink\b"
     r"|\.write_(?:text|bytes)\s*\(")
 _BODY_WRITE_OPEN = re.compile(                       # open(path, 'w'|'a'|'x'|...)
-    r"open\s*\(\s*[^,)]+,\s*(['\"])[^'\"]*[wax][^'\"]*\1")
+    r"open\s*\(\s*([^,)]+?)\s*,\s*(['\"])[^'\"]*[wax][^'\"]*\2")
 
 
 def _nonscratch_mutations(probe: str):
@@ -102,8 +102,18 @@ def _nonscratch_mutations(probe: str):
     for _q, body in _INTERP_BODY.findall(probe):    # scan UNMASKED interpreter bodies
         if _BODY_DELETE.search(body):
             bad.append("interpreter-body delete/move/rename")
-        elif _BODY_WRITE_OPEN.search(body) and _SCRATCH not in body:
-            bad.append("interpreter-body write to non-scratch")
+            continue
+        # Per-TARGET scratch test (v35). The old form was `_SCRATCH not in body`
+        # — a WHOLE-BODY substring test, so a body that wrote graded state AND
+        # mentioned /tmp anywhere (`open('~/deliverable.md','w').write(1);
+        # open('/tmp/x')`) passed the gate with ZERO rejections. The scratch
+        # exemption is per-write-target, exactly as _MKFILE above already does
+        # for shell commands; test each open() target on its own.
+        for m in _BODY_WRITE_OPEN.finditer(body):
+            target = m.group(1).strip().strip("'\"")
+            if not target.startswith(_SCRATCH):
+                bad.append("interpreter-body write to non-scratch")
+                break
     return bad
 
 

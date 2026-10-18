@@ -50,6 +50,26 @@ _PULL_CHUNK = 1_000_000            # transport frame, never a total-size limit
 _ROOT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
+def _guest_file_size(vm, path: str) -> int | None:
+    """Byte size of a guest file, across BOTH stat dialects. ``None`` if neither.
+
+    PROVENANCE rule 2: a POSIX guest is a supported substrate, and BSD/macOS
+    ``stat`` has no ``-c`` (its GNU equivalent is ``-f %z``). Probing the GNU
+    form alone made a non-GNU guest look like a zero-byte file, which callers
+    read as "nothing to transfer" rather than "I could not measure it" — the
+    rule-8 conflation of unknown with zero.
+    """
+    for cmd in (f"stat -c %s {path}", f"stat -f %z {path}"):
+        out = vm.run_command(cmd, timeout=30)
+        try:
+            value = int((out or "").split()[0])
+        except (ValueError, IndexError):
+            continue
+        if value >= 0:
+            return value
+    return None
+
+
 def _symlink_digest(target: str) -> str:
     """Bind a link target into the ordinary immutable manifest namespace."""
 
@@ -147,11 +167,18 @@ def capture_project_materials(vm, project_key: str, host_dir: str,
     if not data:
         # chunked-b64 fallback: pull the tgz through run_command in 1MB
         # slices (transport-agnostic; same channel replay pushes through)
+        # v35 PORTABILITY: `stat -c` is GNU-only. On a BSD/macOS guest it exits
+        # non-zero, the ValueError path set sz=0, and `if sz:` then SILENTLY
+        # skipped the whole chunked fallback — the capture died with no
+        # diagnostic naming the dialect. Probe both dialects and log the miss.
         try:
-            sz = int((vm.run_command(f"stat -c %s {GUEST_TGZ_OUT}",
-                                     timeout=30) or "0").split()[0])
+            sz = int((_guest_file_size(vm, GUEST_TGZ_OUT) or 0))
         except (ValueError, IndexError):
             sz = 0
+        if sz <= 0:
+            log.warning(
+                "capture: guest file size unavailable under GNU stat (-c) or "
+                "BSD stat (-f); chunked fallback for %s cannot run", GUEST_TGZ_OUT)
         if sz:
             import base64 as _b64
             CH = _PULL_CHUNK
@@ -530,12 +557,11 @@ def replay_project_materials(vm, host_dir: str) -> dict:
             return {"ok": False, "mismatches": [],
                     "error": "chunked artifact decode failed"}
 
-    size_out = vm.run_command(f"stat -c %s {GUEST_TGZ_IN}", timeout=30)
+    size_out = _guest_file_size(vm, GUEST_TGZ_IN)
     sha_out = vm.run_command(f"sha256sum {GUEST_TGZ_IN}", timeout=120)
-    try:
-        guest_bytes = int((size_out or "").strip().splitlines()[0])
-    except (ValueError, IndexError):
-        guest_bytes = -1
+    # -1 stays the fail-closed sentinel: an unmeasurable guest file must never
+    # compare equal to a host size and be reported as a verified match.
+    guest_bytes = size_out if size_out is not None else -1
     match = re.search(r"(?m)^([0-9a-f]{64})\s+", sha_out or "")
     guest_sha256 = match.group(1) if match else ""
     if guest_bytes != archive_bytes or guest_sha256 != archive_sha256:

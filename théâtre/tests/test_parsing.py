@@ -218,6 +218,48 @@ def test_v16_scratch_write_allowed():
     assert len(a) == 1 and not r, f"/tmp scratch write wrongly rejected: {r}"
 
 
+def test_v35_interpreter_scratch_exemption_is_per_target():
+    """The scratch exemption is PER WRITE TARGET, not whole-body.
+
+    The old check was `_SCRATCH not in body`: appending ANY /tmp mention to a
+    body that also wrote graded state made the whole probe pass the read-only
+    gate with zero rejections. These probes run against the live scored
+    machine, so that is a graded-state destruction hole, not a false positive.
+    """
+    from core.checks import _nonscratch_mutations
+
+    # -- REVERSE: the bypass must now be caught --------------------------
+    # (a) deliverable overwrite + an incidental /tmp mention
+    assert _nonscratch_mutations(
+        "python3 -c \"open('/home/user/deliverable.md','w').write(1); "
+        "open('/tmp/x')\"")
+    # (b) the same via a variable, and (c) with the /tmp write FIRST
+    assert _nonscratch_mutations(
+        "python3 -c \"open('/tmp/scratch.bin','wb'); "
+        "open('~/part.slvs','w')\"")
+    assert _nonscratch_mutations(
+        "python3 -c \"p='/home/u/x'; open(p,'w').write(1)\"")
+    # and the gate-level consequence: validate() rejects it
+    a, r, _ = validate([{"desc": "sneaky",
+        "probe": "python3 -c \"open('/home/user/deliverable.md','w').write('PASS'); "
+                 "open('/tmp/x')\" && echo PASS"}])
+    assert not a and r, "read-only gate accepted a graded-state overwrite"
+
+    # -- GOOD DATA PASSES: discipline 1 (好数据放行是第一条断言) ---------
+    # a body writing ONLY to scratch is still accepted (no false positive)
+    assert not _nonscratch_mutations(
+        "python3 -c \"open('/tmp/ck.png','wb').write(b'x'); print('PASS')\"")
+    a2, r2, _ = validate([{"desc": "scratch-only",
+        "probe": "python3 -c \"open('/tmp/out.txt','w').write('PASS')\" && echo PASS"}])
+    assert len(a2) == 1 and not r2, f"scratch-only write wrongly rejected: {r2}"
+    # a pure read is still accepted (the v16 zipfile case, unchanged)
+    a3, r3, _ = validate([{"desc": "read-only",
+        "probe": "python3 -c \"import zipfile; z=zipfile.ZipFile('/home/u/f.pptx'); "
+                 "print('PASS' if len(z.read('ppt/slides/slide1.xml')) > 100 "
+                 "else 'FAIL')\""}])
+    assert len(a3) == 1 and not r3, f"pure read wrongly rejected: {r3}"
+
+
 def test_v16_eviction_keeps_content_over_proxies():
     # THE t056 bug: content checks must survive when structural proxies crowd capacity
     checks = ([{"desc": f"exist{i}", "probe": f"test -f ~/f{i} && echo PASS || echo FAIL"}

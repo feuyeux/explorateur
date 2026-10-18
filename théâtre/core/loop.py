@@ -511,6 +511,8 @@ def _call_with_transport_pause(call, cfg, *, label: str = "LLM",
     through ``on_pause``. Fatal request/configuration errors still raise immediately.
     """
     delay = max(0.0, float(getattr(cfg, "llm_infra_retry_secs", 30.0) or 0.0))
+    max_pauses = int(getattr(cfg, "llm_infra_max_pauses", 10) or 0)
+    pauses = 0
     while True:
         started = time.monotonic()
         try:
@@ -521,6 +523,20 @@ def _call_with_transport_pause(call, cfg, *, label: str = "LLM",
                 raise
             status = (f"HTTP {exc.status_code}"
                       if exc.status_code is not None else type(exc.cause).__name__)
+            # BOUNDED (v35): pausing deliberately EXCLUDES the delay from the
+            # active-work budget (on_pause shifts the origin forward), so the
+            # wall clock cannot terminate this loop. Without a ceiling, a
+            # provider answering 402/429/5xx forever slept indefinitely and no
+            # budget ever tripped. Past the cap the run escalates to a terminal
+            # infra error — state is preserved on disk for the recovery path,
+            # and an infra-damaged candidate gets no score (fail-closed).
+            if max_pauses and pauses >= max_pauses:
+                log.error("%s transport still failing after %d pauses (%s); "
+                          "escalating to terminal infrastructure error",
+                          label, pauses, status)
+                exc.pauses = pauses
+                raise
+            pauses += 1
             log.warning("%s infrastructure pause (%s); preserving the same Agent "
                         "context and retrying unchanged in %.0fs", label, status, delay)
             time.sleep(delay)

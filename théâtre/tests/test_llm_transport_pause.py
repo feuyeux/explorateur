@@ -256,3 +256,119 @@ def test_nested_verifier_pause_also_pauses_outer_actor_clock(
     assert result.infra_pause_secs == 9
     assert result.infra_pauses == 2
     assert result.wall_secs == 0
+
+
+def test_persistent_outage_escalates_instead_of_pausing_forever(monkeypatch, tmp_path):
+    """v35: a provider that NEVER recovers must terminate, not sleep forever.
+
+    Pausing deliberately EXCLUDES the delay from the active-work budget
+    (on_pause shifts the origin forward), so the wall clock can never stop the
+    pause loop. Without a ceiling, a 402/429/5xx-forever provider slept
+    indefinitely with no budget ever tripping — a wave that can never finish.
+    """
+    cfg = _practice_cfg()
+    cfg.llm_infra_max_pauses = 3
+    clock = _Clock()
+    calls = {"n": 0}
+
+    def always_402(*_args, **_kwargs):
+        calls["n"] += 1
+        raise LLMTransportError("actor", _StatusError(402, "credits"),
+                                recoverable=True, status_code=402,
+                                detail="out of credits")
+
+    monkeypatch.setattr(L, "chat", always_402)
+    monkeypatch.setattr(L.time, "time", clock.time)
+    monkeypatch.setattr(L.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(L.time, "sleep", clock.sleep)
+
+    # The cap escalates to a TERMINAL infrastructure error (fail-closed: an
+    # infra-damaged candidate must not receive a score), not a silent success.
+    with pytest.raises(LLMTransportError) as raised:
+        L.run_attempt("practice", _VM(), cfg,
+                      ArtifactSink(str(tmp_path / "outage")))
+    assert raised.value.recoverable is True
+    assert raised.value.pauses == 3
+    # bounded: cap pauses, then one final attempt that raises — never unbounded
+    assert calls["n"] == 4, f"pause loop not bounded: {calls['n']} attempts"
+
+
+def test_zero_max_pauses_restores_legacy_infinite_wait(monkeypatch, tmp_path):
+    """The cap is opt-out-able (0 = legacy behaviour) so operators can keep the
+    old semantics deliberately rather than by accident."""
+    cfg = _practice_cfg()
+    cfg.llm_infra_max_pauses = 0
+    clock = _Clock()
+    replies = iter((
+        LLMTransportError("actor", _StatusError(429, "slow down"),
+                          recoverable=True, status_code=429, detail="rate"),
+        '{"program":{"lang":"bash","code":"echo work"}}',
+        '{"done":null}',
+        '{"done":null}',
+    ))
+
+    def fake_chat(*_args, **_kwargs):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(L, "chat", fake_chat)
+    monkeypatch.setattr(L.time, "time", clock.time)
+    monkeypatch.setattr(L.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(L.time, "sleep", clock.sleep)
+
+    result, _ = L.run_attempt("practice", _VM(), cfg,
+                              ArtifactSink(str(tmp_path / "legacy")))
+    assert result.status == "done" and result.infra_pauses == 1
+
+
+def test_sdk_timeout_is_explicit_and_bounded(monkeypatch):
+    """openai's DEFAULT_TIMEOUT is read=600s (+2 internal retries) — a provider
+    that accepts the connection then stalls looks 'slow', not 'down', and our
+    pause/cap machinery never sees it. Clients must be built with an explicit
+    timeout and with the SDK's own retries off (we run our own bounded loop)."""
+    monkeypatch.delenv("RSIAGENT_LLM_TIMEOUT_SECS", raising=False)
+    monkeypatch.setattr(C, "_client", None)
+    monkeypatch.setattr(C, "_base_url", lambda: "http://localhost:1/v1")
+    monkeypatch.setattr(C, "_api_key", lambda: "k")
+
+    client = C._c()
+    timeout = client.timeout
+    read = getattr(timeout, "read", timeout)
+    assert read is not None and float(read) < 600, f"timeout not bounded: {timeout}"
+    assert client.max_retries == 0, "SDK retries must be off; we retry under a cap"
+
+    # env override wins, and a garbage value falls back rather than crashing
+    monkeypatch.setenv("RSIAGENT_LLM_TIMEOUT_SECS", "45")
+    assert float(C._sdk_timeout()) == 45
+    monkeypatch.setenv("RSIAGENT_LLM_TIMEOUT_SECS", "not-a-number")
+    assert float(C._sdk_timeout()) == 120.0
+
+
+def test_provider_counts_are_not_lost_under_concurrency():
+    """Concurrent branches increment the provider counter; a lost update
+    silently corrupts routing provenance (audit data), so the increment must
+    be under a lock."""
+    import threading
+
+    C.reset_provider_counts()
+    threads = []
+    barrier = threading.Barrier(8)
+
+    def bump():
+        barrier.wait()
+        for _ in range(200):
+            with C._PROVIDER_LOCK:            # same critical section chat() uses
+                counts = C._PROVIDER_COUNTS.setdefault("m", {})
+                counts["p"] = counts.get("p", 0) + 1
+
+    for _ in range(8):
+        t = threading.Thread(target=bump)
+        threads.append(t)
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert C.provider_counts()["m"]["p"] == 8 * 200
+    C.reset_provider_counts()

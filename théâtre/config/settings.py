@@ -195,6 +195,14 @@ class Config:
     llm_infra_retry_secs: float = 30.0  # recoverable API/provider failures pause
     #                                      without creating an agent turn or spending
     #                                      the active-work wall clock
+    # Ceiling on CONSECUTIVE recoverable pauses for one operation. Provider
+    # downtime is legitimately excluded from the active-work budget (see
+    # _record_transport_pause), so the wall clock can never stop an unbounded
+    # pause loop — a provider returning 402/429/5xx forever would otherwise
+    # sleep indefinitely with no budget ever tripping. Past the cap the run
+    # escalates to a terminal infrastructure error (state preserved for
+    # recovery) rather than looping. 0 disables the cap (legacy infinite wait).
+    llm_infra_max_pauses: int = 10
     check_timeout: int = 30             # per verification probe
     max_checks: int = 16            # capacity only — overflow evicted least-valuable-
     #                                 first (v16), never vetoes done (12 was too tight:
