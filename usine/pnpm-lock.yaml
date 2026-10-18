@@ -93,9 +93,30 @@ importers:
 
   packages/dsh-plugin:
     dependencies:
+      '@feuille/bgm':
+        specifier: workspace:*
+        version: link:../bgm
+      '@feuille/copy':
+        specifier: workspace:*
+        version: link:../copy
       '@feuille/core':
         specifier: workspace:*
         version: link:../core
+      '@feuille/karaoke':
+        specifier: workspace:*
+        version: link:../karaoke
+      '@feuille/poetry':
+        specifier: workspace:*
+        version: link:../poetry
+      '@feuille/poster':
+        specifier: workspace:*
+        version: link:../poster
+      '@feuille/publish':
+        specifier: workspace:*
+        version: link:../publish
+      '@feuille/storyteller':
+        specifier: workspace:*
+        version: link:../storyteller
       '@napi-rs/canvas':
         specifier: ^1.0.11
         version: 1.0.11

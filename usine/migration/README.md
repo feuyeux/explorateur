@@ -1135,3 +1135,65 @@ taglist、crop_backdrop 拷贝、describe 三项为 Python 侧死代码，**不�
 门禁：typecheck 干净；vitest **43 文件全绿（515 passed | 4 skipped）4 连绿**
 （复跑共 8 轮全绿）；Python 侧 verify_skills.py 78/78、verify_probes cli
 8 PASS / docs 13 PASS 复跑全绿。**P5-7f 收口。**
+
+## P6：dsh 工具面全量接线（@feuille/dsh-plugin 从骨架到全量）
+
+插件从 P1 骨架（usine_version 单工具）扩成全量工具面，四文件成型：
+`capture.ts`（进程内 main 的 console 四出口捕获 + 串行锁——main 沿 CLI 口径
+打 console、退退出码，工具把两者折成结构化 {exit_code, output}；FeuilleError
+按叶子层惯例折 rc 1 + 报错文本，不外抛，模型读得到）、`discipline.ts`
+（systemPrompt 纪律节：红线文本只有一份，order 10150 落在 WEB_SURFACE 与
+DEPLOYMENT_PERSONA_SUFFIX 之间）、`tools.ts`（全部工具）、`index.ts`
+（Config.publish 门 + 注册编排）。
+
+**17 工具 = version + 13 家族 argv 工具 + verify/quota/video-generation**。
+家族工具与 CLI 路由表同覆盖面（scene/lesson/persona/cover/framehash/ledger/
+theme/copy/bgm/karaoke/poetry/poster/storyteller），`action` 选子命令、`argv`
+残余参数与 `feuille <组> <命令>` 完全同一套口径，进程内直调包 main（无
+subprocess 桥——迁移的核心接缝证明），未知子命令 rc 2。usine_verify 走子进程
+（pnpm typecheck → 全量 vitest；usineRoot() 从 bundle 位置向上找
+pnpm-workspace.yaml 定位，FEUILLE_ROOT 可覆盖）；usine_quota 包 `mmx quota`
+只读。**usine_video_generation 是额度红线的机制承载**：机械校验先行（Hailuo
+768P 6/10s、1080P 6s；H3 4–15s 整数 + ratio 必填；H3-Max 5–15s；prompt≤7000）
+→ 展示清单（模型扣账性质/提示词/画幅/时长/分辨率/预估消耗——H3 768P 71 积分/秒、
+2K 114、H3-Max 47，1000 积分=¥7；Hailuo 标「套餐额度不烧积分」）→
+`ctx.approval.request()`（fail-closed、单次有效，非 allowed-once 一律不提交、
+不重试、不换参数试探）→ 仅点头后走 mcode-tools submit/query/download 三动作。
+**usine_publish 默认不注册**（config.publish === true 才动态 import
+@feuille/publish 挂四平台）——发布不可达是工具面上根本没有，不是运行时报错；
+fiber 先销毁则异步注册放弃（settled 标志）。接缝全走结构化最小面
+（ToolDefinition/ToolRunContext/approval.request/systemPrompt.section），
+不 link harness 类型链。esbuild externals 加 playwright；bundle 2.3mb；
+全家族包进 dsh-plugin deps。dsh-v0.1.7-rc.2 的 approval 语义核对过源码：
+'ask' 默认/无 answerer → 'unavailable'，审批对必须 turn 内成对审计。
+
+**事故记录（诚实到脸上）**：allowed-once 用例首版没隔离 PATH，而本机
+`~/.minimax/bin/mcode-tools` 真实存在——测试真的 spawn 了
+submit_video_generation（Hailuo-2.3、6s、768P）。进程挂起 10 分钟无输出、
+无 task_id、0:00.14 CPU（纯等待态），人工击杀；判断**大概率没有任务被创建**
+（成功提交会很快回 task_id，挂起说明卡在等 MCode 运行时上下文），但无法证明
+——**人需查一次 MCode 设置→用量与模型 确认无新任务**。修复：withoutMcodePath()
+把 PATH 剥到 /usr/bin:/bin 让它结构性 ENOENT，测试注释写明事故与教训：红线对
+**测试**同样成立，「本机应该没有 mcode-tools」是假设不是防线，宁可确定性失败
+不可碰运气。这也反过来证明了一件事：approval 门在真实宿主里确实挡得住——
+假 approval 一放行，通道就真的动了，所以门必须是 fail-closed 且单次有效。
+
+**假 LLM 干跑（P6 验收形态）**：brief → usine_lesson new（② 注册表现取 +
+选角当场验 + 空跑草稿自证，产物 brief.json 落盘断言）→ usine_scene draft
+（scene.md）→ usine_scene parse（scene.json，sceneId 断言）→ usine_copy
+check --facts（⑧ 发布词自检，数字溯源 PASS）→ usine_video_generation
+Hailuo 提交 → 审批被拒 → asked-rejected 停车未提交 → usine_publish 不在
+工具面。⑤⑥⑦ 媒体重步骤的 e2e 已由各包 vitest 套件覆盖，干跑验的是**工具面**
+（每步经 dsh 工具进程内驱动）与红线边界断言；dsh web 真宿主 --patch 的
+brief→自主产出实测留给 P8。
+
+测试 18/18：注册面 17 名单逐一断言 + publish 缺席 + config 开启（动态 import
+落定轮询）+ 先销毁放弃 + 反注册清空；纪律节红线文本五要素；红线九例（invalid
+不进审批 ×2、无 approval/无 agent fail-closed、审批卡展示清单逐字段断言、
+H3 426 积分≈¥2.98 速查表、allowed-once 才碰通道（PATH 剥离下 ENOENT 如实报）、
+单次有效——再提交重新问、query/download 不走审批）；进程内捕获（copy 未知
+旗标 FeuilleError→rc1 文本捕获、未知子命令 rc2、usineRoot 定位）。
+
+门禁：typecheck 干净；vitest **43 文件（531 passed | 4 skipped）4 连绿**。
+Python 侧无改动（verify_skills 78/78 上一批已绿，本批未触碰 skills/docs）。
+**P6 收口。**
