@@ -254,3 +254,47 @@ Python 侧每次截图都要多开一次浏览器探亏空；命中不写探测 
 
 门禁：typecheck 干净；vitest 105 passed / 2 skipped；Python verify_textlayer
 12 PASS（双轨）。
+
+## P3d：compose / render / covers（P3 收口）
+
+`packages/core/src/compose.ts`：lineSpans（roundHalfEven(t,3) 口径）+
+filterGraph（纯函数留 `{y}`/`{between}` 槽；dur `.3f` 定点）+ mux
+（spawnSync 捕获 stderr，rc≠0 抛错带尾 2500 字）。`render.ts`：encodeFrames
+（raw rgb24 管道；sharp 帧自动转 RGB 对齐 PIL convert("RGB") 的丢 alpha 口径；
+坏帧显式抛错且先把 ffmpeg 进程收尾，不留悬垂进程）。`covers.ts`：SPECS/
+filename/spec/cropBackdrop/make/displayCrop/sheet/check + CLI 适配
+（cover/make、cover/check 进 commands.ts 路由表，叶子薄适配）。
+cropBackdrop 属活代码（lesson 管线用），与 skills 死代码三件
+（crop_backdrop 拷贝/taglist/describe，P5 不迁）不冲突。
+
+### 坑与实录
+
+- **packaging zip 截断——复发且追查，是生产 bug**：P3c 记过一次观察项，
+  本批 4 轮全量挂 2 轮，按「复发才追」约定开箱。根因：zipTree 的收尾
+  Promise 挂在 yazl 读流的 `end` 上，而非写流的 `close`——高负载下读流
+  超前写流，zipTree 提前返回，紧接的开包读到半截 zip。修为 `ws.on('close')`
+  后连续 4 轮全量全绿。**交付包在高并发下会真损坏，不是测试 flake。**
+- **describe 作用域建临时目录 = 定时炸弹**：`const d = tmp()` 写在 describe
+  体里会在收集期建目录，而文件级 afterEach 在**第一个测试后**就清掉全部
+  已注册临时根——后续测试拿到已删除的路径（sharp unable to open for write
+  / ffmpeg 造母版失败）。修法：每测试体内 `tmp()`；compose 真机 smoke 并为
+  单个自建自验测试（与 verify_compose 单趟同构）。
+- sharp 实例不能再喂 `sharp()`（无此重载）——帧源类型用
+  `ReturnType<typeof sharp>`，转 RGB 直接在实例上 `.removeAlpha().raw()`。
+- vitest 断言注意 `it.each` 元组里 `ink=ink` 是 Python 惯性，TS 位置传参。
+
+### parity 结果
+
+- line_spans [[0,1],[1,2.1],[2.5,3.6]]、filter_graph 要素串、apad<loudnorm、
+  mux 无 -shortest + 显式 `-t dur.toFixed(3)`——与 verify_compose §0–§3 逐条对齐。
+- 真机 smoke：成片 3.00s；t=1.5 R≈255/G<60、t=0.5 R≈128；音轨 aac。
+  Python 侧同趟 (R 254 G 0 / R 128)。
+- covers：check 尺寸/底色反例、displayCrop 进/出安全区墨迹判据
+  （sharp 墨块夹具全机器可跑；Edge 真渲字部分浏览器门控）、sheet (1440,2522)。
+- render 契约：72 帧 @24fps → 3.0s；帧不足 → 短于 dur 且 rc 0（无静默补帧）；
+  错尺寸帧显式抛错。
+
+门禁：typecheck 干净；vitest 19 文件全绿（136 用例，2 skipped live 门控）
+×4 连续；Python verify_compose 11 PASS、verify_covers 10 PASS；已迁模块
+全量复跑（platform 11 / ledger 19 / framehash 22 / cli 8 / tts 16 /
+audio 8 / timeline 13 / textlayer 12）全绿。**P3 音画内核迁移完毕。**

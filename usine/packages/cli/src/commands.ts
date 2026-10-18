@@ -29,6 +29,14 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/framehash-check.js'),
     desc: '逐帧像素基线：零漂移门禁（diff/gone → 退出码 1）',
   },
+  'cover/make': {
+    load: () => import('./leaves/cover-make.js'),
+    desc: '封面：整页 HTML → 平台规格整图截图（尺寸/裁齐由 SPECS 保证）',
+  },
+  'cover/check': {
+    load: () => import('./leaves/cover-check.js'),
+    desc: '封面：尺寸 + 外圈众数底色检查（有问题 → 退出码 1）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */

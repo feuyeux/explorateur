@@ -41,9 +41,15 @@ export async function zipTree(
     zf.addFile(join(srcDir, ...rel.split('/')), rel)
   }
   await new Promise<void>((res, rej) => {
+    // 收尾信号取写流的 close（fd 收尾），不是 yazl 读流的 end：读流 end 时
+    // 管道未必写完，高负载下读流会超前写流——在读流上收尾会让 zipTree
+    // 提前返回，后续立刻开包会读到截断 zip（实测与 Edge/ffmpeg 并行时
+    // 全量套件 4 轮挂 2 轮；这不是测试 flake，交付包会真损坏）。
+    const ws = createWriteStream(outZip)
+    ws.on('error', rej)
+    ws.on('close', res)
     zf.outputStream.on('error', rej)
-    zf.outputStream.on('end', res)
-    zf.outputStream.pipe(createWriteStream(outZip))
+    zf.outputStream.pipe(ws)
     zf.end()
   })
   return outZip
