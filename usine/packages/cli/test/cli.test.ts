@@ -13,7 +13,7 @@
 //    所以反向（已登记 ⊆ usage）一并锁住，防止有人手写 usage 漏条目）
 // 4. 库层显式失败（FeuilleError）→ 消息进 stderr、退出码 1（Python 侧
 //    cli.main 的 except FeuilleError 同款口径）
-import { mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -77,5 +77,24 @@ describe('统一入口路由表（反向验证移植）', () => {
 
   it('P4 persona 叶子经路由端到端可达：缺省班底 28 人零问题 → 0', async () => {
     expect(await main(['persona', 'validate'])).toBe(0)
+  })
+})
+
+describe('P5 课件线叶子经路由端到端可达', () => {
+  it('scene parse 落盘字节 parity（Python 金样本口径）+ scene validate 复查 → 0', async () => {
+    const { data } = await import('@feuille/core')
+    const lessonId = 'guangchaoshi-逛超市'
+    const lessonDir = join(data.LESSONS_DIR, lessonId)
+    const d = mkdtempSync(join(tmpdir(), 'feuille-cli-scene-'))
+    try {
+      mkdirSync(join(d, lessonId), { recursive: true })
+      copyFileSync(join(lessonDir, 'scene.md'), join(d, lessonId, 'scene.md'))
+      expect(await main(['scene', 'parse', '--scene', lessonId, '--lessons', d])).toBe(0)
+      expect(readFileSync(join(d, lessonId, 'scene.json'), 'utf8'))
+        .toBe(readFileSync(join(lessonDir, 'scene.json'), 'utf8'))
+      expect(await main(['scene', 'validate', '--scene', lessonId, '--lessons', d])).toBe(0)
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
   })
 })

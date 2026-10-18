@@ -485,3 +485,53 @@ devices + pildraw 基座）收口。**
 
 门禁：typecheck 干净；vitest 28 文件全绿（225 用例，2 skipped）×4 连续；
 Python verify_lesson 13/13 复跑全绿（双轨期纪律）。
+
+## P5 第三批（P5-2b）：parse_scene 解析器 + data.sceneDoc 接线 + scene 两叶子
+
+日期：2026-10-18　对应 Python：src/feuille/parse_scene.py（748 行）→ packages/core/src/parse_scene.ts
+
+### 实现（packages/core/src/parse_scene.ts）
+
+- 全量移植：`parseSpec`（§0 机读规格：meta/tokenOrder/tokens/devices/levels/
+  roles/cast/beats 八字段**命名字段**——Python NamedTuple 堵下标误用的同款理由）、
+  `parseLine`（台词行体例：引号四对优先级、注音（\*…\*）、⚑ 注记先行剥离、
+  对照只认首段「——」、姿态码反引号、手势词「…」处、彩蛋批注、出画、polyglot
+  语标段 `· locale`）、`applyBeats`（骨架节拍：完整覆盖 + 不重叠 + n-K 记法 +
+  even/odd 按绝对行号 + 空问句节拍报错）、`parseLocales` / `parseSharedStage`
+  （dialogue 每语种一剧本 / polyglot 一份共享剧本 + locale 薄壳）、
+  `parseTokenWords`（`词 = 别形`（注音）全书写形）、`matchToken`（**最长命中**：
+  ouest ⊃ est 的真实事故口径，casefold 近似 = toLowerCase + ß→ss）、`annotate`
+  （游标单调推进 + think/hint 气泡）、`parseScene`（解析 → scene_schema
+  validateScene 前置校验通过才返回）。
+- **金样本字节 parity**：`pyJsonDump`（json.dumps ensure_ascii=False indent=1 的
+  字节级对应物）+ `PyFloat`（Python float 落库带 .0：45 → "45.0"——
+  durationBudget 逐字节 parity 的命门；valueOf/toString 让校验层免拆箱）。
+  真实课件 guangchaoshi-逛超市 解析落盘与 Python 生成入库的 scene.json
+  **逐字节一致**（Python 重生成字节不变已实测，入库文件即有效金样本）。
+- 键序即落库序：line 对象 speaker→…→exits→[lang]→i→role→isQuestion→
+  tokenKey→tokenChip→tokenWord→bubble 与 Python dict 插入序逐位对齐；
+  cast/stage/dialogue 仅 polyglot 落库；lang 只在真写了才落库。
+- 错误通道同构：FeuilleError 仅「剧本不存在」；体例违规对应 Python ValueError
+  → 普通 Error（CLI 不接、退出码 1 的口径两边一致）。
+- `data.sceneDoc` 补上预留契约：静态环 data ⇄ parse_scene（两边模块顶层都不
+  解引用对方导出，ESM 活绑定保证调用时初始化完毕）——与 Python 侧延迟导入
+  同构。`scene_schema.mainValidate` + `mainParse` 落地，CLI 注册 `scene/parse`、
+  `scene/validate` 两叶子。
+- 忠实镜像不「顺手修」：`meta_val` 的 `[^\S\n]` 坑（留空 rtlLocales 不吞下一行）、
+  装置表 header[1]=="scenes" 判据（§0.3 语体表恰好 4 token 时会误当词表——
+  Python 侧同样如此，原样保留）、tables() 行长不齐即另起一张表的分组法。
+
+### 测试（packages/core/test/parse_scene.test.ts，20 用例 + cli 1 用例）
+
+- 字节 parity 两条：parseScene→pyJsonDump 逐字节；mainParse --lessons 临时目录
+  落盘逐字节。
+- 反向：坏行缺引号、留白/重叠/反序节拍、空问句节拍（even/odd 写反口径）、
+  缺 §0/缺 token 表/token 重复/缺节拍表/坏 durationBudget、缺剧本 → FeuilleError、
+  缺 §2 剧本 → parse 自检就地失败。
+- 长期命中的价值断言：ouest/est 最长命中、красн 词干命中变格形、
+  lang 不落库、n-K 记法 + askBy 过滤、durationBudget 浮点口径 "45.0"。
+- CLI 端到端：`scene parse` 路由可达 + 落盘字节 parity + `scene validate` 复查 → 0。
+
+门禁：typecheck 干净；vitest 30 文件全绿（246 用例，2 skipped）×4 连续；
+Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
+复跑全绿（双轨期纪律）。**P5-2 收口。**

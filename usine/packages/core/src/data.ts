@@ -11,7 +11,7 @@
 // 不变量：经本模块取回的数据是**只读**的。进程内缓存返回同一对象，任何
 // 模块 mutate 它都会污染同进程内的其他读者。
 import { existsSync, readFileSync, statSync, readdirSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { FeuilleError } from "./errors.js"
@@ -170,8 +170,21 @@ export function cardsDoc(personasDir?: string): Json {
     readJson(join(dirOr(personasDir, PERSONAS_DIR), "intro-cards.json")))
 }
 
-// scene_doc（lessons/<id>/scene.json）依赖 parse_scene（lesson 族，P5 迁入）——
-// 届时以延迟 import 的同款契约补上，避免现在留一个指向空模块的口子。
+// scene_doc（lessons/<id>/scene.json）依赖 parse_scene 的 scenePaths——静态环
+// data ⇄ parse_scene 与 Python 侧的延迟导入同构：两边模块顶层都**不解引用**
+// 对方导出（只在函数体内用），ESM 活绑定保证调用时初始化完毕。调用方
+// （scene_schema/lesson/scene_audio）统一从本模块取，不各自找解析器。
+import { scenePaths } from "./parse_scene.js"
+
+/** lessons/<id>/scene.json 解析结果（不缓存：解析阶段可能刚重写文件）。 */
+export function sceneDoc(sceneId: string, lessonsDir?: string): Json {
+  const [, js] = scenePaths(sceneId, lessonsDir)
+  if (!existsSync(js)) {
+    throw new FeuilleError(
+      `场景数据不存在：${basename(js)}（先跑 \`uv run feuille scene parse --scene ${sceneId}\`）`)
+  }
+  return readJson(js)
+}
 
 /** 测试 seam：清进程内数据缓存（vitest 内隔离用；生产代码不许调）。 */
 export function resetDataCacheForTests(): void {

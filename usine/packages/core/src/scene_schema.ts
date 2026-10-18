@@ -18,10 +18,43 @@
 //   - 选角     → personas.json × intro-cards.json cast 表（dialogue）／
 //                §0.6 同台表按 `locale + energy` 唯一解出（polyglot）
 //
-// 接入点（两处）：parse_scene 写完 scene.json 立刻自检（P5-2b 接）；`scene validate`
-// 独立复查（main 随 parse_scene/data.sceneDoc 一并接入）。
+// 接入点（两处）：parse_scene 写完 scene.json 立刻自检；`scene validate` 独立复查，
+// 不重跑解析（main 在此）。取数带 --lessons（缺省 = feuille 仓库根 lessons/，
+// data.ts 锚定）。data.sceneDoc 依赖 parse_scene（其顶层不解引用本模块导出），
+// 这里静态导入 data 与 Python 侧延迟导入同效：调用时模块图早已初始化完毕。
+
+/** `feuille scene validate --scene <id> [--lessons DIR] [--no-cast]`。 */
+export function mainValidate(argv: string[] = []): number {
+  const i = argv.indexOf("--scene")
+  if (i < 0 || !argv[i + 1]) {
+    console.error("usage: scene validate --scene <id> [--lessons DIR] [--no-cast]（--scene 必需）")
+    return 2
+  }
+  const sceneId = argv[i + 1]!
+  const lessonsDir = argv.indexOf("--lessons") >= 0
+    ? argv[argv.indexOf("--lessons") + 1]
+    : undefined
+  const noCast = argv.includes("--no-cast")
+
+  const scene = sceneDoc(sceneId, lessonsDir)
+  const errs = validateScene(scene,
+    noCast ? null : personas(),
+    noCast ? null : cardsDoc())
+  const head = `场景 ${scene["id"]}：${scene["title"]}（${Object.keys(scene["locales"] ?? {}).length} 语种）`
+  console.log("=".repeat(66))
+  console.log(`场景数据校验：${head}`)
+  console.log("=".repeat(66))
+  if (!errs.length) {
+    console.log("  SCENE SCHEMA PASS")
+    return 0
+  }
+  for (const e of errs) console.log(`  FAIL ${e}`)
+  console.log(`\n${errs.length} 项不合规`)
+  return 1
+}
 import { MOOD_FACE, POSE_CODES } from "./rig.js"
 import { DEVICE_STYLES } from "./devices.js"
+import { cardsDoc, personas, sceneDoc } from "./data.js"
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/
 const ENERGIES = ["lively", "steady"] as const

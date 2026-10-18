@@ -42,6 +42,15 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/persona-validate.js'),
     desc: '人设契约体检：逐人 validatePersona + 班底不变量（有问题 → 退出码 1）',
   },
+  // ---- P5 课件线（lesson 族；解析器 + 校验层先行）----
+  'scene/parse': {
+    load: () => import('./leaves/scene-parse.js'),
+    desc: '场景解析：lessons/<id>/scene.md → scene.json（解析 + 前置校验 + token 自检）',
+  },
+  'scene/validate': {
+    load: () => import('./leaves/scene-validate.js'),
+    desc: '场景数据前置校验：scene.json × 注册表 + 选角/班底（不合规 → 退出码 1）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */
