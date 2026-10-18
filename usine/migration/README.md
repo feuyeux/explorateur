@@ -33,3 +33,29 @@
   实测输出（词级时间戳语义不变：offset/duration 单位 100ns）。
 - 金样本批次 1（tts / audio / timeline / textlayer）已采集；后续批次随
   P2–P4 各阶段在 Python 侧退役前补齐。
+
+## Spike 结论（P1）
+
+### Spike 1 — TS 版 edge-tts v2 客户端（2026-10-18，✅ 通过）
+
+落地 `packages/core/src/tts/`（drm.ts / pure.ts / client.ts），vitest 15/15 绿
+（含 `FEUILLE_LIVE=1` 真机合成）。
+
+- **v2 协议全貌（实测）**：端点仍是 `speech.platform.bing.com`——403 根因是
+  令牌必须 v2，不是换域名（上游 issue 里的新端点说法与 7.3.1 实现不符）。
+  v2 令牌 = `<CS64 16hex>-<魔改 SHA-256 64hex>`：SHA-256 换了第 14/29 轮常量、
+  双状态注入（`_SHA256_STATE`）+ 14 字盐调度表注入，完全混淆——只能逐段
+  照抄，不能化简。BigInt 承载 Python 无限位整数语义（乘 2^32+1 的旋转技巧、
+  未掩码累加等），固定时间戳与 Python 输出逐字节相等（5 组 fixtures）。
+- **协议坑（TS 侧已全部内置）**：握手 403 带服务端 Date 头 → 修时钟偏斜重试
+  一次；文本帧 body 从首个 `\r\n\r\n` 的 +2 起（前导 `\r\n` 是 JSON 合法空白）；
+  二进制帧前 2 字节大端长度 N 含长度字节、body 从 N+2 起；跨段偏移按 CBR
+  48kbps 字节数精确折算。
+- **mp3 字节非确定（服务端行为，非客户端缺陷）**：Python 7.3.1 自身连跑两次
+  同文本，sha256 即不同，但字节长度 / 词级时间戳 / ffprobe 时长完全一致。
+  金样本 `synth[].mp3_sha256` 只是采集时快照，**不作 parity 门禁**；门禁改比
+  结构几何：词表逐字节 + 字节长度 ±64 容差（CBR 下长度即时长；实测 TS 与
+  金样本同为 15840B、probe 2.640s 逐字节同）。
+- **遗留到 P3**：4096 字节分片（`split_text_by_byte_length`）与内容寻址缓存
+  （`synth_cached`）；spike 只做单段合成 + 重试。
+

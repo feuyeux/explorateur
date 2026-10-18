@@ -7,3 +7,6 @@
 // 金样本 parity + 反向验证（纪律 2：加了新检查就要做反向验证）。
 
 export const VERSION = '0.1.0'
+
+// spike 1（edge-tts v2 客户端）——P3 tts 模块的种子
+export * from './tts/index.js'
