@@ -85,14 +85,26 @@ def assert_clean(name: str, text: str, drive: str, extra: str = "") -> None:
 
 
 def main() -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+    if sys.platform != "win32":
+        # The WorktreeEnv substrate IS the Windows wave host (git-bash
+        # bash.exe + subst drives). Nothing below can run elsewhere;
+        # SKIP is not PASS - this smoke runs only on the wave host.
+        info("smoke: wave host 待跑",
+             "WorktreeEnv needs the Windows wave host (git-bash bash.exe, "
+             "subst drives); run the full smoke there")
+        print("-" * 72)
+        infos = [r for r in RESULTS if r[0] == "INFO"]
+        print(f"SUMMARY: 0 passed, 0 failed, {len(infos)} info")
+        return 0
+
     env1 = None
     env2 = None
     try:
-        try:
-            sys.stdout.reconfigure(encoding="utf-8")
-        except Exception:  # noqa: BLE001
-            pass
-
         env1 = guest_env.WorktreeEnv()
         vm1 = guest_env.WorktreeVM(env1)
         d1 = env1.drive_letter

@@ -26,6 +26,31 @@ class LocalGuest:
         return True, ''
 
 
+def _linux_venv_layout_available() -> bool:
+    """The fixture pins the *Linux* venv layout: an absolute interpreter
+    symlink plus the lib64 directory symlink. macOS/Windows venvs have
+    neither, so the fixture cannot be built there — this case runs only
+    where that layout exists. SKIP is not PASS: the skip reason says so."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            venv = Path(tmp) / 'v'
+            subprocess.run(
+                [sys.executable, '-m', 'venv', '--without-pip', str(venv)],
+                check=True, capture_output=True, timeout=180)
+        except Exception:  # noqa: BLE001
+            return False
+        return (venv / 'lib64').is_symlink()
+
+
+_NEED_LINUX_VENV_LAYOUT = pytest.mark.skipif(
+    not _linux_venv_layout_available(),
+    reason="host venv lacks the Linux layout (lib64 / absolute interpreter "
+           "symlink) this case pins — wave host/Linux guest runs this "
+           "(SKIP is not PASS)")
+
+
+@_NEED_LINUX_VENV_LAYOUT
 def test_real_venv_round_trip_preserves_absolute_chained_and_directory_links(tmp_path, monkeypatch):
     guest = tmp_path / 'guest'
     project = guest / 'evolution_project'

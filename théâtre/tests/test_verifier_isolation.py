@@ -140,6 +140,19 @@ def test_effect_sandbox_accepts_ready_token_preserved_outside_binary_context():
     assert "PROGRAM OUTPUT EXTERNALIZED" in trace.context_stdout
 
 
+def _proc_fd_chown_available() -> bool:
+    """The generated privilege-drop step chowns /proc/self/fd/1 — a Linux
+    guest facility (stock macOS has no /proc; MSYS chown cannot touch it).
+    Where the probe fails that single step is substituted out; the
+    truncation, binary payload, and exit-code plumbing stay under test."""
+    try:
+        return subprocess.run(
+            ["bash", "-c", 'chown "$(id -u):$(id -g)" /proc/self/fd/1'],
+            check=False).returncode == 0
+    except OSError:
+        return False
+
+
 @pytest.mark.parametrize("mode", ["effect", "rollback"])
 @pytest.mark.parametrize("exit_code", [0, 7])
 def test_model_stdout_truncation_cannot_erase_trusted_readiness(
@@ -177,10 +190,10 @@ def test_model_stdout_truncation_cannot_erase_trusted_readiness(
     pipeline = re.sub(r'exec setpriv .*?"\$4" "\$6"',
         lambda _m: 'exec ' + shlex.quote(sys.executable) + ' ' + shlex.quote(str(program)),
         pipeline, flags=re.S)
-    if os.name != "posix":
-        # MSYS chown cannot operate on /proc/self/fd/1; the ownership-transfer
-        # step is privilege-drop machinery with no Windows equivalent. The
-        # truncation, binary payload, and exit-code plumbing stay under test.
+    if not _proc_fd_chown_available():
+        # The ownership-transfer step is privilege-drop machinery that needs
+        # a real /proc (Linux guest). The truncation, binary payload, and
+        # exit-code plumbing stay under test.
         pipeline = re.sub(r'chown "\$2:\$3" /proc/self/fd/1 \|\| exit 125',
                           "true", pipeline)
     sink = tmp_path / "output"

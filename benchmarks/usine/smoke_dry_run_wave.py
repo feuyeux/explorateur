@@ -45,15 +45,19 @@ Red lines honored here:
     before and after the run.
 
 Layout (created fresh; the harness refuses to run over leftovers):
-  D:/coding/personal/theatre-usine-dryrun/
+  <dryrun root>/            D:\\coding\\personal\\theatre-usine-dryrun on the
+                            wave host; <explorateur parent>/theatre-usine-
+                            dryrun on other hosts (pnpm refuses ':' dirs)
     run/dry-run-wave-001/phase1/...   the run lineage (kept)
     fixture/                          the merge-target repository (kept)
     vm-scratch/                       guest VM scratch (cleaned by close())
 
-Run it from the theatre checkout:
+Run it from the theatre checkout (the fake wave needs the Windows wave
+host substrate — elsewhere main() prints an honest 待跑 INFO and exits 0):
   .venv/Scripts/python.exe ../benchmarks/usine/smoke_dry_run_wave.py
 
-Clean up afterwards with (single top-level rm command):
+Clean up afterwards with (single top-level rm command; the smoke prints
+the exact path it used):
   rm -- "D:/coding/personal/theatre-usine-dryrun"
 """
 
@@ -72,7 +76,13 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 _EXPLORATEUR_ROOT = _HERE.parents[1]
 
-DRYRUN_ROOT = Path(r"D:\coding\personal\theatre-usine-dryrun")
+# Wave-host convention is the D: layout; elsewhere (macOS/Linux dev boxes)
+# the same layout lives beside the explorateur checkout — pnpm refuses
+# directories containing ':' (the literal `D:\...` name on POSIX), and the
+# guest illusion of this fake wave is plain local paths.
+DRYRUN_ROOT = (Path(r"D:\coding\personal\theatre-usine-dryrun")
+               if sys.platform == "win32"
+               else _EXPLORATEUR_ROOT.parent / "theatre-usine-dryrun")
 RUNS_PARENT = DRYRUN_ROOT / "run"
 FIXTURE_DIR = DRYRUN_ROOT / "fixture"
 VM_SCRATCH = DRYRUN_ROOT / "vm-scratch"
@@ -750,6 +760,14 @@ def check_real_usine_untouched(before: dict) -> None:
 # ----------------------------------------------------------------------- main
 
 def main() -> int:
+    if sys.platform != "win32":
+        # The scripted fake wave drives the WorktreeEnv substrate, which IS
+        # the Windows wave host (git-bash bash.exe + subst drives); the
+        # pipeline aborts with infra status everywhere else. SKIP is not
+        # PASS - this smoke runs only on the wave host.
+        print("INFO smoke: wave host 待跑 | the fake wave needs the Windows "
+              "wave host substrate (git-bash WorktreeEnv); run it there")
+        return 0
     t0 = time.time()
     print("== usine dry run: one scripted wave with a fake LLM ==")
 

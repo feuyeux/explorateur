@@ -449,6 +449,17 @@ def test_executor_lifecycle() -> None:
 
 
 def main() -> None:
+    if sys.platform != "win32":
+        # Every section below needs the WorktreeEnv substrate, which IS the
+        # Windows wave host (git-bash bash.exe + subst drives + powershell
+        # sweep). Nothing here can run elsewhere; SKIP is not PASS - the
+        # full smoke runs only on the wave host.
+        record("INFO", "smoke: wave host 待跑",
+               "WorktreeEnv/powershell sweep need the Windows wave host; "
+               "run the full smoke there")
+        print()
+        print("smoke_verifier_adapter: 0 PASS / 0 FAIL / 1 INFO")
+        sys.exit(0)
     test_install_and_prompts()
     test_executor_lifecycle()
     passed = sum(1 for s, _, _ in RESULTS if s == "PASS")

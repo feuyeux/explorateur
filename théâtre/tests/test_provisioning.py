@@ -307,6 +307,29 @@ def test_capture_exclude_parts_with_real_tar(tmp_path, monkeypatch):
         "evolution_project/src/index.ts"}
 
 
+def _guest_dialect_available() -> bool:
+    """These replay cases drive a *real* shell speaking the guest's GNU
+    coreutils dialect (``stat -c %s`` for the transport byte check, GNU
+    ``sha256sum`` for the digest). Stock macOS carries BSD stat (rejects
+    -c) and a Darwin sha256sum clone, so the byte-verification step
+    cannot pass there — they are skipped off the wave host, which runs
+    them. SKIP is not PASS: the skip reason says so."""
+    probe = ("stat -c %s /etc/hosts >/dev/null 2>&1"
+             " && sha256sum /etc/hosts"
+             " | grep -Eq '^[0-9a-f]{64}[[:space:]]'")
+    try:
+        return subprocess.run(["bash", "-lc", probe], check=False).returncode == 0
+    except OSError:
+        return False
+
+
+_NEED_GUEST_DIALECT = pytest.mark.skipif(
+    not _guest_dialect_available(),
+    reason="guest shell dialect (bash + GNU coreutils stat -c/sha256sum) "
+           "unavailable on this host — wave host 待跑 (SKIP is not PASS)")
+
+
+@_NEED_GUEST_DIALECT
 @pytest.mark.parametrize('link_target', ['missing.txt', '/usr/bin/python3', '../../missing.txt'])
 def test_broken_symlink_is_captured_replayed_and_verified_without_following(
         tmp_path, monkeypatch, link_target):
