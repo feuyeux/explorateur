@@ -24,6 +24,7 @@ import { resolve } from 'node:path'
 import {
   parse_scene, scene_schema, scene_draft, scene_audio, lesson,
   persona, covers, framehash, ledger, themes, VERSION,
+  platform,
 } from '@feuille/core'
 import { checkPublishCopy } from '@feuille/copy'
 import { gen_bgm } from '@feuille/bgm'
@@ -101,6 +102,25 @@ function argvTool(spec: {
   }
 }
 
+/** win32 下裸名解析成绝对路径再 spawn：CreateProcess（无 shell）只执行 .exe，
+ * .cmd/.bat shim 会静默 ENOENT。解析到 shim 时 fail-closed 并给出修法——
+ * 本通道不开 shell（mcode-tools 的 --args 带用户 prompt JSON，shell 拼接
+ * 既注又碎），与门禁预检 gate_preflight 对 standalone pnpm 的要求同源。 */
+function resolveSpawnCmd(cmd: string): { cmd: string; shimError?: string } {
+  if (process.platform !== 'win32') return { cmd }
+  const found = platform.which(cmd)
+  if (!found) return { cmd }
+  if (/\.(cmd|bat)$/i.test(found)) {
+    return {
+      cmd,
+      shimError: `${cmd} 在 PATH 上解析到 ${found}（.cmd/.bat shim）。`
+        + `无 shell 的子进程通道跑不了 shim：请装 standalone 版（.exe，如 standalone pnpm）`
+        + `并确保它排在 shim 之前。\n`,
+    }
+  }
+  return { cmd: found }
+}
+
 /** 子进程捕获跑（verify/quota/mcode-tools 通道用；观察 signal）。 */
 function runCapture(cmd: string, args: string[], opts: {
   cwd?: string
@@ -108,9 +128,14 @@ function runCapture(cmd: string, args: string[], opts: {
   input?: string
 }): Promise<{ code: number; output: string; notFound: boolean }> {
   return new Promise((res) => {
+    const resolved = resolveSpawnCmd(cmd)
+    if (resolved.shimError) {
+      res({ code: 127, output: resolved.shimError, notFound: true })
+      return
+    }
     let child: ReturnType<typeof spawn>
     try {
-      child = spawn(cmd, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+      child = spawn(resolved.cmd, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
     } catch {
       res({ code: 127, output: `无法启动 ${cmd}\n`, notFound: true })
       return

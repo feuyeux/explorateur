@@ -863,7 +863,7 @@ export async function main(argv: string[]): Promise<number> {
   if (out === null) throw new FeuilleError('--out 必填（--list-providers 除外）')
   loadEnvFile()
 
-  const outPath = resolve(out.replace(/^~(?=\/|$)/, homedir()))
+  const outPath = resolve(out.replace(/^~(?=[/\\]|$)/, homedir()))
   const side = `${outPath}.json`
   if (recheckFlag) return recheck(outPath, side, narrationRmsDb ?? null, targetUnderDb)
   for (const p of [outPath, side]) {

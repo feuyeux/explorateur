@@ -25,6 +25,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { createCanvas } from '@napi-rs/canvas'
 import sharp from 'sharp'
@@ -128,7 +129,7 @@ export function renderWordCard(
   htmlPath: string, png: string, w: number, h: number,
   query: string, browser: string,
 ): void {
-  const url = `file://${resolve(htmlPath)}${query}`
+  const url = pathToFileURL(resolve(htmlPath)).href + query
   const r = spawnSync(browser, ['--headless=new', '--disable-gpu',
     '--hide-scrollbars', '--force-device-scale-factor=1',
     `--window-size=${w},${h}`, `--screenshot=${png}`,

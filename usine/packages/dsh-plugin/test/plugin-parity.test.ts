@@ -60,7 +60,8 @@ function approvalCtx(outcome: string) {
 /** 红线兜底：PATH 剥离下跑——测试用例必须连 spawn 点都到不了。 */
 async function withoutMcodePath<T>(fn: () => Promise<T>): Promise<T> {
   const orig = process.env.PATH
-  process.env.PATH = "/usr/bin:/bin"
+  // 置空而非留 POSIX 系统目录：跨平台（Windows/POSIX 都无可用查找路径）。
+  process.env.PATH = ""
   try {
     return await fn()
   } finally {

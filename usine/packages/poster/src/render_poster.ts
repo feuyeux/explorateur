@@ -18,10 +18,15 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { platform } from '@feuille/core'
 
-const hasTimeout = (): boolean =>
-  spawnSync('timeout', ['--version'], { stdio: 'ignore' }).status === 0
+const hasTimeout = (): boolean => {
+  // Windows System32 也有个叫 timeout 的东西（延时命令），不能只看退出码——
+  // 必须确认是 GNU coreutils 的 timeout 才拿它做 120s 兜底。
+  const r = spawnSync('timeout', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  return r.status === 0 && /GNU coreutils/.test(r.stdout ?? '')
+}
 
 export function main(argv: string[]): number {
   if (argv.length < 2) {
@@ -53,10 +58,10 @@ export function main(argv: string[]): number {
       '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
       `--user-data-dir=${profile}`, '--virtual-time-budget=10000',
       `--window-size=${w},${h}`, `--force-device-scale-factor=${s}`,
-      `--screenshot=${out}`, `file://${resolve(inArg)}${qs}`,
+      `--screenshot=${out}`, pathToFileURL(resolve(inArg)).href + qs,
     ]
-    // 有 GNU timeout 就包一层 120s 兜底（bash `command -v timeout` 同判）；
-    // 否则裸跑（macOS 默认无 timeout——原 .sh 行为一致）。
+    // 有 GNU coreutils 的 timeout 就包一层 120s 兜底；否则裸跑
+    // （macOS 默认无 timeout，Windows System32 的同名延时命令不算数）。
     const r = hasTimeout()
       ? spawnSync('timeout', ['120', browser, ...args], { stdio: 'inherit' })
       : spawnSync(browser, args, { stdio: 'inherit' })

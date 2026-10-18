@@ -163,8 +163,10 @@ export async function launch<T>(
       `缺 playwright（可选依赖未装）：发布前先安装 playwright。原始报错：${errName(e)}`)
   }
   const ctx = await pw.chromium.launchPersistentContext({
-    user_data_dir: userDataDir,
-    executable_path: exe,
+    // JS Playwright 是 camelCase（user_data_dir/executable_path 是 Python 版形参，
+    // 在 JS 侧会被静默忽略，落到默认浏览器/默认 profile）
+    userDataDir,
+    executablePath: exe,
     headless: opts.headless ?? false,
     viewport: opts.viewport ?? { width: 1440, height: 900 },
     args: opts.args ?? ['--start-maximized', '--disable-blink-features=AutomationControlled'],

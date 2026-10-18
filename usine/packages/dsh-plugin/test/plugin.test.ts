@@ -118,7 +118,9 @@ function tmp(): string {
  */
 async function withoutMcodePath<T>(fn: () => Promise<T>): Promise<T> {
   const orig = process.env.PATH
-  process.env.PATH = "/usr/bin:/bin"
+  // 置空而非留 POSIX 系统目录：跨平台（Windows/POSIX 都无可用查找路径），
+  // 且不会撞上恰好装在 /usr/bin 的 mcode-tools。
+  process.env.PATH = ""
   try {
     return await fn()
   } finally {

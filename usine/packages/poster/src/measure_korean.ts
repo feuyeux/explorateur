@@ -50,6 +50,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { FeuilleError, platform, roundHalfEven } from '@feuille/core'
 import { pilL, rgbRaw } from './pixels.js'
 
@@ -683,7 +684,7 @@ export async function main(argv: string[]): Promise<number> {
     .join('\n')
   const build = join(out, 'measure_build.html')
   writeFileSync(build, buildTpl(css, rows, rowpad, fs, family), 'utf-8')
-  const url = 'file://' + resolve(build)
+  const url = pathToFileURL(resolve(build)).href
   const winW = 100 + fs * 2
   const winH = (rowpad + boxH) * a.syllables.length + 100
   const dom = renderChrome(url, winW, winH, null, true)
@@ -798,7 +799,7 @@ export async function main(argv: string[]): Promise<number> {
   const vrows = recs.filter((r) => r.rule !== null).map((r) => r.vrow!).join('\n')
   const vbuild = join(out, 'verify_build.html')
   writeFileSync(vbuild, verifyTpl(css, ok.map((r) => r.rule!).join('\n'), vrows, rowpad, fs, family), 'utf-8')
-  const vurl = 'file://' + resolve(vbuild)
+  const vurl = pathToFileURL(resolve(vbuild)).href
   const vH = (rowpad + boxH) * recs.length + 100
   const vdom = renderChrome(vurl, winW + 300, vH, null, true)
   const m2 = vdom.match(/RECTS (\{[\s\S]*?\})/)

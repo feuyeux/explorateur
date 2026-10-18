@@ -21,7 +21,8 @@ import { homedir } from 'node:os'
 // ---------------------------------------------------------------- 浏览器候选
 // (内核名, 路径或命令名)。**顺序即优先级**：edge 在 chrome 前（像素基线同源）。
 export const BROWSERS: readonly (readonly [string, string])[] = [
-  // ---- Windows ----
+  // ---- Windows（Edge/Chrome 默认装在 per-user %LOCALAPPDATA%，机器级 PF 只是次选）----
+  ['edge', 'C:\\Users\\%USERNAME%\\AppData\\Local\\Microsoft\\Edge\\Application\\msedge.exe'],
   ['edge', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'],
   ['edge', 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'],
   ['edge', 'msedge'],
@@ -40,6 +41,7 @@ export const BROWSERS: readonly (readonly [string, string])[] = [
   ['chrome', 'google-chrome-stable'],
   ['chrome', '/usr/bin/google-chrome'],
   ['chrome', '/opt/google/chrome/chrome'],
+  ['chrome', 'C:\\Users\\%USERNAME%\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe'],
   ['chrome', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'],
   ['chrome', 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'],
   ['chrome', 'chrome'],
