@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!-- One-page poster skeleton. Copy this file, replace TODOs, keep the pipeline:
-     fetch_fonts.py fonts.json && assemble.py && render_poster.sh && verify.
+     feuille poster fetch-fonts fonts.json && feuille poster assemble &&
+     feuille poster render … && verify.
      Full coloring recipes for complex scripts: references/script-coloring.md -->
 <html lang="zh">
 <head>
@@ -177,7 +178,7 @@ if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(fitAll);
 } else { window.addEventListener('load', fitAll); }
 
-// ?verify=1 → dump per-cell fit diagnostics as DIAG JSON (parse with fit_diag.py)
+// ?verify=1 → dump per-cell fit diagnostics as DIAG JSON (parse with `feuille poster fit-diag`)
 if (/verify=1/.test(location.search + location.hash)) {
   (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve())
     .then(() => setTimeout(() => {

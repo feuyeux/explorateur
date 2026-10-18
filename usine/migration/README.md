@@ -995,3 +995,67 @@ SKILL.md（边界/舞台合成/管线/代码归属段改指 `feuille storyteller
 `feuille karaoke …`）；两个 .py 删除（scripts/ 目录随之清空移除）。
 ownership.json 不动——机检对象仍是 src/feuille（双轨期），TS 包记账
 P7 清场。**P5-7d 收口。**
+
+## P5-7e：one-page-poster 归流（@feuille/poster 新包）
+
+新包 **@feuille/poster**（packages/poster/，10 产线模块 + pixels 通道层 +
+barrel）：`fetch_fonts`（Google Fonts css2 免费子集端点 → 内嵌 fonts.css）、
+`assemble`（@import 合并内嵌 + --theme token 注入）、`render_poster`
+（原 .sh：全新临时 --user-data-dir 隔离 + GNU timeout 兜底 + 退出码透传）、
+`render_page`（dump/render 双模式，(24,93) 窗框开销补偿）、`audit_charset`
+（栈式家族归属 tofu 门 + .ksyl 补丁规则绑定门）、`fit_diag`、`verify_colors`、
+`check_overlay`、`make_covers`、`measure_korean`——本 skill 原十条 scripts/
+脚本的唯一实现归流，CLI 走 `feuille poster <子命令>` 十路由，@feuille/poster
+入 cli deps。包消费 @feuille/core 唯一实现（platform.browserPath /
+FeuilleError / roundHalfEven——Python round() 银行家舍入），浏览器解析零写死。
+
+**Python 地基校准抓出的两个真移植 bug（本批最有价值的产出）**：韩文音节
+UAX34 转写表 `L_PART` 缺 ㅈ→'J'（18 项抄漏 1 项，차→'KA'、한→'undefinedAN'）、
+`T_PART[8]` 单ㄹ终声应为 'L' 非 'R'（初声位 ㄹ 才是 R，떨→DDEOR 错）。
+先写 Python ground-truth 测试再跑门禁的顺序把两个都拦在了门禁前；修复后对
+**全部 399 个无终声音节 + 全部 28 个终声变体**与 Python unicodedata 逐名
+diff，全对齐。其余实现口径按原样镜像：`np.roll` 环绕移位（check_overlay
+非零位移天然压分）、dilate 是方形（Chebyshev）不是十字形、erode 越界记
+非障碍（numpy-clamp 镜像，边条幸存）、PIL L 灰度公式、html.unescape 部分
+实体表（只覆盖 Python 原表命中的实体——宁可漏转不可错转，方向与原版一致）。
+
+### 测试（poster.test.ts 34 + measure_korean.test.ts 26）
+
+- poster：fetch_fonts 单元 + 真网 e2e；assemble 标记全量替换（'FONTCSS'
+  两处）/无标记直通/--theme 注入（**assemble 读 process.cwd()——vitest 线程
+  池共享 worker 进程，进程内 chdir 会与并行文件竞态**：spawnSync 子进程 +
+  绝对 tsx loader URL + eval-import **叶子模块**直跑；CLI 入口的 ESM 入口
+  判定在 tsx 下永不触发，import 入口静默 rc=0 是坑）；make_covers OVERRIDES/
+  BOOT 前注 + src 不动；fit_diag OK/OVERFLOW/UNLOADED FONT 三态；
+  audit_charset §4 三行 verbatim 移植（叠印层 ा 删出子集 → MISSING、族外
+  Ω 弹栈不误归）+ 补丁规则绑定门五凿洞（穿错规则/无规则/孤儿逗号形/多
+  字素/`<img>` void 不推栈）；verify_colors 网格检测四色抽样（sharp SVG
+  夹具）；check_overlay 配准/失准（**夹具教训：墨块必须紧凑**——整列墨在
+  np.roll 环绕 + 平手取更小 dx/dy 决胜规则下竖直位移简并，dy 平手落到
+  -radius；算法是 Python 原语义的忠实镜像，夹具错了几何）；render e2e
+  真 Edge（query 后缀透传到 JS / dump-dom / (24,93) 裁齐精确尺寸）；
+  barrel 十模块导出面。
+- measure_korean：音节名 19 样本 ground truth（对过 Python）/CLUSTER_FINALS
+  11 项/jamoDeomp/掩膜代数（closing ⊇ red、方形 dilate、全真 erode）/
+  labelComponents/largestRect/rectCover/expandRects（蓝墙夹扩边）/dedupeRects/
+  coverVowel 三响亮失败（overlap / cap 内盖不满 / 会漆红辅墨——
+  **not-coverable 夹具的蓝竖条纹墙是三次迭代才凿出来的**：closing 是闭包、
+  无墙时扩边沿自由行铺满全幅反而盖得全）/classify 五态/emitRule 精确四行/
+  e2e 全链（真网 fetch_fonts → measure → verify PASS + .kCC28 规则名）。
+
+门禁：typecheck 干净；vitest **41 文件全绿（452 用例，3 skipped）4 连绿**。
+本轮 Edge 并行抖动第 4 次出现且首见**连续复跑不绿**（covers demo_xiaohongshu
++ textlayer 阿拉伯 RTL 在 5s 默认超时下被新增的 poster 浏览器 e2e 挤兑
+挤爆）——rig/scenes 同款显式 120s 超时补上（covers Edge 渲字 4 it + 
+textlayer 真机 3 it），不改判据只放宽限时；**P7 移植 verify 时隔离策略必须
+一并落地**（四批三现，这批转持续）。Python 侧
+verify_skill_scripts.py §4 strike（audit_charset 三行移植 poster.test.ts，
+14/14 → **11/11**）、verify_skills.py 78/78 复跑全绿。接线面：one-page-poster
+SKILL.md（Requirements uv→node/pnpm、工作流 3–7 步、Conventions、代码归属
+「已归流 @feuille/poster 包」、Resources）、references/script-coloring.md
+八处、skills/README.md 两处、karaoke-video SKILL.md 两处（上游 fetch_fonts
+改指）、模板头注释与 DIAG 行——assets/example/ 归档按只读豁免不动
+（verify_skills 的既有纪律）；十个脚本 git rm（9 .py + render_poster.sh），
+scripts/ 目录随之清空移除。examples/ 归档项目目录全程未碰。
+ownership.json 不动——机检对象仍是 src/feuille（双轨期），TS 包记账
+P7 清场。**P5-7e 收口。**

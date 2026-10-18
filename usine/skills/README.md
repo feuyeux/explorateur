@@ -82,14 +82,14 @@ Cluster A 内部再分：**单卡片逐词高亮 → karaoke-video；多幕评�
 
 | 能力 | 归谁 | 不要在别处实现 |
 |---|---|---|
-| 多语种字体子集 / 逐字着色 / 塑形 | `one-page-poster`（说明书）＋ `library/textlayer`（实现） | 视频 skill 需要新字形时，回 poster 的 `fonts.json` 加并重跑 `fetch_fonts.py` |
+| 多语种字体子集 / 逐字着色 / 塑形 | `one-page-poster`（说明书）＋ `library/textlayer`（实现） | 视频 skill 需要新字形时，回 poster 的 `fonts.json` 加并重跑 `feuille poster fetch-fonts` |
 | 12 语种规范顺序 | `one-page-poster` §Conventions | 其余 skill 引用，**不另抄一份** |
 | TTS / 音轨 | `library` 的 `tts`、`audio` | 不许任何 skill 私藏一份合成逻辑 |
 | 脸型 / 表情 / 装置规格注册表 | `library` 的 `rig`、`devices` | `persona.py` 与 `scene_schema.py` 取**同一份**，不抄名单（纪律 7） |
 | BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。出床只有两条线：Lyria（`gen_bgm.py`）与 MCode 内置音乐（`matrix`，见 `bgm-bed` SKILL.md）；不往全局 `music-generation` skill 路由 |
 | BGM 的**混音压法** | 看画面来源 | 海报驱动 → `karaoke-video` 的线性 `amix`；实拍驱动 → `multilingual-video-poetry` 的侧链压缩 |
 | 多幕评书**导演层**（幕表 schema / 镜头 / 叠化 / 醒木） | `storyteller-video` | 词级时间轴与合片复用 `karaoke-video` 的脚本，不另写；说书人编外专班走 `feuille.data.storytellers()`，不进班底 roster |
-| 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `make_covers.py`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
+| 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `feuille poster make-covers`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
 | 发布词 | `publish-copy` | 发布执行 → `multilingual-video-publishing` |
 
 ## 七条歧义防线

@@ -186,11 +186,12 @@ describe.skipIf(BROWSER === null)("Edge 渲字演示：文字真实渲出来的�
   }
 
   // 小红书 y=100 在 240 裁切带内 → 发出去就没了；y=900 在安全区；B 站 y=0 全高安全
+  // Edge 无头启动在并行浏览器测试挤兑下常超默认 5s——与 rig/scenes 同款显式超时
   it.each([
     ["xiaohongshu", 100, "#14171E", false],
     ["xiaohongshu", 900, "#14171E", true],
     ["bilibili", 0, "#FFFFFF", true],
-  ] as const)("demo_%s 文字 y=%i → %s", async (key, textY, ink, expectSurvive) => {
+  ] as const)("demo_%s 文字 y=%i → %s", { timeout: 120_000 }, async (key, textY, ink, expectSurvive) => {
     const d = tmp()
     const s = SPECS[key]!
     const png = join(d, `demo_${key}_${textY}.png`)
@@ -206,7 +207,7 @@ describe.skipIf(BROWSER === null)("Edge 渲字演示：文字真实渲出来的�
     }
   })
 
-  it("真机封面也过尺寸/底色检查", async () => {
+  it("真机封面也过尺寸/底色检查", { timeout: 120_000 }, async () => {
     const d = tmp()
     const png = join(d, "demo_douyin34.png")
     await make("douyin34", demoHtml(1080, 1440, "#000000", 600, "一叶知秋 · 演示", "#FFFFFF"),

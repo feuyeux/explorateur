@@ -108,6 +108,48 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/storyteller-assemble.js'),
     desc: '评书成片组装：幕帧 → 叠化转场 → 醒木混音（单画幅 mp4）',
   },
+  // ---- P5-7e one-page-poster 归流（@feuille/poster；浏览器解析消费 core
+  // 唯一实现，零额度——fetch_fonts 只打 Google Fonts css2 免费子集端点）----
+  'poster/fetch-fonts': {
+    load: () => import('./leaves/poster-fetch-fonts.js'),
+    desc: '字体子集抓取：fonts.json → 内嵌 fonts.css（Google Fonts css2 子集）',
+  },
+  'poster/assemble': {
+    load: () => import('./leaves/poster-assemble.js'),
+    desc: '海报组装：poster_src.html + fonts.css → index.html（@import 合并内嵌）',
+  },
+  'poster/render': {
+    load: () => import('./leaves/poster-render.js'),
+    desc: '整页截图：Edge/Chrome headless 按画幅出图（原 render_poster.sh）',
+  },
+  'poster/render-page': {
+    load: () => import('./leaves/poster-render-page.js'),
+    desc: 'DOM/截图双模式：dump 子命令吐渲染后 DOM，render 子命令按 query 出图',
+  },
+  'poster/audit-charset': {
+    load: () => import('./leaves/poster-audit-charset.js'),
+    desc: '字符子集门（tofu 防线）+ .ksyl 补丁规则绑定门（A-03 机器形态）',
+  },
+  'poster/fit-diag': {
+    load: () => import('./leaves/poster-fit-diag.js'),
+    desc: 'fit 诊断：从 DOM 里捞 DIAG 行对照限值（溢出 → 退出码 1）',
+  },
+  'poster/verify-colors': {
+    load: () => import('./leaves/poster-verify-colors.js'),
+    desc: '四色抽样验收：红/蓝/灰/墨逐格对表（色差超限 → 退出码 1）',
+  },
+  'poster/check-overlay': {
+    load: () => import('./leaves/poster-check-overlay.js'),
+    desc: '叠印对齐验收：lay 层 vs top 层逐位移求最优对齐（错位/脏色 → FAIL）',
+  },
+  'poster/make-covers': {
+    load: () => import('./leaves/poster-make-covers.js'),
+    desc: '全屏封面变体：给 poster_src.html 注入 overlay CSS + 生成 index 母版',
+  },
+  'poster/measure-korean': {
+    load: () => import('./leaves/poster-measure-korean.js'),
+    desc: '韩文逐字素几何测量：测墨 → 元/辅音分类 → 生成 .k%04X 补丁规则 + 自验',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——

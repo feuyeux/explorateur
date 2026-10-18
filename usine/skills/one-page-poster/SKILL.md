@@ -34,16 +34,16 @@ directories.
 | # | 必须明确 | 缺了会怎样 |
 |---|---|---|
 | 1 | 页面尺寸（默认 1240×1754） | 网格几何无从校验 |
-| 2 | 网格行列数 | `verify_colors.py --cols/--rows` 判据不成立 |
+| 2 | 网格行列数 | `feuille poster verify-colors --cols/--rows` 判据不成立 |
 | 3 | **完整内容清单**（哪些语种/条目，一个不许少） | 漏项要到最后渲染才发现 |
 | 4 | 配色与高亮规则 | 逐字着色无判据 |
-| 5 | 是不是**当视频封面**用 | 决定要不要出 `make_covers.py` 的全屏变体 |
+| 5 | 是不是**当视频封面**用 | 决定要不要出 `feuille poster make-covers` 的全屏变体 |
 
 内容清单若已有事实源（如 `languages/*/manifest.json` 这样的注册表），**以它为准**，不要另抄一份。
 
 ## 边界
 
-**本 skill 是「多语种排版」的唯一事实源**：字体子集、逐字着色（Arabic/Hebrew/Devanagari 叠层、Korean 垫片、kana 渐变、注音/振假名）、字形测量。视频类 skill 需要新字形时，往本 skill 的 `fonts.json` 加字符并重跑 `fetch_fonts.py`，**不要在视频脚本里另抄字体栈**。
+**本 skill 是「多语种排版」的唯一事实源**：字体子集、逐字着色（Arabic/Hebrew/Devanagari 叠层、Korean 垫片、kana 渐变、注音/振假名）、字形测量。视频类 skill 需要新字形时，往本 skill 的 `fonts.json` 加字符并重跑 `feuille poster fetch-fonts`，**不要在视频脚本里另抄字体栈**。
 
 12 语种规范顺序也只在这里定义，其他 skill 引用。
 
@@ -59,20 +59,21 @@ directories.
 
 拥有模块：（无）
 
-多语种排版的实现——`textlayer`（Edge headless 渲字）与 `covers`（封面机制）——在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 不拥有任何模块。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+多语种排版的实现——`textlayer`（Edge headless 渲字）与 `covers`（封面机制）——在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的十条产线脚本（fetch_fonts / assemble / render_poster / render_page / audit_charset / fit_diag / verify_colors / check_overlay / make_covers / measure_korean）已归流 **@feuille/poster** 包（promoted from 本 skill 的 `scripts/`，消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 
 其余模块不属于本 skill：基础设施在 `ownership.json` 的 `infrastructure`，其他业务模块归各自 skill。
 
 ## Requirements (fresh machine)
 
-- Python 3.12 + Pillow + numpy — e.g. `uv run --project usine python <script>`
-  (the usine pyproject pins both; never hardcode a machine-specific
-  interpreter path in docs or configs);
-- **任意 Chromium 系浏览器**——`google-chrome` 或 Edge 都行。渲染器经
-  `scripts/render_poster.sh` 解析，走 library 的 `feuille.platform.browser_path()`
-  这一个事实源；`$CHROME_BIN` 可显式覆盖。用 `uv run --project usine python -c
-  "from feuille import platform; print(platform.describe())"` 自查缺什么；
-- network access for `fetch_fonts.py` (Google Fonts css2 subsetting)。
+- Node + pnpm：本 skill 的十条产线脚本已归流到 **@feuille/poster** 包，进程内
+  直跑 `feuille poster <子命令>`（浏览器解析、像素管线全在 @feuille/core 的
+  唯一实现里；never hardcode a machine-specific interpreter path in docs or
+  configs）；
+- **任意 Chromium 系浏览器**——Chrome 或 Edge 都行。渲染器经
+  `feuille poster render` 解析，走 @feuille/core 的 `platform.browserPath()`
+  这一个事实源；`$CHROME_BIN` 可显式覆盖。用
+  `feuille platform describe` 自查缺什么；
+- network access for `feuille poster fetch-fonts` (Google Fonts css2 subsetting)。
 
 ## Conventions
 
@@ -87,15 +88,15 @@ directories.
   do NOT rotate or pad one orientation into the other (rotation leaves dead
   bands that never fill the screen). Lay out each orientation natively:
   1920×1080 with a 4×3 grid and 1080×1920 with a 3×4 grid, same cells.
-  `scripts/make_covers.py` derives `cover_src.html` from `poster_src.html`
+  `feuille poster make-covers` derives `cover_src.html` from `poster_src.html`
   (variant CSS + `?fmt=P` switch — tune its override block per project);
-  render with `render_poster.sh cover_src.html?fmt=P cover_portrait.png
-  1080 1920 1` (the script honors a query suffix; WITHOUT `?fmt=P` the boot
+  render with `feuille poster render cover_src.html?fmt=P cover_portrait.png
+  1080 1920 1` (the command honors a query suffix; WITHOUT `?fmt=P` the boot
   script silently renders the LANDSCAPE geometry inside the portrait window
   and every downstream check misfires). Two traps: the grid is a flex
   child, so give it `min-height: 0` or the initial oversized words stretch
   the rows past the page bottom; verify each variant's grid with
-  `verify_colors.py --cols 4 --rows 3` / `--cols 3 --rows 4`.
+  `feuille poster verify-colors --cols 4 --rows 3` / `--cols 3 --rows 4`.
 
 ## Workflow
 
@@ -113,12 +114,12 @@ directories.
 3. **fonts.json**: one entry per font family — `family` (the @font-face
    name, embed this stack FIRST in CSS), `google` (css2 spec),
    `text` (every char that family will ever render), `classes` (CSS classes
-   rendering with it, for the audit). Run `scripts/fetch_fonts.py fonts.json`.
-4. **Build**: `scripts/assemble.py` injects fonts.css at `/*__FONTS__*/`.
-5. **Render**: `scripts/render_poster.sh index.html poster.png 1240 1754 2`.
+   rendering with it, for the audit). Run `feuille poster fetch-fonts fonts.json`.
+4. **Build**: `feuille poster assemble` injects fonts.css at `/*__FONTS__*/`.
+5. **Render**: `feuille poster render index.html poster.png 1240 1754 2`.
 6. **Verify** (the model usually cannot see the image — all checks are
    programmatic; run after every revision, not just at the end):
-   - `scripts/audit_charset.py poster_src.html fonts.json` — page chars ⊆
+   - `feuille poster audit-charset poster_src.html fonts.json` — page chars ⊆
      subsets, no tofu. Family attribution is a stack mirroring CSS
      inheritance (text under the per-letter wrappers `.lay/.top/.t/.c/.ksyl/
      .zi` inherits its cell's family), so overlay words ARE in scope; every
@@ -132,8 +133,8 @@ directories.
      the subset check never looks at rule names). Both failure classes are
      reported in one pass; fix neither in isolation;
    - `google-chrome --headless --dump-dom "file://...index.html?verify=1"`
-     piped to `scripts/fit_diag.py` — per-cell font size, word rects, overflow;
-   - `scripts/verify_colors.py poster.png --cols 3 --rows 4 --langs …` —
+     piped to `feuille poster fit-diag` — per-cell font size, word rects, overflow;
+   - `feuille poster verify-colors poster.png --cols 3 --rows 4 --langs …` —
      grid found, every cell has its expected colors;
    - for overlay cells (mark scripts): see step 7.
 7. **Overlay registration check** for two-layer cells: render each layer
@@ -141,7 +142,7 @@ directories.
    `.stack .lay { visibility:hidden }` for the top — plus
    `.stack .lay, .stack .top { will-change: transform; }` in BOTH variants
    to force grayscale AA, or ClearType LCD stripes read as misregistration)
-   and run `scripts/check_overlay.py lay.png top.png X Y W H` with the word
+   and run `feuille poster check-overlay lay.png top.png X Y W H` with the word
    rect from fit_diag. Accept only best-shift (0,0) and unmatched ≈ 0%.
    Full rules and the composite-measurement trap:
    `references/script-coloring.md` §4.
@@ -173,7 +174,7 @@ verify the embedded subset actually loaded before trusting any em value). Quick 
 - mark scripts (Arabic/Hebrew/Devanagari): `.stack` two-layer overlay;
 - Korean: `.ksyl` inline-block + measured background patches — patch
   geometry is GLYPH-SPECIFIC, so measure the project's own syllables with
-  `scripts/measure_korean.py <syllables> --family … --css fonts.css`
+  `feuille poster measure-korean <syllables> --family … --css fonts.css`
   (renders the real subset font, labels each ink component from the
   syllable's NFD jamo decomposition — medial geometry decides vowel vs
   consonant, covering multi-component vowels like ㅝ, short verticals like
@@ -204,10 +205,11 @@ verify the embedded subset actually loaded before trusting any em value). Quick 
 - `assets/example/` — complete worked 12-language source pair
   (`poster_src.html` + `fonts.json`, the validated "a cup of tea" project):
   the markup reference for every script family's cell
-- `scripts/` — `fetch_fonts.py`, `assemble.py`, `render_poster.sh`,
-  `audit_charset.py`, `fit_diag.py`, `verify_colors.py`, `check_overlay.py`,
-  `make_covers.py` (fullscreen cover variants), `measure_korean.py`
-  (per-syllable vowel-patch measurement, prints paste-ready CSS)
+- `feuille poster fetch-fonts|assemble|render|render-page|audit-charset|
+  fit-diag|verify-colors|check-overlay|make-covers|measure-korean`
+  （@feuille/poster 包）——本 skill 原十条 scripts/ 产线脚本的唯一实现
+  （`make-covers` fullscreen cover variants、`measure-korean`
+  per-syllable vowel-patch measurement, prints paste-ready CSS）
 - `references/script-coloring.md` — cluster paint rule, overlay recipe,
   Devanagari construction, Korean patches, measurement methodology
 

@@ -145,7 +145,8 @@ describe("matte 数学：合成夹具精确还原（verify_textlayer §1 移植�
 })
 
 describe.skipIf(BROWSER === null)("真机：视口亏空 / 截图裁齐 / 渲字（verify_textlayer §2 移植）", () => {
-  it("视口亏空探测：金样本同机桶一致 + memoize 命中不再探测", () => {
+  // Edge 无头启动在并行浏览器测试挤兑下常超默认 5s——与 rig/scenes 同款显式超时
+  it("视口亏空探测：金样本同机桶一致 + memoize 命中不再探测", { timeout: 120_000 }, () => {
     resetDeficitCacheForTests()
     const d1 = tmp()
     const d2 = tmp()
@@ -168,7 +169,7 @@ describe.skipIf(BROWSER === null)("真机：视口亏空 / 截图裁齐 / 渲字
     expect(() => viewportDeficit(300, { browser: "/nonexistent-browser", workdir: d2 })).toThrow()
   })
 
-  it("单次截图裁齐画布（补偿尾巴已裁）+ 中文渲字", async () => {
+  it("单次截图裁齐画布（补偿尾巴已裁）+ 中文渲字", { timeout: 120_000 }, async () => {
     const d = tmp()
     const body = '<div style="display:flex;align-items:center;justify-content:center;height:300px;font-size:64px;color:#333">一叶知秋</div>'
     const png = await edgeScreenshot(page(400, 300, body), join(d, "opaque.png"), {
@@ -178,7 +179,7 @@ describe.skipIf(BROWSER === null)("真机：视口亏空 / 截图裁齐 / 渲字
     expect([meta.width, meta.height]).toEqual([400, 300])
   })
 
-  it("阿拉伯 RTL 渲字 matte：有墨、RGBA、裁齐，结构统计与金样本同机桶一致", async () => {
+  it("阿拉伯 RTL 渲字 matte：有墨、RGBA、裁齐，结构统计与金样本同机桶一致", { timeout: 120_000 }, async () => {
     const d = tmp()
     // 与 capture_textlayer 的 matte_html 同构（RTL + text-shadow——成像库画不出的塑形）
     const htmlFn = (bg: string) => page(

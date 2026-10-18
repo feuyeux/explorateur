@@ -61,7 +61,7 @@ When a script cannot be colored with spans at all (Arabic, Hebrew, Devanagari):
 - keep `dir="rtl"` on BOTH layers for RTL scripts.
 
 Acceptance: single-layer renders compared in the word rect → best integer
-shift (0,0), unmatched top-color 0.00% (scripts/check_overlay.py; also inject
+  shift (0,0), unmatched top-color 0.00% (`feuille poster check-overlay`; also inject
 the §4 grayscale forcing on the check variants). On the
 12-language poster: Arabic, Hebrew, Devanagari all pass at 0.00%.
 
@@ -136,7 +136,7 @@ and compounds across the word.
 Generalize: measure each mark's in-cluster advance with measureText of
 `base+mark` minus `base`, against the base letter actually in your word;
 place the compensation BEFORE the base if the mark reorders ahead of it,
-after otherwise; tune ±0.005em until check_overlay.py passes at (0,0).
+  after otherwise; tune ±0.005em until `feuille poster check-overlay` passes at (0,0).
 
 ## 4. Measurement methodology (read before any pixel claim)
 
@@ -177,9 +177,10 @@ to see images at all — all verification is programmatic).
   standalone क at the same origin as कि does NOT compare outlines (ि's
   advance pushes क right inside the cluster). Cross-correlate with a generous
   shift radius before concluding "different glyph".
-- Tooling: scripts/check_overlay.py (registration), scripts/verify_colors.py
-  (per-cell color presence), scripts/fit_diag.py (per-cell font size/overflow),
-  scripts/audit_charset.py (tofu prevention).
+- Tooling: `feuille poster check-overlay` (registration), `feuille poster
+  verify-colors` (per-cell color presence), `feuille poster fit-diag`
+  (per-cell font size/overflow), `feuille poster audit-charset` (tofu
+  prevention) — all promoted into the @feuille/poster package.
 
 ## 5. Korean: in-glyph patches
 
@@ -190,7 +191,7 @@ Hangul syllables are single paint clusters (CJK logic), so spans can't split
   `-webkit-background-clip:text`;
 - stack hard-edged `linear-gradient` background patches (one per color region)
   sized/positioned as fractions of the glyph box;
-- geometry comes from `scripts/measure_korean.py`: it renders each syllable at
+- geometry comes from `feuille poster measure-korean`: it renders each syllable at
   200px in the REAL subset font, flood-fills ink components, labels them from
   the syllable's NFD jamo decomposition (medial geometry decides the split:
   vertical medials sit in the right half, medials ㅗ ㅜ ㅡ and compounds also
@@ -254,11 +255,11 @@ row, both times from a glyph read off a screen or out of a file dump rather
 than from a codepoint:
 
 - **A rule's name IS its glyph's codepoint.** `.ksyl` patch rules are named
-  `k%04X` from `ord(glyph)`; paste each rule under the class `measure_korean.py`
+  `k%04X` from `ord(glyph)`; paste each rule under the class `measure-korean`
   printed for it. If one syllable wears another's rule, every pre-existing gate
   still passes — measure_korean verifies a rule against its OWN labels, and the
   subset audit only checks page chars ⊆ fonts.json. So
-  `scripts/audit_charset.py` now asserts the binding itself: class codepoint ==
+  `feuille poster audit-charset` now asserts the binding itself: class codepoint ==
   glyph codepoint, the rule exists, and no rule is orphaned — and it reports
   BOTH failure classes (subset + binding) in one run before exiting, because
   fixing one must not mask the other.
@@ -356,12 +357,12 @@ Rules learned the hard way:
 - Google Fonts css2 `&text=` per-character subsetting → download woff2 →
   base64 @font-face inline. A 12-script poster lands ~150KB total.
 - Subset URLs come back as `/l/font?kit=...` without a .woff2 extension —
-  still woff2 (UA header decides); scripts/fetch_fonts.py handles it.
+  still woff2 (UA header decides); `feuille poster fetch-fonts` handles it.
 - Font stacks embed the subset family FIRST: rendering is identical with or
   without local fonts, and `document.fonts` status tells you what loaded.
 - Every character the page may ever render with a family (copy, labels,
   legend, annotations) must be in that family's `text` list — enforce with
-  scripts/audit_charset.py after every copy edit.
+  `feuille poster audit-charset` after every copy edit.
 - **A Google `&text=` subset is not the character list you asked for.** For
   scripts Google composes per jamo cluster (Hangul, Devanagari) the returned
   `unicode-range` lists the script's full codepoint closure, so it routinely

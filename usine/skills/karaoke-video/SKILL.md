@@ -38,7 +38,7 @@ worked three-file source (all 12 scene markups, voices, config) lives in
 | 4 | 画幅（横版 / 竖版 / 都要） | 状态帧几何与 `?fmt=v` 分支无从校验 |
 | 5 | 片头/片尾卡片（用 `one-page-poster` 的全屏封面变体） | 首尾帧不是满屏，出现色带 |
 
-**上游是 `one-page-poster`**：本 skill 复用它的 `fonts.css`、封面变体与逐字着色 recipe。新增字符要回到 poster 的 `fonts.json` 加并重跑 `fetch_fonts.py`，不要在本项目里另抄字体栈。
+**上游是 `one-page-poster`**：本 skill 复用它的 `fonts.css`、封面变体与逐字着色 recipe。新增字符要回到 poster 的 `fonts.json` 加并重跑 `feuille poster fetch-fonts`，不要在本项目里另抄字体栈。
 
 人设若有注册表（如 `usine/personas/personas.json`），**以它为准**。
 
@@ -117,7 +117,7 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 2. **Scaffold** a project dir: copy `assets/template/scenes.html`,
    `voices.json`, `video.json`; point `fonts_css` at the subset css built
    by the one-page-poster skill (add any NEW chars — persona names, digits —
-   to `fonts.json` and re-run its `fetch_fonts.py`, then audit). The
+   to `fonts.json` and re-run its `feuille poster fetch-fonts`, then audit). The
    template has ONE worked scene; for every script family's scene markup
    copy from `assets/example/video_src.html`.
 3. **voices.json**: one entry per item — `locale`, `voice` (edge-tts neural
