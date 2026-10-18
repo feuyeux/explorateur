@@ -30,7 +30,8 @@ export function parseSigned(v: string | number): number {
 export const SAFE_RATE = [-20, 20] as const
 export const SAFE_PITCH = [-12, 12] as const
 
-function clamp(v: number, lo: number, hi: number): number {
+/** 数值夹取：单一事实源在 tts（与 Python feuille.tts.clamp 同位）——rig 等只引用不复制。 */
+export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }
 

@@ -358,3 +358,61 @@ audio 8 / timeline 13 / textlayer 12）全绿。**P3 音画内核迁移完毕。
 门禁：typecheck 干净；vitest 23 文件全绿（179 用例，2 skipped live 门控）
 ×4 连续；Python verify_audit 23/23、verify_manifest 25/25、
 verify_metrics 13/13 全绿。**P4a（data/audit/manifest/metrics）收口。**
+
+## P4c：pildraw + rig + scenes + devices——人物与场景全量（含数值 parity 逐位一致）
+
+### 实现（packages/core/src/）
+
+- `imaging/pildraw.ts`：PIL ImageDraw 语义基座（rectangle 闭盒 x1-x0+1 /
+  outline 内缩 lw/2 / ellipse 弧线内缩 / arc 内缩 / line 平头 + joint=curve
+  圆角连接——粗线圆头 rig 的 CAP 自己补端圆）。DrawScaled 代理（scenes）与
+  draw.ts 的语义坐标 setTransform 是两条并行道：pildraw 是 PIL 像素语义的
+  忠实对应物，draw.ts 的 DrawSpec 线用圆头是金样学校准过的既有口径——
+  分歧是有意的，两处注释各自声明。
+- `rig.ts`（~1600 行，rig.py 全量）：数值约定逐条钉死——Python `int()` =
+  向零截断 → mix / LN / ARC 宽度一律 `Math.trunc`；`round(s,2)` 走
+  num.roundHalfEven；**拼种子串过 `pyFloat`（Python str(2.0)="2.0"、JS
+  `${2}`="2"——差一个 ".0" 种子空间就换）**；rnd = sha256 前 8 字节大端 ÷
+  2^64，与 Python 大整数除法逐位一致。CharCtx 的 E/RR/LN/CAP/ARC 等绘制原语
+  全部是**箭头方法字段**（场景阶段函数解构 `const { E, RR } = c` 后 `this`
+  仍在——普通方法解构即丢脸）。37 姿态注册表 + POSE_CODES 派生、
+  opennessAt 词级口型、BEARD_LEGACY 留作反向验证接缝。
+- `scenes.ts`：DrawScaled（box×k / flat 数组配对 / line·arc 宽度
+  `max(1,trunc(w·k))`，roundedRectangle 的 width **不**缩放——Python 代理
+  原样如此）+ prerenderBg（逐语义行 mix 截断渐变 → sharp **linear kernel**
+  （=PIL BILINEAR）上采样 SS 画布 → 场景绘制 → LANCZOS 缩回，返回 sharp
+  管道而非 Buffer——调用方 .convert("RGBA") 对应 .composite）+ 62 场景函数
+  65 注册名（arch/lantern/boardn 双名，注册表与 Python 金样本逐名对账）。
+- `devices.ts`：16 样式注册表 + drawDevice（未知 style 当场报错）+ chip 两型
+  契约 + LAST_WELL_RGB 跨调用副作用（`export let` live binding）+
+  GROUND_Y 地面线（`setGroundY(null)` = 封面不画悬空立柱；ES import 绑定
+  外部只读，写必须走模块内函数）。
+- index.ts 导出 rig/scenes/devices 三命名空间；tts.pure 的 clamp 导出
+  （单一事实源在 tts，rig 只引用不复制）。
+
+### 测试（verify_rig.py 的 vitest 移植 + 注册表金样本）
+
+- `rig.test.ts`：A1–E2 几何探针全量移植（判定窗/取样点/阈值逐字保留）。
+  渲层 = napi canvas SS 超采样 → 2×2 块平均（PIL BOX 下采样的整数倍精确
+  等价）。三人设全探针放行 + C1/C2 抬臂族五官 + A1 凿洞自证 + 幂等。
+- `scenes.test.ts`：注册表键集对 `golden/scenes_registry.json`（Python
+  落盘）逐名一致、双名注册同一函数引用、全 65 场景一张卡渲染冒烟、
+  未知场景名静默跳过（Python `SCENES.get` 语义）、幂等。
+- `devices.test.ts`：注册表键集金样本对账、chip 两型（"1" 是字牌不是色片）、
+  well 推导、未知 style 报错、LAST_WELL_RGB 逐调用更新、panel 的
+  GROUND_Y=1700/null 两分支——画法断言用录制桩（断「画了什么」比像素反推准）。
+
+### 坑与实录
+
+- **pyFloat 种子串**：opennessAt 的 amp 种子拼 `round(s,2)`——整数值浮点
+  Python 渲 "2.0"、JS 渲 "2"，一个 ".0" 换掉整个 rnd 空间。探针
+  `open2`（词首恰 2.0）两侧同为 0.9602105028403203 证明修齐。
+- **sharp 类型引用**：sharp 的 d.ts 是 `export =` 命名空间，default import
+  下 `sharp.Sharp` 不可作类型——用 `ReturnType<typeof sharp>`；resize 的
+  双线性 kernel 叫 **linear**（bilinear 是插值器名不是 resize kernel 名）。
+- **noUncheckedIndexedAccess 连 TypedArray 索引也判 possibly undefined**：
+  探针的热循环里 `rgb[o]` 全部要 `!`——纯 TS 严格性开销，无语义影响。
+
+门禁：typecheck 干净；vitest 26 文件全绿（197 用例，2 skipped live 门控）
+×4 连续；Python verify_rig 27/27 复跑全绿（双轨期纪律）。**P4c（rig/scenes/
+devices + pildraw 基座）收口。**
