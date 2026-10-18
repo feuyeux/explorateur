@@ -2,36 +2,40 @@
 
 ## The production line
 
-The asset under recursive self-improvement is a Python package ("feuille")
-that turns lesson material into short vertical videos for Chinese
-short-video platforms, across many languages. One pipeline pass takes a
-lesson scene - script lines, speaker personas, a language roster - and
-renders on-screen text per language, synthesizes narration audio with
-word-level timing, composes frames and audio tracks into a master clip,
-draws a cover image, and emits the publication manifest each platform
-expects. Quality baselines are enforced mechanically: cached artifact
-hashes, frame-level pixel comparisons, lesson schema validation, and a
-documentation gate that refuses dead references.
+The asset under recursive self-improvement is a TypeScript pnpm monorepo
+("usine") that turns lesson material into short vertical videos for
+Chinese short-video platforms, across many languages. One pipeline pass
+takes a lesson scene - script lines, speaker personas, a language roster
+- and renders on-screen text per language, synthesizes narration audio
+with word-level timing, composes frames and audio tracks into a master
+clip, draws a cover image, and emits the publication manifest each
+platform expects. Quality baselines are enforced mechanically: cached
+artifact hashes, frame-level pixel comparisons, lesson schema validation,
+and per-package vitest suites that include deliberate-failure
+(reverse-validation) probes.
 
 ## Repository layout (what lives where)
 
-- src/feuille/ - the package itself: scene parsing, the lesson model, TTS
-  wrappers, audio composition, timeline math, text rendering layers,
-  covers, manifests, metrics, publish adapters, and the CLI router.
-- scripts/ - the standalone acceptance probes (verify_*.py) plus the
-  aggregator that drives them; the aggregator is the project's gate.
+- packages/ - the TypeScript packages: core (scene parsing, the lesson
+  model, TTS, audio composition, timeline math, text rendering layers,
+  covers, manifests, metrics, personas, data), the pipeline packages
+  (karaoke, poster, poetry, storyteller, copy, bgm), the publish
+  adapters (Playwright), the CLI router, the dsh plugin, and the gate
+  package (ownership accounting over skills).
+- packages/*/test/ - the vitest suites; "pnpm verify" (typecheck plus
+  every suite) is the project's gate.
 - lessons/, languages/, personas/, themes/ - data: lesson definitions,
   language metadata, persona rosters, visual themes.
 - docs/, skills/, examples/ - operator documentation, packaging howtos,
   worked examples.
-- ownership.json, uv.lock, pyproject.toml - provenance and environment
-  pinning.
+- ownership.json, package.json, pnpm-lock.yaml, pnpm-workspace.yaml -
+  provenance and environment pinning.
 
 ## How the repository protects itself
 
-The gate command ("uv run feuille verify", run at the project root with
-the uv environment kept outside the project) drives every acceptance
-suite and must exit 0. Any accepted improvement keeps the gate green; a
+The gate command ("pnpm verify", run at the project root after a
+one-time "pnpm install"; requires Node 24+ and pnpm 11 on PATH) drives
+typecheck and every acceptance suite and must exit 0. Any accepted improvement keeps the gate green; a
 red gate rejects the candidate at merge time regardless of what the
 verifier said. Live platform operations - login, publishing, profile
 handling - are out of scope here: this environment refuses them before

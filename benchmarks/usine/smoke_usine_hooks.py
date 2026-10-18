@@ -301,15 +301,15 @@ class _FakeVM:
 def test_publish_boundary() -> None:
     scan = usine_hooks.scan_publish_boundary
     check("scan: publish CLI invocation hits",
-          scan("uv run --project usine feuille publish xhs")
+          scan("pnpm exec feuille publish xhs")
           == [("publish-cli", "feuille publish")])
     check("scan: publish login leaf hits",
           scan("feuille publish login") != [])
     check("scan: path spellings stay clean",
-          scan("tar -cf out.tar src/feuille/publish/xhs.py") == []
-          and scan("grep -rn feuille src/feuille/publish") == [])
-    check("scan: the offline verify suites stay clean",
-          scan("uv run --project usine feuille verify publish") == []
+          scan("tar -cf out.tar packages/publish/src/xhs.ts") == []
+          and scan("grep -rn feuille packages/publish/src") == [])
+    check("scan: the offline gate stays clean",
+          scan("pnpm verify") == []
           and scan("feuille verify") == [])
     check("scan: hand-rolled persistent-profile launch hits",
           scan("ctx = pw.chromium.launch_persistent_context("
@@ -319,17 +319,15 @@ def test_publish_boundary() -> None:
     check("refusal: names the boundary, the evidence, and the offline path",
           "[PUBLISH BOUNDARY" in refusal
           and "'feuille publish'" in refusal
-          and "scripts/verify_publish.py" in refusal
+          and "packages/publish/test/publish.test.ts" in refusal
           and "feuille[ ]publish" in refusal, refusal[:200])
 
     fake = _FakeVM()
     wrapped = usine_hooks.wrap_publish_blacklist(fake)
-    trace = wrapped.run_script(
-        "bash", "uv run --project usine feuille verify publish")
+    trace = wrapped.run_script("bash", "pnpm verify")
     check("facade: clean programs pass through to the VM",
           trace.exit_code == 0 and "ran bash program" in trace.stdout
-          and fake.calls[-1] == ("script", "bash",
-                                 "uv run --project usine feuille verify publish"),
+          and fake.calls[-1] == ("script", "bash", "pnpm verify"),
           trace.stdout)
 
     before = len(fake.calls)
@@ -416,7 +414,7 @@ def test_live_guest() -> None:
               trace.exit_code == 0 and "actor-ok" in trace.stdout,
               f"exit={trace.exit_code} out={trace.stdout[:200]!r}")
         trace = wrapped.run_script(
-            "bash", "cd ~ && uv run --project usine feuille publish xhs")
+            "bash", "cd ~ && pnpm exec feuille publish xhs")
         check("live: publish programs are refused on the real channel",
               trace.exit_code == 126
               and "[PUBLISH BOUNDARY" in trace.stdout

@@ -37,7 +37,7 @@ Two host-side seam sets, both consumed by run_usine.py:
     contains these names can trip it - the refusal message teaches the
     character-class workaround - and the harness-authored ``run_command``
     channel is intentionally unscanned (its commands legitimately carry
-    project file names like ``src/feuille/publish/xhs.py``).
+    project file names like ``packages/publish/src/xhs.ts``).
 
 This module lazily imports ``explore.commit`` and ``explore.practice_loop``
 (they pull the practice fence); the importing process must put the théâtre
@@ -273,12 +273,12 @@ def hooks_for(corpus_path):
 # ------------------------------------------------------- publish boundary
 
 # Execution-shaped patterns only.  A bare "publish" would false-positive on
-# the project's own file names (src/feuille/publish/xhs.py in tar lists and
+# the project's own file names (packages/publish/src/xhs.ts in tar lists and
 # grep output), so the CLI pattern requires the exact "feuille <whitespace>
 # publish" command spelling - a path slash does not match - and the launch
 # pattern names the one Playwright call that reaches persistent login
-# profiles.  Running the offline verify suites stays clean: "feuille verify
-# publish" has "verify" between the two words and does not match.
+# profiles.  Running the offline gate stays clean: the gate is "pnpm verify"
+# now (no "feuille publish" spelling anywhere).
 _PUBLISH_BOUNDARY_PATTERNS = (
     ("publish-cli", re.compile(r"\bfeuille\s+publish\b")),
     ("persistent-profile-launch", re.compile(r"\blaunch_persistent_context\b")),
@@ -313,9 +313,10 @@ def _publish_refusal(hits) -> str:
         "- Platform login profiles do not resolve inside this environment,\n"
         "  so every stock publish or login path would stop at its own login\n"
         "  wall; there is nothing real to test against here.\n"
-        "- Develop and test publish code offline only, exactly like\n"
-        "  scripts/verify_publish.py: mock pages over file:// URLs with a\n"
-        "  throwaway profile directory, never a real platform domain.\n"
+        "- Develop and test publish code offline only, exactly like the\n"
+        "  publish vitest suite (packages/publish/test/publish.test.ts):\n"
+        "  mock pages over file:// URLs with a throwaway profile directory,\n"
+        "  never a real platform domain.\n"
         "- The refusal is textual: if you were only inspecting or quoting\n"
         "  source that merely mentions these names, avoid the exact literal\n"
         "  spelling in your next command (for example a character class like\n"

@@ -55,8 +55,8 @@ system_extra: |
     at /home/user/evolution_project. Author instructions that treat the
     existing code as the working material.
   - Every candidate must keep the repository's offline verification gate
-    green: "uv run feuille verify" (from the project root, uv environment
-    outside it) must exit 0. Tell the Actor in each instruction to run that
+    green: "pnpm verify" (from the project root, after a one-time "pnpm
+    install") must exit 0. Tell the Actor in each instruction to run that
     gate as its own final check before declaring done.
   - Live platform publishing and platform login never run in this
     environment: instructions must ask for offline artifacts only (code,

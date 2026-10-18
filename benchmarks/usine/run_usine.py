@@ -95,7 +95,13 @@ DEFAULT_RUNS_ROOT = (_EXPLORATEUR_ROOT.parents[0]
                      / "theatre-usine-runs")
 DEFAULT_LLM_CONFIG = Path.home() / ".minimax" / "config.yaml"
 DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
-DEFAULT_GATE_ARGV = ("uv", "run", "feuille", "verify")
+# TS 迁移（usine P0-P8）后的门禁：pnpm verify（typecheck + vitest 全量）。
+# 真 wave 跑之前须在 wave host 落实的前置条件：Node >= 24 + pnpm 11；首跑
+# pnpm install 需网络（或暖 pnpm store）。node_modules 落在树内——uv 时代
+# 「环境放树外保 capture 干净」的技巧不可移植到 pnpm；wave_merge 已对称排除
+# node_modules，但 capture/seed 缝对 node_modules 的体量与审计面须在真 wave
+# 前复核（真 wave 本就顺延至迁移完成后，届时另行喊跑）。
+DEFAULT_GATE_ARGV = ("pnpm", "verify")
 
 EXECUTE_ACK = "RUN-USINE-PHASE1-WAVES"
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+\Z")
@@ -254,18 +260,16 @@ USINE TRANSPORT FACTS (Windows git-bash guest):
   (your home directory) instead. For scratch space in bash use $HOME too
   (e.g. "$HOME/scratch"); a literal /tmp in bash resolves through a mount
   shared by other processes and is NOT reliable in your guest.
-- The offline verification gate is "uv run feuille verify", run from the
-  project root. Keep the uv environment OUTSIDE the project root so it never
-  lands in your captured work:
-    bash:   cd "$HOME/evolution_project" && UV_PROJECT_ENVIRONMENT="$HOME/.venv-gate" uv run feuille verify
-  From a python program, run uv with its working directory at
-  /home/user/evolution_project and the same environment variable set to
-  "/home/user/.venv-gate" (it resolves against your home drive).
-  "uv run feuille verify --list" names the suites; --only <suite> runs one.
-  The first run on a fresh machine builds the environment (about a minute);
-  later runs reuse it. Live platform publishing and platform login never
-  run in this environment: those programs are refused before execution, so
-  develop and verify offline only."""
+- The offline verification gate is "pnpm verify" (a TypeScript pnpm
+  monorepo: typecheck plus every vitest suite), run from the project root
+  after a one-time "pnpm install":
+    bash:   cd "$HOME/evolution_project" && pnpm install && pnpm verify
+  Node 24+ and pnpm 11 must be on PATH. The first install fills the pnpm
+  store (needs network once); later runs reuse it. Never edit anything
+  under node_modules - it is installed material, not work.
+  "pnpm vitest run packages/<pkg>" runs one package's suite. Live platform
+  publishing and platform login never run in this environment: those
+  programs are refused before execution, so develop and verify offline only."""
 
 
 def _install_actor_prompt_patch() -> None:

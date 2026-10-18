@@ -272,6 +272,12 @@ def probe_python3_shim(gb: GuestBash) -> None:
     check("python3-shim-runs", ok, f"rc={rc} out={out.strip()!r} err={err.strip()[:200]!r}")
     rc, out, _ = gb.run("command -v uv || echo NO_UV")
     info("uv-visible", f"uv resolution: {out.strip()!r}")
+    # TS-tree gate prerequisite (usine is a pnpm monorepo since P0-P8):
+    # the offline gate "pnpm verify" needs Node 24+ and pnpm 11 in PATH.
+    rc, out, _ = gb.run("node --version 2>/dev/null || echo NO_NODE")
+    info("node-visible", f"node resolution: {out.strip()!r}")
+    rc, out, _ = gb.run("command -v pnpm 2>/dev/null && pnpm --version || echo NO_PNPM")
+    info("pnpm-visible", f"pnpm resolution: {out.strip()!r}")
 
 
 def probe_timeout_kill(gb: GuestBash) -> None:

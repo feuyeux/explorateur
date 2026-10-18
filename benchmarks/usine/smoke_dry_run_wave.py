@@ -14,9 +14,10 @@ What one scripted wave exercises (exactly 8 fake chat calls):
      /home/user/phase1_wave.json handoff in one python program; the
      terminal probe accepts it inside the same segment.
   2. Actor (MiniMax-M3) runs the true offline gate inside the guest
-     ("uv run feuille verify" with UV_PROJECT_ENVIRONMENT outside the
-     tree), cleans bytecode caches, adds one note under
+     ("pnpm install" once, then "pnpm verify"), adds one note under
      docs/theatre-rsi/, and submits /home/user/actor_handoff.md.
+     Prerequisite on the wave host: Node >= 24 + pnpm 11 on PATH, with
+     a warm pnpm store or network access for the first install.
   3. Actor declares done (the done probe checks the handoff exists).
   4. Verifier (MiniMax-M3.1-Flash-Preview) publishes one
      verifier-report program with exactly one standalone VERDICT line.
@@ -138,31 +139,31 @@ CURRICULUM_CODE = (
     'print("dry-run wave scaffold and handoff published")\n'
 )
 
-# The gate record the actor adds to the tree. Docs-gate-clean by
-# construction: no "feuille <grp> <cmd>" spelling, no USINE_ prefixed
-# variable, no scripts/ mention, no backtick symbol, no link.
+# The gate record the actor adds to the tree. Audit-clean by construction:
+# no "feuille <grp> <cmd>" spelling, no USINE_ prefixed variable, no
+# scripts/ mention, no backtick symbol, no link.
 NOTE_TEXT = (
     "Offline gate record - dry run\n"
     "\n"
-    "The verification gate ran once from this project root with its build\n"
-    "environment kept outside the tree at $HOME/.venv-gate. Every suite\n"
-    "came back green or honestly skipped, and the command exited zero.\n"
+    "The verification gate ran once from this project root: a single pnpm\n"
+    "install filled the store, then pnpm verify (typecheck plus every\n"
+    "vitest suite) came back green or honestly skipped, and the command\n"
+    "exited zero.\n"
     "This note is the only file this branch adds to the tree.\n"
 )
 
 ACTOR_HANDOFF_TEXT = (
     "STATUS: SUBMIT\n"
-    "The offline verification gate ran once from the project root with the\n"
-    "build environment redirected outside the tree and exited zero. One\n"
-    "short plain-text record was added under docs/theatre-rsi/. Nothing\n"
-    "else in the tree was touched.\n"
+    "The offline verification gate ran once from the project root: pnpm\n"
+    "install then pnpm verify, exit zero. One short plain-text record was\n"
+    "added under docs/theatre-rsi/. Nothing else in the tree was touched.\n"
 )
 
 ACTOR_CODE = (
     "set -eu\n"
     'cd "$HOME/evolution_project"\n'
-    'UV_PROJECT_ENVIRONMENT="$HOME/.venv-gate" uv run feuille verify\n'
-    "find . -type d -name '__pycache__' -prune -exec rm -rf {} +\n"
+    "pnpm install\n"
+    "pnpm verify\n"
     "mkdir -p docs/theatre-rsi\n"
     "cat > " + NOTE_REL + " <<'DRY_RUN_NOTE'\n"
     + NOTE_TEXT +
@@ -178,9 +179,9 @@ VERIFIER_REPORT = (
     "The candidate tree was inspected directly. The requested record "
     "exists\nat " + NOTE_REL + " as one short plain-text note.\n"
     "It states that the verification gate ran once from the project "
-    "root\nwith the build environment kept outside the tree and exited "
-    "zero, and\nthat the note is the only file the branch adds. The "
-    "visible candidate\nsurface shows no other change against the "
+    "root\n(pnpm install then pnpm verify) and exited zero, and that "
+    "the note is the only file the branch adds. The visible "
+    "candidate\nsurface shows no other change against the "
     "seeded baseline.\n"
     "\n"
     "VERDICT: PASS\n"
@@ -189,13 +190,12 @@ VERIFIER_REPORT = (
 DISTILL_NOTE_TEXT = (
     "Offline gate memory - dry run\n"
     "\n"
-    "- The gate command for this tree: cd to the project root, keep the\n"
-    "  build environment at $HOME/.venv-gate (outside the tree), then\n"
-    "  run `uv run feuille verify`.\n"
-    "- A first environment build takes under a minute from the host\n"
-    "  package cache; the full gate run finishes in about one minute.\n"
-    "- Clean `__pycache__` directories out of the tree after a gate run\n"
-    "  so the captured candidate stays minimal.\n"
+    "- The gate command for this tree: cd to the project root, run pnpm\n"
+    "  install once, then run pnpm verify.\n"
+    "- The first install fills the pnpm store from the host; the full\n"
+    "  gate run finishes in about one minute.\n"
+    "- Never edit anything under node_modules: it is installed material,\n"
+    "  not work, and the wave machinery excludes it from merges.\n"
 )
 
 RECONCILE_APPEND_TEXT = (
@@ -337,8 +337,8 @@ def build_fixture_repo() -> dict:
     _require(extracted == source_count,
              f"extracted {extracted} file(s) but the prefix tracks "
              f"{source_count}")
-    _require((FIXTURE_DIR / "pyproject.toml").is_file(),
-             "fixture repo root has no pyproject.toml (gate would fail)")
+    _require((FIXTURE_DIR / "package.json").is_file(),
+             "fixture repo root has no package.json (gate would fail)")
 
     _git(["-c", "init.defaultBranch=main", "init"], FIXTURE_DIR)
     _git(["config", "core.autocrlf", "false"], FIXTURE_DIR)
