@@ -9,7 +9,7 @@
 // 4. 候选表覆盖三套系统
 // 第 0 条纪律是好数据放行：恒判 FAIL 的检查毫无价值。
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -50,8 +50,9 @@ describe('跨平台：外部件解析（浏览器 / ffmpeg / ffprobe / magick）
     const hits: string[] = []
     let nFiles = 0
     for (const p of walkTs(packagesDir).sort()) {
-      // 归一化为仓库相对路径再比对白名单
-      const rel = p.replace(/^.*usine\//, '')
+      // 归一化为仓库相对路径再比对白名单。相对 packages/ 的父目录算，
+      // 与 checkout 目录名无关：RSI 演进客体的检出叫 evolution_project。
+      const rel = relative(dirname(packagesDir), p)
       if (ALLOWED.includes(rel)) continue
       nFiles += 1
       const text = readFileSync(p, 'utf8')
