@@ -137,3 +137,11 @@ describe('P5 课件线叶子经路由端到端可达', () => {
     }
   })
 })
+
+describe('P5-7 归流叶子经路由端到端可达', () => {
+  it('theme match：话题匹配 + --list + 用法错 → 0/0/2（skills/match_theme.py 升包）', async () => {
+    expect(await main(['theme', 'match', '一杯茶的十二种语言', '--lang', 'ja'])).toBe(0)
+    expect(await main(['theme', 'match', '--list'])).toBe(0)
+    expect(await main(['theme', 'match', '--nope'])).toBe(2)
+  })
+})

@@ -180,7 +180,7 @@ pipeline.
 ## Resources
 
 - `theme-tokens.css` (in `skills/`) — extracted global multi-theme CSS variables supporting 5 teaching video domain palettes (`warm-paper` 国学古文, `clean-paper` 现代外语, `dark-ink` 哲学考据, `desert-sand` 丝路阿语, `botanical-tea` 自然博物)
-- `match_theme.py` (in `skills/`) — automatic theme matcher based on content topic keywords and language
+- `feuille theme match` (@feuille/core `themes`) — automatic theme matcher based on content topic keywords and language (promoted from `skills/match_theme.py`)
 - `typography-base.css` (in `skills/`) — shared multilingual typography & karaoke state rules (`.tok`, `[data-say]`, `.compound`, `.verdict`)
 - `assets/template/` — `scenes.html` (karaoke CSS/JS + portrait variant +
   token recipes; ONE worked scene), `voices.json`, `video.json` (two-format

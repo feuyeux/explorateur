@@ -67,6 +67,11 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/lesson-doctor.js'),
     desc: '课件就绪度体检：①创意…⑦验收，每条未完成带下一条命令（FAIL → 退出码 1）',
   },
+  // ---- P5-7 skills 归流（skills/ 脚本升包后的唯一实现进 @feuille/core）----
+  'theme/match': {
+    load: () => import('./leaves/theme-match.js'),
+    desc: '主题自动匹配：话题/语种 → 5 套垂域主题推荐（skills/match_theme.py 升包）',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——

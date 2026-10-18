@@ -197,7 +197,7 @@ verify the embedded subset actually loaded before trusting any em value). Quick 
 ## Resources
 
 - `theme-tokens.css` (in `skills/`) — extracted global multi-theme CSS variables supporting 5 teaching video domain palettes (`warm-paper` 国学古文, `clean-paper` 现代外语, `dark-ink` 哲学考据, `desert-sand` 丝路阿语, `botanical-tea` 自然博物)
-- `match_theme.py` (in `skills/`) — automatic theme matcher based on content topic keywords and language
+- `feuille theme match` (@feuille/core `themes`) — automatic theme matcher based on content topic keywords and language (promoted from `skills/match_theme.py`)
 - `typography-base.css` (in `skills/`) — shared multilingual typography & component rules (coloring classes, `.stack`, `.ksyl`, `.zi`, `.compound`, `.verdict`)
 - `assets/template/` — `poster_src.html` (skeleton with fit JS + ?verify=1
   diagnostics + overlay/ksyl CSS recipes) and `fonts.json` (example)

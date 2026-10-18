@@ -753,3 +753,46 @@ vitest 对应 = packages/publish/test/publish.test.ts。
 门禁：typecheck 干净；vitest 34 文件全绿（308 用例，3 skipped——gated 块
 随 playwright 缺席 SKIP，与 Python 侧口径一致）×4 连续；Python
 verify_publish 12/12 复跑全绿（双轨期纪律）。**P5-6 收口。**
+
+## P5-7a：match_theme 升包（@feuille/core/themes + `feuille theme match`）——2026-10-18
+
+P5-7 归流第一子批：`skills/match_theme.py`（169 行，skills 根下的孤立脚本）
+升包为 @feuille/core 第 31 个库模块 `themes`。它被 one-page-poster 与
+karaoke-video 两个 skill 的 SKILL.md 同列引用——按 ownership 三层模型
+这是典型的 library 归属（≥2 skill 用的业务实现），升包后 skills/ 里只留
+对包的调用（SKILL.md 资源行改指 `feuille theme match`）。
+
+### 归流决定与移植要点
+
+- **唯一实现**：THEMES / KEYWORDS_RULES / matchTheme / describeThemes 全量
+  进包，零重复。匹配优先级原样镜像：显式指定 > 语言强约束（ar/he/fa/ur
+  **前缀**命中 → desert-sand）> 关键词评分（`score > maxScore` 严格大于才
+  换人 → 同分先列者胜，规则表顺序即优先级）> 零命中兜底（非 zh 外语 →
+  clean-paper；中文话题带课/讲/学字样 → clean-paper；否则 warm-paper 基线）。
+- **query 口径**：`topic + " " + lang` 全小写；兜底分支里 `lang.startsWith('zh')`
+  用**原参**不落小写——Python 侧同款（第 3 步的 lang 是函数入参，不是
+  query），逐行镜像。
+- **CLI 对应形态**：Python `__main__` 的 argparse 口径进 `themes.main(argv)`：
+  `-h` → usage stdout + 0；未知旗标 / `--lang` 缺值 / 第二个位置参数
+  （argparse unrecognized）→ usage stderr + 2；`--lang=x` 带值形态收；
+  重复旗标后者覆盖（argparse 同款）。`--list` 或无 topic → 列 5 套主题，
+  输出逐行镜像（含 Python print 尾随 `\n` 的视觉空行——按调用串形态断言）。
+- **接线**：cli 路由表新增 `theme/match` 叶子（薄适配层，残余 argv 原样
+  交接）；SKILL.md 两处资源行改指包调用；skills/match_theme.py 删除
+  （skills/ 只留资产 + 对包的调用）。
+
+### 测试（packages/core/test/themes.test.ts，14 用例 + cli.test.ts 路由 1 条）
+
+- 匹配优先级：显式合法/非法、语言强约束前缀族（ar/ar-SA/he/fa/ur，zh 反例）、
+  关键词四主题各一例、语种名携带关键词进评分、同分先列者胜、零命中外语/
+  中文兜底三分支、空参默认。
+- describeThemes：5 套齐全、`THEMES[k] === t` 键值自洽、双色号格式。
+- main：--list/无 topic 输出行形态、话题匹配四行逐字断言、-h/0、
+  未知旗标/--lang 缺值/双位置参数 → 2、--lang= 带值合法、--list 覆盖话题。
+- cli.test.ts：`feuille theme match` 经路由端到端 0/0/2 三态。
+
+门禁：typecheck 干净；vitest 34 文件全绿（323 用例，3 skipped）——首轮
+1 例瞬时失败后连续 9 轮全绿（失败日志已失，未能定位；新增两文件均为
+纯函数断言无时序依赖，疑为既有套件在冷启动负载下的一次性时序抖动，
+如实记录，后续轮次若复现再行定位）；Python verify_skills 78/78 复跑
+全绿（SKILL.md 改行 + skills/ 删文件后边界机检不破）。**P5-7a 收口。**
