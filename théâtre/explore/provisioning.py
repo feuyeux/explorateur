@@ -57,23 +57,68 @@ def _symlink_digest(target: str) -> str:
 
 
 # ----------------------------------------------------------------- capture --
+def _safe_part_names(parts) -> list[str] | None:
+    """Validated, de-duplicated exclusion parts, or None if any is unsafe.
+
+    Exclusion parts name regenerable directories (for example
+    ``node_modules``), pruned wherever they appear beneath the captured
+    guest roots.  They follow the same safety rules as the roots themselves
+    so a part can never smuggle path separators, traversal, wildcards, or
+    hidden-dot lookalikes into the tar --exclude pattern list.
+    """
+    if parts is None:
+        return None
+    values = sorted({str(p) for p in parts})
+    if (not values
+            or any(not _ROOT_NAME.fullmatch(p) or p.startswith(".")
+                   for p in values)):
+        return None
+    return values
+
+
 def capture_project_materials(vm, project_key: str, host_dir: str,
-                              guest_dirs=None, attempts: int = 3) -> dict:
+                              guest_dirs=None, attempts: int = 3,
+                              exclude_parts=None) -> dict:
     """Guest material dirs -> host_dir/{materials.tgz, MANIFEST}. Runs ONCE,
     at project acceptance, after the provisioner has generated raw materials
     on the authoring boot. Returns {ok, files, bytes}; not-ok = infra
-    failure (provision_failed), never silently retried by re-generation."""
+    failure (provision_failed), never silently retried by re-generation.
+
+    ``exclude_parts`` prunes regenerable heavy directories (build output,
+    dependency trees) from the captured archive.  Excluded parts never enter
+    the archive, so the manifest, replay wipe, and exact-set verify all stay
+    symmetric by construction.  ``None`` (the default) captures losslessly
+    with a byte-identical command; exclusions are the caller's declared
+    contract that those directories are reproducible artifacts, not work
+    product."""
     dirs = sorted(set(guest_dirs or DEFAULT_GUEST_DIRS))
     if (not dirs or any(not isinstance(d, str) or not _ROOT_NAME.fullmatch(d)
                         or d.startswith(".") for d in dirs)):
         return {"ok": False, "files": 0, "bytes": 0,
                 "error": "guest project roots must be safe top-level names"}
+    parts = _safe_part_names(exclude_parts)
+    if exclude_parts is not None and parts is None:
+        return {"ok": False, "files": 0, "bytes": 0,
+                "error": "capture exclude parts must be safe top-level names"}
+    exclude_args = ""
+    if parts:
+        # Unanchored basename exclusion: tar matches --exclude patterns
+        # against any trailing path component by default (GNU tar's
+        # documented --no-anchored default; bsdtar likewise), so the plain
+        # part name prunes that directory wherever it appears beneath the
+        # captured roots — pnpm-style workspaces nest node_modules inside
+        # every package.  A part is a validated literal name (no
+        # wildcards), and an excluded directory is skipped together with
+        # its whole subtree.
+        exclude_args = " ".join(f"--exclude={shlex.quote(p)}"
+                                for p in parts) + " "
     dir_args = " ".join(shlex.quote(d) for d in dirs)
     data = None
     for att in range(attempts):
         out = vm.run_command(
             f"rm -f {GUEST_TGZ_OUT} && tar czf {GUEST_TGZ_OUT} "
-            f"-C {GUEST_HOME} {dir_args} 2>/dev/null; echo TAR_RC=$?",
+            f"-C {GUEST_HOME} {exclude_args}{dir_args} "
+            f"2>/dev/null; echo TAR_RC=$?",
             timeout=120)
         if "TAR_RC=0" not in (out or ""):
             log.warning("capture attempt %d: guest tar failed (out=%r)",
@@ -151,8 +196,11 @@ def capture_project_materials(vm, project_key: str, host_dir: str,
     with open(os.path.join(host_dir, MATERIALS), "wb") as f:
         f.write(data)
     with open(os.path.join(host_dir, MANIFEST), "w") as f:
-        f.write(f"# project: {project_key}  dirs: {' '.join(dirs)}  "
-                f"captured: {time.strftime('%F %T')}\n")
+        header = (f"# project: {project_key}  dirs: {' '.join(dirs)}  "
+                  f"captured: {time.strftime('%F %T')}")
+        if parts:
+            header += f"  excluded: {' '.join(parts)}"
+        f.write(header + "\n")
         for rel in sorted(manifest):
             f.write(f"{manifest[rel]}  {rel}\n")
     with open(os.path.join(host_dir, ROOTS), "w", encoding="utf-8") as f:

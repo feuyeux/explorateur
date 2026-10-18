@@ -53,9 +53,13 @@ class _GuestVM:
         self.cmds.append(cmd)
         m = _CAPTURE.search(cmd)
         if m:
-            dirs = shlex.split(m.group(1))
+            tokens = shlex.split(m.group(1))
+            dirs = [t for t in tokens if not t.startswith("--exclude=")]
+            excludes = [t[len("--exclude="):] for t in tokens
+                        if t.startswith("--exclude=")]
             sub = {rel: d for rel, d in self.files.items()
-                   if rel.split("/", 1)[0] in dirs}
+                   if rel.split("/", 1)[0] in dirs
+                   and not any(e in rel.split("/") for e in excludes)}
             if not sub:
                 return "TAR_RC=2"
             self.tar_out = _tgz_of(sub)
@@ -203,6 +207,106 @@ def test_capture_configurable_dirs(tmp_path):
     assert "ref/target.mp4" in P.read_manifest(str(tmp_path))
 
 
+# ------------------------------------------------------------- exclusions --
+def test_capture_without_excludes_keeps_the_command_byte_identical(tmp_path):
+    """The seam must not perturb the historical default contract."""
+    vm = _GuestVM(RAW)
+    P.capture_project_materials(vm, "p01", str(tmp_path))
+    assert vm.cmds[0] == (
+        "rm -f /tmp/proj_materials.tgz && tar czf /tmp/proj_materials.tgz "
+        "-C /home/user raw 2>/dev/null; echo TAR_RC=$?")
+
+
+def test_capture_exclude_parts_prune_regenerable_directories(tmp_path):
+    files = {"evolution_project/src/index.ts": b"work product\n",
+             "evolution_project/node_modules/x/y.js": b"dependency bytes",
+             "evolution_project/node_modules/x/z.js": b"more dependencies",
+             "evolution_project/packages/core/node_modules/w/w.js":
+                 b"nested dependency bytes",
+             "evolution_project/packages/core/dist/index.mjs": b"build output",
+             "evolution_project/dist/index.mjs": b"top-level build output"}
+    vm = _GuestVM(files)
+    r = P.capture_project_materials(
+        vm, "p01", str(tmp_path), guest_dirs=["evolution_project"],
+        exclude_parts=["node_modules", "dist"])
+    assert r["ok"] and r["files"] == 1
+    assert set(P.read_manifest(str(tmp_path))) == {
+        "evolution_project/src/index.ts"}
+    header = (tmp_path / P.MANIFEST).read_text(encoding="utf-8").splitlines()[0]
+    assert "excluded: dist node_modules" in header
+    # any-depth semantics: the unanchored exclusion prunes nested copies too
+    assert "--exclude=node_modules" in vm.cmds[0]
+    assert "--exclude=evolution_project/node_modules" not in vm.cmds[0]
+
+
+def test_capture_excludes_flow_symmetrically_through_replay(tmp_path):
+    files = {"evolution_project/src/index.ts": b"work product\n",
+             "evolution_project/node_modules/x/y.js": b"dependency bytes",
+             "evolution_project/packages/core/node_modules/w/w.js":
+                 b"nested dependency bytes",
+             "evolution_project/dist/index.mjs": b"build output"}
+    P.capture_project_materials(
+        _GuestVM(files), "p01", str(tmp_path),
+        guest_dirs=["evolution_project"],
+        exclude_parts=["node_modules", "dist"])
+    vm2 = _GuestVM({"evolution_project/node_modules/leftover.js": b"stale",
+                    "evolution_project/packages/core/node_modules/s.js":
+                        b"stale"})
+    assert P.replay_project_materials(vm2, str(tmp_path)) == {
+        "ok": True, "mismatches": []}
+    assert set(vm2.files) == {"evolution_project/src/index.ts"}
+    assert P.verify_project_materials(vm2, str(tmp_path)) == {
+        "ok": True, "mismatches": []}
+
+
+def test_capture_rejects_unsafe_exclude_parts(tmp_path):
+    vm = _GuestVM(RAW)
+    r = P.capture_project_materials(
+        vm, "p01", str(tmp_path), exclude_parts=["../outside"])
+    assert not r["ok"]
+    assert "safe top-level" in r["error"]
+    assert not os.path.exists(tmp_path / "materials.tgz")
+
+
+def test_capture_exclude_parts_with_real_tar(tmp_path, monkeypatch):
+    """Pin the actual tar --exclude semantics against a real shell: the named
+    directory is skipped together with its whole subtree, at any depth."""
+    guest_home = tmp_path / "guest-home"
+    project = guest_home / "evolution_project"
+    (project / "src").mkdir(parents=True)
+    (project / "node_modules" / "x").mkdir(parents=True)
+    (project / "packages" / "core" / "node_modules" / "w").mkdir(parents=True)
+    (project / "src" / "index.ts").write_text("work\n", encoding="utf-8")
+    (project / "node_modules" / "x" / "y.js").write_text("dep", encoding="utf-8")
+    (project / "packages" / "core" / "node_modules" / "w" / "w.js").write_text(
+        "nested dep", encoding="utf-8")
+
+    monkeypatch.setattr(P, "GUEST_HOME", str(guest_home))
+    monkeypatch.setattr(P, "GUEST_TGZ_OUT", str(tmp_path / "out.tgz"))
+
+    class LocalVM:
+        def run_command(self, command, timeout=None, cap=None):
+            completed = subprocess.run(
+                ["bash", "-lc", command], capture_output=True, text=True,
+                timeout=timeout, check=False,
+                # macOS bsdtar otherwise archives provenance xattrs as
+                # AppleDouble ._ members (guest tar has no such noise); the
+                # switch is a no-op under GNU tar on the wave host.
+                env={**os.environ, "COPYFILE_DISABLE": "1"})
+            return completed.stdout
+
+        def fetch_file(self, path, max_bytes=None):
+            return open(path, "rb").read(), ""
+
+    r = P.capture_project_materials(
+        LocalVM(), "tar-real", str(tmp_path / "state"),
+        guest_dirs=["evolution_project"], exclude_parts=["node_modules"],
+        attempts=1)
+    assert r["ok"] and r["files"] == 1
+    assert set(P.read_manifest(str(tmp_path / "state"))) == {
+        "evolution_project/src/index.ts"}
+
+
 @pytest.mark.parametrize('link_target', ['missing.txt', '/usr/bin/python3', '../../missing.txt'])
 def test_broken_symlink_is_captured_replayed_and_verified_without_following(
         tmp_path, monkeypatch, link_target):
@@ -227,7 +331,11 @@ def test_broken_symlink_is_captured_replayed_and_verified_without_following(
         def run_command(self, command, timeout=None, cap=None):
             completed = subprocess.run(
                 ["bash", "-lc", command], capture_output=True, text=True,
-                timeout=timeout, check=False)
+                timeout=timeout, check=False,
+                # macOS bsdtar otherwise archives provenance xattrs as
+                # AppleDouble ._ members (guest tar has no such noise); the
+                # switch is a no-op under GNU tar on the wave host.
+                env={**os.environ, "COPYFILE_DISABLE": "1"})
             return completed.stdout
 
         def fetch_file(self, path, max_bytes=None):
