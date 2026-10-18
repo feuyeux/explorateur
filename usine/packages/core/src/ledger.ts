@@ -251,7 +251,8 @@ export function load(root: string): LedgerDoc {
   }
 }
 
-function sortKeysDeep<T>(v: T): T {
+/** 递归键排序（Python json.dumps(sort_keys=True) 的对应物；metrics 落盘同源复用）。 */
+export function sortKeysDeep<T>(v: T): T {
   if (Array.isArray(v)) return v.map(sortKeysDeep) as unknown as T
   if (v !== null && typeof v === 'object') {
     const out: Record<string, unknown> = {}

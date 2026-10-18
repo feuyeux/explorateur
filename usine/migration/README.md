@@ -298,3 +298,63 @@ cropBackdrop 属活代码（lesson 管线用），与 skills 死代码三件
 ×4 连续；Python verify_compose 11 PASS、verify_covers 10 PASS；已迁模块
 全量复跑（platform 11 / ledger 19 / framehash 22 / cli 8 / tts 16 /
 audio 8 / timeline 13 / textlayer 12）全绿。**P3 音画内核迁移完毕。**
+
+## P4a 收口（data / audit / manifest / metrics）
+
+### 移植模块
+
+- `packages/core/src/data.ts`：personas / 编外专班 storyteller.json / 语言目录
+  manifest / intro-cards / 字体 CSS / 旗帜 emoji / 语种标签。ROOT 以
+  pnpm-workspace.yaml 为标记向上走（FEUILLE_ROOT 环境变量可覆写）；Map 缓存
+  按目录实参分键（lru_cache parity）+ `resetDataCacheForTests` 测试缝。
+  sceneDoc 延到 P5（依赖 parse_scene）。
+- `packages/core/src/audit.ts`：九语种格律计数器（印地 matra / 阿语音节 /
+  希语闭音节优先 / 中文按字 / 俄语元音 / 希腊双元音 / 德语 sch-ch-ph-th→X /
+  西语元音组 / 韩语谚文方块）+ auditOne 三态（✅/❌/○ 主动不作声称）+
+  auditAll 汇总。`\p{M}` + normalize 对齐 unicodedata；pyList 复刻 Python
+  list repr（`[7, 7]` 带空格——auditOne 状态串文案 parity）。
+- `packages/core/src/manifest.ts`：PLATFORMS 表驱动、文案稿解析（两版体例：
+  时长/已发布标记可选）、check_copy 平台限制、fill_annotations 按
+  `[...str].length` 实测回填、build_manifest 素材存在性前置。
+  taglist 是死代码不迁（P5 归流审计确认）。
+- `packages/core/src/metrics.ts`：台账 load/save（sortKeysDeep 单源升为
+  ledger.ts 导出；utcNowIso 对齐 isoformat(timespec="seconds")；.json.tmp +
+  renameSync 原子换）、merge_results 悬空引用当场报错、check 两级凭据分开判、
+  analyze 样本不足不排名 + 分箱。JS `{}` 为真值（Python `{}` 为假）——
+  空 metrics 守卫一律 `Object.keys(m).length > 0`。
+- index.ts 导出 data/audit/manifest/metrics 四个命名空间。
+
+### 测试（verify_*.py 的 vitest 对应移植）
+
+- `audit.test.ts`：合成多语诗稿计数器全命中手数期望值（防循环验证——
+  期望值手工独立数出，跨语言值一致本身就是 parity）+ 三态逻辑 +
+  混合拆分以算法为准 + auditAll 汇总行。
+- `manifest.test.ts`：12 语种 × 三平台合成文案稿全解析、两版体例、缺块拒解析、
+  四类问题、坑㉲ emoji 码位区间、fillAnnotations 往返、buildManifest
+  素材前置 + 清单落盘回读。
+- `metrics.test.ts`：好台账放行、悬空引用、两级凭据、指标取值域、
+  null ≠ 0「不知道」、部分回填 0/6、样本不足不排、分箱、save→load 往返 +
+  版本护栏。
+- `data.test.ts`：ROOT 定位、索引形状（28 personas / 28 cards / 语种目录）、
+  缓存同对象引用 + 目录实参分键互不串味、未知语种报错、编外专班缺目录
+  = 空专班。
+
+### 坑与实录
+
+- **hookShape 的 `first[0]` 是半个代理对**：JS 里 `"...🍂..."[0]` 取到 lone
+  surrogate，codePointAt 落在代理区段，astral emoji 全判非 emoji——
+  小红书钩子全错判成 question。修为 `[...first][0]` 按码位取整字。
+  （Python first[0] 即整字，无此坑。）
+- **捕获 stdout 的 join 时机**：`captureWrites()` 在调用瞬间 join——
+  模块还没跑，断言拿到空串。改为 capture 后 join（audit 的汇总行还带
+  前导 `\n`，需按 `\n` 切再 find）。
+- **夹具目录要先建**：Python `parent.mkdir(parents=True)` 的习惯在 TS
+  writeFileSync 前要显式 mkdirSync——metrics 的 video 夹具、manifest 的
+  video/covers 目录各炸一次。
+- **「取首句不取首行」的正例方向**：问句在前、句读在后
+  （"你见过吗？……"）才是首句判钩子的用例；问句在后按算法就是陈述句，
+  别把错误的期望写进测试。
+
+门禁：typecheck 干净；vitest 23 文件全绿（179 用例，2 skipped live 门控）
+×4 连续；Python verify_audit 23/23、verify_manifest 25/25、
+verify_metrics 13/13 全绿。**P4a（data/audit/manifest/metrics）收口。**

@@ -31,3 +31,9 @@ export * as textlayer from './textlayer.js'
 export * as compose from './compose.js'
 export * as render from './render.js'
 export * as covers from './covers.js'
+
+// ---- P4 数据与人物场景（命名空间导出）----
+export * as data from './data.js'
+export * as audit from './audit.js'
+export * as manifest from './manifest.js'
+export * as metrics from './metrics.js'
