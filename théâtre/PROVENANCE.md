@@ -34,6 +34,11 @@
 |---|---|---|
 | `core/loop.py` | `_path_within` 改 `posixpath.normpath`（真跨平台 bug：Windows 上 ntpath 把 guest 路径反斜杠化，Actor 私有路径泄漏进 Verifier 上下文） | 无分支等价 |
 | `core/loop.py` | Verifier infra-retry 的恢复暂停改为无条件计数（`max(recovery_secs, 0.0)`；Windows 时钟粒度 15.6ms 吞掉微秒级恢复事件；POSIX 传参不变） | 语义修正，POSIX 实际等价 |
+| `core/loop.py` | `_call_with_transport_pause` 加连续暂停上限 `llm_infra_max_pauses`（默认 10）。暂停**故意不计入** active-work 预算（`on_pause` 把原点前移），所以墙钟永远终止不了这个循环：provider 持续 402/429/5xx 时原实现无限 sleep、没有任何预算会触发。超限后升级为终态 infra 错误（状态落盘可恢复、infra 受损的候选拿不到分数）；设 0 = 保留旧的无限等待 | 语义修正（修的是两端共有的无限循环，非平台专属） |
+| `core/checks.py` | `_BODY_WRITE_OPEN` 捕获 `open()` 的**目标参数**，`_nonscratch_mutations` 的 scratch 豁免从「整段 body 是否含 `/tmp/`」改为**逐写入目标**判定。旧判据是 body 级子串测试，body 里只要出现任何 `/tmp/` 字样，一次针对受评交付物的覆写就整段放行（实测复现） | 语义修正（门禁 fail-open 修复） |
+| `explore/provisioning.py` | 新增 `_guest_file_size()`：`stat -c`（GNU）与 `stat -f %z`（BSD）双方言探测，任一不成返回 `None`（未知）而非 `0`。两处 `stat -c` 调用点改走它——BSD/macOS guest 上 `-c` 直接失败，旧代码把失败折成 `sz=0`，`if sz:` 于是**静默跳过**整个分块兜底（纪律 8：未知 ≠ 零） | 无分支等价（GNU 路径逐字节不变；BSD 路径由静默失败变为可用） |
+| `llm/client.py` | OpenAI 客户端显式带 `timeout=_sdk_timeout()`（默认 120s，`RSIAGENT_LLM_TIMEOUT_SECS` 可覆盖，0 表示沿用 SDK 默认）与 `max_retries=0`（重试由本模块自己有界的循环负责）。openai 的 `DEFAULT_TIMEOUT` 是 read=600s + 2 次内部重试，一个「连上就卡住」的 provider 会伪装成「慢」而不是「down」，暂停/上限机制根本看不到 | 新增功能面；SDK 默认值下行为不变（仅更快失败） |
+| `llm/client.py` | `_PROVIDER_COUNTS` 增量加 `_PROVIDER_LOCK` 守卫（`setdefault/get/+1/store` 非原子，模块自述支持并发；provider 归因是审计数据，丢计数即审计失真） | 无分支等价 |
 | `explore/practice_loop.py` | 新增 `_fsync_directory`（os.name 守卫）；5 处裸目录 fsync 调用点改走它；`_fsync_tree` 文件环 Windows 分支 `O_RDWR`（只读句柄 `_commit` 报 EBADF） | os.name 分支 |
 | `explore/practice_loop.py` | `_read_memory_tree` 键改 `as_posix()`（记忆键是 guest 侧 POSIX 路径） | 无分支等价 |
 | `tools/recover_phase1_wave.py` | `fcntl` try/except ImportError；锁点 Windows 回退 `msvcrt.locking` | os.name 分支 |
