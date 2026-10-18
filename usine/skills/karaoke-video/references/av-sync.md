@@ -14,7 +14,7 @@ frame-quantized; all verification is programmatic.
 - A boundary word may span several display tokens (zh "一本" covers 一+本;
   ja "一冊" covers 一+冊). Map boundaries onto tokens by accumulating
   non-space characters of the input text and splitting the boundary duration
-  proportionally by char position (see `gen_tts.py token_timings`).
+  proportionally by char position (see `/karaoke gen_tts.tokenTimings`).
 
 ## 2. The concat duration drift (the big one)
 
@@ -65,7 +65,7 @@ white + #4285f4/#d3e3fd; the build "passed" because the sync check
 compares against the same-run state frames (white vs white diffs to zero)
 — the videos shipped showing Google until a user watched one.
 
-Defenses (all in build_video.py):
+Defenses (all in `feuille karaoke build`, @feuille/karaoke):
 1. **Absolute paths only** for anything that goes into a `file://` URL —
    `HERE = cfgp.resolve().parent`, never a cwd-relative parent;
 2. **isolated `--user-data-dir`** per render — also guards against a
@@ -81,7 +81,7 @@ Defenses (all in build_video.py):
 The model cannot watch the video. The acceptance gate:
 
 1. `ffprobe` stream durations: video vs audio within ~1 ms;
-2. `verify_sync.py` — grab frames at computationally known times and
+2. `feuille karaoke verify-sync` — grab frames at computationally known times and
    pixel-diff against the source state frames (threshold ~40k on L1 gray
    over 1080p; clean runs give ≤ ~500, real mismatches ≥ 50k);
 3. remember the done-frame window is only the last `done` seconds — grabbing

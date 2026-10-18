@@ -122,7 +122,7 @@ alpha 混合若干中间帧（ffmpeg `xfade` 或预渲混合帧皆可；默认�
 ```
 acts.py（唯一事实源）
   → derive：voices.json + fonts   （派生脚本；字卡页已由 render 自生成，不再消费派生 HTML）
-  → gen_tts.py            （karaoke-video 的，逐幕 TTS + 词级时间轴）
+  → feuille karaoke tts    （karaoke-video 的，逐幕 TTS + 词级时间轴）
   → render_act_frames.py  （本 skill：书场舞台逐帧 + 自生成字卡页，镜头最后作用于整帧）
   → assemble_storyteller.py （本 skill：叠化转场 + 醒木对齐幕开口，帧精确合片）
   → scan_blank / verify_sync（karaoke-video 的，逐幕探针 + 白页哨兵）

@@ -61,16 +61,16 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 
 拥有模块：（无）
 
-海报驱动成片的合成内核（`tts` / `audio` / `timeline` / `compose` / `render`）全在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 不拥有任何模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+海报驱动成片的合成内核（`tts` / `audio` / `timeline` / `compose` / `render`）全在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的产线编排（gen_tts / build_video / verify_sync / scan_blank）已升入 **@feuille/karaoke** 包（消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 
 ## Requirements (fresh machine)
 
-- Python 3.12 + edge-tts + Pillow + numpy — e.g.
-  `uv run --project usine python <script>` (usine pyproject pins all three;
-  never hardcode a machine-specific interpreter path in docs or configs);
+- Node + pnpm：本 skill 的四段产线（tts/build/verify-sync/scan-blank）已归流
+  到 **@feuille/karaoke** 包，进程内直跑 `feuille karaoke <子命令>`
+  （edge-tts 协议、ffprobe、浏览器解析全在 @feuille/core 的唯一实现里）；
 - `ffmpeg` / `ffprobe` (encode, concat, astats measurements);
-- **任意 Chromium 系浏览器**——Chrome 或 Edge 都行，经 library 的
-  `feuille.platform.browser_path()` 解析（`build_video.py` 现走这一个事实源，
+- **任意 Chromium 系浏览器**——Chrome 或 Edge 都行，经 @feuille/core 的
+  `platform.browserPath()` 解析（`feuille karaoke build` 现走这一个事实源，
   不再写死可执行名；`$CHROME_BIN` 可显式覆盖）；
 - network access for edge-tts (Microsoft neural voices);
 - OPTIONAL, BGM only: a bed + its `gain`, produced beforehand with the
@@ -123,7 +123,7 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 3. **voices.json**: one entry per item — `locale`, `voice` (edge-tts neural
    id), `text` (exact TTS input), `tokens` (display tokens as consecutive
    char ranges of `text`), persona fields. Run
-   `scripts/gen_tts.py voices.json`; it writes `<tts>/<locale>.mp3` +
+   `feuille karaoke tts <voices.json> [tts_out_dir]`; it writes `<tts>/<locale>.mp3` +
    `.json` (word boundaries + per-token timings). A boundary word may span
    several display tokens (zh "一本") — the script splits it by char share.
    Geminate merges can NEST boundaries (ja お茶一杯 → いっぱい: 一
@@ -134,7 +134,7 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
    comment in the template; token markup variants = the poster's cell
    recipes). `?fmt=v` switches the portrait layout; adjust its CSS block if
    the aspect differs.
-5. **Build**: `scripts/build_video.py video.json` (add `--only landscape`
+5. **Build**: `feuille karaoke build <video.json>` (add `--only landscape`
    to iterate on one format first). Renders all state frames, assembles
    audio, mixes the optional `bgm` bed, and writes the mp4 per format.
    The bed is a **separate asset produced before this step** by `bgm-bed`;
@@ -143,12 +143,12 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 6. **Verify** — 两件事，缺一不可。**门禁全绿 ≠ 做对了**（见下）。
    - **A. 程序化验收**（机器能判的部分，每次改完都跑）：
    - `ffprobe` both streams: durations within ~1 ms;
-   - `scripts/scan_blank.py out.mp4 …` — whole-video white-page scan;
+   - `feuille karaoke scan-blank <out.mp4> …` — whole-video white-page scan;
      ⚠ 它**只判「接近纯白」**：抓得住 `file://` URL 写错导致 Chrome 落 Google 页，
      **抓不出内容缩成一个点**。它是唯一独立于状态帧的检查，但视野很窄；
-   - `scripts/verify_sync.py --video out.mp4 --frames frames/ --tts tts/ \
-     --locales <comma list in video order>` — grabs frames at computed
-     times and pixel-diffs against the state frames;
+   - `feuille karaoke verify-sync --video out.mp4 --frames frames/ \
+     --tts tts/ --locales <comma list in video order>` — grabs frames at
+     computed times and pixel-diffs against the state frames;
    - color-presence / edge-overflow checks on the state frames
      (blank-render and overflow detectors).
    Full failure modes and the ffmpeg traps they exist to catch:
@@ -189,8 +189,9 @@ pipeline.
   "a cup of tea" project (`video_src.html` with all 12 scenes' token
   markup, `voices.json`, `video.json`): the per-script scene markup
   reference
-- `scripts/` — `gen_tts.py`, `build_video.py`, `verify_sync.py`,
-  `scan_blank.py`（底床生成在 `bgm-bed/scripts/gen_bgm.py`，不在这里）
+- `feuille karaoke tts|build|verify-sync|scan-blank`（@feuille/karaoke 包）
+  — 四段产线入口（promoted from `scripts/gen_tts.py` / `build_video.py` /
+  `verify_sync.py` / `scan_blank.py`；底床生成在 `bgm-bed`，不在这里）
 - `references/av-sync.md` — edge-tts WordBoundary semantics, concat drift
   and the exact-frame-count fix, fps snapping, verification methodology
 - `references/delivery-check.md` — **交付前自检**：为什么门禁全绿仍然要返工、

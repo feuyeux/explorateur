@@ -796,3 +796,74 @@ karaoke-video 两个 skill 的 SKILL.md 同列引用——按 ownership 三层�
 纯函数断言无时序依赖，疑为既有套件在冷启动负载下的一次性时序抖动，
 如实记录，后续轮次若复现再行定位）；Python verify_skills 78/78 复跑
 全绿（SKILL.md 改行 + skills/ 删文件后边界机检不破）。**P5-7a 收口。**
+
+## P5-7b：karaoke-video 四脚本归流（@feuille/karaoke + `feuille karaoke …`）——2026-10-18
+
+### 归流决定与移植要点
+
+- **新包 @feuille/karaoke**（karaoke-video 的产线编排专属，消费 core 唯一实现，
+  不带第二份）：`gen_tts` / `build_video` / `verify_sync` / `scan_blank` 四模块
+  + barrel。cli 新增 `karaoke/tts|build|verify-sync|scan-blank` 四条薄叶子路由。
+- **edge-tts 协议归流**：core tts client 的裸 `stream()` 从私有改导出——
+  gen_tts 原版就是直接吃 `edge_tts.Communicate.stream()` 的音频块 +
+  WordBoundary 事件，**没有** synthOnce 的无词兜底（那是行合成语义，不是
+  karaoke 语义）；原版无缓存，照原样不引入（poetry 侧的平行缓存是另一族）。
+- **gen_tts**：`tokenTimings` 纯函数逐行镜像——码点数组、连续区间 assert
+  （`pos !== stream.length` 直接炸）、`into = wl - cov`（本界内已消费字符，
+  **不是**流内前缀——ja 嵌套界 一杯/いっぱい 里 杯 start = 0.38+0.46×(1/4)，
+  测试初稿曾按 3/6 算错，以算法口径为准）、空格跳过、`next()` StopIteration
+  炸点保留。CLI 无 argparse（原版裸吃 sys.argv[1]/[2]）：无 `-h`；缺 cfg
+  在 Python 是 IndexError 裸炸，叶子统一口径报 usage + 2；outDir 缺省
+  **相对 CWD**（Python pathlib 相对路径同款，不相对 cfg 所在目录）。
+- **build_video**：30fps 网格（`d30 = ceil(d*30-1e-9)/30`）+ 逐段**精确帧数**
+  编码再 concat（av-sync 漂移修复原样保留）；Chrome 截图参数与 textlayer
+  shotArgs 同源口径（`--headless=new` 不带 `--user-data-dir`，铁律）；**白页
+  哨兵同步 await**（初稿 fire-and-forget 不会中断产线，已改为 async 全链）；
+  ffmpeg/ffprobe **函数内懒解析**（模块级 throw 会破坏 barrel 导入，更晚一步
+  报的代价是包可安全 import）；`video_build.html` 落盘但状态帧截图走**原始
+  cfg.src**（原版如此，要改另立议题）；bgm 分支 amix normalize=0 语义照旧。
+- **verify_sync**：`ImageChops.difference(...).histogram()[12:]` 的 Python
+  口径 = **|diff| ≥ 12 的像素计数**（≤11 编码噪声不计），sharp 灰度 raw
+  循环镜像；探点 pre=s+0.4（写死）、word0=s+preroll+s0/2（s0 取下一 token
+  start 差，单 token 取 d−preroll−done）、done=s+d−done/2；场景起点由各
+  seg wav 时长累加（probeDuration）。失配 → FeuilleError `SYNC FAILURES` → 1。
+- **scan_blank**：`fps=N` 采样进 mkdtemp（**不清理——原样镜像 wart**）；
+  白帧判定 160×90 min(R,G,B)≥250；`bad[:6]` 按 Python tuple-repr 风格打印；
+  含白帧 → 1。
+- **tsconfig 坑**：`Record<string, number>` 下标访问在 noUncheckedIndexedAccess
+  下是 `T|undefined`——tokens 一律 `Array<{start: number}>`；Node spawnSync
+  捕获输出用 `{encoding:'utf8'}`（`captureOutput` 是 Bun 的 API，不存在于 Node）。
+- **接线**：SKILL.md 产线五步 + Resources 改指 `feuille karaoke …`（promoted
+  from 四个 .py）；Requirements 弃 Python 改 Node/pnpm 口径；references/
+  av-sync.md、delivery-check.md、storyteller SKILL.md 产线图、usine/AGENTS.md
+  白页哨兵行同步改指；skills/karaoke-video/scripts/*.py 四文件删除
+  （skills/ 只留资产 + 对包的调用）。ownership.json 不动——它此刻的机检对象
+  仍是 src/feuille 的 .py（双轨期），TS 包记账是 P7 清场的事。
+
+### 测试（packages/karaoke/test/karaoke.test.ts，15 用例 + cli.test.ts 路由 1 条）
+
+- tokenTimings：zh「一本」跨界按字符份额切分、单 token 空格跳过、部分覆盖
+  → null（含 0.1+0.2 IEEE 尾数断言）、ja 嵌套界全 4 token 数值断言
+  （含 杯 into=1/4 口径与 0.38+0.46 尾数）。
+- gen_tts：**真 edge-tts 一轮**（zh-CN Xiaoxiao；免费服务不在额度红线内，
+  verify_tts 同款先例）——mp3 落盘 + JSON 键序 = Python dict 插入序 +
+  逐 token 打印行；缺 voices.json → usage + 2。显式传绝对 outDir（原版缺省
+  相对 CWD，首轮测试真往 usine/out 拉了屎——已清掉并显式传参）。
+- build_video：d30 网格四格、缺 video.json → 2；**端到端最小产线闭环**
+  （真 Chrome 状态帧 + libmp3lame 静音 mp3 + 双画幅段编码 concat → 成片，
+  verify-sync 对成品回 0；video_build.html 落盘但截图走原始 src 的原样
+  镜像 quirk 一并断言）。测试 fixture 需带 `/*__FONTS__*/` 标记（替换契约）。
+- verify_sync：diffGray 12 阈值两侧、缺必填/坏 int → 2、端到端两态
+  （同色 → 0；异色 → SYNC FAILURES 抛出）。输出行的 padEnd 间距
+  （loc.padEnd(8) + 显式空格 + label.padEnd(6)）按 f"{loc:8s} {label:6s}" 镜像。
+- scan_blank：whiteRatio 三色、真 ffmpeg 采样两态（2s 白片 →
+  [('f001.png', 1), ('f002.png', 1)]）、main 多态（-h/0、无视频/坏值 → 2、
+  白片 → 1、干净片 → 0）。
+- cli.test.ts：四叶子经路由缺参可达 → 2（0 态留给真产线行）。
+
+门禁：typecheck 干净；vitest 36 文件全绿（342 用例，3 skipped）。本轮曾现
+**一次**未定位的整 suite 瞬时失败（1 例，失败日志当时未捕获即被后一轮覆盖；
+唯一依赖网络的是 edge-tts 真连行，疑点最大），其后连续 4+4 轮全绿（含
+cli.test.ts 加行后重跑的最后一轮 4 连绿）；Python verify_skills 78/78 复跑
+全绿（SKILL.md 改行 + 四 .py 删除后边界机检不破——ownership 机检对象仍是
+src/feuille，skill 脚本不在其扫描面，双轨期不受影响）。**P5-7b 收口。**

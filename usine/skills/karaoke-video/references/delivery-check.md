@@ -94,7 +94,7 @@ ffmpeg -v error -y -ss <t> -i out.mp4 -frames:v 1 check/f_<name>.png
 - **颜色编码出现的位置**——用户说"颜色不对"时，对照的是**它标注的那个外语词**，
   不是别的元素（见 §4.3）。
 
-`<t>` 从 `verify_sync.py` 的输出里取 `word0` 那一列，别自己估。
+`<t>` 从 `feuille karaoke verify-sync` 的输出里取 `word0` 那一列，别自己估。
 
 ### 步骤 5 — 验收脚本跑完，再问一遍"它管的是不是这件事"
 
@@ -127,7 +127,7 @@ vw = w / 100      # ✓ vw 是**百分点**，不是「画布宽度的分数」
 
 ### 3.3 `preroll` 不许小于 0.4s
 
-`verify_sync.py` 的 `pre` 探针时刻是**写死的** `scene_start + 0.4`，不从配置读。
+`feuille karaoke verify-sync` 的 `pre` 探针时刻是**写死的** `scene_start + 0.4`，不从配置读。
 把 `preroll` 压到 0.35 省下 2.25s，探针必然越过窗口落到首 token 帧上报
 `pre MISMATCH`——**成片其实完全同步，是配置与验收契约打架**。
 

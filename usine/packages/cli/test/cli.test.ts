@@ -144,4 +144,11 @@ describe('P5-7 归流叶子经路由端到端可达', () => {
     expect(await main(['theme', 'match', '--list'])).toBe(0)
     expect(await main(['theme', 'match', '--nope'])).toBe(2)
   })
+
+  it('karaoke 四叶子经路由可达：缺参用法错 → 2（0 态留给 karaoke.test.ts 的真产线行）', async () => {
+    expect(await main(['karaoke', 'tts'])).toBe(2)
+    expect(await main(['karaoke', 'build'])).toBe(2)
+    expect(await main(['karaoke', 'verify-sync', '--video', 'x'])).toBe(2) // 其余必填仍缺
+    expect(await main(['karaoke', 'scan-blank'])).toBe(2)
+  })
 })

@@ -100,7 +100,7 @@
 | 外部依赖 | ffmpeg / ffprobe、ImageMagick `magick`——一律经 resolver，不写死路径 |
 | 交付位置 | 本目录内；不写 Desktop / Downloads / 临时目录（workspace 约定） |
 | SKILL 资产 | 本仓库自建的 SKILL 一律落到 `skills/`（仓库资产，随 git 版本化）；运行机器 `~/.agents/skills/` 只放**全局软链**指向这里，不存实体。新建 SKILL 同样走这条路径 |
-| headless 浏览器隔离 | headless 截图用 `--headless=new` 且**不带 `--user-data-dir`**——实测（macOS + Edge）：带 `--user-data-dir` 图能出但**进程永不退出**，整个 build 挂死；而 `--headless=new` 不会抢占已开着的桌面浏览器（抢占是旧 `--headless` 的问题）。URL 必须绝对路径（相对路径 → Chrome 落 Google 搜索页）；截图后跑白页哨兵（`karaoke-video/scripts/scan_blank.py` 思路） |
+| headless 浏览器隔离 | headless 截图用 `--headless=new` 且**不带 `--user-data-dir`**——实测（macOS + Edge）：带 `--user-data-dir` 图能出但**进程永不退出**，整个 build 挂死；而 `--headless=new` 不会抢占已开着的桌面浏览器（抢占是旧 `--headless` 的问题）。URL 必须绝对路径（相对路径 → Chrome 落 Google 搜索页）；截图后跑白页哨兵（`feuille karaoke scan-blank` 思路） |
 
 ---
 

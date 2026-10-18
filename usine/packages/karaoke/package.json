@@ -1,0 +1,15 @@
+{
+  "name": "@feuille/karaoke",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "karaoke-video 产线的 TS 归流包：TTS 词级时间线（gen_tts）、成片组装（build_video）、AV 同步验收（verify_sync）、全片白页扫描（scan_blank）。edge-tts 协议 / ffprobe 时长 / 浏览器解析全部消费 @feuille/core 的唯一实现，包内零重复。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*",
+    "sharp": "^0.35.5"
+  }
+}

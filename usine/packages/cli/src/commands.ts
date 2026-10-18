@@ -72,6 +72,24 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/theme-match.js'),
     desc: '主题自动匹配：话题/语种 → 5 套垂域主题推荐（skills/match_theme.py 升包）',
   },
+  // ---- P5-7b karaoke-video 归流（@feuille/karaoke；edge-tts/ffprobe/浏览器
+  // 解析消费 core 唯一实现，包内零重复）----
+  'karaoke/tts': {
+    load: () => import('./leaves/karaoke-tts.js'),
+    desc: '词级卡拉OK TTS：voices.json → 逐语种 mp3 + 词边界/token 时间 json',
+  },
+  'karaoke/build': {
+    load: () => import('./leaves/karaoke-build.js'),
+    desc: '状态帧渲染 + 音轨组装成片（video.json 驱动；30fps 网格精确帧数编码）',
+  },
+  'karaoke/verify-sync': {
+    load: () => import('./leaves/karaoke-verify-sync.js'),
+    desc: 'AV 同步验收：计算可知时间点抓帧 vs 状态帧像素差（失配 → 退出码 1）',
+  },
+  'karaoke/scan-blank': {
+    load: () => import('./leaves/karaoke-scan-blank.js'),
+    desc: '全片白页扫描：唯一独立于状态帧的检查（含白帧 → 退出码 1）',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——

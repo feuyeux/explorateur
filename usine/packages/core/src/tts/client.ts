@@ -319,8 +319,12 @@ function parseMetadata(raw: string, state: StreamState): BoundaryChunk {
   throw new UnexpectedResponse("No WordBoundary metadata found")
 }
 
-/** 403 → 按 Date 头修偏斜重试一次（Python stream() 的口径；逐段各享一次）。 */
-async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
+/** 403 → 按 Date 头修偏斜重试一次（Python stream() 的口径；逐段各享一次）。
+ *
+ * 导出供 karaoke 词级时间线直接消费（gen_tts 原版就是裸吃
+ * edge_tts.Communicate.stream() 的音频块 + WordBoundary 事件，不带
+ * synthOnce 的无词兜底——那是行合成语义，不是 karaoke 语义）。 */
+export async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
   const state: StreamState = {
     offsetCompensation: 0,
     lastDurationOffset: 0,
