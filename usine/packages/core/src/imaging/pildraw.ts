@@ -11,12 +11,13 @@
 import type { SKRSContext2D } from "@napi-rs/canvas"
 
 export type RGB = readonly [number, number, number]
+export type RGBA = readonly [number, number, number, number]
 export type Box = readonly [number, number, number, number]
 export type Pt = readonly [number, number]
 
 export interface DrawOpts {
-  fill?: RGB
-  outline?: RGB
+  fill?: RGB | RGBA
+  outline?: RGB | RGBA
   width?: number
   joint?: "curve"
 }
@@ -33,8 +34,27 @@ export interface PilDraw {
   polygon(pts: readonly Pt[], opts?: DrawOpts): void
 }
 
-const css = (c: RGB): string => `rgb(${c[0]},${c[1]},${c[2]})`
+const css = (c: RGB | RGBA): string =>
+  c.length === 4
+    ? `rgba(${c[0]},${c[1]},${c[2]},${(c[3] as number) / 255})`
+    : `rgb(${c[0]},${c[1]},${c[2]})`
 const rad = (deg: number): number => (deg * Math.PI) / 180
+
+/** PIL ImageDraw 在 RGBA 画布上的 4 元组 fill/outline 是**替换**不是混合
+ *  （实测口径：(100,100,100,255) 上画 (0,0,0,60) → 像素恰为 (0,0,0,60)）。
+ *  canvas 的 source-over 是混合——4 元组色先 destination-out 抠掉路径内
+ *  旧像素、再铺色，两步合出替换语义。边缘 AA 仍按 Skia 口径（判据比
+ *  结构与几何，不比像素）；RGB 三元组维持原 source-over 不动。 */
+function eraseThen(ctx: SKRSContext2D, isReplace: boolean, paint: (erase: boolean) => void): void {
+  if (isReplace) {
+    ctx.save()
+    ctx.globalCompositeOperation = "destination-out"
+    paint(true)   // erase pass：路径几何同款，色一律不透明 #000（destination-out 只吃源 alpha）
+    ctx.restore()
+  }
+  paint(false)
+}
+const isRgba = (c: RGB | RGBA | undefined): c is RGBA => c != null && c.length === 4
 
 /** roundRect 兜底：老版 Skia 无 ctx.roundRect 时用 arcTo 拼。 */
 function pathRoundRect(
@@ -81,8 +101,10 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       const w = x1 - x0 + 1
       const h = y1 - y0 + 1
       if (opts.fill) {
-        ctx.fillStyle = css(opts.fill)
-        ctx.fillRect(x0, y0, w, h)
+        eraseThen(ctx, isRgba(opts.fill), (erase) => {
+          ctx.fillStyle = erase ? "#000" : css(opts.fill!)
+          ctx.fillRect(x0, y0, w, h)
+        })
       }
       if (opts.outline) {
         const lw = opts.width ?? 1
@@ -96,9 +118,11 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       const w = x1 - x0 + 1
       const h = y1 - y0 + 1
       if (opts.fill) {
-        ctx.fillStyle = css(opts.fill)
-        roundRectPath(ctx, x0, y0, w, h, r)
-        ctx.fill()
+        eraseThen(ctx, isRgba(opts.fill), (erase) => {
+          ctx.fillStyle = erase ? "#000" : css(opts.fill!)
+          roundRectPath(ctx, x0, y0, w, h, r)
+          ctx.fill()
+        })
       }
       if (opts.outline) {
         const lw = opts.width ?? 1
@@ -119,8 +143,10 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       if (opts.fill) {
         ctx.beginPath()
         ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
-        ctx.fillStyle = css(opts.fill)
-        ctx.fill()
+        eraseThen(ctx, isRgba(opts.fill), (erase) => {
+          ctx.fillStyle = erase ? "#000" : css(opts.fill!)
+          ctx.fill()
+        })
       }
       if (opts.outline) {
         ctx.beginPath()
@@ -137,13 +163,14 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       ctx.moveTo(pts[0]![0], pts[0]![1])
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]![0], pts[i]![1])
       ctx.lineWidth = Math.max(1, Math.trunc(opts.width ?? 1))
-      if (opts.fill || opts.outline) {
-        ctx.strokeStyle = css((opts.fill ?? opts.outline)!)
-      }
+      const col = (opts.fill ?? opts.outline)!
       // PIL line 端点平头（无 cap）；joint="curve" 只把拐角圆滑
       ctx.lineCap = "butt"
       ctx.lineJoin = opts.joint === "curve" ? "round" : "miter"
-      ctx.stroke()
+      if (col) eraseThen(ctx, isRgba(col), (erase) => {
+        ctx.strokeStyle = erase ? "#000" : css(col)
+        ctx.stroke()
+      })
     },
     arc([x0, y0, x1, y1], a0, a1, opts = {}) {
       const cx = (x0 + x1) / 2
@@ -155,9 +182,12 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       ctx.beginPath()
       ctx.ellipse(cx, cy, rx, ry, 0, rad(a0), rad(a1))
       ctx.lineWidth = lw
-      ctx.strokeStyle = css(opts.fill ?? opts.outline ?? [0, 0, 0])
       ctx.lineCap = "butt"
-      ctx.stroke()
+      const acol = opts.fill ?? opts.outline ?? [0, 0, 0]
+      eraseThen(ctx, isRgba(acol), (erase) => {
+        ctx.strokeStyle = erase ? "#000" : css(acol)
+        ctx.stroke()
+      })
     },
     pieslice([x0, y0, x1, y1], a0, a1, opts = {}) {
       const cx = (x0 + x1) / 2
@@ -168,8 +198,11 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       ctx.moveTo(cx, cy)
       ctx.ellipse(cx, cy, rx, ry, 0, rad(a0), rad(a1))
       ctx.closePath()
-      ctx.fillStyle = css(opts.fill ?? [0, 0, 0])
-      ctx.fill()
+      const pcol = opts.fill ?? [0, 0, 0]
+      eraseThen(ctx, isRgba(pcol), (erase) => {
+        ctx.fillStyle = erase ? "#000" : css(pcol)
+        ctx.fill()
+      })
     },
     chord([x0, y0, x1, y1], a0, a1, opts = {}) {
       const cx = (x0 + x1) / 2
@@ -179,8 +212,11 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       ctx.beginPath()
       ctx.ellipse(cx, cy, rx, ry, 0, rad(a0), rad(a1))
       ctx.closePath()
-      ctx.fillStyle = css(opts.fill ?? [0, 0, 0])
-      ctx.fill()
+      const ccol = opts.fill ?? [0, 0, 0]
+      eraseThen(ctx, isRgba(ccol), (erase) => {
+        ctx.fillStyle = erase ? "#000" : css(ccol)
+        ctx.fill()
+      })
     },
     polygon(pts, opts = {}) {
       if (pts.length === 0) return
@@ -188,8 +224,11 @@ export function createPilDraw(ctx: SKRSContext2D): PilDraw {
       ctx.moveTo(pts[0]![0], pts[0]![1])
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]![0], pts[i]![1])
       ctx.closePath()
-      ctx.fillStyle = css(opts.fill ?? [0, 0, 0])
-      ctx.fill()
+      const gcol = opts.fill ?? [0, 0, 0]
+      eraseThen(ctx, isRgba(gcol), (erase) => {
+        ctx.fillStyle = erase ? "#000" : css(gcol)
+        ctx.fill()
+      })
     },
   }
 }

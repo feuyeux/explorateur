@@ -13,7 +13,7 @@ import sharp from "sharp"
 
 import { H, SCENE, W, hexc, mix } from "./rig.js"
 import { createPilDraw } from "./imaging/pildraw.js"
-import type { Box, PilDraw, Pt, RGB } from "./imaging/pildraw.js"
+import type { Box, DrawOpts, PilDraw, Pt, RGB } from "./imaging/pildraw.js"
 
 // sharp 实例类型（sharp 的 d.ts 是 `export =` 命名空间，default import 下
 // sharp.Sharp 不可作类型用——ReturnType 取可调用返回型）
@@ -47,41 +47,41 @@ export class DrawScaled implements PilDraw {
     return list.map(([x, y]) => [x * this._k, y * this._k])
   }
 
-  ellipse(bbox: Box, opts?: { fill?: RGB; outline?: RGB; width?: number }): void {
+  ellipse(bbox: Box, opts?: DrawOpts): void {
     this._b.ellipse(this._box(bbox), opts)
   }
 
-  rectangle(bbox: Box, opts?: { fill?: RGB; outline?: RGB; width?: number }): void {
+  rectangle(bbox: Box, opts?: DrawOpts): void {
     this._b.rectangle(this._box(bbox), opts)
   }
 
-  roundedRectangle(bbox: Box, rad: number, opts?: { fill?: RGB; outline?: RGB; width?: number }): void {
+  roundedRectangle(bbox: Box, rad: number, opts?: DrawOpts): void {
     this._b.roundedRectangle(this._box(bbox), Math.max(2, rad * this._k), opts)
   }
 
-  line(pts: readonly Pt[] | readonly number[], opts?: { fill?: RGB; outline?: RGB; width?: number; joint?: "curve" }): void {
+  line(pts: readonly Pt[] | readonly number[], opts?: DrawOpts): void {
     this._b.line(this._pts(pts), {
       ...opts,
       width: Math.max(1, Math.trunc((opts?.width ?? 1) * this._k)),
     })
   }
 
-  arc(bbox: Box, a0: number, a1: number, opts?: { fill?: RGB; outline?: RGB; width?: number }): void {
+  arc(bbox: Box, a0: number, a1: number, opts?: DrawOpts): void {
     this._b.arc(this._box(bbox), a0, a1, {
       ...opts,
       width: Math.max(1, Math.trunc((opts?.width ?? 1) * this._k)),
     })
   }
 
-  pieslice(bbox: Box, a0: number, a1: number, opts?: { fill?: RGB }): void {
+  pieslice(bbox: Box, a0: number, a1: number, opts?: DrawOpts): void {
     this._b.pieslice(this._box(bbox), a0, a1, opts)
   }
 
-  chord(bbox: Box, a0: number, a1: number, opts?: { fill?: RGB }): void {
+  chord(bbox: Box, a0: number, a1: number, opts?: DrawOpts): void {
     this._b.chord(this._box(bbox), a0, a1, opts)
   }
 
-  polygon(pts: readonly Pt[], opts?: { fill?: RGB }): void {
+  polygon(pts: readonly Pt[], opts?: DrawOpts): void {
     this._b.polygon(this._pts(pts) as readonly Pt[], opts)
   }
 }
@@ -128,7 +128,14 @@ export async function prerenderBg(
   const canvas = createCanvas(W * SS, H * SS)
   const ctx = canvas.getContext("2d")
   const img = ctx.createImageData(W * SS, H * SS)
-  img.data.set(up)
+  // up 是 3 通道 RGB raw——按步长散布进 RGBA（直接 data.set(up) 会把 RGB 字节流
+  // 错位铺进 RGBA 行、尾部 1/4 留全透明；P5-7d storyteller 接线时实测抓到）
+  for (let i = 0, j = 0; i < img.data.length; i += 4, j += 3) {
+    img.data[i] = up[j]!
+    img.data[i + 1] = up[j + 1]!
+    img.data[i + 2] = up[j + 2]!
+    img.data[i + 3] = 255
+  }
   ctx.putImageData(img, 0, 0)
   const d = new DrawScaled(createPilDraw(ctx), SS)
   const ground = mix([230, 226, 216], ident, 0.18)

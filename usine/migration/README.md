@@ -936,3 +936,62 @@ Python verify_skill_scripts.py 14/14（color_contrast 段移除后）、verify_s
 lyria-field-notes.md 全部改指 `feuille poetry …` / `feuille publish
 check-plan`；三个 .py 删除（scripts/ 目录随之清空移除）。ownership.json
 不动——机检对象仍是 src/feuille（双轨期），TS 包记账 P7 清场。**P5-7c 收口。**
+
+## P5-7d：storyteller-video 归流（@feuille/storyteller 新包）
+
+新包 **@feuille/storyteller**（packages/storyteller/）：`render_act_frames`
+（幕帧渲染）+ `assemble_storyteller`（成片组装）——skills/storyteller-video
+两脚本的唯一实现归流，CLI 走 `feuille storyteller render-frames` / `assemble`
+两路由。包消费 @feuille/core 唯一实现（rig.drawCharacter / poseFor /
+POSE_CODES / SCENE / mix / hexc、scenes.prerenderBg / DrawScaled、
+data.storytellers、audio.probeDuration、platform、roundHalfEven——Python
+round() 银行家舍入不自造第二份），包内零重复；ffmpeg 只剩醒木合成与合片
+编排。错误信息里的 TTS 前置指引随归流改指 `feuille karaoke tts`
+（原指 karaoke-video 的 gen_tts.py——命令名变了，所指没变）。
+
+**接线 storyteller 时抓出的两个 core 真 bug（本批最有价值的产出）**：
+
+- **prerenderBg RGB→RGBA 错位**：3 通道 raw 直接 `data.set(up)` 铺进 RGBA
+  ImageData，字节流错位（颜色垃圾 + 尾部 1/4 全透明）。P4 冒烟只验尺寸/
+  幂等没采样像素，storyteller 以 bg 为合成底才炸出来。修复：按步长散布 +
+  alpha=255，补渐变像素回归测试（scenes.test 顶部/中部/底部三点取样）。
+- **pildraw eraseThen 的 erase pass 被闭包里的 fillStyle 覆盖**：RGBA 替换
+  语义的 erase（destination-out）pass 里 paint 闭包先执行 `fillStyle =
+  rgba(0,0,0,26/255)` 再填，destination-out 只吃源 alpha → 只抠掉 10%
+  （实测 alpha 232 而非 0）。重构 paint 闭包带 erase 参：erase pass 一律
+  不透明 #000。接触影测试（案沿上画 (0,0,0,26) → 像素恰为 (0,0,0,26)）
+  是替换语义的像素级直证。
+
+**core 接口补面**（storyteller 包要吃，属包间 API 完成而非行为变更）：
+pildraw 从 imaging/index 显式再导出（createPilDraw + PilDraw/DrawOpts/
+RGBA/Box/Pt 类型——与 draw.ts 的 RGB 同形异名，star 混出会歧义，按名出）；
+scenes.DrawScaled 的 opts 类型从内联 `{fill?: RGB…}` 统一放宽到 DrawOpts
+（4 元组 fill/outline 随 pildraw 语义过代理）。
+
+**实现口径**（与 Python 版逐点对齐）：GEO/ACTOR/色表常量同值；演员层 PIL
+BOX 2× 下采 = 直写 2×2 均值（sharp 无 box 核）；back/front LANCZOS→lanczos3；
+Image.blend 转场 = sharp raw + JS 混合（栅格化差异按「比结构与几何」纪律）；
+幕段编码 image2 序列输入不用 concat demuxer（DTS 事故注释照搬）；n_in 输入
+计数器、gavel 缺省真而显式 null 为 falsy（Python get 语义，不用 ??）、
+act.pose 显式 null → 无姿态（falsy 链，不用 ??）都按原样镜像。
+
+### 测试（storyteller.test.ts 19 用例）
+
+shotTransform 六态（含 s<1 端点镜像、nFrames=1）；gavel ≈0.25s；
+buildCardHtml GEO 注入/token/pun/vow span/data-n/quote 两态/转义/状态契约
+脚本；matteUnpremultiply 八像素（精确色 255、纯黑 0、近色 255−√88 截断）；
+舞台像素（接触影替换直证 + 顶梁/匾板 mix 公式 ±1）；render e2e 真 Edge
+4 张状态卡 + 9 帧全链路 + **幂等重渲逐字节一致** + 缺 TTS 产物 / --act 未知
+幕反向验证（错误信息断言含「先跑 feuille karaoke tts」）；assemble e2e
+合成帧 32×64 两幕 + 转场 2 帧 + gavel 混音 → 24 帧 @5fps 成片（时长 4.8s
+±0.3 + aac 音轨在场）；barrel 导出面。
+
+门禁：typecheck 干净；vitest **39 文件全绿（392 用例，3 skipped）4 连绿**
+（本轮另有两轮各现 1 例瞬时失败、复跑即绿——Edge/网络行在并行满载下的
+抖动已是第三次，与前两批同模式，P7 移植 verify 时一并审视隔离策略）；
+Python verify_skill_scripts.py 14/14、verify_skills.py 78/78 复跑全绿
+（storyteller 两脚本原不在其清单内，无需改判据）。接线面：storyteller
+SKILL.md（边界/舞台合成/管线/代码归属段改指 `feuille storyteller …` +
+`feuille karaoke …`）；两个 .py 删除（scripts/ 目录随之清空移除）。
+ownership.json 不动——机检对象仍是 src/feuille（双轨期），TS 包记账
+P7 清场。**P5-7d 收口。**

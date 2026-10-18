@@ -45,8 +45,9 @@ description: >
 
 **本 skill 是「多幕评书成片」的唯一事实源**：幕表 schema（景/镜/转场/醒木）、
 镜头运动参数、叠化转场的实现与验收。词级时间轴与像素级验收**借用
-`karaoke-video` 的脚本**（gen_tts / verify_sync / scan_blank），合片走本 skill 的
-`assemble_storyteller.py`（叠化 + 醒木）——借用脚本不复制，改它们要回那个 skill。
+`karaoke-video` 的命令**（`feuille karaoke tts` / `verify-sync` / `scan-blank`），
+合片走本 skill 的 `feuille storyteller assemble`（叠化 + 醒木）——借用实现
+不复制，改它们要回那个 skill/包。
 
 **不做 / 转交**：
 
@@ -84,12 +85,12 @@ ACTS = [
 **舞台合成（单一空间，不是图层拼贴）**：墙（prerender_bg 渐变 + 幕 scene
 道具；低处道具由台口护墙板遮挡）→ 挂幕匾（chapter/subtitle）→ 说书人
 **半身近景**立绘（可见身高 ≈53%，是画面主角；站位常量在
-render_act_frames.py 模块头，双手搭案沿）→ 案沿窄条（醒木与折扇摆条上）
+@feuille/storyteller `render_act_frames` 模块头，双手搭案沿）→ 案沿窄条（醒木与折扇摆条上）
 + 案身 → **案上摊开的唱词书卷**（卷尾两根立柱、卷面唱词 .tok/.pun、
 卷尾 quote 小字；卷在人物身前，近景下手势展开 ±370 原生像素也扫不到侧挂
 文字）→ 镜头变换**最后作用于整幅合成**（文字长在卷面上，随画面一起动，
-不浮在镜头外）。字卡页（匾文 + 卷面 .tok/.pun）由 render_act_frames.py
-从 TTS meta 的 text/tokens + 幕表章回**自生成**——黑底纯文字层走 Edge
+不浮在镜头外）。字卡页（匾文 + 卷面 .tok/.pun）由 @feuille/storyteller
+`render_act_frames` 从 TTS meta 的 text/tokens + 幕表章回**自生成**——黑底纯文字层走 Edge
 headless 截图，字体用系统楷体（Kaiti SC）；dim 态用实色暗字而不用 opacity
 （黑底会把半透明墨字压暗，matte 分不清"深色"与"半透明"）。
 
@@ -122,10 +123,10 @@ alpha 混合若干中间帧（ffmpeg `xfade` 或预渲混合帧皆可；默认�
 ```
 acts.py（唯一事实源）
   → derive：voices.json + fonts   （派生脚本；字卡页已由 render 自生成，不再消费派生 HTML）
-  → feuille karaoke tts    （karaoke-video 的，逐幕 TTS + 词级时间轴）
-  → render_act_frames.py  （本 skill：书场舞台逐帧 + 自生成字卡页，镜头最后作用于整帧）
-  → assemble_storyteller.py （本 skill：叠化转场 + 醒木对齐幕开口，帧精确合片）
-  → scan_blank / verify_sync（karaoke-video 的，逐幕探针 + 白页哨兵）
+  → feuille karaoke tts          （karaoke-video 的，逐幕 TTS + 词级时间轴）
+  → feuille storyteller render-frames （本产线：书场舞台逐帧 + 自生成字卡页，镜头最后作用于整帧）
+  → feuille storyteller assemble      （本产线：叠化转场 + 醒木对齐幕开口，帧精确合片）
+  → feuille karaoke scan-blank / verify-sync （karaoke-video 的，逐幕探针 + 白页哨兵）
 ```
 
 ## 验收判据
@@ -143,10 +144,11 @@ acts.py（唯一事实源）
 
 拥有模块：（无）
 
-镜头/转场/醒木的**渲染实现**全在本 skill 的 `scripts/`（直接执行的脚本，
-不被 import——skill 层放「不会被 import 的资产」是仓库约定）；被 import 的
-一切（`rig` / `scenes` / `persona` / `data` / `tts` / `audio` / `timeline` /
-`compose` / `render` / `platform`）全在 **library** 与 infrastructure，
+镜头/转场/醒木的**渲染实现**已归流 **@feuille/storyteller** 包
+（`feuille storyteller render-frames` / `assemble`，P5-7d；promoted from
+本 skill 的 `scripts/render_act_frames.py` + `assemble_storyteller.py`）——包
+消费 @feuille/core 的唯一实现（`rig` / `scenes` / `persona` / `data` / `tts` /
+`audio` / `timeline` / `compose` / `render` / `platform` 全在 **library** 与
+infrastructure），不自带第二份；skills/ 只留资产（幕表样例等）与对包的调用。
 事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
-词级时间轴与合片脚本**借用** `karaoke-video`（其 SKILL.md 为机制说明书），
-跨用不另写。
+词级时间轴与合片**借用** `karaoke-video`（其 SKILL.md 为机制说明书），跨用不另写。

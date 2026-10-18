@@ -1,0 +1,16 @@
+{
+  "name": "@feuille/storyteller",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "storyteller-video（评书）产线的 TS 归流包：幕帧渲染（render_act_frames，舞台模型 + 字卡 matte + 镜头 Ken Burns）与成片组装（assemble_storyteller，叠化转场 + 醒木混音）。rig 绘制 / prerenderBg / ffprobe 时长 / 浏览器解析全部消费 @feuille/core 的唯一实现，包内零重复。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*",
+    "@napi-rs/canvas": "^1.0.11",
+    "sharp": "^0.35.5"
+  }
+}

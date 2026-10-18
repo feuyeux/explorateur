@@ -99,6 +99,15 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/poetry-color-contrast.js'),
     desc: '文字压实拍量化：背景亮度分布 + 逐季 --gate 二值判据（阈值项目自标定）',
   },
+  // ---- P5-7d storyteller 评书线（storyteller-video 归流）----
+  'storyteller/render-frames': {
+    load: () => import('./leaves/storyteller-render-frames.js'),
+    desc: '评书幕帧渲染：舞台 + 人物 + 卷面卡拉OK字卡（acts.json 驱动）',
+  },
+  'storyteller/assemble': {
+    load: () => import('./leaves/storyteller-assemble.js'),
+    desc: '评书成片组装：幕帧 → 叠化转场 → 醒木混音（单画幅 mp4）',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——

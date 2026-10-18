@@ -12,6 +12,7 @@
     "@feuille/core": "workspace:*",
     "@feuille/publish": "workspace:*",
     "@feuille/karaoke": "workspace:*",
-    "@feuille/poetry": "workspace:*"
+    "@feuille/poetry": "workspace:*",
+    "@feuille/storyteller": "workspace:*"
   }
 }
