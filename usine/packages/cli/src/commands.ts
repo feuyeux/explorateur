@@ -150,6 +150,16 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/poster-measure-korean.js'),
     desc: '韩文逐字素几何测量：测墨 → 元/辅音分类 → 生成 .k%04X 补丁规则 + 自验',
   },
+  // ---- P5-7f publish-copy / bgm-bed 归流（@feuille/copy / @feuille/bgm）----
+  // copy 零平台流量、bgm 只打 Lyria 音乐流——两者都不在额度红线内。
+  'copy/check': {
+    load: () => import('./leaves/copy-check.js'),
+    desc: '发布词自检：三平台 H2 段落/标题字数/尾随空格/钩短语/置顶话术/no-hard-wrap/AI 指纹 + --facts 数字溯源（零平台流量）',
+  },
+  'bgm/gen': {
+    load: () => import('./leaves/bgm-gen.js'),
+    desc: '纯器乐 BGM 床生成（Google Lyria realtime）+ 实测判据（拍速反查/频段分布/床长）',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——

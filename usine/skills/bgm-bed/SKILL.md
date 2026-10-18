@@ -2,7 +2,7 @@
 name: bgm-bed
 description: >
   Generate an instrumental BGM bed via one of the two verified sources —
-  Google Lyria (free-tier realtime endpoint, `scripts/gen_bgm.py`) or
+  Google Lyria (free-tier realtime endpoint, `feuille bgm gen`) or
   Minimax Code's built-in Matrix music tool
   (`connector__matrix__batch_text_to_music` via mcode-tools; keyless but
   callable only inside the MCode runtime; fixed ≈29s output) — measure it,
@@ -30,13 +30,13 @@ description: >
 
 | 线 | key | 状态（2026-10） |
 |---|---|---|
-| `lyria`（Google，`scripts/gen_bgm.py`） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
-| `matrix`（MCode 内置 Matrix 工具集的音乐线） | **无 key**——用 Code 登录态，经 `mcode-tools`（**仅 MCode 运行时的 PATH 上**） | **整链实测过（2026-10-09，古典吉他纯器乐，判据 ok）**，但**不是 `gen_bgm.py` 的通路**——入参无时长字段、计费不公开，见下 |
+| `lyria`（Google，`feuille bgm gen`） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
+| `matrix`（MCode 内置 Matrix 工具集的音乐线） | **无 key**——用 Code 登录态，经 `mcode-tools`（**仅 MCode 运行时的 PATH 上**） | **整链实测过（2026-10-09，古典吉他纯器乐，判据 ok）**，但**不是 `feuille bgm gen` 的通路**——入参无时长字段、计费不公开，见下 |
 
-**`matrix` 为什么不进 `gen_bgm.py`**，两个原因缺一不可：① 入参没有 duration 字段
+**`matrix` 为什么不进 `feuille bgm gen`**，两个原因缺一不可：① 入参没有 duration 字段
 （`requests[].prompt/lyrics/format/sample_rate/bitrate`），床长固定只能接受——床长
 判据（`bed_len_verdict`）与 `PAD_FACTOR=1.15` 请求端垫量都建立在「能按目标时长
-请求」之上，塞进脚本后必然触发 `bed_len_check` ⚠，等于用退出码 2 骗上层；
+请求」之上，塞进生成命令后必然触发 `bed_len_check` ⚠，等于用退出码 2 骗上层；
 ② 计费不公开，`detect_providers()` 的凭据探测模型对无 key 的它不成立。
 **它是成品床的来源，不是脚本通路**（用法见「`matrix`：成品床来源」）。
 
@@ -85,8 +85,8 @@ description: >
 
 拥有模块：（无）
 
-供应商客户端（Lyria）与两项自检是本 skill 的持久脚本
-`scripts/gen_bgm.py`。它没有进 library——它只服务「生成床」这一件事，成片两条线
+供应商客户端（Lyria）与两项自检已归流到 **@feuille/bgm** 包，进程内直跑
+`feuille bgm gen`。它只服务「生成床」这一件事，成片两条线
 共用的是混音那半（`library.audio`），不是生成这半。事实源见 `usine/ownership.json`，
 由 `verify_skills.py` 与本段双向机检。
 
@@ -95,16 +95,14 @@ description: >
 ```bash
 # 0) 先探 Lyria 凭据（不动网络；key 统一配在 ~/.config/feuille/bgm-bed.env，
 #    样例见 references/keys.env.sample）
-uv run --project usine --group music python \
-    usine/skills/bgm-bed/scripts/gen_bgm.py --list-providers
+feuille bgm gen --list-providers
 
 # 1) 量旁白：从 TTS 成品的真实语音区间量（tokens[0].start → 末 token 结束），
 #    别量整条——整条含 intro/outro 与词间静音，量出来的数偏低，gain 会偏大。
 #    取窗口法见 references §6。
 
-# 2) 生成床（--group music 装 Lyria 的 Live API 客户端）
-uv run --project usine --group music python \
-    usine/skills/bgm-bed/scripts/gen_bgm.py \
+# 2) 生成床（Lyria 的 Live API 客户端 @google/genai 已随 @feuille/bgm 常装）
+feuille bgm gen \
     --out usine/examples/<项目>/video/bgm_raw.wav \
     --prompt "felt piano chords" \
     --prompt "pizzicato string melody" \
@@ -112,7 +110,7 @@ uv run --project usine --group music python \
     --duration 80 --bpm 84 --density 0.7 --brightness 0.75 \
     --narration-rms-db -18.2
 
-# 3) 把脚本打印的 gain 写进 video.json 的 bgm 块，然后照常 build_video
+# 3) 把命令打印的 gain 写进 video.json 的 bgm 块，然后照常 build_video
 ```
 
 ## `matrix`：成品床来源（非脚本通路，已整链实测）
@@ -147,13 +145,10 @@ mcode-tools connector call connector__matrix__batch_text_to_music --args '{
 mcode-tools get_asset_url <node_id>
 curl -sL -o bgm_raw.wav "<download_url>"
 
-# 3) 跑判据。band_share / tonal_verdict / measure 直接复用本 skill 的脚本，
-#    不另写一份口径：
-uv run --project usine python -c "
-import sys; sys.path.insert(0, 'usine/skills/bgm-bed/scripts')
-import gen_bgm as g; from pathlib import Path
-p = Path('bgm_raw.wav')
-print(g.measure(p)); b = g.band_share(p); print(b, g.tonal_verdict(b))"
+# 3) 跑判据。band_share / tonal_verdict / measure 直接复用 @feuille/bgm 的
+#    唯一实现，不另写一份口径——先按「边车：这条线要手写」记齐边车，
+#    再一条命令全量重算：
+feuille bgm gen --out bgm_raw.wav --recheck
 ```
 
 **一次最多 5 条**（`requests` 数组上限 5），适合一次出几个变体挑一条。
@@ -197,7 +192,7 @@ print(g.measure(p)); b = g.band_share(p); print(b, g.tonal_verdict(b))"
 `pad_factor`）、实测时长、电平、频段占比、床长判据（`bed_len_check`）与建议
 `gain`。
 
-`gen_bgm.py` 不管 matrix 这条线，所以边车**得自己写**，但至少记齐 Lyria 边车的
+`feuille bgm gen` 不管 matrix 这条线，所以边车**得自己写**，但至少记齐 Lyria 边车的
 关键字段（`provider`/`model`/`prompts`/`measured`/`band_share_pct`/`tonal_check`/
 `bed_len_check`/`suggested_gain`/`gain_basis`）。⚠️ **`bpm_requested` 与 `model`
 两个键必须写**，否则 `--recheck` 会直接拒绝（`缺 bpm_requested/model——它可能不是
@@ -208,8 +203,7 @@ print(g.measure(p)); b = g.band_share(p); print(b, g.tonal_verdict(b))"
 判据演进后不必重新生成（Lyria RealTime 不吃 seed，重生成会拿到另一首）：
 
 ```bash
-NARRATION_RMS_DB=-18.2 uv run --project usine python \
-    usine/skills/bgm-bed/scripts/gen_bgm.py --out …/bgm_raw.wav --recheck
+NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 ```
 
 （`--recheck` 也认 `--narration-rms-db` / `--target-under-db`，与生成路径同一套参数；
@@ -254,8 +248,8 @@ NARRATION_RMS_DB=-18.2 uv run --project usine python \
 1. **床比请求短约 10%**（请求 62s → 实得 54.0s；请求 80s → 实得 78.0s）。
    **已结构化**：`--duration` 是**目标床长**，实时后端请求端自动垫 1.15×
    （`pad_request`），床长判据按目标验收（`bed_len_verdict`），垫了还短 → 退出码 2。
-   两个纯函数的反向验证在 `usine/scripts/verify_skill_scripts.py`
-   （凿洞用的就是这两组实测事故数字）。
+   两个纯函数的反向验证在 `usine/packages/bgm/test/`（vitest；
+   凿洞用的就是这两组实测事故数字）。
 2. **稀疏提示词 + 低 brightness 会换来一条低音嗡鸣**：>3 kHz 只剩 0.1%、64% 能量压在
    100 Hz 以下。旁白一盖完全听不出来，混完等于没挂床——**必须量频段，不能靠听**。
 3. **`bpm` 是软提示**：请求 84，实测拍速 175.8。拍速对不上**不能**判死刑，只有
@@ -266,7 +260,7 @@ NARRATION_RMS_DB=-18.2 uv run --project usine python \
 
 ## 资源
 
-- `scripts/gen_bgm.py` — Lyria 床生成 + 实测（`--recheck` 只重算判据不重生成；
+- `feuille bgm gen`（@feuille/bgm 包）— Lyria 床生成 + 实测（`--recheck` 只重算判据不重生成；
   `--list-providers` 只探测凭据；`--duration` = 目标床长，实时后端请求端自动垫
   1.15×）
 - `references/keys.env.sample` — 统一 key 文件样例（复制到

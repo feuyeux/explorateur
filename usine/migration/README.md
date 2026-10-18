@@ -1059,3 +1059,79 @@ SKILL.md（Requirements uv→node/pnpm、工作流 3–7 步、Conventions、代
 scripts/ 目录随之清空移除。examples/ 归档项目目录全程未碰。
 ownership.json 不动——机检对象仍是 src/feuille（双轨期），TS 包记账
 P7 清场。**P5-7e 收口。**
+
+## P5-7f：publish-copy / bgm-bed 归流（@feuille/copy + @feuille/bgm 新包）
+
+新包两枚：**@feuille/copy**（check_publish_copy.py 唯一实现）与 **@feuille/bgm**
+（gen_bgm.py 唯一实现，含自写 FFT）。CLI 加 `copy/check` + `bgm/gen` 两路由
+（packages/cli/src/commands.ts），薄叶 leaves/copy-check.ts + bgm-gen.ts
+（poster 三行叶同款），两包入 cli deps。ownership.json 不动——机检对象仍是
+src/feuille（双轨期），TS 包记账 P7 清场。
+
+### @feuille/copy：夹具裁决抓出一个真移植 bug
+
+29/29 绿。**splitlines 真镜像**是本批抓出的真 bug：正则 split 会留一个尾随
+''（`'a\n'.split(/…/) → ['a','']`），Python `str.splitlines()` 不留——段末行
+判定（check_trailing_space 读「最后一个非空行」）在带尾随换行的文件上整条
+错位。正解 = 边界正则切完 `parts.at(-1)===''` 就 pop，且 `'' → []`。夹具对
+Python 源码逐行裁决还校准了三个语义：**check_trailing_space 是「要求」尾随
+空格**不是禁止（Slate 联想面板吃末尾话题——publish-playbook 坑 ① 的机器门，
+判反了门就变成帮倒忙）；**no-hard-wrap 的 '---' 不是结构行**（`[-*+]\s` 要求
+bullet 后有空白，未闭合 frontmatter 逐行原样过——'---' 后跟正文行就是违规
+[1]）；字数按**码点**不按 UTF-16（`[...s].length`）。--facts 数字溯源：正则
+ `\d+(?:\.\d+)?` 逐字对表、**未给 --facts 是 SKIP 不是 PASS**（文案按原样镜像）。
+
+### @feuille/bgm：自写 FFT + Python 格式化镜像
+
+34 passed | 1 skipped（skip = key-missing 守卫在本机不可测：真
+`~/.gemini_api_key` 在，it.skipIf 诚实让位）。**FFT 不引新依赖**：迭代 radix-2
++ Bluestein chirp-z 任意 N，平方指数 mod 2N 保精度，逆变换 swap 技
+（`fftPow2(aim, are)` 后实部在 `are`）；rfftMag = numpy rfft+abs 语义
+（k=0..⌊N/2⌋），对朴素 DFT N=16/21/1500 相对误差 <1e-8。bandShare hanning
+/estBpm hop-512 包络自相关 /padRequest 1.15 垫量 /bedLenVerdict 全按原样
+镜像，垫量两行（80→92、62→71.3）与床长判据对 Python 实跑逐位一致；
+**estBpm 奇偶校准**：1 kHz 正弦 @48k hop 512 = 每 hop 10.67 周期，包络震荡
+测出 187.5 BPM——Python 实跑同为 187.5（测试按此断言，不按直觉的 null）。
+Python 格式化三件套：pyFloat（整数带 .0、None→'None'、±inf）、pyG（:%g
+6 位有效数字）、pyFixed（%.nf 银行家舍入）——verify_rate 的
+inconclusive/MISMATCH 双态文案逐字符对齐。**@google/genai v2.30.0 JS SDK
+与 Python SDK 形状不同**：`apiVersion` 直挂 options（无 httpConfig）、
+connect 走 callbacks（onmessage/onerror/onclose，无 receive 轮询）、
+audio chunk 是 **base64 字符串**（Buffer.from(ch.data,'base64')）、
+play()/close() 同步 void、setWeightedPrompts({weightedPrompts})——
+oneSession/captureRealtime（3 连断重试）/captureHttp（10 min AbortSignal，
+Free Tier → FeuilleError）结构移植，与 Python 侧 HTTP 备路同为未实跑路径。
+key 纪律：BGM_BED_ENV → ~/.config/feuille/bgm-bed.env，env 不覆盖、引号
+顺剥镜像，密钥永不进仓库；**测试零真实 API**（--list-providers 打桩、凭据
+探测纯函数）。pnpm-workspace.yaml `allowBuilds`：@google/genai/protobufjs
+false（纯 JS postinstall 不需要）、esbuild true——strict-dep-builds 下
+模板占位文本会炸 typecheck 的内层 install，两键必须落布尔。
+
+### verify_skill_scripts.py 退役（skill_scripts 套件归零）
+
+两个存活段（§1 copy 指纹/溯源、§2 bgm 垫量/床长）已全量进 vitest，脚本
+git rm；verify_probes.py SUITES 摘牌（21 套 → **20 套**：architecture.md
+行删 + 全文 7 处措辞、README.md 2 处）；verify_docs.py DEAD_PATTERNS 加
+`verify_skill_scripts.py` 条目防「复制粘贴旧手册段落」回流。poetry/poster
+段（color_contrast、audit_charset）先前批次已各自归流，本批归零收尾。
+
+### 接线面 + 死代码核销
+
+publish-copy SKILL.md（代码归属段「已归流 @feuille/copy」、Markdown style、
+尾随空格/指纹门、验收判据表头、编辑层、Workflow step 4、资源段——含两处
+verify_skill_scripts 指向改 vitest）；bgm-bed SKILL.md（frontmatter、两条
+出床线表、matrix 不进生成命令的三处、代码归属段「已归流 @feuille/bgm」、
+怎么用 step 0/2/3、matrix 样例块 step 3 的 `python -c` 复用改
+`--recheck` 一条命令（判据演进重算不加新请求）、坑 1 反向验证指向、--recheck
+块、资源段）；karaoke-video SKILL.md（`uv sync --group music` 退役——
+@google/genai 已随包常装）；skills/README.md（Lyria 线改指 `feuille bgm gen`）；
+one-page-poster SKILL.md **`feuille platform describe` 措辞修正**——platform
+是 @feuille/core 库函数、没有 CLI 路由，SKILL.md 把它写成命令是幽灵命令。
+两个 .py git rm，skills/{publish-copy,bgm-bed}/scripts/ 目录随之清空移除。
+assets/example/ 归档按只读豁免不动。**死代码核销（P5-7 冗余审计裁定）**：
+taglist、crop_backdrop 拷贝、describe 三项为 Python 侧死代码，**不迁移**，
+随 P7 清场整块消失——本行即核销记录。
+
+门禁：typecheck 干净；vitest **43 文件全绿（515 passed | 4 skipped）4 连绿**
+（复跑共 8 轮全绿）；Python 侧 verify_skills.py 78/78、verify_probes cli
+8 PASS / docs 13 PASS 复跑全绿。**P5-7f 收口。**

@@ -48,7 +48,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 
 拥有模块：（无）
 
-本 skill **不拥有** `src/feuille` 下的任何模块——它只产出 `publish/*.md` 文本，没有代码。`scripts/check_publish_copy.py` 是发布词自检（标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源），与下面的 `## 验收判据` 表一一对应；它住在 `scripts/` 不是 `src/feuille/`，与 `bgm-bed/scripts/gen_bgm.py` 同一类。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+本 skill **不拥有** `src/feuille` 下的任何模块——它只产出 `publish/*.md` 文本，没有代码。发布词自检（标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源）已归流到 **@feuille/copy** 包，进程内直跑 `feuille copy check`，与下面的 `## 验收判据` 表一一对应。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 
 ## Conventions
 
@@ -70,7 +70,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 
 - **Facts come from the deliverable** — 数字必须可溯源，never invent specs：Bed level 以 `bgm-bed` 边车 json 为准（例：《落叶》`gain_basis = 旁白 -23.2 dBFS − 目标 16 dB − 床 -13.8 dBFS`），时长以 `ffprobe` 出的 mp4 时长为准。这些数字**只进项目 README 与发布贴士，不进文案正文**。
 
-- **Markdown style** — follow the `markdown-no-hard-wrap` skill（全局 skill，仓库内不存实体）：每个逻辑块一行，不按字数硬换行；`scripts/check_publish_copy.py` 内联其判定逻辑（drift 风险写在脚本注释里）。
+- **Markdown style** — follow the `markdown-no-hard-wrap` skill（全局 skill，仓库内不存实体）：每个逻辑块一行，不按字数硬换行；`feuille copy check`（@feuille/copy）内联其判定逻辑（drift 风险写在脚本注释里）。
 - **字斟句酌，没有一字是废话** — "原来..." "藏了心机" "yyds" "绝绝子" "宝藏" 是 AI 指纹；emoji 滥用、感叹号刷屏、通用 closer、"像 X 一样的 Y" 模板句，单独无害连用即 AI 味。可枚举签名已由机检拦，「听起来像在给另一个 AI 解释」的语感仍归人工走查（详见「失败模式」末条）。
 
 - After saving, add a `publish/` row to the project README's file listing.
@@ -94,12 +94,12 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 - **编造规格** — 时长 / 语种数 / 电平没从成片或 README 读就写出来，是本 skill 最严重的失败模式。每条数字必须可溯源到事实源文件。
 - **序号对不上时间轴** — "第 7 个希腊语跟读翻车"这种位置引用必须对成片时间轴核过再写；同一批 12 语种成片，时间轴里希腊语不一定是第 7 个，写错了就是反向造假。
 - **跨平台标题照搬** — 抖音 ≤30 / 小红书 ≤20 不一致，29 字抖音标题原样进小红书被编辑器红字拒（实测显示 `28/20`）。**小红书标题另起一句**，按 publish-playbook §2 反推字数。
-- **话题不带尾随空格** — 抖音 + 小红书的最后一个 `#tag` 后必须留一个尾随空格，否则 Slate 在 blur 时把它当未闭合话题弹出联想面板并改写内容（publish-playbook 坑 ① 线上事故，已造成发布事故）。`scripts/check_publish_copy.py::check_trailing_space` 拦这道门。
-- **AI 味重** — 这是行业病，比规格单当钩子更隐蔽：单独看每句都不算坏，连着用就是 AI 指纹。**可枚举的签名已机器拦截**（`check_ai_fingerprint`：字面词清单、句首「原来…」揭秘句式、连叹号、「像 X 一样的 Y」模板句、一行 emoji 滥用——反向验证在 `usine/scripts/verify_skill_scripts.py`，且以归稿《落叶》为校准锚：新签名在已验收成果上误伤就是太凶）。机器拦不住的部分——节奏、模板感、「听起来像在给另一个 AI 解释」的语感——仍是写者的人工走查。
+- **话题不带尾随空格** — 抖音 + 小红书的最后一个 `#tag` 后必须留一个尾随空格，否则 Slate 在 blur 时把它当未闭合话题弹出联想面板并改写内容（publish-playbook 坑 ① 线上事故，已造成发布事故）。`feuille copy check` 的 `check_trailing_space` 拦这道门。
+- **AI 味重** — 这是行业病，比规格单当钩子更隐蔽：单独看每句都不算坏，连着用就是 AI 指纹。**可枚举的签名已机器拦截**（`check_ai_fingerprint`：字面词清单、句首「原来…」揭秘句式、连叹号、「像 X 一样的 Y」模板句、一行 emoji 滥用——反向验证在 `usine/packages/copy/test/`（vitest），且以归稿《落叶》为校准锚：新签名在已验收成果上误伤就是太凶）。机器拦不住的部分——节奏、模板感、「听起来像在给另一个 AI 解释」的语感——仍是写者的人工走查。
 
 ## 验收判据
 
-机检门（`scripts/check_publish_copy.py` 一一对应，纪律 6 不变量必须有机检）：
+机检门（`feuille copy check` 一一对应，纪律 6 不变量必须有机检）：
 
 | 判据 | 实现 | 不达标怎么读 |
 |---|---|---|
@@ -112,7 +112,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 | AI 指纹零命中（读者面） | `check_ai_fingerprint` | 字面签名（yyds/绝绝子/宝藏…）、句首「原来…」、连叹号、「像 X 一样的 Y」、一行 emoji 滥用 → **可枚举的 AI 味已机器拦截**；语感仍归编辑走查 |
 | 数字可溯源（`--facts facts.json` 给了才跑） | `check_fact_provenance` | 读者面文字里的数字对不上事实表 → 编造规格嫌疑；**未给 `--facts` 时 SKIP，SKIP 不是 PASS** |
 
-**机检门过了还有编辑层**——`scripts/check_publish_copy.py` 不查的：引文是否逐字取自
+**机检门过了还有编辑层**——`feuille copy check` 不查的：引文是否逐字取自
 事实源、序号是否对时间轴（「第 7 个」类位置引用）、题眼是否到位、成品自检三问、
 语感（指纹门只拦得住能写成规则的签名，拦不住节奏与模板感）。这是**写者本人**的
 走查，机检做不了。「事实 vs 成品」在给了 `--facts` 时已降级成机检（上表末行）——
@@ -123,7 +123,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 1. **挖题眼（先于一切）**：通读内容事实源——诗行/译文/幕名这些真正写了东西的文件，不是只读 README 的规格数字。抄下可逐字引用的句子，找跨语种/跨条目的母题，用一句话说出"观众为什么要看完这条"。规格数字随后读，作佐证与发布贴士。
 2. **Pick platforms** by format (pairing rule above) and confirm the goal (拉新 vs 带货 vs 导流) — copy shape changes accordingly.
 3. **Write one file per platform**, each self-contained: 标题 → 正文 → 话题标签 → 发布贴士. Same spine, different voice.
-4. **Check** — run `python scripts/check_publish_copy.py <publish_dir> --facts facts.json`（机检门与「验收判据」表一一对应；facts.json 只抄实测数——ffprobe 时长、manifest 条目数、bgm 边车数字，键随意、值必须可核对；没给 `--facts` 数字溯源是 SKIP 不是 PASS）。Then layer the editorial checks the script can't do: 引文逐字对事实源, 序号对时间轴, 题眼, 成品自检三问. **机检 0 违规 + 编辑三问全 YES 才算过**。
+4. **Check** — run `feuille copy check <publish_dir> --facts facts.json`（机检门与「验收判据」表一一对应；facts.json 只抄实测数——ffprobe 时长、manifest 条目数、bgm 边车数字，键随意、值必须可核对；没给 `--facts` 数字溯源是 SKIP 不是 PASS）。Then layer the editorial checks the script can't do: 引文逐字对事实源, 序号对时间轴, 题眼, 成品自检三问. **机检 0 违规 + 编辑三问全 YES 才算过**。
 5. **Update the project README** to mention `publish/`.
 
 ## 与发布执行的接缝
@@ -141,4 +141,4 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 
 - `assets/template/` — worked skeleton from the "one book" video: `xiaohongshu.md`, `douyin.md`, `bilibili.md` (copy the section skeleton, replace the content). 模板已含尾随空格与各平台必需段落。
 - `assets/example/` — 《落叶》精修成稿（竖屏→小红书/抖音，横屏→B站）：题眼"12 语种的『归根』全是『回家』"，工艺细节零入文。与 `assets/template/` 对照着读——同一套骨架，规格单文案与题眼文案的差距一目了然。
-- `scripts/check_publish_copy.py` — 发布词自检（标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源），与 `## 验收判据` 表一一对应；写完必跑 `--facts facts.json`，0 违规才进 publishing。反向验证（指纹凿洞、溯源对账、归稿校准锚）在 `usine/scripts/verify_skill_scripts.py`。
+- 发布词自检 `feuille copy check`（@feuille/copy 包）— 标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源，与 `## 验收判据` 表一一对应；写完必跑 `--facts facts.json`，0 违规才进 publishing。反向验证（指纹凿洞、溯源对账、归稿校准锚）在 `usine/packages/copy/test/`（vitest）。

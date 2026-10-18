@@ -74,7 +74,7 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
   不再写死可执行名；`$CHROME_BIN` 可显式覆盖）；
 - network access for edge-tts (Microsoft neural voices);
 - OPTIONAL, BGM only: a bed + its `gain`, produced beforehand with the
-  `bgm-bed` skill (`uv sync --group music` + a Gemini API key; its Live
+  `bgm-bed` skill (a Gemini API key; its Live
   music endpoint is region-gated — see that skill). `bgm.file` accepts any
   instrumental wav — with no such capability either drop the `bgm` block or
   point it at an existing track.

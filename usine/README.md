@@ -14,7 +14,7 @@
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + uv 统一）+ H3 铁律 |
 | [pyproject.toml](pyproject.toml) + `uv.lock` | uv 工程（Python 3.12；publish 组 = Playwright） |
 | `src/feuille/` | 代码：36 个归属模块（约 1.13 万行），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#srcfeuille-模块地图三层归属) |
-| `scripts/` | 22 个反向验证脚本（21 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，370+ 项断言） |
+| `scripts/` | 21 个反向验证脚本（20 套 + `verify_probes` 聚合器；`uv run feuille verify` 一条命令全量跑，370+ 项断言） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
@@ -111,7 +111,7 @@ for s in usine/skills/*/; do ln -sfn "$PWD/$s" ~/.agents/skills/"$(basename "$s"
 
 | 文件 | 内容 |
 |---|---|
-| [architecture.md](docs/architecture.md) | 架构总图（数据→生产→发布全景 · 模块三层归属 · 21 套门禁 · CLI 路由 · RSI 定位） |
+| [architecture.md](docs/architecture.md) | 架构总图（数据→生产→发布全景 · 模块三层归属 · 20 套门禁 · CLI 路由 · RSI 定位） |
 | [workflow.md](docs/workflow.md) | 工作流运行手册（①–⑬：内容创作→合集收录，每段输入/步骤/产物/检查） |
 | [toolchain.md](docs/toolchain.md) | 工具链：①–⑬ 每段用什么工具 + 工具明细 + 平台后台 |
 | [publish-lessons.md](docs/publish-lessons.md) | 发布踩坑与经验教训总账（按平台分节） |

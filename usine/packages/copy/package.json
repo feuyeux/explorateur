@@ -1,0 +1,14 @@
+{
+  "name": "@feuille/copy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "publish-copy 的发布词自检（check_publish_copy 的 TS 归流）：必需段落/标题字数/尾随空格/互动钩/置顶话术/no-hard-wrap/AI 指纹/--facts 数字溯源。零平台流量、零外部依赖，只读本地 markdown。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*"
+  }
+}

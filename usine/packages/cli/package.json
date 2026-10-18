@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@feuille/core": "workspace:*",
+    "@feuille/copy": "workspace:*",
+    "@feuille/bgm": "workspace:*",
     "@feuille/publish": "workspace:*",
     "@feuille/karaoke": "workspace:*",
     "@feuille/poetry": "workspace:*",

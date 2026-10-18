@@ -14,7 +14,7 @@ related:
 迁移为 dsh（DeepSeek Harness，开源 TS 智能体 harness，everything-is-a-plugin /
 Cordis）原生工程：TS 核心 + dsh 插件工具面 + skills 资产层，Python 实现迁移完成
 后清场。迁移判据（金样本 parity）与阶段记录在 `../migration/`（迁移工具目录，
-P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 21 套为准）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
+P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 20 套为准）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
 每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——数据从哪来、模块归谁、门禁
 怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。
 图表配色与术语纪律全篇统一（§0），与仓库级引擎文档
@@ -240,7 +240,7 @@ skill 层（`skills/<name>/`）只放**不会被 import** 的资产（SKILL.md �
 
 ---
 
-## 4. 门禁体系：21 套反向验证
+## 4. 门禁体系：20 套反向验证
 
 纪律是「**没验不许长得像验过了**」：docs 曾带着 135 行死入口教跑不了的命令
 （[render-handbook.md](render-handbook.md) 清账前的历史），清账之后由 docs
@@ -250,12 +250,12 @@ skill 层（`skills/<name>/`）只放**不会被 import** 的资产（SKILL.md �
 flowchart TB
     CLI["uv run feuille verify<br/>（feuille._run_verify_probes → scripts/verify_probes.py）"]
     AGG["verify_probes.py 聚合器<br/>SUITES 登记即执行 · 登记了脚本不存在 → 当场退出"]
-    subgraph SU["21 套验证器（scripts/verify_*.py，顺序即执行序）"]
+    subgraph SU["20 套验证器（scripts/verify_*.py，顺序即执行序）"]
         S1["底座：platform · ledger"]
         S2["音画：tts · scene_audio · audio · timeline · textlayer · compose"]
         S3["人物与课件：rig · personas · lesson · covers"]
         S4["发布与验收：manifest · audit · framehash · metrics · publish"]
-        S5["入口与资产：cli · skills · skill_scripts · docs"]
+        S5["入口与资产：cli · skills · docs"]
     end
     RV["反向验证：每套注入已知缺陷，断言当场被抓<br/>（未登记命令 · 死入口 · 幽灵脚本 · 幽灵符号 · 死链）"]
 
@@ -270,7 +270,7 @@ flowchart TB
     class S1,S2,S3,S4,S5,RV host
 ```
 
-21 套清单（`uv run feuille verify --list` 可现查）：
+20 套清单（`uv run feuille verify --list` 可现查）：
 
 | # | 套件 | 脚本 | 验什么 |
 |---|---|---|---|
@@ -293,8 +293,7 @@ flowchart TB
 | 17 | publish | verify_publish.py | 发布器骨架（mock 页驱动，零平台流量） |
 | 18 | cli | verify_cli.py | CLI 路由表可达性 + 聚合器一致性 |
 | 19 | skills | verify_skills.py | skills 去歧义（前置契约 / 边界 / 转交 / 事实源唯一） |
-| 20 | skill_scripts | verify_skill_scripts.py | skill 层脚本判据（publish-copy 指纹 / 溯源 + bgm 垫量 / 床长 + poetry gate） |
-| 21 | docs | verify_docs.py | docs 清账门禁（命令 / 脚本 / 符号 / 链接真实性 + 死入口零容忍） |
+| 20 | docs | verify_docs.py | docs 清账门禁（命令 / 脚本 / 符号 / 链接真实性 + 死入口零容忍） |
 
 docs 套件的五判据（本文自身就在扫描范围内——本文提到的每条命令、每个脚本、
 每个符号、每个链接都过检，这段话本身也是被验的）：
@@ -373,7 +372,7 @@ flowchart LR
   ——前者告诉用户怎么修。
 - **清单组装没有 CLI 叶子**：`feuille.manifest` 的构建吃带闭包的 plans 契约，
   只能从项目脚本调用（⑧ 的调用形态见 [toolchain.md](toolchain.md)）。
-- **verify 组可省略命令**：`uv run feuille verify` 跑全部 21 套，
+- **verify 组可省略命令**：`uv run feuille verify` 跑全部 20 套，
   `uv run feuille verify --only rig` 单跑一套。
 
 ---
@@ -383,7 +382,7 @@ flowchart LR
 本树（`usine/`）在 explorateur 仓库里是 RSI 的**改进对象**；引擎
 （`../théâtre/`，vendored RSIAgent）与适配层（`../../benchmarks/usine/`）
 都在本树之外。**本树不承载任何 RSI 运行时代码**——波次合进来的只是对既有
-模块 / 文档的修改，且必须先过 §4 的门禁（含 21 套全量）。
+模块 / 文档的修改，且必须先过 §4 的门禁（含 20 套全量）。
 
 ```mermaid
 flowchart LR
@@ -402,7 +401,7 @@ flowchart LR
     SEED --> GUEST
     TH -->|"驱动练习循环"| GUEST
     GUEST -->|"候选 delta"| WM
-    WM -->|"门禁绿才落（含本树 21 套全量）"| US
+    WM -->|"门禁绿才落（含本树 20 套全量）"| US
 
     classDef host fill:#f0fdf4,stroke:#16a34a,color:#14532d
     classDef ctrl fill:#eff6ff,stroke:#2563eb,color:#1e3a8a

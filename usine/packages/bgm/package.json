@@ -1,0 +1,15 @@
+{
+  "name": "@feuille/bgm",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "bgm-bed 的 TS 归流包：gen_bgm（Google Lyria 纯器乐 BGM 床生成 + 实测判据）。ffprobe 时长 / 银行家舍入 / 平台工具解析消费 @feuille/core 的唯一实现；频段分布用自写 radix-2 + Bluestein FFT（任意 N 精确 rfft），零新依赖面。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*",
+    "@google/genai": "^2.30.0"
+  }
+}

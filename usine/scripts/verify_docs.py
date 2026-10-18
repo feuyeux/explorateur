@@ -69,6 +69,9 @@ DEAD_PATTERNS = [
     (r"\bqa_[a-z][a-z_]*", "旧成片验收脚本 qa_*（依赖渲染线，未接入）"),
     (r"\bverify_(?:shape_fixes|text_contract|languages|polyglot|karaoke|scene_draft)\b"
      r"|\bverify_scene_schema\.py\b", "旧反向验证脚本（已并入现行套件）"),
+    (r"\bverify_skill_scripts\.py\b",
+     "旧反向验证脚本 verify_skill_scripts.py（P5-7 归流退役，判据已在 vitest："
+     "@feuille/copy · @feuille/bgm · @feuille/poetry · @feuille/poster）"),
     (r"self-introductions", "旧文案源 self-introductions.md"),
     (r"adr-character-tech", "未随迁的旧裁定记录 adr-character-tech.md"),
 ]

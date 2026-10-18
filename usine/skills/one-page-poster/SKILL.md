@@ -71,8 +71,8 @@ directories.
   configs）；
 - **任意 Chromium 系浏览器**——Chrome 或 Edge 都行。渲染器经
   `feuille poster render` 解析，走 @feuille/core 的 `platform.browserPath()`
-  这一个事实源；`$CHROME_BIN` 可显式覆盖。用
-  `feuille platform describe` 自查缺什么；
+  这一个事实源；`$CHROME_BIN` 可显式覆盖。环境自查是 @feuille/core
+  `platform` 的库函数（`describe()`），没有 CLI 路由——别在文档里写成命令；
 - network access for `feuille poster fetch-fonts` (Google Fonts css2 subsetting)。
 
 ## Conventions
