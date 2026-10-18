@@ -13,7 +13,7 @@
 //    所以反向（已登记 ⊆ usage）一并锁住，防止有人手写 usage 漏条目）
 // 4. 库层显式失败（FeuilleError）→ 消息进 stderr、退出码 1（Python 侧
 //    cli.main 的 except FeuilleError 同款口径）
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -93,6 +93,26 @@ describe('P5 课件线叶子经路由端到端可达', () => {
       expect(readFileSync(join(d, lessonId, 'scene.json'), 'utf8'))
         .toBe(readFileSync(join(lessonDir, 'scene.json'), 'utf8'))
       expect(await main(['scene', 'validate', '--scene', lessonId, '--lessons', d])).toBe(0)
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+
+  it('scene draft 落盘字节 parity（Python --print-plan 金样本口径）+ 拒覆盖已定稿 → 1', async () => {
+    const { data } = await import('@feuille/core')
+    const lessonId = 'guangchaoshi-逛超市'
+    const lessonDir = join(data.LESSONS_DIR, lessonId)
+    const d = mkdtempSync(join(tmpdir(), 'feuille-cli-draft-'))
+    try {
+      copyFileSync(join(lessonDir, 'brief.json'), join(d, 'brief.json'))
+      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(0)
+      const golden = readFileSync(join(lessonDir, '..', '..', 'migration', 'golden', 'scene_draft.md'), 'utf8')
+      expect(readFileSync(join(d, 'scene.md'), 'utf8')).toBe(golden)
+      // 落盘产物自带草稿标记 → 免 --force 重跑仍 0；换成无标记定稿 → FeuilleError → 1
+      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(0)
+      writeFileSync(join(d, 'scene.md'), '# 已定稿，无 draft 标记', 'utf8')
+      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(1)
+      expect(readFileSync(join(d, 'scene.md'), 'utf8')).toBe('# 已定稿，无 draft 标记')
     } finally {
       rmSync(d, { recursive: true, force: true })
     }

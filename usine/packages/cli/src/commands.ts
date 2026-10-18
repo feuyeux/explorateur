@@ -51,6 +51,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/scene-validate.js'),
     desc: '场景数据前置校验：scene.json × 注册表 + 选角/班底（不合规 → 退出码 1）',
   },
+  'scene/draft': {
+    load: () => import('./leaves/scene-draft.js'),
+    desc: '教学创意 → lessons/<id>/scene.md 结构草稿（只填结构留 TODO；--gaps 查欠账）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */

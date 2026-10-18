@@ -535,3 +535,54 @@ Python verify_lesson 13/13 复跑全绿（双轨期纪律）。
 门禁：typecheck 干净；vitest 30 文件全绿（246 用例，2 skipped）×4 连续；
 Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
 复跑全绿（双轨期纪律）。**P5-2 收口。**
+
+## P5-3 scene_draft 草稿层（brief.json → scene.md 结构草稿）
+
+### 实现（packages/core/src/scene_draft.ts；CLI 叶子 scene/draft）
+
+- 全量移植 scene_draft.py：`render` 纯函数只填结构不生成内容（台词/词义/舞台
+  留 TODO）；`expandSkeleton` 骨架展开（rest 吸收剩余行、n-K 记法的 relFrom/relTo
+  判据）、`beatTableMd` §0.5 节拍表、`assignLines` 行归属（问句节 ask 奇偶 + Ask/
+  Reply 变体、列表按节内行偏移逐行给）、`castFor` 选角（personas × intro-cards
+  cast 表唯一解）、`gaps` 欠账清单、`mainDraft`（--brief 必填缺 → 2；--out/
+  --languages/--personas/--force/--print-plan/--gaps）。
+- 注册表全部现取：moods = MOOD_FACE 键、poses = POSE_CODES 归一 + bounce_in、
+  deviceStyles = DEVICE_STYLES 键——姿态码先过 parse_scene.normPose 再查
+  （md 写 `jump-celebrate`、注册表记 `jump_celebrate`，拿未归一串量注册表会误杀）。
+- 金样本（migration/golden/scene_draft.md）：Python `feuille scene draft --brief`
+  **落盘**产物入库——不取 --print-plan 口径（print 会多补一个换行，落盘字节才是
+  render 真身，首跑 8 个失败里 5 个全是这个口径差）。真实 brief 全文
+  **逐字节一致**。
+- 忠实镜像不「顺手修」：
+  - expand_skeleton 的怪文案：「骨架含 rest 项时不需要再给 n」实际在
+    **rest 在场且未给 n** 时触发（这时必须给，rest_n 要靠 total 减）——条件与
+    文案原样保留。推论：无 rest 不给 n 也报错，n 实际恒必填。
+  - 装置 style 缺失：Python `{d.get("style")}` 集合进 None → 单 None 时报错名单
+    印 `[None]`；None 混排字符串时 sorted() 抛 TypeError——TS 同样裸 TypeError
+    崩溃（CLI 不接、退出码 1 口径两边一致）。
+  - 骨架缺 lines 键：Python KeyError 崩溃 → TS 裸 Error（"KeyError: 'lines'"），
+    不升 FeuilleError。
+  - 错误名单渲染按 Python str(list) 口径：单引号 `['a', 'b']`、None 印 None。
+  - `if d` 过滤空装置 dict（pyFalsy 口径）；`k in d` 用自有键判定（值假也算）。
+  - noteOn 的 "exit" 是**子串**命中（mark.includes）；⚑TODO 与 ＋蹦跳出画 按
+    节内行偏移点亮，草稿锚词槽写成最终形状 `«TODO» 处`（parse_line 正则只认
+    带引号形式）。
+
+### 测试（packages/core/test/scene_draft.test.ts，20 用例 + cli 1 用例）
+
+- 字节 parity 三条：render 全文逐字节；mainDraft --brief 临时目录落盘逐字节 +
+  欠账清单（台词行=51 = 3 语种 × 17，待写舞台=0）；--print-plan 只打印不落盘。
+- 落盘纪律：无草稿标记拒覆盖（FeuilleError、原文件不动）→ --force 放行；
+  带标记免 --force 重写；--gaps 只数不生成、目标缺失 → FeuilleError。
+- 骨架反向：双 rest、rest 超载（负余行）、无 rest 缺 n / n 不一致、
+  rest 缺 n（怪文案）、缺 lines 键 → KeyError 通道；beat_table n-4/n-3/n-2/n-1
+  边界与 relFrom/relTo 矩阵逐格断言。
+- 行归属：round 节 even 奇偶（A 问 B 答各取 Ask/Reply 变体）、列表短于节长
+  越界退缺省、bye 列表逐行；选角 Миша/Аня 实名断言 + 空语种报人话。
+- render 反向：坏语种/坏姿态/坏情绪/坏装置样式/单 None style/骨架只 1 行，
+  定向命中各自报错；levels 与 rtlLocales 可选节给了才渲染（金样本无此节）。
+- CLI 端到端：`scene draft` 路由可达 + 落盘字节 parity + 拒覆盖已定稿 → 1。
+
+门禁：typecheck 干净；vitest 30 文件全绿（267 用例，2 skipped）×4 连续；
+Python verify_lesson 13/13、verify_scene_audio / verify_publish / verify_audit
+复跑全绿（双轨期纪律）。**P5-3 收口。**
