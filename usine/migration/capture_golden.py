@@ -274,15 +274,95 @@ def alpha_stats(p):
     }
 
 
+# ------------------------------------------------------------------ ledger
+# _digest 是纯字节数学（sha256("v2" + "|label:sha" 逐段)），跨语言可逐字节对齐——
+# 这是批次 2 的核心 parity 判据。夹具文件**内嵌**在金样本里（bytes_b64），
+# TS 测试在临时目录重建同字节文件后复算，不依赖任何本机文件。
+
+import base64 as _base64
+import tempfile as _tempfile
+
+
+def capture_ledger() -> None:
+    from feuille import ledger
+
+    fixtures = [
+        ("mod_a.py", b"x = 1\n"),
+        ("data_b.json", '{"a": 1, "\u4e2d\u6587": "\u843d\u53f6"}\n'.encode("utf-8")),
+        ("bin.bin", bytes([0, 1, 2, 0x80, 0xFD, 0xFE, 0xFF, 10])),
+    ]
+    data: dict = {}
+    with _tempfile.TemporaryDirectory(prefix="feuille-golden-ledger-") as td:
+        d = Path(td)
+        for name, content in fixtures:
+            (d / name).write_bytes(content)
+        parts = [("mod:a", d / "mod_a.py"), ("data:b", d / "data_b.json")]
+        data["fixtures"] = [{"name": n, "bytes_b64": _base64.b64encode(c).decode("ascii")}
+                            for n, c in fixtures]
+        data["sha256"] = {n: ledger._sha(d / n) for n, _ in fixtures}
+        data["digest"] = {
+            "two_parts": ledger._digest(parts),
+            "order_swapped": ledger._digest(list(reversed(parts))),
+            "label_changed": ledger._digest([("zzz:a", d / "mod_a.py"),
+                                             ("data:b", d / "data_b.json")]),
+            "with_binary": ledger._digest(parts + [("data:bin", d / "bin.bin")]),
+            "empty": ledger._digest([]),
+            "missing": ledger._digest([("mod:a", d / "nope.py")]),
+        }
+        (d / "mod_a.py").write_bytes(b"x = 2\n")          # 改一个字节
+        data["digest"]["one_byte_changed"] = ledger._digest(parts)
+        (d / "mod_a.py").write_bytes(b"x = 1\n")
+        data["digest"]["reproducible"] = ledger._digest(parts)
+    _save("ledger", data)
+
+
+# --------------------------------------------------------------- framehash
+# classify / first_drift / 基线文件格式：纯函数 + 纯文本格式，逐字节可对齐。
+# （framehash 本体依赖 ffmpeg 解码像素，按桶逐机重采，不进跨语言金样本。）
+
+def capture_framehash() -> None:
+    from feuille import framehash as fh
+
+    data: dict = {}
+    base = {"a.mp4": "MD5=aaa", "b.mp4": "MD5=bbb", "old.mp4": "MD5=dead"}
+    cur = {"a.mp4": "MD5=aaa", "b.mp4": "MD5=ccc", "c.mp4": "MD5=ccc"}
+    data["classify"] = {
+        "base": base, "cur": cur,
+        "full": fh.classify(base, cur, False),
+        "subset": fh.classify(base, cur, True),
+        "empty_base": fh.classify({}, cur, False),
+    }
+    frames_full = [f"MD5=f{i}" for i in range(15)]
+    frames_mid = list(frames_full)
+    frames_mid[7] = "MD5=xxx"
+    frames_tail = frames_full[:12] + ["MD5=zzz", "MD5=zzz2"]
+    data["first_drift"] = [
+        {"ref": frames_full, "cur": frames_full,
+         "out": list(fh.first_drift(frames_full, frames_full))},
+        {"ref": frames_full, "cur": frames_mid,
+         "out": list(fh.first_drift(frames_full, frames_mid))},
+        {"ref": frames_full, "cur": frames_full[:9],
+         "out": list(fh.first_drift(frames_full, frames_full[:9]))},
+        {"ref": frames_full, "cur": frames_tail,
+         "out": list(fh.first_drift(frames_full, frames_tail))},
+    ]
+    with _tempfile.TemporaryDirectory(prefix="feuille-golden-fh-") as td:
+        b = fh.save_baseline({"b.mp4": "MD5=bbb", "a.mp4": "MD5=aaa",
+                              "中文视频.mp4": "MD5=ccc"}, Path(td) / "base.txt")
+        data["baseline_text"] = b.read_text("utf-8")
+        data["baseline_roundtrip"] = fh.read_baseline(b)
+    _save("framehash", data)
+
+
 # -------------------------------------------------------------------- main
 
 def main(argv: list[str]) -> int:
-    which = argv[0] if argv else "all"
     steps = {
         "tts": capture_tts, "audio": capture_audio,
         "timeline": capture_timeline, "textlayer": capture_textlayer,
+        "ledger": capture_ledger, "framehash": capture_framehash,
     }
-    todo = list(steps) if which == "all" else [which]
+    todo = list(steps) if not argv else [a for a in argv]
     for name in todo:
         if name not in steps:
             print(f"unknown section: {name}", file=sys.stderr)

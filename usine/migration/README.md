@@ -114,3 +114,56 @@ sharp + @napi-rs/canvas（Skia，预编译二进制）。判据走共享 op-spec
   行为留到 P8 的 dsh Web UI 实测一并看。
 - 根 `pnpm test` 现在先 `--filter @feuille/dsh-plugin build` 再跑 vitest
   （测试依赖构建产物，单命令确定性）。
+
+## P2 基础层迁移（2026-10-18，✅ 完成）
+
+platform / errors / packaging / ledger / framehash 五模块 TS 落地 + CLI 三叶子
+接线 + 反向验证五套移植（verify_ledger / verify_framehash / verify_platform /
+verify_cli / verify_audit 打包节）+ 金样本批次 2 采集。门禁：typecheck 绿、
+vitest 68 passed / 1 skipped、Python 侧对应四套 verify_*.py 全绿（rc=0，双轨纪律）。
+
+### 金样本批次 2（migration/golden/ledger.json + framehash.json）
+
+- **ledger `_digest` 跨语言逐字节 parity 已证**：sha256("v2" + `|label:sha` 逐段)
+  是纯字节数学，夹具（UTF-8 中文 + 二进制字节）以 base64 内嵌金样本，TS 复算
+  与 Python 引擎**逐字一致**（two_parts / order_swapped / label_changed /
+  with_binary / empty / missing→null / one_byte_changed / reproducible 八形态全对）。
+- framehash 纯函数（classify 三形态 / firstDrift 四形态 / 基线文件格式含非
+  ASCII 文件名）同样逐字节对齐。framehash 本体（解码像素）按桶逐机重采，
+  不进跨语言金样本——TS 桶成像库段是 sharp（Python 是 pillow），**桶名不同
+  是设计内**，迁移切换 = 一次保守全量重渲（账本条目全判过期）。
+- 采集口径：`uv run python migration/capture_golden.py ledger framehash`。
+
+### 移植中新踩的坑（复用价值）
+
+- **块注释里写不出「星号+斜杠」字面量**：ledger.ts 的 JSDoc 注释曾写
+  `langs/*/manifest.json`——`langs` 后的 `*/` 把注释提前关闭，后半段注释
+  连同反引号变成代码，模板字符串配对从此错位，报错全在下游几百行处
+  （TS1005/TS1109/TS1160 连锁，第一现场无错）。Python `#` 注释无此坑，
+  移植时 glob 字面量一律写成 `<*>` 或改行注释。
+- **ESM 导出绑定不可 monkeypatch**：Python 反向验证用
+  `ledger.toolchain = lambda: {...}` 模拟工具链读不到；TS 侧 `export function`
+  是不可变绑定，改为显式测试缝 `overrideToolchainForTests(tc | null)`
+  （带 cache 重置），语义与 monkeypatch 等价。
+- **vitest afterEach 共享 tmpRoots 的清理时序**：describe 收集期建的临时目录
+  会被第一个测试的 afterEach 清掉——夹具目录必须在每个测试内重建。
+- **CLI 路由回退还参契约**：TS 骨架曾漏了 Python 侧 `argv.insert(0, cmd)`
+  （组键回退时 cmd 是叶子第一个参数），verify_cli 移植时补齐并加了形态测试。
+
+### 性能修复按设计内建（不先移植再修）
+
+- `ledger.toolchain()` memoize 进程内缓存（浏览器 size+mtime 与 ffmpeg 版本
+  一次进程内不变）；测试缝 `resetToolchainCacheForTests()`。
+- `framehash()` 按 (path, size, mtime) 键 memoize（report 循环反复点名同一
+  片子不再重复 spawn ffmpeg）；反向面有测试锁住「文件变了拿不到旧哈希」。
+
+### 口径对齐明细（与 Python 逐条核对过的）
+
+- CLI：无参 / -h / --help / help → usage + 退出码 0；未知命令 → 2；
+  FeuilleError → stderr + 1。ledger status 空账本 → 0。
+- `read_baseline` / `save_baseline` 两空格分隔、排序键序、非 ASCII 文件名
+  逐字节一致；`-map 0:v` 在 framehash/perFrame 双双承重（源级断言移植为读
+  源文件抓函数体，Python 侧 inspect.getsource 的对应物）。
+- 已知且不追的量化差：diffPng 热力图的 601 灰度量化与 PIL convert("L") 的
+  定点舍入可差 ±1——它是人看的证据图不是判据，权重（299/587/114）与结构
+  对齐即可。slug 的 Unicode isalnum 差异同理（桶名各段实际都是 ASCII）。

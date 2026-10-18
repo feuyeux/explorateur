@@ -16,6 +16,19 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/version.js'),
     desc: '打印版本',
   },
+  // ---- P2 基础层（叶子 = 薄适配层，判据与退出码口径都在 @feuille/core）----
+  'ledger/status': {
+    load: () => import('./leaves/ledger-status.js'),
+    desc: '缓存账本：谁过期了、因为什么（有过期 → 退出码 1）',
+  },
+  'framehash/save': {
+    load: () => import('./leaves/framehash-save.js'),
+    desc: '逐帧像素基线：采集（build/ 全量发现 → 分桶落盘 → 回读自证）',
+  },
+  'framehash/check': {
+    load: () => import('./leaves/framehash-check.js'),
+    desc: '逐帧像素基线：零漂移门禁（diff/gone → 退出码 1）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */

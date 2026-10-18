@@ -13,3 +13,12 @@ export * from './tts/index.js'
 
 // spike 2（sharp + canvas 成像管线）——P3 textlayer / P4 rig·scenes 的种子
 export * from './imaging/index.js'
+
+// ---- P2 基础层（命名空间导出：ledger 自带 schema VERSION，与包 VERSION 同名不同义，
+// 混在顶层会静默遮蔽）----
+export * as platform from './platform.js'
+export { FeuilleError } from './errors.js'
+export * as errors from './errors.js'
+export * as packaging from './packaging.js'
+export * as ledger from './ledger.js'
+export * as framehash from './framehash.js'
