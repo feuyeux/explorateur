@@ -449,3 +449,39 @@ devices + pildraw 基座）收口。**
 ×4 连续；Python verify_personas 18/18 复跑全绿（双轨期纪律）。
 **P4b 收口——P4（data/audit/manifest/metrics/rig/scenes/devices/persona）
 全批完成。**
+
+## P5 第二批（P5-2a）：scene_schema 场景校验层
+
+日期：2026-10-18　对应 Python：src/feuille/scene_schema.py（472 行）→ packages/core/src/scene_schema.ts
+
+### 实现（packages/core/src/scene_schema.ts）
+
+- `validateScene(scene, personas?, cards?) → 问题列表`：纯函数零 I/O、不抛异常
+  ——反向验证直接喂坏数据。合法值**现取注册表不复制**（纪律 7）：情绪 →
+  rig.MOOD_FACE 键、姿态 → rig.POSE_CODES + ENTRY_POSE（bounce_in）、
+  装置样式 → devices.DEVICE_STYLES。
+- 合法说话人不写死：§0.4 `roles` 本课声明了谁就是谁（第三个人 = 剧本多写一行，
+  代码零改动）。`unitsOf` 两形态统一清单（dialogue 每语种一单元 / polyglot 单元
+  = 舞台、行内自带语标）——校验层按清单走，不各自 if/else。
+- §8 选角（personas+cards 都给才跑）：dialogue 走 intro-cards cast 表；
+  polyglot 按 §0.6 `locale + energy` 唯一解出（亮相卡 cast 表只有一个角色，
+  同台三人无 C 角）。8b 彩蛋批注必须命中**本课演员真实色板**的 hex（悬空引用
+  抓手）。姓名槽位随角色名走：`${role.toLowerCase()}Name`。
+- Python 真值口径 `pyFalsy`（None/""/0/false/空数组/空对象皆 falsy）与 repr
+  口径（单引号/None/列表字典）本地小helper，与 persona.ts 同款。
+- **main 暂缓**：`scene validate` 的 main 需要 data.sceneDoc（依赖 parse_scene），
+  随 P5-2b 一并接入——叶子不接半截线。
+
+### 测试（verify_lesson.py §1–§2 的 vitest 移植，3 用例）
+
+- 好数据放行：**全注册表演习**（16 device_style 一岛一台 + 台词行轮转铺满
+  6 mood × 38 姿态码）零问题——注册表↔校验层契约测试。
+- 凿洞十枪：坏 mood / 坏姿态码 / 坏装置样式 / 幽灵说话人 / token 幽灵键 /
+  空角色表 / 缺节拍表 / 行号重复 / dialogue 带同台表 / polyglot 缺同台表，
+  各自命中对应报错关键词。
+- 实弹：真实课件 guangchaoshi-逛超市/scene.json × 真实班底 × 亮相卡
+  → §8 选角/彩蛋全量数据下零问题（Python 侧同判据已探针确认）。
+- §3 doctor 班底体检接线随 lesson.ts（P5-5）补。
+
+门禁：typecheck 干净；vitest 28 文件全绿（225 用例，2 skipped）×4 连续；
+Python verify_lesson 13/13 复跑全绿（双轨期纪律）。
