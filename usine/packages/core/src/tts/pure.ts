@@ -7,6 +7,12 @@
 // - 伪词不裁尾（裁了会误伤无词边界事件的语言）。
 import { createHash } from "node:crypto"
 
+import { clamp } from "../num.js"
+
+// clamp 的口径本体在 num（数值口径底座），这里只做转出保兼容面：
+// tts 侧历史上从这里取 clamp，仓内已全部改走 num，再导出只为不打断外部调用方。
+export { clamp } from "../num.js"
+
 /** 内容寻址缓存键：sha256("|".join(parts))[:16]。口径不许变。 */
 export function contentHash(...parts: (string | number)[]): string {
   const joined = parts.map((x) => String(x)).join("|")
@@ -30,10 +36,7 @@ export function parseSigned(v: string | number): number {
 export const SAFE_RATE = [-20, 20] as const
 export const SAFE_PITCH = [-12, 12] as const
 
-/** 数值夹取：单一事实源在 tts（与 Python feuille.tts.clamp 同位）——rig 等只引用不复制。 */
-export function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v))
-}
+/** 数值夹取：口径本体在 core.num（数值口径底座），此处仅为 tts 侧的转出面。 */
 
 /** 人设基线 + 项目偏移，夹取在安全域内，返回 edge-tts 的 rate/pitch 串。 */
 export function voiceParams(

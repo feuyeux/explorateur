@@ -23,7 +23,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
 
-import { LESSONS_DIR, cardsDoc, personas, personasDoc } from "./data.js"
+import { cardsDoc, lessonsDirOf, personas, personasDoc } from "./data.js"
 import { FeuilleError } from "./errors.js"
 import * as framehash from "./framehash.js"
 import * as persona from "./persona.js"
@@ -38,10 +38,6 @@ import { PLATFORMS } from "./manifest.js"
 import { ledgerPath } from "./metrics.js"
 
 type Json = any
-
-function lessonsDirOf(lessonsDir?: string | null): string {
-  return lessonsDir ? lessonsDir : LESSONS_DIR
-}
 
 // 两门示范课共用的骨架：开场 1 + 接题 1 + 来回 2×rounds + 收束 1 + 告别 2。
 // 这是**从 colors/numbers 提炼出来的结构常量**（rounds=6 时 5+12=17 行 = numbers
@@ -307,7 +303,7 @@ export function cmdNew(argv: string[] = []): number {
   const badScenes = scenesSpec.split(",").map((c) => c.trim()).filter((s) => s && !reg.scenes.has(s))
   if (badScenes.length) {
     throw new FeuilleError(`--scenes 里有不存在的背景原语：[${badScenes.map((s) => `'${s}'`).join(", ")}]\n`
-      + "合法值见 `uv run python -c \"from feuille import scenes;print(sorted(scenes.SCENES))\"`")
+      + "合法值见 `core.scenes.SCENES 注册表的键名（不手抄、不猜；`feuille lesson new` 会当场校验）`")
   }
 
   const brief = scaffoldBrief({
@@ -355,11 +351,11 @@ export function cmdNew(argv: string[] = []): number {
   console.log("空跑草稿通过——这份 brief 渲得出来。欠账：" + Object.entries(g).map(([k, v]) => `${k}=${v}`).join("　"))
   console.log()
   console.log("接下来（②生成结构草稿 → ③填台词 → ④全链路）：")
-  console.log(`  uv run feuille scene draft --brief lessons/${sid}/brief.json`)
-  console.log(`  uv run python -m feuille.scene_draft --brief lessons/${sid}/brief.json --gaps   # 看还欠多少`)
+  console.log(`  feuille scene draft --brief lessons/${sid}/brief.json`)
+  console.log(`  feuille scene draft --brief lessons/${sid}/brief.json --gaps   # 看还欠多少`)
   console.log("  # 填完所有 TODO 后：")
-  console.log(`  uv run feuille scene parse --scene ${sid} && uv run feuille scene validate --scene ${sid}`)
-  console.log(`  uv run feuille lesson doctor --scene ${sid}      # 体检：还差哪几项`)
+  console.log(`  feuille scene parse --scene ${sid} && feuille scene validate --scene ${sid}`)
+  console.log(`  feuille lesson doctor --scene ${sid}      # 体检：还差哪几项`)
   console.log()
   console.log("需要你做主的四件事（工具替不了）：")
   console.log(`  1. 舞台：${locales.length} 个语种各自的 stage（brief.stage，现在都是 TODO）`)
@@ -488,7 +484,7 @@ function checkTierBrief(add: Add, sid: string, briefP: string, mdP: string): voi
     add("①创意", "brief.json", SKIP, "无 brief（直接维护 scene.md，可选）")
   } else if (!existsSync(briefP)) {
     add("①创意", "brief.json", TODO_STATE, "还没有教学创意",
-      `uv run feuille lesson new ${sid} --title "…" --tokens "k:#RRGGBB"`)
+      `feuille lesson new ${sid} --title "…" --tokens "k:#RRGGBB"`)
   } else {
     let brief: Json
     try {
@@ -513,7 +509,7 @@ function checkTierBrief(add: Add, sid: string, briefP: string, mdP: string): voi
 function checkTierScript(add: Add, sid: string, mdP: string): void {
   if (!existsSync(mdP)) {
     add("②剧本", "scene.md", TODO_STATE, "还没有剧本",
-      `uv run feuille scene draft --brief lessons/${sid}/brief.json`)
+      `feuille scene draft --brief lessons/${sid}/brief.json`)
   } else {
     const text = readFileSync(mdP, "utf8")
     const g = gaps(text)
@@ -523,7 +519,7 @@ function checkTierScript(add: Add, sid: string, mdP: string): void {
     if (debt) {
       add("②剧本", "scene.md 欠账", TODO_STATE,
         Object.entries(g).map(([k, v]) => `${k}=${v}`).join("　"),
-        `uv run python -m feuille.scene_draft --brief lessons/${sid}/brief.json --gaps`)
+        `feuille scene draft --brief lessons/${sid}/brief.json --gaps`)
     } else {
       add("②剧本", "scene.md 欠账", OK, "TODO 清零")
     }
@@ -553,7 +549,7 @@ function checkTierData(add: Add, sid: string, mdP: string, jsonP: string,
     for (const p of plist) bad.push(...persona.validatePersona(p))
     if (bad.length) {
       add("③数据", "班底体检", FAIL, `${bad.length} 项：${bad[0]}`,
-        "uv run feuille persona validate 看全量")
+        "feuille persona validate 看全量")
     } else {
       add("③数据", "班底体检", OK, `${plist.length} 人零问题（id 唯一 / 配对齐）`)
     }
@@ -564,7 +560,7 @@ function checkTierData(add: Add, sid: string, mdP: string, jsonP: string,
   let scene: Json | null = null
   if (!existsSync(mdP)) {
     add("③数据", "scene.json", TODO_STATE, "没有剧本可解析",
-      `uv run feuille scene parse --scene ${sid}`)
+      `feuille scene parse --scene ${sid}`)
   } else {
     try {
       scene = parseScene(sid, lessonsDir)[0]
@@ -578,12 +574,12 @@ function checkTierData(add: Add, sid: string, mdP: string, jsonP: string,
     if (scene !== null) {
       if (!existsSync(jsonP)) {
         add("③数据", "scene.json", TODO_STATE, "还没落盘",
-          `uv run feuille scene parse --scene ${sid}`)
+          `feuille scene parse --scene ${sid}`)
       } else if (!pyEq(JSON.parse(readFileSync(jsonP, "utf8")), scene)) {
         // 这是最阴的一种漂移：剧本改了、JSON 没重跑，成片与剧本脱节而 git diff 干净。
         add("③数据", "scene.json 新鲜度", FAIL,
           "scene.md 改了但 scene.json 没重跑（成片会与剧本脱节）",
-          `uv run feuille scene parse --scene ${sid}`)
+          `feuille scene parse --scene ${sid}`)
       } else {
         add("③数据", "scene.json 新鲜度", OK, "与 scene.md 逐字段一致")
       }
@@ -591,7 +587,7 @@ function checkTierData(add: Add, sid: string, mdP: string, jsonP: string,
       const errs = validateScene(scene, personas(personasDir), cardsDoc(personasDir))
       if (errs.length) {
         add("③数据", "schema 前置校验", FAIL, `${errs.length} 项：${errs[0]}`,
-          `uv run feuille scene validate --scene ${sid}`)
+          `feuille scene validate --scene ${sid}`)
       } else {
         add("③数据", "schema 前置校验", OK,
           `${Object.keys(scene["locales"]).length} 语种 × ${scene["tokenOrder"].length} token`)
@@ -613,14 +609,14 @@ function checkTierOutputs(add: Add, sid: string, scene: Json | null, sceneOut: s
     const missMp4 = locs.filter((lc) => !existsSync(join(sceneOut, `scene-${sid}_${lc}.mp4`)))
     add("④成片", "语音", missTts.length ? TODO_STATE : OK,
       missTts.length ? `缺 ${missTts.length} 语种：${missTts.slice(0, 6).join(", ")}` : "全语种齐",
-      missTts.length ? `uv run feuille scene tts --scene ${sid}` : "")
+      missTts.length ? `feuille scene tts --scene ${sid}` : "")
     add("④成片", "文字层", missTxt.length ? TODO_STATE : OK,
       missTxt.length ? `缺 ${missTxt.length} 语种：${missTxt.slice(0, 6).join(", ")}` : "全语种齐",
-      missTxt.length ? `uv run feuille scene assets --scene ${sid}（渲染线预留）` : "")
+      missTxt.length ? `feuille scene assets --scene ${sid}（渲染线预留）` : "")
     add("④成片", "成片 mp4", missMp4.length ? TODO_STATE : OK,
       missMp4.length ? `缺 ${missMp4.length} 支：${missMp4.slice(0, 6).join(", ")}`
         : `${locs.length - missMp4.length}/${locs.length} 支`,
-      missMp4.length ? `uv run feuille scene render --scene ${sid}（渲染线预留）` : "")
+      missMp4.length ? `feuille scene render --scene ${sid}（渲染线预留）` : "")
   }
   return locs
 }
@@ -634,13 +630,13 @@ function checkTierDocs(add: Add, sid: string, locs: string[], d: string, root: s
     const html = join(root, "build", "lesson", sid, "index.html")
     add("⑤文档", "解析源文本", noSrc.length ? TODO_STATE : OK,
       noSrc.length ? `缺 ${noSrc.length} 语种` : "全语种齐",
-      noSrc.length ? `uv run feuille lesson dump --scene ${sid}（教学文档管线尚未接入）` : "")
+      noSrc.length ? `feuille lesson dump --scene ${sid}（教学文档管线尚未接入）` : "")
     add("⑤文档", "逐句解析", noAna.length ? TODO_STATE : OK,
       noAna.length ? `缺 ${noAna.length} 语种（人工产出，无法自动生成）` : "全语种齐",
       noAna.length ? `编辑 lessons/${sid}/analysis/{locale}.json` : "")
     add("⑤文档", "教学文档 HTML", existsSync(html) ? OK : TODO_STATE,
       existsSync(html) ? relative(root, html) : "还没合并",
-      existsSync(html) ? "" : `uv run feuille lesson build --scene ${sid}（教学文档管线尚未接入）`)
+      existsSync(html) ? "" : `feuille lesson build --scene ${sid}（教学文档管线尚未接入）`)
   }
 }
 
@@ -678,7 +674,7 @@ function checkTierAcceptance(add: Add, sid: string, locs: string[], sceneOut: st
       "qa_scene 尚未接入（依赖场景渲染线）；验收暂以下方像素基线为准")
   } else if (!locs.some((lc) => existsSync(join(sceneOut, `scene-${sid}_${lc}.mp4`)))) {
     add("⑦验收", "场景线验收", SKIP, "没有成片可验（qa_scene 要逐帧读 mp4）",
-      `uv run feuille scene render --scene ${sid} 之后才有意义（场景渲染线尚未接入）`)
+      `feuille scene render --scene ${sid} 之后才有意义（场景渲染线尚未接入）`)
   } else {
     add("⑦验收", "场景线验收", TODO_STATE, "跑一次确认没退化",
       "qa_scene 尚未接入（依赖场景渲染线）；验收暂以下方像素基线为准")
@@ -688,11 +684,11 @@ function checkTierAcceptance(add: Add, sid: string, locs: string[], sceneOut: st
   const [have, total, baseP] = baselineHits(sid, locs, root)
   if (!total) {
     add("⑦验收", "逐帧像素基线", SKIP, "还没有基线表（成片渲完才有东西可比）",
-      "uv run feuille framehash save")
+      "feuille framehash save")
   } else if (have < total) {
     add("⑦验收", "逐帧像素基线", TODO_STATE,
       `基线覆盖 ${have}/${total} 支，缺的这几支漂移了也没人知道`,
-      "uv run feuille framehash save")
+      "feuille framehash save")
   } else {
     add("⑦验收", "逐帧像素基线", OK, `${have}/${total} 支在基线内（${baseP}）`)
   }
@@ -772,11 +768,11 @@ export function cmdDoctor(argv: string[] = []): number {
     ids = findSceneIds(lessonsDir)
   }
   if (!ids.length) {
-    console.log("还没有课。`uv run feuille lesson new <id> --title \"…\" --tokens \"k:#RRGGBB\"` 开一门。")
+    console.log("还没有课。`feuille lesson new <id> --title \"…\" --tokens \"k:#RRGGBB\"` 开一门。")
     return 0
   }
   if (scene && !isDir(join(base, scene))) {
-    console.log(`没有 lessons/${scene}/。开一门：uv run feuille lesson new ${scene} ...`)
+    console.log(`没有 lessons/${scene}/。开一门：feuille lesson new ${scene} ...`)
     return 1
   }
 

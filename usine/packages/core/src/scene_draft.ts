@@ -314,7 +314,7 @@ export function render(
   L.push(`> **结构**：${brief["structure"] ?? TODO}`)
   L.push(`> **待办**：本文件是 ${brief["sceneId"]} 的**结构草稿**，由 \`feuille scene draft\` 从 `
     + `\`lessons/${sid}/brief.json\` 生成。所有 \`${TODO}\` 都是待填槽位。`)
-  L.push(`> 填完跑 \`uv run feuille scene parse --scene ${sid}\` + \`feuille scene draft --brief ... --gaps\` 查欠账。`)
+  L.push(`> 填完跑 \`feuille scene parse --scene ${sid}\` + \`feuille scene draft --brief ... --gaps\` 查欠账。`)
   L.push("")
   L.push("## 0. 场景规格（机读体例——parse_scene.py 只认本节 + §2 台词体例 + §5 词表）")
   L.push("")

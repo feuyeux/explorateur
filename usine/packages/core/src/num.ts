@@ -1,4 +1,9 @@
-// num.ts — 数值口径工具（Python round 的移植）。
+// num.ts — 数值口径工具（Python round 的移植 + 通用数值原语）。
+//
+// 定位：**数值口径底座**——全仓数值 parity 与通用数值原语的唯一事实源。
+// 任何模块要用 clamp / 夹取，都从这里引；不许在自己的模块里复制一份，
+// 也不许为了一个 clamp 去 import tts / imaging 这种高层桶（那会把整条
+// 依赖闭包拖进来：rig 曾为 clamp 引 tts/index，连带 ws 握手栈）。
 //
 // Python 的 round() 是「银行家舍入」（ties-to-even）：0.5 平手取偶
 // （round(2.5)==2、round(3.5)==4）。JS 的 Math.round 是半远离零，
@@ -11,6 +16,11 @@
 // 其十进制展开**有限**：e<0 时值 = (m·5^s)/10^s（s=-e），用 BigInt 精确
 // 展开后整除舍入，平手判定才可信。
 const scratch = new DataView(new ArrayBuffer(8))
+
+/** 数值夹取（与 Python feuille.tts.clamp 同语义、同实现）。 */
+export function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v))
+}
 
 /** Python round() 的移植：对二进制精确值做十进制舍入 + 平手取偶。 */
 export function roundHalfEven(x: number, digits = 0): number {

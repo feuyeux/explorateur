@@ -11,7 +11,7 @@ generated: { by: scene_draft, draft: true }
 > **学习目标**：三个语种各自完成一次完整超市购物对话：找牛奶、问价格、要便宜替代、确认刷卡付款
 > **结构**：开场提议 → 6 轮一来一往 → 开心再会
 > **待办**：本文件是 guangchaoshi-逛超市 的**结构草稿**，由 `feuille scene draft` 从 `lessons/guangchaoshi-逛超市/brief.json` 生成。所有 `TODO` 都是待填槽位。
-> 填完跑 `uv run feuille scene parse --scene guangchaoshi-逛超市` + `feuille scene draft --brief ... --gaps` 查欠账。
+> 填完跑 `feuille scene parse --scene guangchaoshi-逛超市` + `feuille scene draft --brief ... --gaps` 查欠账。
 
 ## 0. 场景规格（机读体例——parse_scene.py 只认本节 + §2 台词体例 + §5 词表）
 

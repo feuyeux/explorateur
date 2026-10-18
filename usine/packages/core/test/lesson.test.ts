@@ -266,12 +266,12 @@ describe("printReport：显示宽度对齐", () => {
   it("TODO/FAIL 行带「└─ 下一步：」；OK/SKIP 行不带", () => {
     const rep = new lesson.Report("x")
     rep.checks.push({ tier: "②剧本", name: "scene.md", state: lesson.TODO_STATE,
-      detail: "还没有剧本", nxt: "uv run feuille scene draft …" })
+      detail: "还没有剧本", nxt: "feuille scene draft …" })
     rep.checks.push({ tier: "②剧本", name: "已定稿", state: lesson.OK,
       detail: "d", nxt: "不该出现" })
     const lines = captureLog()
     lesson.printReport(rep)
-    expect(lines.some((l) => l.includes("└─ 下一步：uv run feuille scene draft"))).toBe(true)
+    expect(lines.some((l) => l.includes("└─ 下一步：feuille scene draft"))).toBe(true)
     expect(lines.some((l) => l.includes("不该出现"))).toBe(false)
   })
 })

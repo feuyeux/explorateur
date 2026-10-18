@@ -57,6 +57,26 @@ function dirOr(given: string | undefined | null, dflt: string): string {
   return given ? resolve(given) : dflt
 }
 
+/** lessons 目录参数化：null/undefined/空 = 缺省目录。源模块是模块常量，此处
+ * 参数化——doctor / 内容项目要能把 lessons 指到自己的目录（含临时夹具）。
+ *
+ * 单一事实源：此前 parse_scene 与 lesson 各抄了一份同款三元表达式（纪律 10：
+ * 多副本是反模式），2026-10-18 收敛到此，调用方一律引用。 */
+export function lessonsDirOf(lessonsDir?: string | null): string {
+  return lessonsDir ? lessonsDir : LESSONS_DIR
+}
+
+/** id → [md 路径, json 路径]：约定 lessons/<id>/scene.md / lessons/<id>/scene.json（照抄即接入）。
+ *
+ * 住在这里而不是 parse_scene：本模块的 sceneDoc 要用它，而 parse_scene 又要从
+ * 本模块取 LESSONS_DIR / languageManifests——放那边会重新长出 data ⇄ parse_scene
+ * 静态环（library 层依赖 skill 专属层，违反 ownership「skill 之间不许横向伸手」）。
+ * 纯路径拼接、无业务，归属 library 正合适。 */
+export function scenePaths(sceneId: string, lessonsDir?: string): [string, string] {
+  const d = join(lessonsDirOf(lessonsDir), sceneId)
+  return [join(d, "scene.md"), join(d, "scene.json")]
+}
+
 // 进程内缓存（Python lru_cache 按实参分键的对应）：键 = 实参（undefined
 // 用哨兵），值 = 只读文档。测试用 resetDataCacheForTests 清缓存。
 const cache = new Map<string, Json>()
@@ -170,18 +190,12 @@ export function cardsDoc(personasDir?: string): Json {
     readJson(join(dirOr(personasDir, PERSONAS_DIR), "intro-cards.json")))
 }
 
-// scene_doc（lessons/<id>/scene.json）依赖 parse_scene 的 scenePaths——静态环
-// data ⇄ parse_scene 与 Python 侧的延迟导入同构：两边模块顶层都**不解引用**
-// 对方导出（只在函数体内用），ESM 活绑定保证调用时初始化完毕。调用方
-// （scene_schema/lesson/scene_audio）统一从本模块取，不各自找解析器。
-import { scenePaths } from "./parse_scene.js"
-
 /** lessons/<id>/scene.json 解析结果（不缓存：解析阶段可能刚重写文件）。 */
 export function sceneDoc(sceneId: string, lessonsDir?: string): Json {
   const [, js] = scenePaths(sceneId, lessonsDir)
   if (!existsSync(js)) {
     throw new FeuilleError(
-      `场景数据不存在：${basename(js)}（先跑 \`uv run feuille scene parse --scene ${sceneId}\`）`)
+      `场景数据不存在：${basename(js)}（先跑 \`feuille scene parse --scene ${sceneId}\`）`)
   }
   return readJson(js)
 }

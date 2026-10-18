@@ -26,8 +26,7 @@
 // - rnd = sha256 前 8 字节大端 ÷ 2^64；(hi*2^32+lo)/2^64 与 Python 大整数除法逐位一致。
 import { createHash } from "node:crypto"
 
-import { clamp } from "./tts/index.js"
-import { roundHalfEven } from "./num.js"
+import { clamp, roundHalfEven } from "./num.js"
 import type { Box, PilDraw, Pt, RGB } from "./imaging/pildraw.js"
 
 /** 人设 dict（personas.json 原样 JSON，只读消费）——键访问走 any，口径同 data 的 Json。 */

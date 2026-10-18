@@ -22,29 +22,23 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { basename, join } from "node:path"
 
-import { LESSONS_DIR, languageManifests } from "./data.js"
+import { languageManifests, lessonsDirOf, scenePaths } from "./data.js"
 import { FeuilleError } from "./errors.js"
 import { validateScene } from "./scene_schema.js"
 
-type Json = Record<string, any>
+// scenePaths 的口径本体在 data（与 LESSONS_DIR 同址，见该文件注释：纯路径拼接、
+// 无业务，归 library 正合适）。这里转出保兼容面，scene_audio 与既有调用方仍按
+// parse_scene 取。这样 data ⇄ parse_scene 的静态环彻底消失——本模块本就依赖
+// data 的 languageManifests，方向单一，不再有 library 反向依赖 skill 专属层。
+export { scenePaths } from "./data.js"
 
-/** lessons 目录参数 → 路径：null/undefined/空 = 缺省目录。源模块是模块常量，此处
- * 参数化——doctor / 内容项目要能把 lessons 指到自己的目录（含临时夹具）。 */
-function lessonsDirOf(lessonsDir?: string | null): string {
-  return lessonsDir ? lessonsDir : LESSONS_DIR
-}
+type Json = Record<string, any>
 
 const LOC_RE = /[a-z]{2,3}-[A-Z]{2}/
 // polyglot 的小节头没有 `×` 分隔符：三个人都演，标题后是一串名字
 const HEAD_RE = /^### (?:\d+\.\d+\s+)?([^｜\n]+)｜([^×\n]+)×\s*([^\n（]+)/gm
 const HEAD_RE_SHARED = /^### (?:\d+\.\d+\s+)?([^｜\n]+)｜([^\n（]+)/gm
 const TABLE_ROW_RE = /^\|(.+)\|\s*$/gm
-
-/** id → [md 路径, json 路径]：约定 lessons/<id>/scene.md / lessons/<id>/scene.json（照抄即接入）。 */
-export function scenePaths(sceneId: string, lessonsDir?: string): [string, string] {
-  const d = join(lessonsDirOf(lessonsDir), sceneId)
-  return [join(d, "scene.md"), join(d, "scene.json")]
-}
 
 /** 仓库内已有的场景 id（lessons/<id>/scene.md 存在即算），供缺省选择与报错提示。 */
 export function findSceneIds(lessonsDir?: string): string[] {
