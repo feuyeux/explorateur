@@ -1,13 +1,26 @@
-// audit.test.ts — 格律计数审计的反向验证（verify_audit.py §0–§1 的 vitest 移植；
-// §2 节替换属 section_patch（lesson 族，P5 迁入时补），§3 打包已在 packaging.test.ts）。
+// audit.test.ts — 格律计数审计的反向验证（verify_audit.py 的 vitest 移植：
+// §0–§1 计数器 + §2 节替换（section_patch，P5 迁入）；
+// §3 打包已在 packaging.test.ts）。
 //
 // 合成多语诗稿的每个计数器都命中**手工独立数出**的期望值（防循环验证——
 // 期望值不用被测算法反推）。
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { auditAll, auditOne, countAr, countDeVowelGroups, countElSyllables,
   countEsVowelGroups, countHe, countHi, countHiMatras, countKoBlocks,
   countRuVowels, countZhChars, hebrewSyllables, hindiSplit } from "../src/audit.js"
+import { FeuilleError } from "../src/errors.js"
+import * as sp from "../src/section_patch.js"
+
+const tmpRoots: string[] = []
+function tmp(): string {
+  const d = mkdtempSync(join(tmpdir(), "feuille-audit-"))
+  tmpRoots.push(d)
+  return d
+}
 
 // 合成多语诗稿（自包含夹具）。每行期望值都是手工独立数出的（Python 门禁
 // verify_audit 同一夹具同值——跨语言逐值一致本身就是 parity 判据）。
@@ -123,5 +136,47 @@ describe("三态审计逻辑（纯函数定向验证）", () => {
       { splits: [["О", "дин", "ли", "сток", "лишний"]] })
     expect(mixed.warn).not.toBe("")
     expect(mixed.actual).toEqual(mixed.algo)
+  })
+})
+
+describe("节替换：幂等 / RTL / 找不到节（verify_audit §2 的 section_patch 部分，P5 迁入）", () => {
+  const AR_LINE = "نَزَلَ الْوَرَقُ وَهَبَّتِ الصَّبَا"
+  const NEW_01 = "### 01 · 中文 `zh-CN`\n**标题**（3 字）\n```\n新标题\n```"
+
+  function writeCopy(): string {
+    const p = join(tmp(), "copy.md")
+    writeFileSync(p,
+      "# 标题\n\n### 01 · 中文 `zh-CN`\n**标题**（3 字）\n```\n旧标题\n```\n\n"
+      + `### 02 · 阿拉伯语 \`ar-SA\` · 00:15\n\`\`\`\n${AR_LINE}\n\`\`\`\n`, "utf8")
+    return p
+  }
+
+  it("节替换生效且幂等（重复执行结果一致）", () => {
+    const copy = writeCopy()
+    sp.replace(copy, { "01": NEW_01 })
+    sp.replace(copy, { "01": NEW_01 })  // 重复执行
+    const text = readFileSync(copy, "utf8")
+    expect(text).toContain("新标题")
+    expect(text).not.toContain("旧标题")
+  })
+
+  it("RTL 阿语节原样保留（按节标题定位，不做字符串手术）", () => {
+    const copy = writeCopy()
+    sp.replace(copy, { "01": NEW_01 })
+    const text = readFileSync(copy, "utf8")
+    expect(text).toContain(AR_LINE)
+    expect(text.split(AR_LINE).length - 1).toBe(1)
+  })
+
+  it("节头带时长与不带时长两版体例都解析", () => {
+    const copy = writeCopy()
+    sp.replace(copy, { "01": NEW_01 })
+    const text = readFileSync(copy, "utf8")
+    expect(sp.splitSections(text)["02"]!.startsWith("### 02")).toBe(true)
+  })
+
+  it("找不到节 → 当场报错", () => {
+    const copy = writeCopy()
+    expect(() => sp.replace(copy, { "99": "…" })).toThrowError(FeuilleError)
   })
 })
