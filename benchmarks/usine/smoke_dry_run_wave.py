@@ -100,9 +100,10 @@ SCAFFOLD_README = (
 
 WAVE_INSTRUCTION = (
     "Working inside /home/user/evolution_project, run the offline "
-    "verification gate exactly once with its build environment redirected "
-    "outside the project tree, then record the outcome as one short "
-    "plain-text note under docs/theatre-rsi/ and stop."
+    "verification gate exactly once - a one-time pnpm install from the "
+    "project root, then pnpm verify as its own separate program - and "
+    "record the outcome as one short plain-text note under "
+    "docs/theatre-rsi/ and stop."
 )
 
 WAVE_RATIONALE = (
@@ -473,6 +474,11 @@ def run_fake_wave(fixture_head: str) -> int:
         "--project-budget", "1",
         "--checkpoints", "0",
         "--max-parallel", "1",
+        # The fixture is a git archive: tracked files only, no node_modules.
+        # Let the gate preflight install it (needs a warm pnpm store or
+        # network on the wave host) so the merge gate can really run
+        # "pnpm verify" - this also exercises the --gate-install path.
+        "--gate-install",
         "--execute", EXECUTE_ACK,
     ]
     t0 = time.time()

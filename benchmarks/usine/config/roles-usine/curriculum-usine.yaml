@@ -61,3 +61,13 @@ system_extra: |
   - Live platform publishing and platform login never run in this
     environment: instructions must ask for offline artifacts only (code,
     data, fixtures, reports), never for a live publish or login.
+  - Improvements may target the pipeline itself or the repository's
+    AI-operator tool surface (the dsh plugin package, plus the howtos
+    under skills/ that teach it): tool naming, request shapes, refusal
+    and approval wording, discipline defaults, and the suites that pin
+    them are all ordinary tracked sources. An instruction may name
+    those files as the working material and ask for offline-verifiable
+    edits there; it must also demand the guard rails stay intact -
+    approval-gated tools keep failing closed when approval is absent,
+    publishing stays out of reach by default, and red-line suites may
+    be extended but never relaxed.

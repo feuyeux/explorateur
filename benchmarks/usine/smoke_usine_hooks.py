@@ -223,6 +223,37 @@ def test_corpus() -> None:
               and named_findings[0]["kind"] == "other-task-instruction",
               named_findings)
 
+        # Excluded members never reach the audit face: node_modules and
+        # dist are pruned at capture time (run_usine._CAPTURE_EXCLUDE_PARTS
+        # flows into provisioning's exclude_parts), so uncontrolled
+        # third-party tree content can neither trip nor bloat the leakage
+        # audit.  The pair pins the whole contract: a pruned capture stays
+        # clean, and a capture that regressed pruning trips LOUDLY instead
+        # of silently widening the audited surface.
+        pruned = root / "capture_pruned"
+        pruned.mkdir()
+        with tarfile.open(pruned / "materials.tgz", "w:gz") as tf:
+            data = b"tracked source bytes that carry no task text at all"
+            member = tarfile.TarInfo("packages/core/src/notes.ts")
+            member.size = len(data)
+            tf.addfile(member, __import__("io").BytesIO(data))
+        check("audit: a pruned capture (no excluded members) stays clean",
+              fresh.captured(str(pruned)) == [])
+        info("audit: pruning is symmetric",
+             "capture-side exclude_parts (node_modules, dist) and merge-side "
+             "EXCLUDED_PARTS share one convention - what never enters the "
+             "archive never enters the audit face or the merge")
+
+        unpruned = root / "capture_unpruned"
+        unpruned.mkdir()
+        with tarfile.open(unpruned / "materials.tgz", "w:gz") as tf:
+            leak = INSTRUCTION.encode("utf-8")
+            member = tarfile.TarInfo("node_modules/dep-xyz/lib/vendor.js")
+            member.size = len(leak)
+            tf.addfile(member, __import__("io").BytesIO(leak))
+        check("audit: a pruning regression trips the captured audit loudly",
+              fresh.captured(str(unpruned)) != [])
+
         reject_log = root / "rejects.jsonl"
         files = {
             "clean.md": b"innocent memory bytes",
@@ -370,6 +401,15 @@ def test_publish_boundary() -> None:
 
 
 def test_live_guest() -> None:
+    if sys.platform != "win32":
+        # The WorktreeEnv substrate is the Windows wave host itself
+        # (git-bash bash.exe + guest-home USERPROFILE pin); SKIP is not
+        # PASS - this section runs only there and is honestly skipped
+        # everywhere else.
+        info("live guest section: wave host 待跑",
+             "test_live_guest needs the Windows wave host (git-bash "
+             "WorktreeEnv); run the full smoke there")
+        return
     env = guest_env.WorktreeEnv()
     vm = guest_env.WorktreeVM(env)
     try:

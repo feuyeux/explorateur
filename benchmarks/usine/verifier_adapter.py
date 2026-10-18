@@ -653,7 +653,18 @@ _SUBSTRATE_NOTE = (
     "resolves through a mount shared by other processes and is not reliable "
     "in this guest. There is no apt-get, no systemd, and no GUI; screen "
     "Looks are unavailable - inspect evidence with program output and file "
-    "Looks.")
+    "Looks.\n"
+    "Candidate-tree facts: the candidate is a TypeScript pnpm monorepo. "
+    "node_modules and dist are PRUNED from every capture by design (they "
+    "are regenerable install/build output, symmetric on both the capture "
+    "and the merge side) - their absence in the candidate tree is expected "
+    "substrate behavior, not tampering or lost work. To run the project's "
+    "tests yourself, install first and keep install and test in separate "
+    "programs (each program gets 600 seconds): `pnpm install "
+    "--frozen-lockfile` (needs network once, fills the shared pnpm store), "
+    "then `pnpm verify` (typecheck plus every vitest suite) or `pnpm vitest "
+    "run packages/<pkg>` for one package. Node 24+ and pnpm 11 are on PATH."
+)
 
 
 def _substrate_system_prompt(base: str) -> str:
