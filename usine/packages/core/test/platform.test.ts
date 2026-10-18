@@ -86,8 +86,17 @@ describe('跨平台：外部件解析（浏览器 / ffmpeg / ffprobe / magick）
   })
 
   it('browser(only="chrome") 不会落到别家内核', () => {
-    const cb = pt.browser('chrome')
-    expect(cb === null || cb[0] === 'chrome').toBe(true)
+    // FEUILLE_BROWSER 按设计「优先于一切」（含 only=；RSI guest 用它把
+    // 启动导到 HOME 还原 shim）。本条纪律验证的是候选表自身的内核归属，
+    // 须在无覆盖状态下判。
+    const old = process.env['FEUILLE_BROWSER']
+    delete process.env['FEUILLE_BROWSER']
+    try {
+      const cb = pt.browser('chrome')
+      expect(cb === null || cb[0] === 'chrome').toBe(true)
+    } finally {
+      if (old !== undefined) process.env['FEUILLE_BROWSER'] = old
+    }
   })
 
   it('候选全不命中 → 返回 None（拿不到就说拿不到，不编造路径）', () => {
