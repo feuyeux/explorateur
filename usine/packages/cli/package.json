@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "feuille 统一入口（TS 迁移位）：表驱动路由——路由是数据不是 if/elif。P1 骨架只挂 version 叶子；各域叶子随 P2–P6 迁入。",
+  "description": "feuille 统一入口：表驱动路由——路由是数据不是 if/elif。bin/feuille.js → node --import tsx src/main.ts；未知命令退出码 2、FeuilleError 退出码 1。",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"
@@ -17,5 +17,8 @@
     "@feuille/poetry": "workspace:*",
     "@feuille/poster": "workspace:*",
     "@feuille/storyteller": "workspace:*"
+  },
+  "bin": {
+    "feuille": "./bin/feuille.js"
   }
 }

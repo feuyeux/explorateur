@@ -10,11 +10,12 @@ related:
 
 # 架构
 
-状态：v1（2026-10-16）；**v2 迁移已立项（2026-10-18，用户裁定）**——usine 将全量
-迁移为 dsh（DeepSeek Harness，开源 TS 智能体 harness，everything-is-a-plugin /
-Cordis）原生工程：TS 核心 + dsh 插件工具面 + skills 资产层，Python 实现迁移完成
-后清场。迁移判据（金样本 parity）与阶段记录在 `../migration/`（迁移工具目录，
-P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 20 套为准）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
+状态：v2 落地中（2026-10-18）——usine 已全量迁移为 dsh（DeepSeek Harness，开源
+TS 智能体 harness，everything-is-a-plugin / Cordis）原生工程：TS 十包 + dsh 插件
+工具面 + skills 资产层；Python 实现（src/feuille、scripts/verify_*.py、uv 工程）
+已随 P7 清场退役。迁移判据（金样本 parity，已采集入库）与阶段记录在
+`../migration/`（采集/比对脚本随 P7 退役，金样本与记录保留）。权威门禁 =
+`pnpm verify`（typecheck + 全部 vitest 测试）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
 每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——数据从哪来、模块归谁、门禁
 怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。
 图表配色与术语纪律全篇统一（§0），与仓库级引擎文档
@@ -28,7 +29,7 @@ P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 20 套为�
 
 | 色 | classDef | 语义 |
 |---|---|---|
-| 蓝 | `fill:#eff6ff,stroke:#2563eb` | 编排控制面（CLI 路由、verify 聚合器） |
+| 蓝 | `fill:#eff6ff,stroke:#2563eb` | 编排控制面（CLI 路由、`pnpm verify` 门禁） |
 | 绿 | `fill:#f0fdf4,stroke:#16a34a` | 宿主内核与可信设施（library / infrastructure 模块、门禁脚本） |
 | 琥珀 | `fill:#fef3c7,stroke:#d97706` | 受限执行体（skill 专属层：对外发布的 Playwright 器、场景课生产线） |
 | 红 | `fill:#fff1f2,stroke:#e11d48` | 隔离域（外部平台——域外世界，只经 manifest 门禁放行） |
@@ -44,8 +45,8 @@ P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 20 套为�
 |---|---|
 | **三层归属** | 每个模块属于且仅属于一层：library（≥2 个 skill 共用）/ infrastructure（与业务无关的底座）/ skill 专属（只被一个 skill 用）。归属记在 [ownership.json](../ownership.json)，不按层切目录 |
 | **反向验证** | 门禁不只「对好数据放行」，还必须「对坏数据报警」：每个套件都注入已知缺陷，断言当场被抓——判据写反时自己先红 |
-| **路由表** | `feuille.cli.COMMANDS`：(组, 命令) → (模块, 函数) 的映射。路由是数据，不是 if/elif |
-| **门禁套件** | `scripts/verify_*.py` 的 21 个验证器，由 `scripts/verify_probes.py` 聚合，`uv run feuille verify` 一键全量 |
+| **路由表** | `cli.COMMANDS`：(组, 命令) → (模块, 函数) 的映射。路由是数据，不是 if/elif |
+| **门禁套件** | 各包 vitest 测试套（44 文件，反向验证纪律原样移植：凿洞必 FAIL），由 `pnpm verify` 一键全量；归属对账在 @feuille/gate |
 | **RSI** | 由 théâtre（vendored RSIAgent 引擎）驱动的波次化自动改进：Actor 在隔离 guest 里改代码，Verifier 判定，门禁绿才合并回本树。本树是**改进对象**，不承载任何 RSI 运行时代码 |
 
 ---
@@ -57,7 +58,7 @@ P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 20 套为�
 
 ```mermaid
 flowchart TB
-    subgraph DATA["数据层 —— 唯一事实源（feuille.data 统一入口）"]
+    subgraph DATA["数据层 —— 唯一事实源（core.data 统一入口）"]
         direction LR
         PD["personas/<br/>28 人班底：声库 / 视觉 / 选角"]
         LD["languages/<br/>14 语种 manifest：字体栈 / 书写方向 / 引号对"]
@@ -119,7 +120,7 @@ flowchart TB
 
 要点：
 
-- **片名 / 首句 / 体式标签只写一处**（② `data/`），下游一切文字从 `feuille.data`
+- **片名 / 首句 / 体式标签只写一处**（② `data/`），下游一切文字从 `core.data`
   来——设计只改数据，不改编码（③ 纪律）。
 - **三大产物依赖固定**：音频 → 视频 → 封面；上游一动全链重走（§2）。
 - **发布是单向门**：⑧ manifest 逐项核对（素材在盘 / 字数不超限 / 话题非空 /
@@ -175,11 +176,11 @@ flowchart TB
 | 层 | 时机 | 内容 |
 |---|---|---|
 | 渲染前检查 | 渲染 / 发布前 | 素材存在、schema 纯函数校验、文案字数 / 话题、格律审计 |
-| 渲染后检查 | 渲染后 | `feuille.framehash` 逐帧像素（按平台分桶）、画面探针、裁切安全拼图、重渲比对 |
+| 渲染后检查 | 渲染后 | `core.framehash` 逐帧像素（按平台分桶）、画面探针、裁切安全拼图、重渲比对 |
 | 发布后核对 | 发布后 | 管理页截图 + 人眼判定（= ⑪，只读，不点任何修改） |
 
 改稿的两个省钱位：**时长预算卡在 ⑤**（改文本便宜，超预算放宽预算、不压台词）；
-**缓存账本卡在重算前**（`feuille.ledger` 按内容寻址键判新鲜，命中不重算）。
+**缓存账本卡在重算前**（`core.ledger` 按内容寻址键判新鲜，命中不重算）。
 
 ---
 
@@ -202,17 +203,20 @@ flowchart TB
         L3D["人物与场景<br/>devices · rig · scenes · persona"]
     end
 
-    subgraph LY2["infrastructure —— 7 个（与业务无关的底座）"]
+    subgraph LY2["infrastructure —— 9 个（与业务无关的底座）"]
         L2A["跨平台与账本<br/>platform · ledger · framehash"]
-        L2B["交付与入口<br/>packaging · cli · errors · _run_verify_probes"]
+        L2B["交付与入口<br/>packaging · cli · errors"]
+        L2C["数值/成像底座<br/>num · imaging"]
+        L2D["插件面<br/>dsh-plugin"]
     end
 
-    subgraph LY1["skill 专属 —— 7 个（只被这一个 skill 用）"]
-        L1A["multilingual-video-publishing：<br/>publish 族（base · login · douyin · xhs · bilibili · collections · veriflive）"]
+    subgraph LY1["skill 专属 —— 13 个（只被这一个 skill 用）"]
+        L1A["multilingual-video-publishing：<br/>publish 族（base · login · douyin · xhs · bilibili · collections · veriflive · check_plan · clock）"]
         L1B["lesson-scene：<br/>lesson · parse_scene · scene_schema · scene_draft · scene_audio · section_patch"]
+        L1C["产线包：<br/>poster · karaoke · storyteller · bgm · poetry · copy"]
     end
 
-    CHK["scripts/verify_skills.py<br/>双向机检：账本 ↔ 实际模块 ↔ 每个 SKILL.md「拥有模块」行"]
+    CHK["@feuille/gate vitest 门禁<br/>双向机检：账本 ↔ 实际模块 ↔ 每个 SKILL.md「拥有模块」行"]
 
     OWN --> L3A
     OWN --> L3B
@@ -240,85 +244,70 @@ skill 层（`skills/<name>/`）只放**不会被 import** 的资产（SKILL.md �
 
 ---
 
-## 4. 门禁体系：20 套反向验证
+## 4. 门禁体系：vitest 全量反向验证（`pnpm verify`）
 
-纪律是「**没验不许长得像验过了**」：docs 曾带着 135 行死入口教跑不了的命令
-（[render-handbook.md](render-handbook.md) 清账前的历史），清账之后由 docs
-套件机检兜底，防止死入口随「复制粘贴旧手册段落」回流。
+纪律是「**没验不许长得像验过了**」。Python 时代的 20 套 `scripts/verify_*.py`
+已随 P7 清场退役——反向验证纪律**原样移植**为各包 vitest 测试套（44 个测试文件
+/ 538 项断言，`SKIP 不是 PASS` 仍然成立）；聚合器 verify_probes.py 退役为单命令
+`pnpm verify`（= typecheck + 全部测试）。Edge 系测试文件单独成 project 串行
+（vitest.config.ts：多实例并发抢浏览器进程是已证实的抖动根因）。
 
 ```mermaid
 flowchart TB
-    CLI["uv run feuille verify<br/>（feuille._run_verify_probes → scripts/verify_probes.py）"]
-    AGG["verify_probes.py 聚合器<br/>SUITES 登记即执行 · 登记了脚本不存在 → 当场退出"]
-    subgraph SU["20 套验证器（scripts/verify_*.py，顺序即执行序）"]
-        S1["底座：platform · ledger"]
-        S2["音画：tts · scene_audio · audio · timeline · textlayer · compose"]
-        S3["人物与课件：rig · personas · lesson · covers"]
-        S4["发布与验收：manifest · audit · framehash · metrics · publish"]
-        S5["入口与资产：cli · skills · docs"]
+    CLI["pnpm verify<br/>（pnpm -s typecheck && pnpm -s test）"]
+    TC["tsc --noEmit<br/>类型口径全绿"]
+    subgraph SU["各包 vitest 测试套（packages/*/test/，44 文件）"]
+        S1["@feuille/core：底座 + 音画内核 + 数据与人物场景（27 文件）"]
+        S2["产线包：karaoke · poster · poetry · storyteller · copy · bgm（e2e 含真 Edge/ffmpeg）"]
+        S3["发布：publish（mock 页驱动，零平台流量）"]
+        S4["入口与插件：cli · dsh-plugin"]
+        S5["归属门禁：@feuille/gate（skills.test.ts）"]
     end
-    RV["反向验证：每套注入已知缺陷，断言当场被抓<br/>（未登记命令 · 死入口 · 幽灵脚本 · 幽灵符号 · 死链）"]
+    RV["反向验证：每套注入已知缺陷，断言当场被抓<br/>（凿洞必 FAIL；判据写反时自己先红）"]
 
-    CLI --> AGG
-    AGG --> SU
+    CLI --> TC
+    CLI --> SU
     SU -.->|"判据写反时自己先红"| RV
 
     classDef ctrl fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
     classDef host fill:#f0fdf4,stroke:#16a34a,color:#14532d
     classDef neutral fill:#f8fafc,stroke:#334155,color:#0f172a
-    class CLI,AGG ctrl
+    class CLI,TC ctrl
     class S1,S2,S3,S4,S5,RV host
 ```
 
-20 套清单（`uv run feuille verify --list` 可现查）：
+按包清单（`pnpm vitest run <包路径>` 可单跑）：
 
-| # | 套件 | 脚本 | 验什么 |
-|---|---|---|---|
-| 1 | platform | verify_platform.py | 跨平台解析（浏览器 / ffmpeg / ffprobe / magick resolver） |
-| 2 | ledger | verify_ledger.py | 产物缓存账本（注册制 + root 参数化） |
-| 3 | tts | verify_tts.py | TTS 内核（缓存键 / 词级时间戳 / 裁尾 / 重试） |
-| 4 | scene_audio | verify_scene_audio.py | 场景课 TTS 叶子（选角映射 / 情绪增量 / 台账自描述） |
-| 5 | audio | verify_audio.py | 音轨合成（compose_track 顺序坑） |
-| 6 | timeline | verify_timeline.py | 时间轴与词级进度轴 |
-| 7 | textlayer | verify_textlayer.py | Edge 渲字层（视口探测 / 双 matte） |
-| 8 | compose | verify_compose.py | 母版叠加合成（-shortest 改显式 -t） |
-| 9 | rig | verify_rig.py | 人物 rig 几何探针（A1–E2 + 幂等） |
-| 10 | personas | verify_personas.py | persona 契约校验器（28 人班底） |
-| 11 | lesson | verify_lesson.py | 课件校验层（schema 全注册表演习 + doctor 班底体检接线） |
-| 12 | covers | verify_covers.py | 封面机制（规格 / 裁切 / 众数底色） |
-| 13 | manifest | verify_manifest.py | 发布清单（文案稿解析 / 逐项核对 / 构建） |
-| 14 | audit | verify_audit.py | 格律审计 / 节替换 / 打包 |
-| 15 | framehash | verify_framehash.py | 逐帧像素基线（视频流定位 / 分桶） |
-| 16 | metrics | verify_metrics.py | 指标回流（null ≠ 0 / 两级凭据） |
-| 17 | publish | verify_publish.py | 发布器骨架（mock 页驱动，零平台流量） |
-| 18 | cli | verify_cli.py | CLI 路由表可达性 + 聚合器一致性 |
-| 19 | skills | verify_skills.py | skills 去歧义（前置契约 / 边界 / 转交 / 事实源唯一） |
-| 20 | docs | verify_docs.py | docs 清账门禁（命令 / 脚本 / 符号 / 链接真实性 + 死入口零容忍） |
+| 包 | 测试文件（test/） | 验什么 |
+|---|---|---|
+| @feuille/core | platform · ledger · tts-×5（drm/pure/split/synth/live）· scene_audio · audio · timeline · textlayer · compose · render · rig · persona · data · devices · scenes · themes · lesson · parse_scene · scene_schema · scene_draft · covers · manifest · audit · metrics · framehash · packaging · skeleton · imaging-spike2 | 底座 / 音画内核 / 数据与人物场景全量（金样本 parity：确定性逐字节，光栅化结构与几何） |
+| @feuille/karaoke | karaoke.test.ts | 单卡片成片四段产线（gen_tts / build / verify-sync / scan-blank，真 Edge e2e） |
+| @feuille/poster | poster.test.ts · measure_korean.test.ts | 海报产线十条 + 韩文逐字形几何实测 |
+| @feuille/poetry | poetry.test.ts | 实拍线诊断（audio_profile / color_contrast） |
+| @feuille/storyteller | storyteller.test.ts | 多幕评书产线（render_act_frames / assemble，真 Edge e2e） |
+| @feuille/copy | check_publish_copy.test.ts | 发布词三平台判据 + --facts 数字溯源 |
+| @feuille/bgm | gen_bgm.test.ts | 床生成判据（**零真实 API 调用**：拍速反查 / 频段分布 / 床长） |
+| @feuille/publish | publish.test.ts · check_plan.test.ts | 发布器 mock 页驱动（file:// 假页，零平台流量） |
+| @feuille/cli | cli.test.ts · router.test.ts | 路由表可达性 + 路由器契约（首参数回还） |
+| @feuille/dsh-plugin | plugin.test.ts | 17 工具面 + 红线机制（审批卡停车 / publish 默认不可达）+ 假 LLM 干跑 |
+| @feuille/gate | skills.test.ts | ownership.json 三方对账 + skills 去歧义（verify_skills.py 移植 + 凿洞自证） |
 
-docs 套件的五判据（本文自身就在扫描范围内——本文提到的每条命令、每个脚本、
-每个符号、每个链接都过检，这段话本身也是被验的）：
-
-| 判据 | 规则 |
-|---|---|
-| 命令真实性 | 文中 `feuille <组> <命令>`（含 uv run 形式；a|b|c 管道写法每个都算）必须登记在 `feuille.cli.COMMANDS`；同行带「未接入 / 预留 / 有意不设」标记的规划位豁免 |
-| 死入口零容忍 | 已知死管线的入口名 / 旧模块名一律不得出现——考古看 git 历史，文档只留仍然成立的知识 |
-| 脚本真实性 | 提到的 `scripts/<名>.py` 必须真实存在 |
-| 符号真实性 | 反引号里的 `feuille.<模块>[.<符号>]` 必须 import 得到、属性真实存在 |
-| 链接真实性 | 相对链接目标必须存在（http / 锚点跳过） |
-| 反向验证 | 注入未登记命令 / 死入口 / 幽灵脚本 / 幽灵符号 / 死链五类，必须各自被对应判据抓到（跑在内存文本上，不动真文件） |
+> docs 清账门禁（verify_docs.py 的命令 / 脚本 / 符号 / 链接真实性五判据）随
+> Python 侧退役，判据未单独移植——命令真实性由 @feuille/cli 路由测试与评审
+> 承担；「死入口零容忍、考古看 git 历史」仍是评审纪律。
 
 ---
 
 ## 5. CLI 路由：表驱动，不是 if/elif
 
-统一入口 `uv run feuille <组> <命令>`。路由器只做三件事：查表、lazy import、
+统一入口 `feuille <组> <命令>`。路由器只做三件事：查表、lazy import、
 把残余参数原样交给叶子——叶子拿不到组与命令，只拿真实参数（路由层消化掉的
 首参数必须还给 argv，这是路由器与叶子之间的契约）。
 
 ```mermaid
 flowchart LR
     IN["argv：组 · 命令 · 参数……"]
-    MAIN["feuille.cli.main<br/>弹出组与命令，其余留给 argv"]
+    MAIN["cli.main<br/>弹出组与命令，其余留给 argv"]
     TBL["COMMANDS 路由表<br/>（组, 命令）→（模块, 函数）"]
     LAZY["lazy import 目标模块<br/>CLI 启动零依赖"]
     LEAF["叶子 fn(argv)<br/>库函数挂 main_* 薄适配层"]
@@ -342,38 +331,36 @@ flowchart LR
     class BAD blocked
 ```
 
-路由表全量（登记于 `feuille.cli.COMMANDS`，`verify_cli.py` 保证每个叶子
+路由表全量（登记于 `cli.COMMANDS`，`packages/cli` 的 router/cli 测试保证每个叶子
 真实可达——登记了不存在的函数 = 路由表说谎，当场抓）：
 
-| 组 | 命令 | 叶子（模块 · 函数） | 覆盖段 |
+| 组 | 命令 | 归属包 | 覆盖段 |
 |---|---|---|---|
-| scene | parse | `feuille.parse_scene` · main | ②③ scene.md → scene.json |
-| scene | validate | `feuille.scene_schema` · main | ②③ schema 纯函数校验 |
-| scene | draft | `feuille.scene_draft` · main | ③ 创意 → 草稿 |
-| scene | tts | `feuille.scene_audio` · main | ④ 场景课语音线 |
-| lesson | new | `feuille.lesson` · main_new | ③ 开新课件坑 |
-| lesson | doctor | `feuille.lesson` · main_doctor | ④ 班底体检 |
-| persona | validate | `feuille.persona` · main | ②③ 人设契约校验 |
-| cover | make | `feuille.covers` · main_make | ⑦ 封面生成 |
-| cover | check | `feuille.covers` · main_check | ⑦ 封面自检 |
-| framehash | save | `feuille.framehash` · main_save | ⑬ 采逐帧像素基线 |
-| framehash | check | `feuille.framehash` · main_check | ⑬ 零漂移门禁 |
-| ledger | status | `feuille.ledger` · main_status | 产物新鲜度问答 |
-| publish | login | `feuille.publish.login` · login | ⑨ 扫码登录 |
-| publish | douyin | `feuille.publish.douyin` · main | ⑨ 抖音发布 |
-| publish | xhs | `feuille.publish.xhs` · main | ⑨ 小红书发布 |
-| publish | bilibili | `feuille.publish.bilibili` · main | ⑨ B 站发布 |
-| verify | 可省略 | `feuille._run_verify_probes` · run | ⑬ 全量反向验证 |
+| version | — | cli | 版本口径 |
+| ledger | status | core | 产物新鲜度问答 |
+| framehash | save / check | core | ⑬ 采逐帧像素基线 / 零漂移门禁 |
+| cover | make / check | core | ⑦ 封面生成 / 自检 |
+| persona | validate | core | ②③ 人设契约校验 |
+| scene | parse / validate / draft / tts | core | ②③④ scene.md → scene.json → 语音线 |
+| lesson | new / doctor | core | ③④ 开新课件坑 / 班底体检 |
+| theme | match | core | 主题自动匹配（match_theme.py 升包） |
+| karaoke | tts / build / verify-sync / scan-blank | karaoke | ⑤⑥⑬ 单卡片成片四段产线 |
+| poetry | audio-profile / color-contrast | poetry | ⑬ 实拍线诊断 |
+| storyteller | render-frames / assemble | storyteller | ⑥ 多幕评书产线 |
+| poster | fetch-fonts / assemble / render / render-page / audit-charset / fit-diag / verify-colors / check-overlay / make-covers / measure-korean | poster | ⑦ 海报产线十件 |
+| copy | check | copy | ⑧ 发布词自检（零平台流量） |
+| bgm | gen | bgm | ⑤ 纯器乐 BGM 床生成 |
+| publish | login / check-plan / douyin / xhs / bilibili | publish | ⑨⑩ 扫码登录 / 清单自检 / 三平台发布 |
 
 三个设计取舍：
 
-- **发布类叶子要求可选依赖组**（`uv sync --group publish` 装的是 Playwright）：
+- **发布类叶子要求可选依赖**（`@playwright/test` 装在 @feuille/publish）：
   没装时 import 在函数内 lazy 失败，报的是「缺 playwright」而不是「未知命令」
   ——前者告诉用户怎么修。
-- **清单组装没有 CLI 叶子**：`feuille.manifest` 的构建吃带闭包的 plans 契约，
+- **清单组装没有 CLI 叶子**：`core.manifest` 的构建吃带闭包的 plans 契约，
   只能从项目脚本调用（⑧ 的调用形态见 [toolchain.md](toolchain.md)）。
-- **verify 组可省略命令**：`uv run feuille verify` 跑全部 20 套，
-  `uv run feuille verify --only rig` 单跑一套。
+- **聚合命令退役为 pnpm 脚本**：全量门禁 = `pnpm verify`
+  （typecheck + 全部测试），单包单跑 = `pnpm vitest run <包路径>`。
 
 ---
 
@@ -382,7 +369,7 @@ flowchart LR
 本树（`usine/`）在 explorateur 仓库里是 RSI 的**改进对象**；引擎
 （`../théâtre/`，vendored RSIAgent）与适配层（`../../benchmarks/usine/`）
 都在本树之外。**本树不承载任何 RSI 运行时代码**——波次合进来的只是对既有
-模块 / 文档的修改，且必须先过 §4 的门禁（含 20 套全量）。
+模块 / 文档的修改，且必须先过 §4 的门禁（`pnpm verify` 全量）。
 
 ```mermaid
 flowchart LR
@@ -418,7 +405,7 @@ flowchart LR
 
 - **本树在波次期间分毫不动**：Actor 改的是 seed 快照（worktree guest），
   候选以 delta 形式出来，合并是显式动作（一候选一 commit，带 tag）。
-- **门禁是合并判据的一部分**：候选 delta 过不了 `uv run feuille verify`
+- **门禁是合并判据的一部分**：候选 delta 过不了 `feuille verify`
   全量，就不落本树。
 - **发布红线对 RSI 同样成立**：适配层在 VM 门面处拒绝发布类命令（三层防线），
   改进波次永不触碰真实平台流量。

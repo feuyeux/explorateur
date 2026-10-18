@@ -69,8 +69,8 @@ Cluster A 内部再分：**单卡片逐词高亮 → karaoke-video；多幕评�
 | 层 | 是什么 | 落点 |
 |---|---|---|
 | **skill** | 说明书：怎么用 + 工作样例 + 诊断脚本 | `skills/<name>/` |
-| **library** | 被 ≥2 个 skill 用的业务实现，或跨产线共用的判定源 | `src/feuille/` |
-| **infrastructure** | 与业务无关的底座：平台解析、缓存账本、打包、CLI 路由 | `src/feuille/` |
+| **library** | 被 ≥2 个 skill 用的业务实现，或跨产线共用的判定源 | @feuille/core |
+| **infrastructure** | 与业务无关的底座：平台解析、缓存账本、打包、CLI 路由 | @feuille/core · @feuille/cli · @feuille/dsh-plugin |
 
 **归属唯一，跨用不另写。** 例如 `tts` 归 library，`karaoke-video` 与
 `multilingual-video-poetry` 都用它——但不许任何一方在自己目录里再实现一份。
@@ -88,7 +88,7 @@ Cluster A 内部再分：**单卡片逐词高亮 → karaoke-video；多幕评�
 | 脸型 / 表情 / 装置规格注册表 | `library` 的 `rig`、`devices` | `persona.py` 与 `scene_schema.py` 取**同一份**，不抄名单（纪律 7） |
 | BGM 床的**生成与床位定标** | `bgm-bed` | 不在任何 skill 里另写一份音乐生成调用或 `gain` 反推。出床只有两条线：Lyria（`feuille bgm gen`）与 MCode 内置音乐（`matrix`，见 `bgm-bed` SKILL.md）；不往全局 `music-generation` skill 路由 |
 | BGM 的**混音压法** | 看画面来源 | 海报驱动 → `karaoke-video` 的线性 `amix`；实拍驱动 → `multilingual-video-poetry` 的侧链压缩 |
-| 多幕评书**导演层**（幕表 schema / 镜头 / 叠化 / 醒木） | `storyteller-video` | 词级时间轴与合片复用 `karaoke-video` 的脚本，不另写；说书人编外专班走 `feuille.data.storytellers()`，不进班底 roster |
+| 多幕评书**导演层**（幕表 schema / 镜头 / 叠化 / 醒木） | `storyteller-video` | 词级时间轴与合片复用 `karaoke-video` 的脚本，不另写；说书人编外专班走 `core.data.storytellers()`，不进班底 roster |
 | 封面 | 看画面来源 | 海报驱动 → `one-page-poster` 的 `feuille poster make-covers`；实拍驱动 → `multilingual-video-poetry` 的 `assets/example/封面.py` |
 | 发布词 | `publish-copy` | 发布执行 → `multilingual-video-publishing` |
 
@@ -99,7 +99,7 @@ Cluster A 内部再分：**单卡片逐词高亮 → karaoke-video；多幕评�
 3. **边界与转交**——每个 SKILL.md 都有 `## 边界`，显式列出不做什么、转哪个 skill。
 4. **事实源唯一**——规范顺序只在 `one-page-poster`；注册表现取不抄；共享实现进 `library`。
 5. **代码归属唯一**——`ownership.json` + 每个 SKILL.md 的 `拥有模块：` 行，双向机检。
-6. **机检**——`usine/scripts/verify_skills.py` 机检上面全部，回归会被 `feuille verify` 抓到。
+6. **机检**——`packages/gate` 的 vitest 门禁（@feuille/gate）机检上面全部，回归会被 `pnpm verify` 抓到。
 7. **完成定义**——交付终点以「完整产线」表为准：四层不齐就是半成品。碎片任务收工前必须按表盘点，缺哪层要么补齐、要么明说，不许静默截断。
 
 **存量代码已全部消化完**：`unclaimed` 为空，每个模块都有家——归 skill、归 library 或归基础设施。

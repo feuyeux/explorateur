@@ -1,4 +1,4 @@
-# 仓库 = humming(Tauri/JS) + reading(Tauri/JS) + usine(Python/uv) 三个子项目
+# 仓库 = humming(Tauri/JS) + reading(Tauri/JS) + usine(TS/pnpm) 三个子项目
 # 下面的规则对全仓库任意层级生效（未锚定的模式会匹配每一层目录）
 
 # ── 操作系统 ───────────────────────────────────────────────

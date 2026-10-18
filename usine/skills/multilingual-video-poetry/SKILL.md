@@ -54,9 +54,9 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：poetry
 
-本 skill 不拥有任何模块：格律审计（`audit`）、TTS 与音轨（`tts` / `audio`）、渲字与封面（`textlayer` / `covers`）全在 **library**，与海报线、karaoke 线共用；跨用走 library 的实现，不要另写一份。诊断脚本 `audio_profile.py` / `color_contrast.py` 已归流 **@feuille/poetry**（feuille poetry audio-profile / color-contrast，P5-7c），gap_verdict 反向验证随迁 vitest。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+本 skill 不拥有任何模块：格律审计（`audit`）、TTS 与音轨（`tts` / `audio`）、渲字与封面（`textlayer` / `covers`）全在 **library**，与海报线、karaoke 线共用；跨用走 library 的实现，不要另写一份。诊断脚本 `audio_profile.py` / `color_contrast.py` 已归流 **@feuille/poetry**（feuille poetry audio-profile / color-contrast，P5-7c），gap_verdict 反向验证随迁 vitest。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## 顺序不能换
 
@@ -124,7 +124,7 @@ feuille poetry audio-profile 成片.mp4
 
 **不要用 ffmpeg subtitles 滤镜，也不要用 Pillow 画文字。** 前者常缺 libass；
 后者 `raqm=False` 无 HarfBuzz/FriBiDi，阿拉伯／希伯来／天城文会散字错向。
-用 `src/feuille/textlayer` 的 Edge headless 截图，Chromium 内核自带完整塑形。
+用 @feuille/core `textlayer` 的 Edge headless 截图，Chromium 内核自带完整塑形。
 
 - 透明叠加层用 `shoot_matte`，不透明成图（封面）用 `edge_screenshot`
 - **Edge 截图必须串行**，并发会被 SIGKILL，炸掉是整批重做

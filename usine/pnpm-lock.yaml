@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@feuille/cli':
+        specifier: workspace:*
+        version: link:packages/cli
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
@@ -136,6 +139,8 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.0
+
+  packages/gate: {}
 
   packages/karaoke:
     dependencies:

@@ -858,7 +858,8 @@ query kind=console filter=isValidBrowser   # 命中 = 字节的浏览器校验�
 **发布纪律**：
 
 - 文案源 `lessons/_batch2/publish/{xiaohongshu,douyin}-copy.md`；
-  取单条用 `python3 thingking/final/_one.py <xhs|dy> <scene-id>`——
+  取单条用 `python3 thingking/final/_one.py <xhs|dy> <scene-id>`（历史批次的原始命令形态，
+  内容项目侧脚本，不在 feuille）——
   **scene-id 带后缀**（`count-cap_stage`），且**不要用 `_next.py`**，它按 mtime 排序，
   渲染并发会改 mtime，顺序不稳定。
 - **合集只在每门课的第 01 支建**：01 支走「创建合集」→ 填合集名（≤20 字）+ 简介（≤50 字）

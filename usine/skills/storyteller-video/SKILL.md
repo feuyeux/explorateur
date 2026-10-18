@@ -34,11 +34,11 @@ description: >
 |---|---|---|
 | 1 | **人物资料源**（如 kb 人物档：生平/回目/原文摘录） | 台词无从写起 |
 | 2 | **幕表**（acts：每幕旁白文本 + 回目标题 + 场景 scene 列表 + 镜头 shot） | 无幕可渲染 |
-| 3 | **说书人**（`feuille.data.storytellers()` 现取；缺省 changlianke） | 无旁白人设 |
+| 3 | **说书人**（`core.data.storytellers()` 现取；缺省 changlianke） | 无旁白人设 |
 | 4 | 台词风格（浓评书套语 / 平叙）与是否要醒木 | 台词与音效不确定 |
 | 5 | 画幅（竖版 1080×1920 / 横版 1920×1080） | 帧几何无从校验 |
 
-场景名一律**现取 `feuille.scenes.SCENES` 注册表真键**（65 名），姿态码现取
+场景名一律**现取 `core.scenes.SCENES` 注册表真键**（65 名），姿态码现取
 `rig.POSE_CODES`，情绪现取 `rig.MOOD_FACE`——不许自造（纪律 7）。
 
 ## 边界
@@ -109,7 +109,7 @@ alpha 混合若干中间帧（ffmpeg `xfade` 或预渲混合帧皆可；默认�
 
 ## 说书人
 
-- 编外专班从 `feuille.data.storytellers()` 现取（`personas/storyteller.json`）；
+- 编外专班从 `core.data.storytellers()` 现取（`personas/storyteller.json`）；
   逐人字段契约与班底**同一份** `persona.validate_persona`，只豁免
   `validate_roster` 的语种配对不变量（编外不占 A/B 槽）。
 - 音色基线写在人设 `voice` 段（voiceId/rate/pitch），经 `tts.voice_params`
@@ -142,7 +142,7 @@ acts.py（唯一事实源）
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：storyteller
 
 镜头/转场/醒木的**渲染实现**已归流 **@feuille/storyteller** 包
 （`feuille storyteller render-frames` / `assemble`，P5-7d；promoted from
@@ -150,5 +150,5 @@ acts.py（唯一事实源）
 消费 @feuille/core 的唯一实现（`rig` / `scenes` / `persona` / `data` / `tts` /
 `audio` / `timeline` / `compose` / `render` / `platform` 全在 **library** 与
 infrastructure），不自带第二份；skills/ 只留资产（幕表样例等）与对包的调用。
-事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 词级时间轴与合片**借用** `karaoke-video`（其 SKILL.md 为机制说明书），跨用不另写。

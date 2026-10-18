@@ -1,0 +1,7 @@
+{
+  "name": "@feuille/gate",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "vitest 门禁套件：skills 去歧义 + ownership.json 三方对账（scripts/verify_skills.py 的 TS 移植）——归属纪律不随语言退役。全部是静态文件检查，不碰浏览器与成片。"
+}

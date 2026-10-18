@@ -3,19 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "feuille usine —— dsh（DeepSeek Harness）原生 TS 工程根（全量迁移工作区；迁移期权威门禁仍是 Python 21 套）",
+  "description": "feuille usine —— dsh（DeepSeek Harness）原生 TS 工程根（pnpm monorepo；权威门禁 = vitest 各包测试套 + @feuille/gate 归属对账，`pnpm verify` 单命令全量）",
   "packageManager": "pnpm@11.8.0",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
     "test": "pnpm --filter @feuille/dsh-plugin build && vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify": "pnpm -s typecheck && pnpm -s test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.9.3",
     "tsx": "^4.20.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@feuille/cli": "workspace:*"
   }
 }

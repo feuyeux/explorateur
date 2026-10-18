@@ -4,7 +4,7 @@
 >
 > 与其他文件的关系：[docs/workflow.md](docs/workflow.md) 是工作流运行手册（①–⑬：内容创作（人工）→ 设计 → 音频 / 视频 / 封面 → 四平台发布 → 合集收录，每段：输入 / 步骤 / 产物 / 检查）；[docs/toolchain.md](docs/toolchain.md) 是工具清单；[docs/](docs/) 是全部文档（playbook 系列）。**纪律条文的权威文本在本文件**，冲突时以本文件为准。本文件自带完整约定——H3 确认流程、交付位置等均在下方规定，不依赖其它文件补充；工作区根有 [AGENTS.md](../AGENTS.md)（工作区级约束：技能库位置、复用入口与全局同名能力的分工），但 feuille 的纪律与工程约定以本文件为准。
 >
-> **工程基线**：本工程**支持跨平台开发**（Windows / macOS / Linux 三系统都要能跑）+ **统一使用 uv**（Python 一律 `uv run`，不写死任何解释器路径）。
+> **工程基线**：本工程**支持跨平台开发**（Windows / macOS / Linux 三系统都要能跑）+ **统一使用 pnpm**（pnpm monorepo，Node ≥24 + pnpm@11；一切调用走 workspace 脚本或 `feuille <组> <命令>`，不写死任何解释器 / 全局模块路径）。
 
 ---
 
@@ -19,7 +19,7 @@
   就不要为同一条母版烧积分。H3 / H3 Max 留到「Hailuo 的时长或画质确实不满足」
   时再用，且要在展示里写明「本条走积分、约扣多少」。
   - Hailuo-2.3 的边界（选之前先认）：只有 768P 6s / 10s 与 1080P 6s；
-    **成片静音**（母版不带声，正好由 `library.tts` + `bgm-bed` 各自叠上去）；
+    **成片静音**（母版不带声，正好由 @feuille/core 的 `tts` + `bgm-bed` 各自叠上去）；
     无多模态参考（不能传参考图/视频/音频锁人物与风格）。
   - 积分参考：1000 积分 = ¥7；H3 768P ¥0.50/秒 ≈ 71 积分/秒，2K ¥0.80/秒
     ≈ 114 积分/秒，H3 Max 480P ¥0.33/秒 ≈ 47 积分/秒。传参考视频会**按同价另计**
@@ -38,7 +38,7 @@
 3. **判据取真实目的，不取代理量。** 「已发布有据可查」不是「必须有 url」（两级凭据分开判）；「装置亮了」不是「大窗里数得到那个颜色」。
 4. **每一步自带判据：可观测、廉价、二值。** 「确认已选」不是判据；`success: true`、按钮转 loading 都是旁证，**回读到的状态才是证据**。
 5. **发布成功的唯一权威判据 = 回列表核验到这条作品。** 草稿箱计数、跳转成功都不算；被证伪的判据显式标 ⛔ 并注明。
-6. **不变量必须有机检。** 每条写「违反即回归」的纪律都要能指出哪个脚本会因违反它而非零退出；指不出来，它就只是一条注释。
+6. **不变量必须有机检。** 每条写「违反即回归」的纪律都要能指出哪条 vitest 测试会因违反它而 FAIL；指不出来，它就只是一条注释。
 
 ### 数据类（4 条）
 
@@ -50,13 +50,13 @@
 ### 流程类（8 条）
 
 11. **检查放在「还能便宜地修」的地方。** 时长超预算卡在 TTS（改文本便宜）而不是成片后（重渲贵）；坏 brief 拒在开坑那一刻（作者还没写一个字）；素材存在性卡在发布前（还没发出去）。
-12. **「没验」不许长得像「验过了」。** SKIP 与 PASS 分列；`--only` 筛空当场报错；验收脚本异常必须在结论之前报「中途退出，以上断言不构成完整结论」。
+12. **「没验」不许长得像「验过了」。** SKIP 与 PASS 分列；单包筛选跑空当场报错（`passWithNoTests: false`）；验收异常必须在结论之前报「中途退出，以上断言不构成完整结论」。
 13. **生成类命令默认保守。** 拒覆盖已定稿文件，草稿带 `draft: true` 标记，定稿 = 删标记；真要覆盖显式 `--force`。
 14. **探针只读不点；结论必须沉淀。** DOM 探测脚本不点任何按钮，产物截图 + JSON 落盘；探针的结论写进发布器注释与规则文件。平台改版后要重摸 DOM——能复用的只有结论，不是探针代码。
 15. **探测与执行分离。** 删除 / 修改类操作默认只探测，`--do` 才动手，执行时每步截图。
 16. **单条异常不得拖垮整批。** 每条 try/except + 异常后强制回干净投稿页；防风控节流必须写在**循环内**。
 17. **排查止损线。** 同一修复连试 2 次不收敛就停，不试第三种；负结果即时落盘；被污染的表单重做而不是修；改流程 > 改内容。
-18. **「零代码接入」类承诺要机械证明。** 跑完整链前后 `src/` 全树 sha256 相等 + 真实目录零新增——人记得的纪律不是纪律。
+18. **「零代码接入」类承诺要机械证明。** 跑完整链前后 `packages/` 全树 sha256 相等 + 真实目录零新增——人记得的纪律不是纪律。
 
 ### 发布类（3 条）
 
@@ -70,20 +70,21 @@
 
 ---
 
-## 工程约定（跨平台 + uv 统一）
+## 工程约定（跨平台 + pnpm 统一）
 
-### uv 统一：Python 一律 `uv run`
+### pnpm 统一：Node 一律走 workspace
 
-- feuille 是 **uv 工程**：`pyproject.toml` + `uv.lock` + src 布局。依赖精确锁版，对齐基线 `edge-tts==7.2.8` / `pillow==12.3.0` / `numpy==2.3.5`；**Pillow 是像素基线锚点，升级前必须重验逐帧基线**。
-- 一切 Python 调用走 **`uv run`**：`uv run python …` / `uv run python -m …` / `uv run <entry>`。**不写死 venv 路径，不用系统 / homebrew python，不 `sys.path` 借用他项目源码**（借来的代码改不动）。
-- 发布类依赖（Playwright）走**可选依赖组**：`uv sync --group publish` 按需安装后照常 `uv run`。
-- 音乐类依赖（Lyria 客户端，`skills/bgm-bed` 用）同走可选组：`uv sync --group music`。
+- feuille 是 **pnpm TS monorepo**：`package.json` + `pnpm-workspace.yaml` + `packages/` 十包。依赖锁版在 pnpm-lock.yaml；**成像库（sharp / @napi-rs/canvas）是像素基线锚点，升级前必须重验逐帧基线**（Python 时代 Pillow 同担此角色）。
+- 一切运行走 workspace：`pnpm verify`（全量门禁）/ `pnpm vitest run`（单测）/ `feuille <组> <命令>`（产线 CLI，`packages/cli` 路由表）。**不写死 node_modules 路径，不全局装包，不 `require` 借用他项目源码**（借来的代码改不动）。
+- 发布类依赖（Playwright）在 `@feuille/publish` 包内声明，`pnpm install` 即装。
+- 音乐类依赖（Lyria 客户端 `@google/genai`，`@feuille/bgm` 用）同在各自包内声明。
+- Python 实现已于全量迁移（P0–P8）中退役删除：src/feuille、scripts/verify_*.py、uv 工程物不再存在；历史纪律文本里出现「脚本 / Python」字样时，读作「当时形态」，现行事实源一律是 vitest 门禁与 TS 包。
 
 ### 跨平台三条硬约定（全部实测过）
 
-1. **外部可执行文件不许写死路径。** 浏览器（Edge → Chrome → Chromium 依次探测，环境变量可临时覆盖）、ffmpeg / ffprobe、magick 全部经 resolver 解析；找不到返回 None 并**显式失败**，绝不退化成「系统默认」。`src/` 里出现写死的可执行路径，检查直接判死。
+1. **外部可执行文件不许写死路径。** 浏览器（Edge → Chrome → Chromium 依次探测，环境变量可临时覆盖）、ffmpeg / ffprobe、magick 全部经 resolver 解析；找不到返回 None 并**显式失败**，绝不退化成「系统默认」。`packages/` 里出现写死的可执行路径，检查直接判死。
 2. **字体栈必须覆盖三套系统，且 Windows 字体留在首位。** 字体栈按顺序回退：后面补回退影响不到 Windows 字形，但把 Windows 字体挪位 = 悄悄换基准。
-3. **像素基线按平台分桶**（桶 = 系统 + 架构 + 浏览器 + Pillow；ffmpeg 不进桶）：每台机器各采一份、互不比较；跨平台比**结构与几何**（探针），不比像素——长期全红的假检查会被当噪音忽略，比没有检查更糟。
+3. **像素基线按平台分桶**（桶 = 系统 + 架构 + 浏览器 + 成像库（sharp / @napi-rs/canvas）；ffmpeg 不进桶）：每台机器各采一份、互不比较；跨平台比**结构与几何**（探针），不比像素——长期全红的假检查会被当噪音忽略，比没有检查更糟。
 
 ### 入口与失败判定
 
@@ -95,7 +96,7 @@
 | 项 | 约定 |
 |---|---|
 | 渲字浏览器 | Edge headless 优先（与像素基线同源），经 resolver 解析；平台发布用 Chrome（持久 profile 绑定） |
-| Pillow | `raqm=False` → 封面 / 字幕文字一律 Edge headless 截图渲染，**不许 Pillow 画字**（阿拉伯 / 希伯来 / 天城文会散字） |
+| 画字铁律 | 封面 / 字幕文字一律 Edge headless 截图渲染，**不许成像库直接画字**（Python 时代因 Pillow `raqm=False` 立法——阿拉伯 / 希伯来 / 天城文会散字；TS 时代 Edge 渲染是跨平台一致性与像素基线的事实源，铁律不变） |
 | 平台持久 profile | 各平台独立 user-data 目录（macOS / Linux：`~/.{douyin,xhs,bili,zhihu}_creator_profile`），登录态存盘**勿删** |
 | 外部依赖 | ffmpeg / ffprobe、ImageMagick `magick`——一律经 resolver，不写死路径 |
 | 交付位置 | 本目录内；不写 Desktop / Downloads / 临时目录（workspace 约定） |
@@ -110,15 +111,15 @@
 feuille/
   AGENTS.md            本文件：活规则（纪律 + 工程约定的权威文本）
   README.md            状态与索引
-  pyproject.toml       uv 工程（Python 一律 uv run；publish 组 = Playwright）
-  uv.lock              依赖精确锁版（Pillow 12.3.0 = 像素基线锚点）
-  src/feuille/         代码：按工作流 ①–⑬ 分模块（每件带反向验证）
-  scripts/             21 个反向验证脚本（20 套件 + verify_probes 聚合器；uv run feuille verify 聚合全量跑）
+  package.json         pnpm TS monorepo 根（`pnpm verify` = typecheck + 全部 vitest 测试）
+  pnpm-workspace.yaml  工作区（Node ≥24 + pnpm@11；依赖锁版在 pnpm-lock.yaml）
+  packages/            代码：十包按工作流 ①–⑬ 分模块（每件带反向验证，测试在各包 test/）
+  packages/gate/       归属门禁：ownership.json ↔ 磁盘 ↔ SKILL.md「拥有模块」三方对账
   languages/           语种注册表（14 manifest：字体栈/展示字体栈/国旗/书写方向/引号对）
   personas/            人设目录：28 人班底数据 + schema/声库/视觉/选角文档；
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
   docs/                全部文档（工作流/工具链 + playbook 系列：发布/知乎/取数/渲染手册/经验总纲/坑总账）
-  examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；可再生，不入库）
+  examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；LFS 归档，绝不触碰）
   skills/              自建 SKILL 资产（10 个：one-page-poster / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
 ```
 

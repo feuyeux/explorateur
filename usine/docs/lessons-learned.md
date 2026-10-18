@@ -16,7 +16,7 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06 }
 > | 加一语种 / 加一个人物 / 改台词 | [render-handbook.md](render-handbook.md) §3 参数地图、§6 调优 |
 > | 发到抖音 / 小红书 / 知乎 | [publish-playbook.md](publish-playbook.md) · [zhihu-publish-playbook.md](zhihu-publish-playbook.md) |
 > | 看效果、取数据、判好坏 | [metrics-playbook.md](metrics-playbook.md) |
-> | 写一门新课的剧本 | [render-handbook.md](render-handbook.md) §6.7 场景线体例（机器可渲契约；`uv run feuille lesson new` 生成骨架） |
+> | 写一门新课的剧本 | [render-handbook.md](render-handbook.md) §6.7 场景线体例（机器可渲契约；`feuille lesson new` 生成骨架） |
 > | 人物设定与选角 | [../personas/casting.md](../personas/casting.md) · [../personas/visual.md](../personas/visual.md) · [../personas/voice.md](../personas/voice.md) |
 > | 为什么选 Pillow 不选视频生成 | 裁定记录未随仓库迁移（考古看 git 历史）；现行结论 = Pillow 管线续役 + H3 绝不自动调用（[../AGENTS.md](../AGENTS.md) 铁律） |
 

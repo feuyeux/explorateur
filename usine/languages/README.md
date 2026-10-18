@@ -56,7 +56,8 @@
 
 ⚠️ 如实记录：原 `run.ps1 langs` / `scripts/verify_languages.py` 门禁（71 项检查 + 坏数据自测）
 在「重构为 humming / reading / usine 三项目工作区」时**没有搬过来**，当前语言目录**没有专属机检**
-（`verify_probes.py` 的 17 套件里没有 languages）。新增语种后至少手动核对：
+（当时 `verify_probes.py` 的套件表里没有 languages；TS 时代各包 vitest 套同样
+不含 languages——现状没变）。新增语种后至少手动核对：
 `locale` = 目录名、`flag` 为对应区域指示符对、`fontCss` 以 `sans-serif` 兜底、
 `displayFontCss` 末尾整段接回原 `fontCss`。
 
@@ -73,7 +74,7 @@
 ## 新增语种清单
 
 1. 建 `languages/<id>/manifest.json`（上表五个字段）
-2. `personas/personas.json` 加档案（voiceId 先 `edge_tts.list_voices()` 核验，在册清单见 [../personas/voice.md §3](../personas/voice.md)）
+2. `personas/personas.json` 加档案（voiceId 以 [../personas/voice.md §3](../personas/voice.md) 在册快照核对——快照采自 edge-tts 7.2.8 实时清单；TS 客户端未内置清单拉取）
 3. `personas/intro-cards.json` 加卡（RTL 语种卡上要 `rtl:true`）
 4. 剧本 §0 `rtlLocales` 若是 RTL 语种要补上
-5. 按上面的「门禁」逐项手动核对 → `uv run feuille verify` 全量过
+5. 按上面的「门禁」逐项手动核对 → `pnpm verify` 全量过

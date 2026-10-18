@@ -24,7 +24,7 @@ description: >
 怎么证明没挂错（自检 + 退出码）。**「生成床」和「把床混进成片」是两件事**：
 混音是线性 `amix normalize=0`（`karaoke-video`）还是侧链压缩（`multilingual-video-poetry`）
 由画面来源定，都不归本 skill——本 skill 不实现任何混音滤镜图，那是
-`library.audio` 的地盘。
+`core.audio` 的地盘。
 
 ## 两条出床线
 
@@ -71,7 +71,7 @@ description: >
 
 - 把已有的床混进成片、渲染状态帧、烧字幕 → `karaoke-video`（线性 `amix`）或 `storyteller-video`（多幕评书，同线性压法）
 - 实拍母版压字幕 + 侧链把底床动态压住 → `multilingual-video-poetry`
-- 人声合成、词级时间戳 → `library.tts`，经上面两条线使用
+- 人声合成、词级时间戳 → `core.tts`，经上面两条线使用
 - **视频生成**（`connector__matrix__submit_video_generation` 的 Hailuo-2.3 / H3 /
   H3 Max 三条线）→ `video-generation`（**选哪条线看额度**：Hailuo 走套餐额度、
   H3 烧积分；铁律原文在 `usine/AGENTS.md`）。Hailuo-2.3 是**静音视频**，出不了床，
@@ -83,12 +83,12 @@ description: >
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：bgm
 
 供应商客户端（Lyria）与两项自检已归流到 **@feuille/bgm** 包，进程内直跑
 `feuille bgm gen`。它只服务「生成床」这一件事，成片两条线
-共用的是混音那半（`library.audio`），不是生成这半。事实源见 `usine/ownership.json`，
-由 `verify_skills.py` 与本段双向机检。
+共用的是混音那半（`core.audio`），不是生成这半。事实源见 `usine/ownership.json`，
+由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## 怎么用
 

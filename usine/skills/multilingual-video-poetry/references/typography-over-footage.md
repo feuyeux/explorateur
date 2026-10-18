@@ -8,7 +8,7 @@
 | Pillow 画文字 | `raqm=False` 无 HarfBuzz/FriBiDi，阿拉伯／希伯来／天城文散字错向 |
 | **Edge headless** | Chromium 内核自带完整塑形，一次截图就对 ✅ |
 
-用 `src/feuille/textlayer`：
+用 @feuille/core `textlayer`：
 
 - `shoot_matte(html_fn, out, ...)` — 透明叠加层。白底/黑底双截 → 精确 alpha
 - `edge_screenshot(html, out, ...)` — 不透明整图（封面等）。自带视口亏空补偿与裁齐

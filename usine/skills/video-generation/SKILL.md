@@ -45,7 +45,7 @@ description: >
 
 - **时长/画质有限**：只有 768P 6s / 10s 与 1080P 6s。要更长或 2K → 升 H3。
 - **成片静音**：母版**不带原生音轨**。这对本管线反而常是优点——旁白
-  （`library.tts`）与底床（`bgm-bed`）本来就要各自叠上去，母版自带声音
+  （`core.tts`）与底床（`bgm-bed`）本来就要各自叠上去，母版自带声音
   反而打架。
 - **不支持多模态参考**：不能传参考图/视频/音频来锁人物、风格或声音。要锁
   风格 → 升 H3。
@@ -88,9 +88,9 @@ description: >
 拥有模块：（无）
 
 本 skill 只有说明书——生成动作走 `mcode-tools` 通道（MCode 运行时自带），不在
-`src/feuille` 下留实现。它没有进 library：母版消费侧的字幕/旁白/混音在
+packages/ 下留实现。它没有进 library：母版消费侧的字幕/旁白/混音在
 `multilingual-video-poetry`，两边不共享代码。事实源见 `usine/ownership.json`，
-由 `verify_skills.py` 与本段双向机检。
+由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## 怎么用
 

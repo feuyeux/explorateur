@@ -38,9 +38,11 @@
 风控（小红书「Scan to verify」）必须停下来让用户本人扫码，浏览器窗口保持打开。
 自动重试只会越撞越死。解除后**必须确认遮罩真的消失**，不能只看文案。
 
-### 0.5 日志必须 `python3 -u`
+### 0.5 日志必须无缓冲落盘（Python 时代 `python3 -u`）
 
-不加 `-u` 时 `tee` 出来的日志文件是空的，会让人误以为脚本没跑。
+Python 不加 `-u` 时 `tee` 出来的日志文件是空的，会让人误以为脚本没跑。
+TS 时代（spawnSync `stdio: 'inherit'` 或 node 直跑）无此坑，但纪律不变：
+长任务日志必须实时可见，不能等进程退出才落盘。
 
 ### 0.6 长会话会被 Playwright 打断
 
@@ -251,9 +253,9 @@ if (row.innerText.includes('已添加')) return;
 
 | 事项 | 结论 |
 |------|------|
-| Playwright 脚本 | `uv run`（`uv sync --group publish` 后） |
-| 其余 Python | `uv run python` |
-| 日志 | 必须 `python3 -u`，否则 tee 出空文件 |
+| Playwright 脚本 | `pnpm exec feuille publish <命令>`（@feuille/publish 内动态 import，未装时报「缺 playwright」） |
+| 其余工程调用 | 一律 `pnpm exec feuille <组> <命令>`（pnpm monorepo，不写死解释器路径） |
+| 日志 | 实时落盘（Python 时代 `python3 -u`；TS 时代 stdio 直通无此坑，纪律不变） |
 | 临时脚本 | 放项目目录，**不要**放 `/tmp`（`/tmp/inspect.py` 会遮蔽标准库 `inspect`） |
 | 文字渲染 | 走 HTML + Edge headless 截图，**不用 Pillow 画字**（本机 `raqm=False`，阿/希/天城文会散字） |
 | 图片拼接 | `magick montage` 缺字体，用 `-append` |

@@ -72,9 +72,9 @@ persona validate` 可独立跑，不读本文件也行）。
 
 ## 代码归属
 
-拥有模块：lesson, parse_scene, scene_schema, scene_draft, scene_audio, section_patch
+拥有模块：core.lesson, core.parse_scene, core.scene_schema, core.scene_draft, core.scene_audio, core.section_patch
 
-事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 本 skill **跨用**（不拥有）**library** 的 `data` / `devices` / `manifest` /
 `metrics` / `rig` / `scenes` / `persona`——跨用走它们的实现，不要另写一份；
 skill 之间不横向伸手，校验判据与绘制规格同站一份注册表。

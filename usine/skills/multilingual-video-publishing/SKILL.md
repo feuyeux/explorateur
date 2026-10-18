@@ -19,7 +19,7 @@ description: >
 把已完成的成片批量投出去，并**如实报告哪些做得到、哪些做不到**。
 
 参考实现见 `assets/example/`（24 条 = 12 语种 × 横竖两版，源文件已归档）。
-底层是 `src/feuille/publish/`（Playwright + 系统 Chrome + 持久 profile），
+底层是 **@feuille/publish**（Playwright + 系统 Chrome + 持久 profile），
 **不是 Browser 工具**——两者的登录态、profile、判据体系都不一样，不要混用。
 
 ## 前置输入契约
@@ -33,7 +33,7 @@ description: >
 | 3 | 发布词从哪来 | 指向 `publish-copy` 的产出，或用户自备；**本 skill 不写文案** |
 | 4 | 标题/正文超限、正则等对外责任项的用户拍板值 | 缺省即带病发布——纪律 19，宁可整条不发 |
 
-清单组装**没有 CLI 叶子**——`feuille.manifest.build_manifest` 吃的是带闭包的
+清单组装**没有 CLI 叶子**——`core.manifest.build_manifest` 吃的是带闭包的
 plans 契约（video / cover 是函数不是路径），只能从项目脚本组装：参考
 `assets/example/plans.py`（组装 plans → `build_manifest` 落盘），再用本 skill 的
 `feuille publish check-plan` 做零流量自检（promoted from scripts/check_plan.py）。
@@ -52,7 +52,7 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 
 拥有模块：publish
 
-`publish`（发布器本体：`base` / `login` / `douyin` / `xhs` / `bilibili` / `collections` / `veriflive`）是本 skill 名下唯一的模块；`manifest` 与 `metrics` 在 **library**（`lesson-scene` 也要用），本 skill 跨用、不拥有。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+`publish`（发布器本体：`base` / `login` / `douyin` / `xhs` / `bilibili` / `collections` / `veriflive`）是本 skill 名下唯一的模块；`manifest` 与 `metrics` 在 **library**（`lesson-scene` 也要用），本 skill 跨用、不拥有。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 `publish/` 对包内其他模块**零依赖**——它自成一体。
 
@@ -160,5 +160,5 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 
 - `docs/publish-playbook.md` — 32 条坑、每步判据、三条元规则
 - `docs/publish-lessons.md` — 各平台实测踩坑与**已排除的嫌疑**
-- `src/feuille/publish/` — 发布器本体
+- **@feuille/publish** — 发布器本体
 - `assets/example/plans.py` / `go_douyin.py` — 本 skill 的可跑实现，见该目录 `README.md`

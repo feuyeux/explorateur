@@ -57,9 +57,9 @@ directories.
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：poster
 
-多语种排版的实现——`textlayer`（Edge headless 渲字）与 `covers`（封面机制）——在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的十条产线脚本（fetch_fonts / assemble / render_poster / render_page / audit_charset / fit_diag / verify_colors / check_overlay / make_covers / measure_korean）已归流 **@feuille/poster** 包（promoted from 本 skill 的 `scripts/`，消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+多语种排版的实现——`textlayer`（Edge headless 渲字）与 `covers`（封面机制）——在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的十条产线脚本（fetch_fonts / assemble / render_poster / render_page / audit_charset / fit_diag / verify_colors / check_overlay / make_covers / measure_korean）已归流 **@feuille/poster** 包（promoted from 本 skill 的 `scripts/`，消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 其余模块不属于本 skill：基础设施在 `ownership.json` 的 `infrastructure`，其他业务模块归各自 skill。
 

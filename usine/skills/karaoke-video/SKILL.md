@@ -59,9 +59,9 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：karaoke
 
-海报驱动成片的合成内核（`tts` / `audio` / `timeline` / `compose` / `render`）全在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的产线编排（gen_tts / build_video / verify_sync / scan_blank）已升入 **@feuille/karaoke** 包（消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+海报驱动成片的合成内核（`tts` / `audio` / `timeline` / `compose` / `render`）全在 **library**，本 skill 与 `multilingual-video-poetry` 共用；本 skill 的产线编排（gen_tts / build_video / verify_sync / scan_blank）已升入 **@feuille/karaoke** 包（消费 library 的唯一实现，不自带第二份）。本 skill 不拥有任何 library 模块，跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## Requirements (fresh machine)
 

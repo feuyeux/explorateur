@@ -46,9 +46,9 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：copy
 
-本 skill **不拥有** `src/feuille` 下的任何模块——它只产出 `publish/*.md` 文本，没有代码。发布词自检（标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源）已归流到 **@feuille/copy** 包，进程内直跑 `feuille copy check`，与下面的 `## 验收判据` 表一一对应。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+本 skill 只产出 `publish/*.md` 文本。发布词自检（标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / `--facts` 数字溯源）已归流到 **@feuille/copy** 包（本 skill 名下唯一的模块），进程内直跑 `feuille copy check`，与下面的 `## 验收判据` 表一一对应。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## Conventions
 

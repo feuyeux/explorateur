@@ -1197,3 +1197,57 @@ H3 426 积分≈¥2.98 速查表、allowed-once 才碰通道（PATH 剥离下 EN
 门禁：typecheck 干净；vitest **43 文件（531 passed | 4 skipped）4 连绿**。
 Python 侧无改动（verify_skills 78/78 上一批已绿，本批未触碰 skills/docs）。
 **P6 收口。**
+
+## P7：Python 清场（2026-10-18）——uv/Python 实现退役删除，归属纪律不随语言退役
+
+**删除面（62 个 git 条目 + 两个未入库目录）**：src/feuille/ 全树（含 publish/）、
+scripts/ 全套（verify_*.py 21 件 + verify_probes.py + verify_skills.py +
+verify_docs.py）、pyproject.toml、uv.lock、migration/ 的采集与比对工具
+（capture_golden.py、spike2_scenes_ref.py）、.venv/ 与 migration/__pycache__
+（未入库）。**保留不动**：lessons/guangchaoshi-逛超市/review/build_prompts.py
+（课堂数据，数据不动纪律）、skills/*/assets/example/ 与 examples/*.py
+（只读归档）、examples/ H3 母版全程未触碰。
+
+**ownership.json 账本重键**：模块 ID 从「tier.树路径」改为**「包.源文件」点分 ID**
+（core.tts、publish.douyin），声明父 ID 覆盖其子模块（publish 覆盖 publish.*）。
+清点闭合：29 个 core 源文件 + 9 个包 = library 16 + skill 专属 13 +
+infrastructure 9，零孤儿零幻影。归属扫描面 = packages/*/src/**/*.ts（index.ts
+桶文件与 *.d.ts 除外）。
+
+**verify_skills.py → @feuille/gate（vitest 门禁）**：检查 0–14 全量移植
+（路由覆盖、frontmatter、前置输入契约/边界段、豁免标记、Levenshtein≤2 幽灵
+检测、no-islands 单向、name==dirname、12 语种 canon、README 四层产线、边界
+转交、共享 example 字节一致、no-hardcoded-bins、归属 8/8b/9/10/11/12/13、
+README map + 凿洞自证——假账本注入必 FAIL）。三方对账 = 账本 ↔ 实际模块 ↔
+SKILL.md「拥有模块」行；13 处 SKILL.md 拥有模块行与 10 处「由 verify_skills.py
+机检」措辞同步改记 @feuille/gate。3/3 首跑即绿。
+
+**Edge 并行隔离**：真实驱动浏览器的 7 个测试文件（covers/textlayer/karaoke/
+measure_korean/poster/publish/storyteller）单独成 edge project 串行
+（singleFork——vitest 3.x 的 fileParallelism 是根级选项不可按 project 设）；
+其余纯单元文件照常并行。根因：多实例并发抢浏览器进程，并行抖动四批三现。
+
+**feuille CLI 实体化**：packages/cli/bin/feuille.js（spawnSync
+`node --import tsx src/main.ts`；tsx 经 createRequire 从 bin 位置解析，入口
+经 fileURLToPath——href 会被当相对路径）+ package.json bin 字段 + 根
+devDependencies 挂 @feuille/cli（pnpm 不为无依赖者的 workspace bin 建链）。
+`pnpm exec feuille …` 实跑验证：rc 0（help、persona validate）/ rc 2（未知）。
+
+**文档清账**：docs/render-handbook.md（57× uv run feuille→feuille、验收表 →
+`pnpm verify`、§0/§5 工具现实、124 行模块路径重键；python -m sys.path 事故
+记录留史）、docs/toolchain.md（阶段表/依赖表全 TS 化）、docs/architecture.md
+（状态行、门禁体系整节重写为 vitest 全量 + 按包清单表、CLI 路由表对齐真实
+39 条、mermaid 节点）、docs/publish-lessons.md（§0.5 日志无缓冲、环境约定表
+pnpm 化）、docs/publish-playbook.md:861 标注历史命令形态、languages/README.md
+与 personas/voice.md（voiceId 核验口径 → 在册快照）、skills 侧 11 处 src/feuille
+散文重写 + 模块路径重键。usine/AGENTS.md 11 对（工程基线/纪律 6/12/18/工程
+约定/目录块）；workspace 根 AGENTS.md feuille 条目 → pnpm 约定（画字铁律改述
+为成像库通则）；feuille 根 .gitignore 头注释 usine(TS/pnpm)。
+
+**docs 门禁退役的诚实记录**：verify_docs.py（命令/脚本/符号/链接真实性五判据）
+未单独移植——命令真实性由 @feuille/cli 路由测试与评审承担；「死入口零容忍」
+仍是评审纪律，历史口径留档于 architecture.md §4。
+
+门禁：typecheck 干净；vitest **44 文件（534 passed | 4 skipped）4 连绿**
+（typecheck 修复一项：edge project fileParallelism → singleFork）。
+**P7 收口。**

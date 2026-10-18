@@ -14,7 +14,7 @@ description: >
 # Character Rig & Scene Primitives
 
 Everything the renderer draws a person or a background with. The implementation
-lives in **library**（`rig` / `scenes` / `persona`，`src/feuille/`）；本 skill 是
+lives in **library**（`core.rig` / `core.scenes` / `core.persona`，@feuille/core）；本 skill 是
 它们的**说明书**——怎么选、怎么排障、怎么加新东西。It is a **primitive layer**,
 not a pipeline: callers compose these, they do not run them end to end.
 
@@ -43,7 +43,7 @@ not a pipeline: callers compose these, they do not run them end to end.
 **不做 / 转交**：
 
 - 写/解析/校验课件 → `lesson-scene`
-- 成片 → `karaoke-video`（单卡片海报驱动）/ `storyteller-video`（多幕评书，说书人从 `feuille.data.storytellers()` 现取）/ `multilingual-video-poetry`（实拍驱动）
+- 成片 → `karaoke-video`（单卡片海报驱动）/ `storyteller-video`（多幕评书，说书人从 `core.data.storytellers()` 现取）/ `multilingual-video-poetry`（实拍驱动）
 - 多语种字体子集与逐字着色 → `one-page-poster`
 - 写发布词 → `publish-copy` / 发到平台 → `multilingual-video-publishing`
 
@@ -61,7 +61,7 @@ doctor）与本 skill 站在**同一份** library 注册表上，谁也不许把
 拥有模块：（无）
 
 实现与注册表全在 **library**（`rig` / `scenes` / `persona`）——事实源见
-`usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。本 skill 只留说明书，
+`usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。本 skill 只留说明书，
 与 `one-page-poster` 的形态一致：知识在 skill，实现沉在 library，横向支撑在下面。
 `devices`（装置外框样式注册表）同样归 library——本 skill 的装置画法与
 lesson-scene 的校验判据取的是同一份。

@@ -18,7 +18,7 @@
 
 ## 2. B站合集：Lv2 门槛，**做不到就是做不到**
 
-`src/feuille/publish/collections.py` 头注已记录：合集需创作中心 Lv2，
+@feuille/publish `collections` 头注已记录：合集需创作中心 Lv2，
 等级不够时编辑页是灰字、无可点控件，合集管理页 404 或重定向。
 `collections.py` 里**只有抖音实现了全流程**（`fix_collection` /
 `create_collection` 都是抖音 URL）。
@@ -248,6 +248,7 @@ def norm(s):
 
 而 `scripts/verify_cli.py` 只机检「已登记的叶子可达」，
 **不机检「文档宣称 ⊆ 已登记」**，所以它一直没被抓出来。
+（TS 时代：对应机检在 `packages/cli` 的 router/cli 测试——登记叶子可达 + 路由表契约。）
 
 已修：补齐 `cover`/`manifest`/`publish` 路由，并给 `verify_cli.py` 加上
 反向机检。**8/8 PASS**。

@@ -1,60 +1,75 @@
 {
-  "_policy": "src/feuille 下每个模块必须且只能被声明一次：归某个 skill、归 library（多 skill 共用的业务实现）、或归 infrastructure（与业务无关的底座）。子模块随其包归属。**unclaimed 必须为空**——存量代码要么被 skill 拥有，要么进 library，不许悬着。由 verify_skills.py 机检。",
-  "_why_library": "skill 是说明书（怎么用 + 工作样例 + 诊断脚本），library 是实现（可复用代码）。tts/audio 要同时给 karaoke-video 与 multilingual-video-poetry 用，textlayer/covers 要同时给 one-page-poster 与 poetry 用，manifest/metrics 要同时给 publishing 与 lesson-scene 用；rig/scenes/persona 是同一形态的第三例——character-rig 是它们的说明书，而 lesson-scene 的校验层（scene_schema/scene_draft/doctor）要现取同一份注册表与契约判定，skill 之间不许横向伸手，只能共同站在 library 上。一个模块可以跨用 library，但不许被两个 skill 同时「拥有」。",
+  "_policy": "packages/*/src 下每个源码模块（桶文件 index.ts 与 *.d.ts 除外）必须且只能被声明一次：归某个 skill、归 library（多 skill 共用的业务实现）、或归 infrastructure（与业务无关的底座）。模块 ID 为「包.源文件」（如 core.tts）；声明父 ID 即覆盖其子模块（core.tts 覆盖 core.tts/ 子文件，publish 覆盖 publish 包全部源文件）。**unclaimed 必须为空**——存量代码要么被 skill 拥有，要么进 library，不许悬着。由 packages/gate 的 vitest 门禁（@feuille/gate）机检。",
+  "_why_library": "skill 是说明书（怎么用 + 工作样例 + 判据），包是实现（可复用代码）。core.tts / core.audio 要同时给 karaoke-video 与 multilingual-video-poetry 用，core.textlayer / core.covers 要同时给 one-page-poster 与 poetry 用，core.manifest / core.metrics 要同时给 publishing 与 lesson-scene 用；core.rig / core.scenes / core.persona 是同一形态的第三例——character-rig 是它们的说明书，而 lesson-scene 的校验层（core.scene_schema / core.scene_draft / core.lesson）要现取同一份注册表与契约判定，skill 之间不许横向伸手，只能共同站在 library 上。一个模块可以跨用 library，但不许被两个 skill 同时「拥有」。",
   "_tiers": {
     "skills": "专属实现，只被这一个 skill 用",
     "library": "被 ≥2 个 skill 用的业务实现，或跨产线共用的判定源",
-    "infrastructure": "与业务无关的底座：平台解析、缓存账本、打包、CLI 路由、门禁桥、错误通道"
+    "infrastructure": "与业务无关的底座：平台解析、缓存账本、打包、CLI 路由、数值/成像底座、插件面、错误通道"
   },
 
   "library": {
-    "textlayer": "Edge headless 渲字：视口探测 / 截图 / 双 matte 抠像。one-page-poster 与 multilingual-video-poetry 共用",
-    "covers": "封面机制：平台规格表 / 预裁底图 / 截图 / 展示裁切模拟 / 检查。同上两者共用",
-    "tts": "edge-tts 语音合成内核。karaoke-video（词级高亮）与 multilingual-video-poetry（整段校窗）共用",
-    "audio": "ffmpeg 音轨合成与时长探测。同上两者共用",
-    "timeline": "行时间轴与词级进度轴。成片线与课件渲染线共用",
-    "compose": "母版叠加合成。成片线与课件渲染线共用",
-    "render": "帧编码基座：rawvideo → ffmpeg 管道。同上共用",
-    "manifest": "发布清单：文案稿解析 / 平台限制检查 / 标注回填 / 清单构建。multilingual-video-publishing 与 lesson-scene 共用",
-    "metrics": "指标回流：results 合并 / 发布侧检查 / 分组分析。同上共用",
-    "devices": "装置外框样式注册表。character-rig（画）与 lesson-scene（校验判据）共用",
-    "data": "数据入口唯一事实源：personas / intro-cards / languages / scene.json。各 skill 共读",
-    "audit": "格律计数审计：计数器库 + 声称 vs 实测驱动。multilingual-video-poetry 与课件诗稿共用",
-    "rig": "人物 rig 本体：色表 / 随机与物理 / 插值缓动 / FACE_SPECS / MOOD_FACE / POSE_CODES 等规格注册表。character-rig（选型与排障说明书）与 lesson-scene（scene_schema / scene_draft / lesson 的校验判据现取）共用；draw_character 的契约测试在 scripts/verify_rig.py",
-    "scenes": "背景场景原语：@scene 注册表 65 名 + prerender_bg + DrawScaled 超采样。character-rig（说明书）与 lesson-scene（doctor 的场景合法值现取）共用",
-    "persona": "人设契约校验器：validate_persona / validate_roster（personas/schema.md 的机器判定，纯函数）。character-rig（说明书）与 lesson-scene（doctor 班底体检）共用；CLI 叶子 `feuille persona validate` 直调"
+    "core.textlayer": "Edge headless 渲字：视口探测 / 截图 / 双 matte 抠像。one-page-poster 与 multilingual-video-poetry 共用",
+    "core.covers": "封面机制：平台规格表 / 预裁底图 / 截图 / 展示裁切模拟 / 检查。同上两者共用",
+    "core.tts": "edge-tts 语音合成内核（协议自复刻：握手 / Sec-MS-GEC / WordBoundary 流式 / 内容寻址缓存）。karaoke-video（词级高亮）与 multilingual-video-poetry（整段校窗）共用",
+    "core.audio": "ffmpeg 音轨合成与时长探测。同上两者共用",
+    "core.timeline": "行时间轴与词级进度轴。成片线与课件渲染线共用",
+    "core.compose": "母版叠加合成。成片线与课件渲染线共用",
+    "core.render": "帧编码基座：rawvideo → ffmpeg 管道。同上共用",
+    "core.manifest": "发布清单：文案稿解析 / 平台限制检查 / 标注回填 / 清单构建。multilingual-video-publishing 与 lesson-scene 共用",
+    "core.metrics": "指标回流：results 合并 / 发布侧检查 / 分组分析。同上共用",
+    "core.devices": "装置外框样式注册表。character-rig（画）与 lesson-scene（校验判据）共用",
+    "core.data": "数据入口唯一事实源：personas / intro-cards / languages / scene.json。各 skill 共读",
+    "core.audit": "格律计数审计：计数器库 + 声称 vs 实测驱动。multilingual-video-poetry 与课件诗稿共用",
+    "core.rig": "人物 rig 本体：色表 / 随机与物理 / 插值缓动 / FACE_SPECS / MOOD_FACE / POSE_CODES 等规格注册表。character-rig（选型与排障说明书）与 lesson-scene（core.scene_schema / core.scene_draft / core.lesson 的校验判据现取）共用；draw_character 的契约测试在 @feuille/core 测试套",
+    "core.scenes": "背景场景原语：@scene 注册表 65 名 + prerender_bg + DrawScaled 超采样。character-rig（说明书）与 lesson-scene（doctor 的场景合法值现取）共用",
+    "core.persona": "人设契约校验器：validate_persona / validate_roster（personas/schema.md 的机器判定，纯函数）。character-rig（说明书）与 lesson-scene（doctor 班底体检）共用；CLI 叶子 `feuille persona validate` 直调",
+    "core.themes": "教学视频垂域主题自动匹配器（原 skills/match_theme.py 升包，karaoke-video 与 one-page-poster 两个 skill 共用 → library 层）。CLI 叶子 `feuille theme match` 直调"
   },
 
   "skills": {
-    "one-page-poster": {},
-    "karaoke-video": {},
-    "storyteller-video": {},
+    "one-page-poster": {
+      "poster": "海报产线十条编排（fetch_fonts / assemble / render_poster / render_page / audit_charset / fit_diag / verify_colors / check_overlay / make_covers / measure_korean），消费 library 的唯一实现，不自带第二份"
+    },
+    "karaoke-video": {
+      "karaoke": "单卡片成片产线编排（gen_tts / build_video / verify_sync / scan_blank），消费 library 的唯一实现，不自带第二份"
+    },
+    "storyteller-video": {
+      "storyteller": "多幕评书成片产线编排（render_act_frames / assemble_storyteller），消费 library 的唯一实现，不自带第二份"
+    },
     "video-generation": {},
-    "bgm-bed": {},
-    "multilingual-video-poetry": {},
-    "publish-copy": {},
+    "bgm-bed": {
+      "bgm": "BGM 床生成（gen_bgm：Lyria realtime 客户端 + 实测判据），CLI 叶子 `feuille bgm gen` 直调"
+    },
+    "multilingual-video-poetry": {
+      "poetry": "实拍母版线诊断（audio_profile / color_contrast：拍速反查 / 频段分布 / 对花对比度），CLI 叶子 `feuille poetry audio-profile / color-contrast` 直调"
+    },
+    "publish-copy": {
+      "copy": "发布词自检（check_publish_copy：三平台 H2 / 标题字数 / 尾随空格 / 互动钩 / 置顶话术 / no-hard-wrap / AI 指纹 / --facts 数字溯源），CLI 叶子 `feuille copy check` 直调"
+    },
     "multilingual-video-publishing": {
-      "publish": "Playwright 发布器本体：base / login / douyin / xhs / bilibili / collections / veriflive。对包内其他模块零依赖，自成一体"
+      "publish": "Playwright 发布器本体：base / login / douyin / xhs / bilibili / collections / veriflive / check_plan / clock。对包内其他模块零依赖，自成一体"
     },
     "lesson-scene": {
-      "lesson": "新课开坑（new）与就绪度体检（doctor）",
-      "parse_scene": "教学场景解析器：lessons/<id>/scene.md → scene.json",
-      "scene_schema": "场景数据前置校验层（parse 与 render 之间）",
-      "scene_draft": "教学创意 → scene.md 草稿生成",
-      "scene_audio": "场景课 TTS 语音线（④成片第一段）：scene.json × §0.4 roles 班底声线 → timeline.json + 逐行 mp3",
-      "section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
+      "core.lesson": "新课开坑（new）与就绪度体检（doctor）",
+      "core.parse_scene": "教学场景解析器：lessons/<id>/scene.md → scene.json",
+      "core.scene_schema": "场景数据前置校验层（parse 与 render 之间）",
+      "core.scene_draft": "教学创意 → scene.md 草稿生成",
+      "core.scene_audio": "场景课 TTS 语音线（④成片第一段）：scene.json × §0.4 roles 班底声线 → timeline.json + 逐行 mp3",
+      "core.section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
     },
     "character-rig": {}
   },
 
   "infrastructure": {
-    "platform": "浏览器 / ffmpeg / ffprobe / magick 的跨平台解析，全仓唯一事实源",
-    "ledger": "产物缓存账本：谁新鲜、谁过期、为什么",
-    "framehash": "成片逐帧像素基线，验收的像素判据",
-    "packaging": "交付打包（zipfile，非 ASCII 文件名必须置 UTF-8 flag）",
-    "cli": "统一入口路由表 `feuille <组> <命令>`，只做路由不做业务",
-    "errors": "库层显式错误通道 FeuilleError：库函数显式报错的唯一异常类型，cli 统一接住（stderr + 退出码 1）",
-    "_run_verify_probes": "CLI 桥，转发到 scripts/verify_probes.py"
+    "core.platform": "浏览器 / ffmpeg / ffprobe / magick 的跨平台解析，全仓唯一事实源",
+    "core.ledger": "产物缓存账本：谁新鲜、谁过期、为什么",
+    "core.framehash": "成片逐帧像素基线，验收的像素判据",
+    "core.packaging": "交付打包（zip，非 ASCII 文件名必须置 UTF-8 flag）",
+    "cli": "统一入口路由表 `feuille <组> <命令>`，只做路由不做业务（main / commands / leaves 薄适配全在此包）",
+    "core.errors": "库层显式错误通道 FeuilleError：库函数显式报错的唯一异常类型，cli 统一接住（stderr + 退出码 1）",
+    "core.num": "数值口径底座：pyFloat / pyG / pyFixed / roundHalfEven——Python 银行家舍入的镜像，全仓数值 parity 的唯一事实源",
+    "core.imaging": "成像底座：sharp 解码/编码 + @napi-rs/canvas 绘制（draw / matte / pildraw——Pillow 语义镜像），业务模块共用的唯一成像实现",
+    "dsh-plugin": "dsh 原生智能体插件（@feuille/dsh-plugin）：17 工具面 + approval 红线门控 + systemPrompt 纪律节，工具进程内直调各包（capture / discipline / tools）"
   },
 
   "unclaimed": {}
