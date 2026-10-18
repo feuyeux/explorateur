@@ -142,12 +142,12 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
     }
   })
 
-  it('playwright 缺席：import + 七个子模块 + 纯函数全不炸（lazy 契约）', async () => {
+  it('playwright 缺席：import + 八个子模块 + 纯函数全不炸（lazy 契约）', async () => {
     // TS 侧无 sys.modules 注入手段，改由「in-process import 全通」+
     // 「源码面零静态 playwright 依赖」两行合证同一契约
     const mod = await import('../src/index.js')
     expect(Object.keys(mod).sort()).toEqual(
-      ['base', 'bilibili', 'collections', 'douyin', 'login', 'veriflive', 'xhs'],
+      ['base', 'bilibili', 'check_plan', 'collections', 'douyin', 'login', 'veriflive', 'xhs'],
     )
     expect(base.filterTasks([{ no: 1, lang: 'x' }])).toEqual([{ no: 1, lang: 'x' }])
   })

@@ -36,7 +36,7 @@ description: >
 清单组装**没有 CLI 叶子**——`feuille.manifest.build_manifest` 吃的是带闭包的
 plans 契约（video / cover 是函数不是路径），只能从项目脚本组装：参考
 `assets/example/plans.py`（组装 plans → `build_manifest` 落盘），再用本 skill 的
-`scripts/check_plan.py` 做零流量自检。
+`feuille publish check-plan` 做零流量自检（promoted from scripts/check_plan.py）。
 
 ## 边界
 

@@ -867,3 +867,72 @@ karaoke-video 两个 skill 的 SKILL.md 同列引用——按 ownership 三层�
 cli.test.ts 加行后重跑的最后一轮 4 连绿）；Python verify_skills 78/78 复跑
 全绿（SKILL.md 改行 + 四 .py 删除后边界机检不破——ownership 机检对象仍是
 src/feuille，skill 脚本不在其扫描面，双轨期不受影响）。**P5-7b 收口。**
+
+## P5-7c（2026-10-18）：poetry/publishing 脚本归流——@feuille/poetry 立包 + check_plan 入 @feuille/publish
+
+**归流决定**：poetry 线两个诊断脚本立新包 **@feuille/poetry**（audio_profile /
+color_contrast 各一模块 + barrel）；publishing 线的 check_plan 进已存在的
+**@feuille/publish**（它本来就是发布域的包，不再另立）。三个 CLI 叶子
+（poetry/audio-profile、poetry/color-contrast、publish/check-plan）走既有
+thin-leaf 模式；commands.ts 路由加三行。
+
+- **audio_profile**：ffmpeg volumedetect / loudnorm / astats 三口径解析
+  （spawnSync；`_bin` 平行缓存不迁——platform.ffmpeg() 在函数内懒解析，
+  P5-7a 同款归流）。stdin 只在 `!process.stdin.isTTY` 时读（readFileSync(0)
+  try/catch→''）；窗口 JSON 从 argv join 取（`--rms` 旗标滤除），argv 不给再
+  退 stdin。f-string 镜像：toFixed + padStart；`int()` → Math.trunc；
+  astats 的 `-inf` 就地归一 -99。**`in_windows` Python 版定义了但 main 未
+  引用——按原样镜像移植，不擅自删**（纪律：镜像优先，删除另立议题）。
+- **color_contrast**：numpy percentile → 线性插值 `rank=(n-1)*p/100`；PIL
+  LANCZOS → sharp lanczos3；colorsys rgb_to_hls/hls_to_rgb 镜像；Python
+  round() 银行家舍入 → pyRound 助手；`%g` → pyG。glyph_mask 色相向量化
+  分支优先级 r>g>b 原样；dilate 4 邻域迭代；argparse 用 token-walker 仿真
+  （旗标值不漏进位置参数）。
+- **⚠️ sharp raw 通道大坑（生产 bug，实测抓到）**：`ensureAlpha().removeAlpha()
+  .raw()` 的 ensure/remove 对被优化掉，raw 返回 **4 通道** RGBA——按 3 通道
+  步长读会混进 alpha 字节，亮度全错（0.161 vs 正确 0.0212）且红色卡片出现
+  幻灵绿色字形命中。修法：`toBuffer({resolveWithObject:true})` 后按
+  `info.channels` 做步长抽取重组 3 通道缓冲。已写进实现处注释。
+- **seasonColorsFromArchive**：TS 无法 import Python——季色默认值改为**解析
+  归档字面量**（assets/example/季节与译文.py 的 SEASON_COLOR dict，正则 +
+  逐条 matchAll），候选目录序与 Python sys.path 插入序一致（归档副本优先，
+  examples/sijijie 本机退路）。机制变了，事实源没变（归档字面量原样）。
+- **check_plan 入 @feuille/publish + 限值漂移拷贝消解**：Python 版 TITLE_MAX
+  是带 `_limit_drift` 守卫的独立副本（纪律 10），前提是「发布机零依赖可跑」
+  ——TS 单仓后该前提已死，直接消费 `manifest.PLATFORMS` 派生
+  （`Object.fromEntries`），**漂移拷贝不迁移即天然消除**，守卫检查 #6 随之
+  退役（TITLE_MAX 导出仅为反向验证派生关系）。COVER_RATIO / MOD_BUDGET 是
+  check_plan 私有事实（无 library 同源），留本地。PIL Image.size → sharp
+  metadata；Python len() → charLen 码点计数；set repr → setRepr 镜像
+  （`{'ja-JP'}` 带空格）。**横竖配对通过行只判条数相等、不判集合一致
+  （集合不一致由 problems 拦）——Python 原版口径，镜像并加测试锚定**。
+
+### 测试（poetry.test.ts 17 用例 + check_plan.test.ts 11 用例 + cli.test.ts 路由行）
+
+- poetry：gap_verdict 两行（**verify_skill_scripts.py 的 color_contrast 段随
+  归流移植**，该段已从 Python 验证脚本移除并在 docstring 记去向）；percentile
+  插值、hex/lum/WCAG（白上黑 21）、hls 往返、suggest 四档递减、glyph_mask
+  红中灰不中、dilate 5→9、seasonColorsFromArchive 四季全值、measure 端到端
+  （sharp 真成像，gl 对 lumHex('#FF0000') 精度 3）、seasons 端到端（真 ffmpeg
+  抽帧 + 卡片合成，--gate 双阈值两态）、gate 未量到不许混过（SKIP≠PASS）、
+  argparse 多态、audio curve/meanVolume/lufs/窗口模式/--rms、__doc__ 与
+  找不到行。
+- check_plan：TITLE_MAX 派生关系逐平台逐项 + 取值；charLen emoji=1；六项判据
+  逐条（清单齐/素材缺失/标题超限/语种集合多缺两侧/封面比例提醒/封面读不出）；
+  **配对通过行的 Python quirk 加伴生用例**（条数相等而集合不一致 → ✅ 照发）；
+  --root 两级解析；argparse 行。
+- **curve 双轨 parity 实证**：TS c[0.1]=-27.095662 与 Python 逐字节一致
+  （astats 逐点值与 volumedetect 不一致是 astats 本性，脚本 docstring 自证
+  只看趋势——测试阈值按 Python 实测留余量，不按直觉拍）。
+
+门禁：typecheck 干净；vitest 38 文件全绿（372 用例，3 skipped）**4 连绿**
+（本轮再遇两例瞬时失败：一次未定位单例、一次为 Edge 渲字 + edge-tts 真连
+两行在并行满载下同轮抖动，单文件复跑全绿，均与 P5-7c 改动无交集——Edge
+类行在并行下的抖动已是第二次出现，P7 移植 verify 时值得单独审视隔离策略）；
+Python verify_skill_scripts.py 14/14（color_contrast 段移除后）、verify_skills
+78/78 复跑全绿。接线面：poetry SKILL.md（验收判据/混音排查/先量后看/代码
+归属段）+ references/{audio-measurement,ffmpeg-pitfalls,typography-over-footage}
++ publishing SKILL.md + publish-copy SKILL.md + bgm-bed/references/
+lyria-field-notes.md 全部改指 `feuille poetry …` / `feuille publish
+check-plan`；三个 .py 删除（scripts/ 目录随之清空移除）。ownership.json
+不动——机检对象仍是 src/feuille（双轨期），TS 包记账 P7 清场。**P5-7c 收口。**

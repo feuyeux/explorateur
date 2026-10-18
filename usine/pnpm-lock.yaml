@@ -29,6 +29,9 @@ importers:
       '@feuille/karaoke':
         specifier: workspace:*
         version: link:../karaoke
+      '@feuille/poetry':
+        specifier: workspace:*
+        version: link:../poetry
       '@feuille/publish':
         specifier: workspace:*
         version: link:../publish
@@ -95,11 +98,23 @@ importers:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@24.19.2)
 
+  packages/poetry:
+    dependencies:
+      '@feuille/core':
+        specifier: workspace:*
+        version: link:../core
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@24.19.2)
+
   packages/publish:
     dependencies:
       '@feuille/core':
         specifier: workspace:*
         version: link:../core
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@24.19.2)
 
 packages:
 

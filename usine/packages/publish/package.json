@@ -9,6 +9,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@feuille/core": "workspace:*"
+    "@feuille/core": "workspace:*",
+    "sharp": "^0.35.5"
   }
 }

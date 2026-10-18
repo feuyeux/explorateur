@@ -144,7 +144,7 @@ gain = 10 ^ ((旁白实测 RMS dBFS − 目标低多少 dB − 床实测 RMS dBF
    低于 −45 dBFS。不排除会把淡出尾巴误报成「断流」——实测踩过：52.0s 的 −52.5 dBFS
    是设计中的淡出，不是断点。
 3. **平稳性**：主体段动态范围 ≤ 12 dB。超出说明床自己在起伏，听感忽强忽弱。
-4. **成片人声 vs 空档**：用 `audio_profile.py`（在 `multilingual-video-poetry`）按
+4. **成片人声 vs 空档**：用 `feuille poetry audio-profile`（multilingual-video-poetry 产线）按
    LUFS 口径量，差 ≥ 8 dB。⚠️ **配比判据用 LUFS 不用 RMS**——同一段混音两种口径
    能差 6 dB 以上，拿 RMS 会得出「不达标」的假结论。
 

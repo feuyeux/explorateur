@@ -1,7 +1,7 @@
 # ffmpeg 滤镜图四个坑
 
 全部为实测复现。**症状与根因的对应关系不要靠猜**——按
-`scripts/audio_profile.py` 拆轨逐段对比来定位。
+`feuille poetry audio-profile` 拆轨逐段对比来定位。
 
 ---
 

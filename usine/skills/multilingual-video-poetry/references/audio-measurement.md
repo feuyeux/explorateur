@@ -13,7 +13,7 @@
 ```
 
 三条轨同源同长，同一时间点横向对比，一眼看出是哪一环丢的。
-`scripts/audio_profile.py` 实现了这个。
+`feuille poetry audio-profile` 实现了这个（promoted from scripts/audio_profile.py）。
 
 ## 分段电平：两种工具，别混用
 

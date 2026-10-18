@@ -90,6 +90,15 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/karaoke-scan-blank.js'),
     desc: '全片白页扫描：唯一独立于状态帧的检查（含白帧 → 退出码 1）',
   },
+  // ---- P5-7c poetry 诊断线（multilingual-video-poetry 归流）----
+  'poetry/audio-profile': {
+    load: () => import('./leaves/poetry-audio-profile.js'),
+    desc: '音频拆轨对比：人声段 vs 空档段 LUFS 电平（差 < 8 dB = 人声被盖住）',
+  },
+  'poetry/color-contrast': {
+    load: () => import('./leaves/poetry-color-contrast.js'),
+    desc: '文字压实拍量化：背景亮度分布 + 逐季 --gate 二值判据（阈值项目自标定）',
+  },
   // ---- 平台发布（⑨⑩⑪）----
   // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
   // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——
@@ -100,6 +109,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
   'publish/login': {
     load: () => import('./leaves/publish-login.js'),
     desc: '平台扫码登录：登录态存盘到持久 profile（默认四平台全扫）',
+  },
+  'publish/check-plan': {
+    load: () => import('./leaves/publish-check-plan.js'),
+    desc: '发布前清单自检：素材/标题字数/横竖配对/封面比例（零平台流量）',
   },
   'publish/douyin': {
     load: () => import('./leaves/publish-douyin.js'),

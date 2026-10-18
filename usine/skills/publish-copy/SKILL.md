@@ -132,7 +132,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 
 - **文件命名硬约定**：`publish/xiaohongshu.md` / `publish/douyin.md` / `publish/bilibili.md`。加其它平台走同样命名。
 - **段落齐全**：见 `## 验收判据` 表的 `check_required_sections` 行——publishing 端按 H2 标题取字段，缺段直接报错。
-- **字数硬上限**：20 / 30 / 80（小红书 / 抖音 / B站）。publishing 端 `check_plan.py` 也会卡，但写时就过更便宜。
+- **字数硬上限**：20 / 30 / 80（小红书 / 抖音 / B站）。publishing 端 `feuille publish check-plan` 也会卡，但写时就过更便宜。
 - **话题末尾尾随空格**：抖音 + 小红书必带；B 站 tag 区无此问题。
 - **三平台一致性**：同一条脊柱 / 三种嗓门。**publishing 不会替你做编辑**——如果三份稿脊柱不一致或事实互相打架，publishing 会原样发出去互相拆台。
 - **不要把发布执行的事编进文案**：发布贴士里写"发布后置顶评论（话术：'…'）"是本 skill 的事；写"用 XX 工具点 XX 按钮"是 publishing 的事，不归这里。

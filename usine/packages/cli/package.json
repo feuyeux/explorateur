@@ -11,6 +11,7 @@
   "dependencies": {
     "@feuille/core": "workspace:*",
     "@feuille/publish": "workspace:*",
-    "@feuille/karaoke": "workspace:*"
+    "@feuille/karaoke": "workspace:*",
+    "@feuille/poetry": "workspace:*"
   }
 }

@@ -56,7 +56,7 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 
 拥有模块：（无）
 
-本 skill 不拥有任何模块：格律审计（`audit`）、TTS 与音轨（`tts` / `audio`）、渲字与封面（`textlayer` / `covers`）全在 **library**，与海报线、karaoke 线共用；跨用走 library 的实现，不要另写一份。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+本 skill 不拥有任何模块：格律审计（`audit`）、TTS 与音轨（`tts` / `audio`）、渲字与封面（`textlayer` / `covers`）全在 **library**，与海报线、karaoke 线共用；跨用走 library 的实现，不要另写一份。诊断脚本 `audio_profile.py` / `color_contrast.py` 已归流 **@feuille/poetry**（feuille poetry audio-profile / color-contrast，P5-7c），gap_verdict 反向验证随迁 vitest。事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
 
 ## 顺序不能换
 
@@ -80,7 +80,7 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 |---|---|
 | 边界 | 逐帧取样拼图目视确认，不是凭印象 |
 | TTS | **每段实测时长 ≤ 该季窗口**，超窗就压词，不是超了就硬塞 |
-| 字幕 | **先量后看**：`color_contrast.py --gate <标定阈值>` 逐季二值判据全 PASS（阈值在已目视验收的成片帧上标定），再抽帧目视复核 |
+| 字幕 | **先量后看**：`feuille poetry color-contrast --gate <标定阈值>` 逐季二值判据全 PASS（阈值在已目视验收的成片帧上标定），再抽帧目视复核 |
 | 混音 | 人声段 − 空档底床 ≥ 8 dB；底床全程无断点 |
 | 收尾 | 音频在**画面结束那一刻**归零，不是提前哑、也不是戛然而止 |
 | 成片 | 逐条 ffprobe 尺寸/时长/音轨规格 |
@@ -93,7 +93,7 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 人声干轨  vs  被压 BGM 轨  vs  最终混音
 ```
 
-三者逐 0.1s 对比，一眼看出是哪一环丢的。`scripts/audio_profile.py` 做这件事。
+三者逐 0.1s 对比，一眼看出是哪一环丢的。`feuille poetry audio-profile` 做这件事（promoted from scripts/audio_profile.py）。
 
 三个坑都表现为「声音听起来不对」，但根因完全不同：
 
@@ -109,10 +109,10 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 ```bash
 # 人声段 vs 空档底床，LUFS 口径，配比判据
 echo '{"voice":[[0.55,2.88],[5.75,8.22]],"gaps":[[3.13,5.50]]}' | \
-    uv run python skills/multilingual-video-poetry/scripts/audio_profile.py 成片.mp4
+    feuille poetry audio-profile 成片.mp4
 
 # 不传窗口：逐 0.1s 电平曲线，用于看断流与淡出
-uv run python skills/multilingual-video-poetry/scripts/audio_profile.py 成片.mp4
+feuille poetry audio-profile 成片.mp4
 ```
 
 ⚠️ **配比判据必须用 LUFS 不能用 RMS**——同一段混音两种口径差 6.3 vs 8.2 dB，
@@ -132,7 +132,7 @@ uv run python skills/multilingual-video-poetry/scripts/audio_profile.py 成片.m
 - **文字颜色与画面用色不能靠色**——先量该季文字区的背景亮度，再决定往哪调
 
 ```bash
-uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
+feuille poetry color-contrast \
     --seasons 母版.mp4 --cards cards/横版
 ```
 
@@ -144,11 +144,11 @@ uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
 `|字芯亮度 − 环带背景 p90|`，低于阈值的季 FAIL、退出码 1；未量到的季在 gate
 模式下也算 FAIL（SKIP 不是 PASS）。**阈值没有默认值**——在已目视验收的成片帧
 上实测后标定再给；拿四季归档数字或 WCAG 当普适阈值就是编数据。判据纯函数
-`gap_verdict` 的反向验证在 `usine/scripts/verify_skill_scripts.py`。
+`gap_verdict` 的反向验证在 `@feuille/poetry` 的 vitest（packages/poetry/test/poetry.test.ts）。
 
 ```bash
 # 量 + 二值判据（阈值自标定）：CI / 验收官可抓退出码
-uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
+feuille poetry color-contrast \
     --seasons 母版.mp4 --cards cards/横版 --gate 0.30 --gap-ref p90
 ```
 

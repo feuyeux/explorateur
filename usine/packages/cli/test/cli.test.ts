@@ -151,4 +151,12 @@ describe('P5-7 归流叶子经路由端到端可达', () => {
     expect(await main(['karaoke', 'verify-sync', '--video', 'x'])).toBe(2) // 其余必填仍缺
     expect(await main(['karaoke', 'scan-blank'])).toBe(2)
   })
+
+  it('poetry/publish P5-7c 三叶子经路由可达：用法错 → 2、-h → 0', async () => {
+    expect(await main(['poetry', 'audio-profile'])).toBe(2)
+    expect(await main(['poetry', 'color-contrast', '--nope'])).toBe(2)
+    expect(await main(['poetry', 'color-contrast', '-h'])).toBe(0)
+    expect(await main(['publish', 'check-plan'])).toBe(2)
+    expect(await main(['publish', 'check-plan', '-h'])).toBe(0)
+  })
 })

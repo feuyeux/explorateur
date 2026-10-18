@@ -13,8 +13,8 @@
 2. **gen_bgm.py**（bgm-bed）：pad_request（目标床长 → 实时后端请求垫量）与
    bed_len_verdict（床长判据）两个纯函数。凿洞用实测事故数字：
    请求 80s 实得 78.0s、请求 62s 实得 54.0s（SKILL.md 坑 1）→ 都必须 ⚠。
-3. **color_contrast.py**（multilingual-video-poetry）：gap_verdict——
-   阈值是项目自标定值（不内置默认），判据只判「字芯-背景亮度差 ≥ 阈值」。
+3. ~~**color_contrast.py**（multilingual-video-poetry）~~——已随 P5-7c 归流
+   @feuille/poetry，gap_verdict 两行移植 packages/poetry/test/poetry.test.ts。
 4. **audit_charset.py**（one-page-poster）：字符子集门（tofu 防线）。
    家族归属是栈式的（映射类压栈、无族类 span 继承外层族、闭合弹栈）——
    旧扁平实现在任何带 class 的标签上清空家族态，叠印层逐字母 span
@@ -44,7 +44,6 @@ def _load(name: str, rel: str):
 
 cpc = _load("check_publish_copy", "skills/publish-copy/scripts/check_publish_copy.py")
 gbm = _load("gen_bgm", "skills/bgm-bed/scripts/gen_bgm.py")
-cc = _load("color_contrast", "skills/multilingual-video-poetry/scripts/color_contrast.py")
 ac = _load("audit_charset", "skills/one-page-poster/scripts/audit_charset.py")
 
 
@@ -130,14 +129,6 @@ def check() -> list[tuple[bool, str]]:
         gbm.bed_len_verdict(79.0, 80).startswith("ok")
     rows.append((ok, "床长判据放行：垫量后 92≥80 过；79 在 1s 容差内过（容差边界）"))
 
-    # ==================== color_contrast ====================
-    # ---- 5. gap_verdict：阈值外部标定，判据只判「差值 ≥ 阈值」----
-    g_ok = cc.gap_verdict(0.35, 0.30, "春").startswith("PASS")
-    g_bad = cc.gap_verdict(0.25, 0.30, "冬").startswith("FAIL")
-    rows.append((g_ok and g_bad,
-                 "color_contrast gate：差 0.35≥阈值 0.30 → PASS；差 0.25<0.30 → FAIL"
-                 "（阈值自标定，不内置默认）"))
-
     # ---- 6. 事实表装载：--facts 的 JSON 键随意、值可核对 ----
     try:
         nums = cpc._fact_numbers({"a": 12, "b": "52.4", "c": "不是数字", "d": True})
@@ -188,7 +179,7 @@ def check() -> list[tuple[bool, str]]:
 
 def main() -> int:
     print("=" * 72)
-    print("skill 层脚本判据：publish-copy 指纹/溯源 + bgm 垫量/床长 + poetry gate + poster 字符门")
+    print("skill 层脚本判据：publish-copy 指纹/溯源 + bgm 垫量/床长 + poster 字符门")
     print("=" * 72)
     rows = check()
     fails = 0

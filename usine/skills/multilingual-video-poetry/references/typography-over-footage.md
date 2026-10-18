@@ -69,7 +69,7 @@ text-shadow:0 2px 3px rgba(0,0,0,.45),      /* 近距实边：定字形边缘 */
 ### 先量背景亮度，再决定往哪个方向调
 
 ```bash
-uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
+feuille poetry color-contrast \
     --seasons 母版.mp4 --cards cards/横版
 ```
 
@@ -89,7 +89,7 @@ uv run python skills/multilingual-video-poetry/scripts/color_contrast.py \
 
 ### ⚠️ WCAG 对比度**不适用**于彩字压实拍
 
-`color_contrast.py` 会顺带算 WCAG 亮度比，但**不要拿它判定合格**。
+`feuille poetry color-contrast` 会顺带算 WCAG 亮度比，但**不要拿它判定合格**。
 实测四季全部「不达标」（1.36–2.78），而这些成片是逐帧目视验收过、可读的。原因：
 
 - WCAG 为 **UI 文字压平底色**设计，那里没有阴影光晕、没有纯色相区分；
