@@ -1299,3 +1299,51 @@ pnpm 化）、docs/publish-playbook.md:861 标注历史命令形态、languages/
    后执行；P6 的假 LLM 干跑已覆盖工具面接线与红线断言（18/18）。
 5. **完成判据**（usine 日常操作经 dsh 智能体，不再依赖 AI coding 会话）：
    随 4 一并裁定后收口。
+
+## P9：RSI 真作用力改造（2026-10-18）——théâtre 接缝 + 适配层 + 智能体面钉版
+
+「真 wave 要能真实地对 usine 智能体的持续进化发生作用」——改造前四个机械卡点
+使这不可能：capture 会撞 pnpm 嵌套 node_modules（120s tar 超时/无界 fetch/审计面
+爆炸）；Actor 一 build 就产 dist，wave_merge 不排除 dist → 候选整案丢弃
+（path_policy_skipped）；content-only 合并丢 exec 位（bin/feuille.js 是 100755）；
+门禁跑不跑得动从无预检（红了 = 数据级 gate_rejected = 候选静默全损）；且
+distribution-usine.md 只认可库改进，智能体面从未被许为方向——「不发生作用」的
+根因是文案。改造后闭环（9 步）：预检 → Curriculum 出题（智能体面方向已许可）→
+Actor 改 dsh-plugin 源码/skills → capture 剪枝 → Verifier 复核（底座注告知 TS/pnpm
+与剪枝约定）→ 记忆 → 合并（排除对称 + exec 位）→ pnpm verify 门禁（含钉版
+对账）→ 绿合并后 `pnpm test` 重建 gitignored dist/index.mjs——改进直达
+`dsh web --patch` 加载的智能体面，下一轮围栏从新 HEAD 重算。
+
+1. **théâtre 引擎**（vendor 最小接缝，commit c142d8f）：
+   `capture_project_materials(..., exclude_parts=None)`——unanchored basename
+   tar 排除（GNU tar --no-anchored 默认语义，pnpm 每包嵌套 node_modules 也剪得
+   到）；None 默认行为字节不变（引擎测试逐字钉死）。26 过 / 3 败均为既有 macOS
+   环境项（replay 需 GNU coreutils，wave host 待跑）。
+2. **适配层核心**（commit 5b6d019）：capture 全捕获同规剪枝
+   （exclude_parts=(node_modules, dist)）；wave_merge.EXCLUDED_PARTS += dist、
+   .tsbuildinfo 后缀——与 capture 同一约定两头对称；exec 位保留（候选归档位 ∪
+   git 已跟踪 100755）；gate_preflight fail-closed（which + --version 真跑、
+   Windows .cmd shim 拒收、node>=24/pnpm>=11、--gate-install opt-in 代装）；
+   guest 种子后 node/pnpm 探针。smoke_wave_merge 53 PASS / 0 FAIL。
+3. **文案层**（commit 57e7a68）：distribution「What Phase-1 waves should
+   explore」重写——智能体面（工具描述/请求 schema/discipline/审批卡文案/
+   skills howto）为第一等方向，护栏钉死（approval fail-closed、publish 默认
+   不可达、红线用例只可加强）；WAVE_INSTRUCTION 去 uv 死表述；verifier 底座注
+   告知 TS/pnpm 与剪枝约定；传输注补 600s/程序与 install/verify 拆分。围栏
+   重算 12 PASS——顺带修复 HEAD 既有碰撞（distribution/传输注/curriculum
+   三方同写「the project root after a one-time pnpm install」）。
+4. **智能体面钉版**（commit 57e7a68）：`packages/dsh-plugin/test/
+   plugin-parity.test.ts`（11 用例）——13 argv 家族 action 枚举 ↔ @feuille/cli
+   COMMANDS 路由组双向对账（publish/version 豁免各有锚：publish 默认不注册、
+   version 是无参自检工具）；video-generation 规格/积分 ↔
+   skills/video-generation/SKILL.md 速查表对账（审批卡预估消耗 = SKILL 积分率
+   × 时长；submit 用例全停审批 rejected + PATH 剥离兜底——零额度红线对测试
+   同样成立）。此后 wave 改任何一侧不跟另一侧，`pnpm verify` 当场红。
+5. **本机验证证据**（SKIP 不是 PASS）：distribution fence 12 PASS；
+   smoke_usine_hooks 38 PASS / 0 FAIL（live-guest 节如实标 wave host 待跑）；
+   smoke_wave_merge 53 PASS；engine tests 26 过 / 3 环境败；dry-run 文本预检
+   5 texts clear；usine `pnpm verify`：typecheck 绿、vitest 543 过 / 549（2 败
+   均为 poster e2e fetch_fonts——本机外网 HTTPS 被整机拦，2511b53 起有据，与
+   改动无关）。smoke_dry_run_wave / smoke_verifier_adapter / smoke_guest_env
+   需 Windows wave host（git-bash WorktreeEnv）——就绪清单见 run_usine.py
+   docstring；真 wave 喊跑才跑。
