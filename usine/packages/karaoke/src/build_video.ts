@@ -79,7 +79,7 @@ async function renderChrome(out: string, url: string, w: number, h: number): Pro
   if (!browser) {
     throw new FeuilleError('找不到 Chromium 系浏览器；装 Chrome 或 Edge，或设 CHROME_BIN')
   }
-  sh([browser, '--headless=new', '--disable-gpu',
+  sh([browser, '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
     '--virtual-time-budget=10000', `--window-size=${w},${h}`,
     '--force-device-scale-factor=1', '--hide-scrollbars',
     `--screenshot=${out}`, url], 180)

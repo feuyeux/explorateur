@@ -55,7 +55,8 @@ export function main(argv: string[]): number {
   const profile = mkdtempSync(join(tmpdir(), 'poster-render-'))
   try {
     const args = [
-      '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+      '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
+      '--no-sandbox', '--hide-scrollbars',
       `--user-data-dir=${profile}`, '--virtual-time-budget=10000',
       `--window-size=${w},${h}`, `--force-device-scale-factor=${s}`,
       `--screenshot=${out}`, pathToFileURL(resolve(inArg)).href + qs,

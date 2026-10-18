@@ -31,7 +31,7 @@ import sharp from "sharp"
 
 import { FeuilleError } from "./errors.js"
 import { matteCombineBuffer } from "./imaging/matte.js"
-import { browser as resolveBrowser } from "./platform.js"
+import { browser as resolveBrowser, HEADLESS_FLAGS } from "./platform.js"
 
 const HTML_HEAD = (w: number, h: number, body: string, bg: string, font: string, dir: string) =>
   `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -74,7 +74,7 @@ function shotArgs(
   budgetMs: number,
 ): string[] {
   return [
-    "--headless=new", "--disable-gpu", "--hide-scrollbars",
+    "--headless=new", "--disable-gpu", ...HEADLESS_FLAGS, "--hide-scrollbars",
     "--force-device-scale-factor=1", `--window-size=${width},${winH}`,
     `--screenshot=${png}`, `--virtual-time-budget=${budgetMs}`,
     pathToFileURL(html).href,
@@ -114,7 +114,8 @@ export function viewportDeficit(
   )
   const dom = execFileSync(
     browser,
-    ["--headless=new", "--disable-gpu", `--window-size=1080,${nominal}`,
+    ["--headless=new", "--disable-gpu", ...HEADLESS_FLAGS,
+      `--window-size=1080,${nominal}`,
       "--virtual-time-budget=800", "--dump-dom", pathToFileURL(probe).href],
     { timeout: 60_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   )

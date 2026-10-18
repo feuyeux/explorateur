@@ -144,6 +144,18 @@ export function browserPath(only?: string): string | null {
   return browser(only)?.[1] ?? null
 }
 
+/**
+ * headless 渲染的公共旗标（每个启动点必须带上）。
+ * --use-mock-keychain / --password-store=basic：headless 渲染绝不碰用户
+ * 钥匙串。真实钥匙串在隔离环境（如 RSI guest 把 HOME 钉到沙箱盘）里会
+ * 首启挂起并拖死关停——2026-10-18 macOS 实测：HOME 非真实家目录时
+ * Edge headless 稳定以 2 退出（teardown watchdog），带上这对旗标即 0。
+ * 两者都不影响光栅化，像素基线不受牵动。
+ */
+export const HEADLESS_FLAGS: readonly string[] = [
+  '--use-mock-keychain', '--password-store=basic',
+]
+
 export function ffmpeg(): string | null {
   return firstExisting(FFMPEG_CANDIDATES)
 }
