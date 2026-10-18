@@ -416,3 +416,36 @@ verify_metrics 13/13 全绿。**P4a（data/audit/manifest/metrics）收口。**
 门禁：typecheck 干净；vitest 26 文件全绿（197 用例，2 skipped live 门控）
 ×4 连续；Python verify_rig 27/27 复跑全绿（双轨期纪律）。**P4c（rig/scenes/
 devices + pildraw 基座）收口。**
+
+## P4b：persona——人设契约校验器（②③ persona 半边收口，P4 全批完成）
+
+### 实现（packages/core/src/persona.ts + CLI 叶子）
+
+- `validatePersona(p, where?)`：纯函数零 I/O（反向验证直接喂坏数据）。
+  合法值**现取注册表不复制**（纪律 7）：脸型 → rig.FACE_SPECS 键、moves
+  槽位值 → rig.POSE_CODES（37 码）、声线安全域 → tts.SAFE_RATE/SAFE_PITCH
+  （±20% / ±12Hz，parseSigned 同源）。NaN 放行按 Python 原式镜像
+  （`val <= 0` 两边都为假）——不「顺手修正」，行为漂移本身就是 parity 破坏。
+- `validateRoster`：id 唯一（id = rnd 种子命名空间）+ 每语种一男一女 ×
+  一活泼一沉稳（活泼当 A / 沉稳当 B 的选角分工依赖它）。
+- `mainValidate(argv)`（`feuille persona validate [--personas DIR]`）：
+  逐人走 personasDoc **原始清单**而非 {id} 索引——索引会把重复 id 静默折叠，
+  班底级「id 唯一」就永远验不出来（Python 侧同一句话的坑，原样保留）。
+- CLI：commands.ts 注册 `persona/validate` + 薄叶子（判据全在 core）。
+- index.ts 导出 persona 命名空间。
+
+### 测试（verify_personas.py 的 vitest 移植，18 项 → 20 用例）
+
+- 好数据放行：28 人逐人零问题 + 班底不变量全过。
+- 反向 12 条定向破坏：坏脸型 / 坏姿态码 / 坏 hex / 缺调色板键 / rate 与
+  pitch 越安全域 / locale 分隔符 / 档案字段清空 / 私加槽位 / 挂件 physics
+  非法 / 眨眼周期 0 / energy 非法——每条断关键词命中。
+- 班底反向：撞 id → 「重复」；同语种同 energy → 「一活泼一沉稳」。
+- 注册表活性：FACE_SPECS 六型脸、POSE_CODES ≥ 30。
+- CLI 端到端：缺省班底 → 0；坏班底目录（撞 id + 坏 locale）→ 1；
+  cli.test.ts 补 `persona validate` 经路由可达用例。
+
+门禁：typecheck 干净；vitest 27 文件全绿（218 用例，2 skipped live 门控）
+×4 连续；Python verify_personas 18/18 复跑全绿（双轨期纪律）。
+**P4b 收口——P4（data/audit/manifest/metrics/rig/scenes/devices/persona）
+全批完成。**

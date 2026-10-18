@@ -74,4 +74,8 @@ describe('统一入口路由表（反向验证移植）', () => {
       rmSync(d, { recursive: true, force: true })
     }
   })
+
+  it('P4 persona 叶子经路由端到端可达：缺省班底 28 人零问题 → 0', async () => {
+    expect(await main(['persona', 'validate'])).toBe(0)
+  })
 })

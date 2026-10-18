@@ -37,6 +37,11 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/cover-check.js'),
     desc: '封面：尺寸 + 外圈众数底色检查（有问题 → 退出码 1）',
   },
+  // ---- P4 数据与人物场景 ----
+  'persona/validate': {
+    load: () => import('./leaves/persona-validate.js'),
+    desc: '人设契约体检：逐人 validatePersona + 班底不变量（有问题 → 退出码 1）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */
