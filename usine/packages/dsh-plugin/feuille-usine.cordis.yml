@@ -1,0 +1,14 @@
+# feuille usine 的 dsh 插件 overlay（P1 最小骨架）。
+#
+# 跑法（钉 dsh-v0.1.7-rc.2 本地 checkout，不用 PATH 上全局装的 0.1.5-rc.3）：
+#   node /Users/han/coding/deepseek-harness/apps/cli/lib/bin.js web \
+#     --patch /Users/han/coding/personal/feuille/usine/packages/dsh-plugin/feuille-usine.cordis.yml
+#
+# dist/index.mjs 由 `pnpm --filter @feuille/dsh-plugin build` 产出（esbuild 单文件：
+# @feuille/core 源码打进包——dsh 宿主是纯 node，吃不了 TS 源直跑；sharp/
+# @napi-rs/canvas/ws 三个原生/重依赖保持 external，从 dsh-plugin 自己的
+# node_modules 解析——故它们同时声明为本包 dependencies）。
+- insert:
+    - id: feuille-usine
+      name: './dist/index.mjs'
+

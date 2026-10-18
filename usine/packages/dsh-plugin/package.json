@@ -1,0 +1,25 @@
+{
+  "name": "@feuille/dsh-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "feuille 的 dsh（DeepSeek Harness，钉 dsh-v0.1.7-rc.2 本地 checkout）原生智能体插件：工具面 + 红线 + approval 门控。P1 为最小骨架（usine_version 自检工具 + 进程内 @feuille/core 调用证明）；工具面全量接线在 P6。dsh 进程无 TS 变换钩子，本包 esbuild 打包出单文件 dist/index.mjs 供 cordis loader 加载。",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=node --external:sharp --external:@napi-rs/canvas --external:ws --outfile=dist/index.mjs"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*",
+    "@napi-rs/canvas": "^1.0.11",
+    "sharp": "^0.35.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "link:../../../../../deepseek-harness/vendor/cordis",
+    "@deepseek-ai/dsh-tools": "link:../../../../../deepseek-harness/packages/core/tools",
+    "esbuild": "^0.25.0"
+  }
+}

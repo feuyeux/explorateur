@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "feuille 核心包（迁移目标位）：基础层 + 音画内核 + 数据与人物场景。迁移期源码直跑（dsh 与 vitest 均吃 TS 源），构建配置随 P6 插件打包再引入。",
+  "description": "feuille 核心包（迁移目标位）：基础层 + 音画内核 + 数据与人物场景。vitest 吃 TS 源直跑；dsh 宿主是纯 node（无 TS 变换钩子），经 @feuille/dsh-plugin 的 esbuild 打包间接加载（core 源码进包、原生依赖 external）。",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"

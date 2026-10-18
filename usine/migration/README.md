@@ -85,3 +85,32 @@ sharp + @napi-rs/canvas（Skia，预编译二进制）。判据走共享 op-spec
   比结构与几何，不比像素。
 - **遗留到 P4**：DrawScaled 代理、65 个注册场景名、rig TB/T 变换壳在
   draw.ts 的 op 面上铺开（op 面已覆盖 scenes/rig 用到的全部绘制原语）。
+
+### Spike 3 — dsh 插件最小骨架（2026-10-18，✅ 通过）
+
+落地 `packages/dsh-plugin/`（P6 工具面全量接线的种子）。插件形状按 dsh 插件
+契约（Cordis plugin：`export const name` + `apply(ctx)`；工具走
+`ctx.tools.register()` raw ToolDefinition 通道——MCP 工具同通道，最小骨架不
+引入 dsh 运行时依赖，dsh 类型仅编译期 link:）。
+
+- **钉版执行**：PATH 上全局装的 `dsh` 是 0.1.5-rc.3，**不是钉的 rc.2**——一律用
+  本地 checkout 启动：`node /Users/han/coding/deepseek-harness/apps/cli/lib/bin.js
+  web --patch <usine>/packages/dsh-plugin/feuille-usine.cordis.yml`。
+- **关键事实：dsh 宿主是纯 node，无 TS 变换钩子**——`@feuille/core` 的 exports
+  指 TS 源（vitest 吃得了，dsh 吃不了，实测 `failed to import`）。对策已定型：
+  **dsh-plugin 用 esbuild 把 core 源码打进单文件 dist/index.mjs**，sharp/
+  @napi-rs/canvas/ws 三个原生依赖保持 external 并声明为 dsh-plugin 自己的
+  dependencies（pnpm 同 store 去重，运行时从其 node_modules 解析）。
+  该对策即 P6 的加载模型，不在 P6 再议。
+- **加载与激活证据**：`dsh web --patch` 启动干净（对照：修正前同样启动会打
+  `dsh: warning: 1 entry did not activate` + `feuille-usine: failed to import`）；
+  正面证据是 `packages/dsh-plugin/test/plugin.test.ts`——**vitest 吃的就是 dsh
+  实际加载的构建产物 dist/index.mjs**（假 ctx 断言注册形状 + `usine_version`
+  执行回程 + fiber 销毁反注册反向验证）。进程内 @feuille/core 调用接缝
+  （无 subprocess 桥）在此证明可用。
+- **如实记录：动态 HMR 未证明**。dsh-hmr 对 patch yml 做精确路径 watch，但
+  web profile 下 yml 变更（含故意改坏语法）stdout 全程静默，无重载/报错
+  反馈可观测。P1 验收口径为「--patch 机制下加载激活成功」；watcher 的动态
+  行为留到 P8 的 dsh Web UI 实测一并看。
+- 根 `pnpm test` 现在先 `--filter @feuille/dsh-plugin build` 再跑 vitest
+  （测试依赖构建产物，单命令确定性）。
