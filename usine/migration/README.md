@@ -1,9 +1,11 @@
-# migration/ — TS 迁移工作目录（P7 清场时整体退役）
+# migration/ — TS 迁移记录与金样本（P7 清场后为判据归档 + 收口史）
 
-本目录是 usine → dsh（DeepSeek Harness）原生 TS 工程全量迁移的工作区：
-金样本判据、基线记录、迁移专用脚本。**门禁不扫描本目录**；迁移期 usine 的
-权威门禁仍是 21 套 Python 反向验证（`uv run feuille verify`）。迁移完成后
-（P7）本目录随 Python 侧一并清场，金样本迁入 TS 门禁包后删除。
+本目录承载 usine → dsh（DeepSeek Harness）原生 TS 工程全量迁移的**判据与
+记录**：金样本（parity 判据，已入 git 的不可变参照）、迁移起点基线、P0–P8
+逐阶段收口记录。采集/比对脚本（capture_golden.py、spike2_scenes_ref.py）已随
+P7 清场退役（git 历史可考古）；金样本的**消费方**是各包 vitest 套件
+（packages/*/test/ 直接读 `golden/`），usine 的权威门禁 = `pnpm verify`。
+**门禁不扫描本目录**；归属扫描（ownership.json）也不覆盖本目录。
 
 ## 目录
 
@@ -12,7 +14,7 @@
 | `baseline/verify-baseline.txt` | 迁移起点基线：21 套全 PASS（1 SKIP 诚实列出），本机全量 ≈19.5s（2026-10-18，macOS arm64；ADAPTATION 记录的 46s 为当时 Windows 宿主口径） |
 | `golden/*.json` | 金样本判据（capture_golden.py 产出）：纯函数**逐字节对齐**，环境相关项带机桶元数据、断**结构与几何** |
 | `golden/assets/` | 金样本实物：tts-cache（3 语料 mp3+词表）、textlayer 渲染 PNG（不透明整图 + 双 matte 抠像） |
-| `capture_golden.py` | 采集脚本：`uv run python migration/capture_golden.py [tts\|audio\|timeline\|textlayer\|all]` |
+| （已退役） | 采集脚本 capture_golden.py 与 spike2_scenes_ref.py 随 P7 清场删除；金样本由各包 vitest 套件直接消费 |
 
 ## 金样本口径
 
@@ -1251,3 +1253,35 @@ pnpm 化）、docs/publish-playbook.md:861 标注历史命令形态、languages/
 门禁：typecheck 干净；vitest **44 文件（534 passed | 4 skipped）4 连绿**
 （typecheck 修复一项：edge project fileParallelism → singleFork）。
 **P7 收口。**
+
+## P8：验收（2026-10-18）——机械证明三项过；dsh Web UI 实测待用户喊跑
+
+1. **`pnpm verify` 全绿**（单命令 = typecheck + vitest 全量）：exit 0——44 个
+   测试文件（43 passed | 1 skipped）、538 项（534 passed | 4 skipped）；P7 收口
+   时 4 连绿 + 本批正式验收跑 1 次。SKIP 四项如实列出（SKIP 不是 PASS）：
+   tts-live 2 项（`FEUILLE_LIVE=1` 真机合成门控，默认跳过）、bgm 1 项
+   （「key 缺席报错路径」用例——本机存在 `~/.gemini_api_key` 即 skipIf 跳过，
+   保证零真实 API 调用红线）、publish 1 项（未装 playwright → mock 驱动整块
+   SKIP，镜像 Python 侧行为）。
+2. **金样本 parity**：`golden/` 判据全部由 vitest 套件消费并全绿——
+   tts.json → tts-synth / tts-pure（v2 协议缓存键逐字节 + 词表逐字节 +
+   字节长度 ±64 容差）；tts_split.json → tts-split；audio.json → audio；
+   timeline.json → timeline；textlayer.json + assets/textlayer → textlayer
+   （结构与几何）；framehash.json → framehash；ledger.json → ledger；
+   scenes_registry.json + assets/scenes_ref.* → scenes（光栅化结构与几何）；
+   scene_draft.md → scene_draft（含 cli.test.ts 经 `feuille scene draft` 叶子的
+   逐字节复现）；assets/_vp_probe.html → textlayer（视口探测）；devices →
+   devices（scenes_registry）；assets 全套 → imaging-spike2。迁移起点基线（P0，21 套 Python 全
+   PASS，本机 ≈19.5s）见 `baseline/verify-baseline.txt`——TS 侧以 538 项
+   vitest 断言接棒，反向验证纪律原样移植。
+3. **Python 清零机械证明**：`find usine -name "*.py"`（排除三个只读归档面：
+   examples/、skills/*/assets/example/、lessons/）= **0 个**。留存 .py 仅为
+   归档与数据：lessons/guangchaoshi-逛超市/review/build_prompts.py（课堂数据）、
+   examples/*.py 与 skills/*/assets/example/*.py（历史产线归档）、
+   benchmarks/usine 适配层（théâtre RSI 波次机器，Python 属引擎侧，不在
+   usine 树内、不随本迁移退役）。
+4. **dsh Web UI 实测（待用户）**：一句 brief → 自主产出 ②–⑧ → Hailuo 处
+   approval 停车 → publish 不可达。真 LLM 首任务喊跑才跑——本项留待用户点头
+   后执行；P6 的假 LLM 干跑已覆盖工具面接线与红线断言（18/18）。
+5. **完成判据**（usine 日常操作经 dsh 智能体，不再依赖 AI coding 会话）：
+   随 4 一并裁定后收口。
