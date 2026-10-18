@@ -1373,3 +1373,83 @@ P8 遗留项 4（「dsh Web UI 实测」）以 dsh SDK 路线收口（用户裁�
   全程零 shell 误调；模型思考中原样引用纪律「额度自查先行」——纪律节注入生效。
 - **现行运行手册**：怎么跑一次 wave、怎么三层校验自进化产物（合并完整性 /
   门禁 / 智能体面真验），常青维护于 `benchmarks/usine/README.md`。
+
+## P10：POSIX 底座移植收尾（2026-10-18，✅ Mac 全链路绿、零弹窗）
+
+P9 收口后 Mac 侧补齐最后一段：假 LLM 全波次干跑 + 只读 `--preflight` 在
+POSIX 底座全绿，且**全程零用户可见钥匙串弹窗**（此前干跑中 Edge 弹窗不止，
+本节记录根因终案与两侧修复）。commits：引擎 `0dc275b`、适配层 `7bf2abd`、
+singleFork 毒化修复 `ce04ef1`。
+
+### POSIX 底座移植面（Windows 代码路径字节不变）
+
+- `guest_env.py` POSIX 分支：guest 盘根直挂 scratch 根（`~/.cache/rsi-usine-vm`）
+  替代 per-VM subst 盘符；python3 shim 落 guest bin + chmod 755；
+  `COPYFILE_DISABLE=1`（bsdtar 会给 tar 塞 `._*` AppleDouble 成员，与 tarfile
+  清单不对称）；`rmtree_force` 符号链接守卫——失败 unlink 的链接绝不 chmod
+  链接本身（chmod 跟随链接会打到宿主真身，harness anchor 就挂在 guest 盘根），
+  改 chmod 父目录。
+- harness `link:` 锚：dsh-plugin 的 `link:` devDeps 从包目录五级上溯到 guest
+  盘根，`_stage_harness_link_targets` 为每个 guest 落 `deepseek-harness` 符号
+  链接（Windows 侧 junction 形态移植仍待办）。
+- LFS smudge 覆盖：wave seed 走 `git archive HEAD -- usine/`，LFS 成员出来是
+  指针文本，seed 时用 `git lfs pull` 后的工作区实文件覆盖回去（本批 15 个）。
+- macOS host 一次性：`brew install coreutils` + gnubin 写进 `~/.bash_profile`
+  （path_helper 会把仅前缀 PATH 降级，必须落 profile）；`platform.test` 的
+  checkout-name 判据修正。
+
+### 弹窗根因终案与两侧修复（本轮核心）
+
+- **根因（测量记录见 `guest_env._disable_in_guest_browser` docstring）**：Edge
+  无头模式**每次启动**都写一个随机 GUID 命名的钥匙串项并触发「找不到钥匙串」
+  系统弹窗——项名无界，「始终允许」永远盖不住下一个；`--use-mock-keychain` /
+  `--password-store=basic` 在 Edge 正式版二进制里不存在（`strings` 证实，
+  0d59354 提交说明称其能抑制钥匙串——**失实**，flags 保留为无害 no-op，以本
+  节为准）；sandbox-exec 会打断 Chromium 自身的嵌套 seatbelt（RC 133）。
+- **双侧哨兵**：guest 侧 `guest_env._disable_in_guest_browser` 与 host 侧
+  `run_usine._posix_host_no_browser` 都导出
+  `FEUILLE_BROWSER=<不存在路径>`（host 侧 `setdefault`，操作员显式指定真
+  浏览器可覆盖）。`usine` 的 `platform.browser()` 对 `FEUILLE_BROWSER` 优先
+  于一切查找、不存在 = null → 浏览器门控用例 skipIf / early-return，零 Edge
+  启动、零钥匙串项、零弹窗。
+- **singleFork 毒化陷阱（`ce04ef1`）**：vitest edge 工程单 worker 串行跑全部
+  测试文件，poster/publish 用例的 finally 里无条件
+  `delete process.env.FEUILLE_BROWSER`，把同 worker 后续用例的哨兵抹掉、
+  解析回真 Edge——最后一次弹窗（21:37:49）即来自被毒化的 worker。修复：
+  改环境变量必须保存旧值、finally 还原；publish resolveChrome 对与
+  storyteller 错误路径对补浏览器门控（skipIf / HAS_BROWSER early-return）。
+- **诚实成本**：macOS 门禁不跑渲染路径——无浏览器基线 **548 过 / 0 败 /
+  14 跳**（Windows 有浏览器基线 559 过 / 0 败 / 4 跳）；SKIP 不是 PASS，
+  浏览器真机覆盖归 Windows wave host（DPAPI，无钥匙串）。
+
+### build/ 对称排除（干跑⑦ 10/12 的根因）
+
+publish 的离线 check_plan 测试会写 `build/publish-verify/` 下的证据拷贝
+（gitignored、可再生），engine capture 不感知 git，这些文件骑进了候选 delta。
+`_CAPTURE_EXCLUDE_PARTS` 与 `wave_merge.EXCLUDED_PARTS` 对称加入 `"build"`
+（capture 进不来的东西，合并侧也不捡回去），`smoke_wave_merge` 钉死用例。
+
+### 引擎侧随行（`0dc275b`，非移植但同批验证）
+
+传输暂停封顶（`llm_infra_max_pauses`，超顶升级终态 infra 错误——暂停不占
+active-work 预算，墙壁钟停不掉无界 402/429/5xx 循环）；provisioning stat 双
+方言探测（GNU `-c` / BSD `-f %z`，macOS guest 上单探 GNU 曾被读成零字节而
+静默跳过分块回传）；checks 解释器写门逐 open() 目标判；llm/client 路由计数
+加锁 + 显式 per-request timeout。
+
+### 验收（2026-10-18，本机实测）
+
+- 引擎 pytest **808 过 / 3 跳**；六 smoke 全绿（fence 12 / wave_merge 54 /
+  hooks 38 / dry-run 12-of-12 / verifier_adapter 57 / guest_env 34）。
+- 假 LLM 全波次干跑 **12/12**（约 110s），合并 delta 只含 docs/theatre-rsi
+  笔记；SecurityAgent 统一日志核查：修复落点后**零 spawn**。
+- 只读 `--preflight`：status ready、3 slug 端点解析（密钥永不打印）、门禁
+  可跑性复核（pnpm 11.8.0）、seed 预览 HEAD ce04ef1 / 331 成员 / 15 LFS
+  覆盖；确认零写入。
+
+### Windows wave host 待办
+
+- 本地未 push 的 commit（含 `ce04ef1` / `0dc275b` / `7bf2abd`）按仓库外机制
+  同步过去；harness `link:` 锚的 junction 形态移植；五 smoke + 干跑在
+  wave host 重跑一遍（本轮 build/ 排除与浏览器门控 hygiene 两侧对称，
+  Windows 语义不变）；`probe_env.py` POSIX 化仍可选。

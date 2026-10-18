@@ -12,25 +12,45 @@
 
 ### 0. 在哪台机器上跑
 
-**只有 Windows wave host 能跑真 wave。** 本 Mac 结构性跑不了（SKIP 不是 PASS）：
+两台主机都能跑全链路（预检 → 干跑 → 真 wave）：**Windows wave host** 与
+**POSIX dev host（macOS）**。同一套 `guest_env.py` 双底座：Windows 走 per-VM
+subst 盘符，POSIX 走 scratch 根直挂（`~/.cache/rsi-usine-vm`），Windows 代码
+路径字节不变（wave host 仍在跑它）。本机（Mac，2026-10-18）已实测：引擎
+pytest 808 过 3 跳 + 六 smoke 全绿（fence / wave_merge / hooks / dry-run /
+verifier_adapter / guest_env）+ 假 LLM 全波次干跑 12/12（零弹窗）+ 只读
+`--preflight` ready。
 
-- **凭据墙**：`~/.minimax/config.yaml` 在本机只有 minimax 系，没有 wave 阵容需要的
-  fuyao-work 端点凭据；
-- **基座墙**：worktree guest 的 WorktreeEnv 依赖 git-bash（macOS `/bin/bash` 被拒），
-  `verifier_adapter` 强制 WorktreeEnv。
+**macOS 无浏览器门禁（刻意设计，不是缺陷）**：Edge 无头模式每次启动都会写
+一个随机 GUID 名的钥匙串项并弹「找不到钥匙串」系统弹窗——「始终允许」永远
+盖不住（项名无界），`--use-mock-keychain` 在 Edge 正式版二进制里不存在
+（0d59354 提交说明称其能抑制钥匙串，实测为 no-op，该记录以本节为准）。因此
+POSIX 侧**双侧**导出 `FEUILLE_BROWSER=<不存在路径>` 哨兵：guest 侧
+`guest_env._disable_in_guest_browser`，host 侧
+`run_usine._posix_host_no_browser`（`setdefault`——操作员显式指定真浏览器
+可覆盖）。`usine` 的 `platform.browser()` 对 `FEUILLE_BROWSER` 优先于一切
+查找、路径不存在 = null → 浏览器门控用例 skipIf / early-return，零 Edge 启动。
+**诚实成本：macOS 门禁不跑渲染路径**（浏览器用例计入 skip，SKIP 不是 PASS）；
+浏览器真机覆盖归 Windows wave host（DPAPI，无钥匙串）。**singleFork 陷阱**：
+vitest edge 工程单 worker 串行跑全部测试文件，任何用例里无条件
+`delete process.env.FEUILLE_BROWSER` 都会毒化同 worker 的后续用例——改环境
+变量必须保存旧值、finally 里还原（poster/publish 的旧写法曾导致干跑中弹窗）。
 
-### 1. 前置（wave host 一次性/每次核对）
+### 1. 前置（两台 host 一次性/每次核对）
 
-| 项 | 要求 |
-|---|---|
-| pnpm | **standalone pnpm.exe**（不是 npm shim）——合并侧用 `shell=False` 起门禁，`.cmd` shim 起不来 |
-| Node / pnpm 版本 | Node ≥ 24、pnpm ≥ 11（`gate_preflight` fail-closed 复核） |
-| guest 内 coreutils | GNU `sha256sum` / `stat -c`（capture 回放校验用） |
-| 凭据 | wave host 的 `~/.minimax/config.yaml`：fuyao-work + minimax 阵容齐全（密钥永不进仓库/日志） |
-| 代码同步 | 三棵树（`théâtre/`、本目录、`usine/`）同步到同一血缘。**本地永不 push**，同步机制由用户在仓库外完成 |
-| usine 门禁 | 开跑前 wave host 与真树各跑一次 `pnpm verify` 全绿（当前基线：545 过 / 0 败 / 4 跳） |
+| 项 | Windows wave host | POSIX dev host（macOS） |
+|---|---|---|
+| pnpm | **standalone pnpm.exe**（不是 npm shim）——合并侧用 `shell=False` 起门禁，`.cmd` shim 起不来 | PATH 上的 pnpm（≥ 11）即可 |
+| Node / pnpm 版本 | Node ≥ 24、pnpm ≥ 11（`gate_preflight` fail-closed 复核） | 同左 |
+| coreutils | guest 内 GNU `sha256sum` / `stat -c`（capture 回放校验用） | **`brew install coreutils`** + 把 gnubin 写进 bash 登录 PATH（`~/.bash_profile` 里 `export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"`）——引擎回放测试与 guest GNU 方言都走 `bash -lc`，macOS path_helper 会把仅前缀的 PATH 降级，必须落在 profile 里 |
+| guest python | théâtre venv | théâtre venv（`feuille/.venv/theatre-mac`）自动被选为 guest `python3` |
+| 凭据 | `~/.minimax/config.yaml`：fuyao-work + minimax 阵容齐全（密钥永不进仓库/日志） | 同左（本机已有） |
+| harness `link:` 锚 | `deepseek-harness` checkout 在 usine 树上五级目录（dsh-plugin 的 `link:` devDeps 解析锚：`vendor/cordis` + `packages/core/tools`）；缺则 `_seed_guest` fail-closed 直接红（不烧 token） | 同左 |
+| 代码同步 | 三棵树（`théâtre/`、本目录、`usine/`）同步到同一血缘。**本地永不 push**，同步机制由用户在仓库外完成 | 同左（Windows wave host 上未 push 的本地 commit 需带过去） |
+| usine 门禁 | 开跑前 wave host 与真树各跑一次 `pnpm verify` 全绿（当前基线：559 过 / 0 败 / 4 跳） | 同左，但 macOS 是无浏览器基线：**548 过 / 0 败 / 14 跳**（多出的 10 跳是浏览器渲染用例，见第 0 节；跳过数对不上基线先查哨兵是否被清） |
 
-### 2. 开跑前自检（wave host，全绿才许进 3；théâtre venv，从 `théâtre/` 根目录起跑）
+### 2. 开跑前自检（全绿才许进 3；théâtre venv，从 `théâtre/` 根目录起跑）
+
+Windows wave host：
 
 ```powershell
 cd <explorateur>\théâtre
@@ -44,12 +64,36 @@ cd <explorateur>\théâtre
 python ..\benchmarks\usine\probe_env.py                                    # guest 侧 node/pnpm 探针（host python）
 ```
 
+POSIX dev host（macOS；probe_env.py 仍是 Windows 专用——POSIX 的 guest 工具链探针
+由 run_usine 内部预检代跑）：
+
+```bash
+cd <explorateur>/théâtre
+.venv/theatre-mac/bin/python -m pytest tests/                                # 引擎测试
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_distribution_fence.py
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_wave_merge.py
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_usine_hooks.py        # live-guest 节仍标 wave host 待跑
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_dry_run_wave.py
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_verifier_adapter.py
+.venv/theatre-mac/bin/python ../benchmarks/usine/smoke_guest_env.py
+```
+
 ### 3. 跑（真波次喊跑才跑）
+
+Windows wave host：
 
 ```powershell
 .\.venv\Scripts\python.exe ..\benchmarks\usine\run_usine.py --run-name <名> --preflight   # 只读：就绪载荷，不写不烧
 # 人工核对载荷（模型阵容 / 端点解析 / 围栏 / 门禁可跑性 / guest 探针）后：
 .\.venv\Scripts\python.exe ..\benchmarks\usine\run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
+```
+
+POSIX dev host（macOS）：
+
+```bash
+.venv/theatre-mac/bin/python ../benchmarks/usine/run_usine.py --run-name <名> --preflight  # 只读：就绪载荷，不写不烧
+# 人工核对载荷后：
+.venv/theatre-mac/bin/python ../benchmarks/usine/run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
 ```
 
 一次 wave 的闭环（细节见 run_usine.py docstring）：预检 → Curriculum 出题 →
@@ -75,7 +119,8 @@ outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终�
 
 ### L2 门禁层（真树上 `pnpm verify`）
 
-- 全绿，对照基线：**545 过 / 0 败 / 4 跳**（跳过名单只许诚实新增，不许把红的算成跳）；
+- 全绿，对照基线：Windows（有浏览器）**559 过 / 0 败 / 4 跳**；macOS（无浏览器
+  哨兵下）**548 过 / 0 败 / 14 跳**——跳过名单只许诚实新增，不许把红的算成跳；
 - 钉版对账自动在环：`packages/dsh-plugin/test/plugin-parity.test.ts`——argv 族工具
   action 枚举 ↔ `@feuille/cli` COMMANDS 路由、video-generation 规格/积分 ↔
   `skills/video-generation/SKILL.md` 速查表，wave 改任何一侧不跟另一侧，当场红；
@@ -112,7 +157,8 @@ L2 绿只证明代码没坏；改进是否**真的到达智能体面**要真宿�
 
 - **零 H3 / mcode-tools 额度调用**：任何会消耗视频生成额度的调用，先向用户报
   提示词/画幅/时长/分辨率/预估消耗并拿到明确同意；「你直接跑」不算授权。
-- **零平台发布/登录**：VM 门面、guest-home USERPROFILE 钉死、offline-only 门禁三层防线。
+- **零平台发布/登录**：VM 门面、guest-home `USERPROFILE`（Windows）／`HOME`（POSIX）
+  钉死、offline-only 门禁三层防线。
 - **真波次喊跑才跑**；一候选一 commit；每 wave tag；**永不 push**。
 - **SKIP 不是 PASS**；跑不了的项如实标「wave host 待跑」。
 
@@ -120,7 +166,7 @@ L2 绿只证明代码没坏；改进是否**真的到达智能体面**要真宿�
 
 | 文档 | 角色 |
 |---|---|
-| [`run_usine.py`](run_usine.py) docstring | 装配契约权威全文（13 条）+ wave host 就绪清单 |
+| [`run_usine.py`](run_usine.py) docstring | 装配契约权威全文（13 条）+ 双宿主就绪清单 |
 | [`distribution-usine.md`](distribution-usine.md) | 给 Curriculum 的目标方向（改进面许可 + 护栏） |
 | `config/roles-usine/*.yaml` | 座位表（模型阵容 fail-closed 校验） |
 | [`runs/`](runs/) | 真跑现场归档（含首测事故与修复全套） |
