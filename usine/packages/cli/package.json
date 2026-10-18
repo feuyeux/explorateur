@@ -1,0 +1,14 @@
+{
+  "name": "@feuille/cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "feuille 统一入口（TS 迁移位）：表驱动路由——路由是数据不是 if/elif。P1 骨架只挂 version 叶子；各域叶子随 P2–P6 迁入。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*"
+  }
+}

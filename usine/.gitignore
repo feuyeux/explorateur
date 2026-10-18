@@ -1,0 +1,6 @@
+# TS 工程产物（源码直跑，构建产物不入库）
+dist/
+lib/
+*.tsbuildinfo
+.turbo/
+coverage/

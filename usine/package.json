@@ -1,0 +1,21 @@
+{
+  "name": "feuille-usine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "feuille usine —— dsh（DeepSeek Harness）原生 TS 工程根（全量迁移工作区；迁移期权威门禁仍是 Python 21 套）",
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.0",
+    "vitest": "^3.2.4"
+  }
+}

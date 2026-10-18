@@ -1,0 +1,11 @@
+{
+  "name": "@feuille/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "feuille 核心包（迁移目标位）：基础层 + 音画内核 + 数据与人物场景。迁移期源码直跑（dsh 与 vitest 均吃 TS 源），构建配置随 P6 插件打包再引入。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  }
+}
