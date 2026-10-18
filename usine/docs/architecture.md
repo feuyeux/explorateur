@@ -10,7 +10,11 @@ related:
 
 # 架构
 
-状态：v1（2026-10-16）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
+状态：v1（2026-10-16）；**v2 迁移已立项（2026-10-18，用户裁定）**——usine 将全量
+迁移为 dsh（DeepSeek Harness，开源 TS 智能体 harness，everything-is-a-plugin /
+Cordis）原生工程：TS 核心 + dsh 插件工具面 + skills 资产层，Python 实现迁移完成
+后清场。迁移判据（金样本 parity）与阶段记录在 `../migration/`（迁移工具目录，
+P7 清场时随 Python 侧一并退役；迁移期门禁仍以本树 21 套为准）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
 每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——数据从哪来、模块归谁、门禁
 怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。
 图表配色与术语纪律全篇统一（§0），与仓库级引擎文档

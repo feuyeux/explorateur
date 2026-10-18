@@ -6,9 +6,11 @@ readme = "README.md"
 # 锁 3.12 = 像素/词边界行为基线，升级前必须重验 framehash 基线
 requires-python = ">=3.12,<3.13"
 # 版本对齐基线环境并锁定：Pillow 12.3.0 = 渲染像素基线（framehash 幂等的保证），
-# edge-tts 7.2.8 = 词级时间戳口径；升级前必须重验 framehash 基线（AGENTS.md 工程约定）。
+# edge-tts 7.3.1 = 词级时间戳口径（2026-10-16 起 7.2.8 被服务端拒绝：握手 403；
+# 微软换端点 api.msedgeservices.com + Sec-MS-GEC v2 令牌，7.3.1 适配——上游
+# issue rany2/edge-tts#491/#492）；升级前必须重验 framehash 基线（AGENTS.md 工程约定）。
 dependencies = [
-    "edge-tts==7.2.8",
+    "edge-tts==7.3.1",
     "pillow==12.3.0",
     "numpy==2.3.5",
 ]

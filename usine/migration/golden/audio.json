@@ -1,0 +1,50 @@
+{
+ "_meta": {
+  "captured_at": "2026-10-18T12:11:23",
+  "machine": "Darwin/arm64",
+  "python": "3.12.13",
+  "browser": "('edge', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge')",
+  "ffmpeg": "/opt/homebrew/bin/ffmpeg",
+  "ffprobe": "/opt/homebrew/bin/ffprobe",
+  "edge_tts": "7.3.1"
+ },
+ "data": {
+  "filter_graph": [
+   {
+    "n": 1,
+    "starts": [
+     0.0
+    ],
+    "dur": 10.0,
+    "loudness_i": -16,
+    "out": "[0:a]adelay=0|0[a0];[a0]anull[m];[m]apad=whole_dur=10.0,loudnorm=I=-16:TP=-1.5:LRA=11,atrim=0:10.0[out]"
+   },
+   {
+    "n": 2,
+    "starts": [
+     0.0,
+     1.5
+    ],
+    "dur": 12.5,
+    "loudness_i": -16,
+    "out": "[0:a]adelay=0|0[a0];[1:a]adelay=1500|1500[a1];[a0][a1]amix=inputs=2:normalize=0[m];[m]apad=whole_dur=12.5,loudnorm=I=-16:TP=-1.5:LRA=11,atrim=0:12.5[out]"
+   },
+   {
+    "n": 3,
+    "starts": [
+     0.0,
+     2.0,
+     4.0
+    ],
+    "dur": 15.0,
+    "loudness_i": -14,
+    "out": "[0:a]adelay=0|0[a0];[1:a]adelay=2000|2000[a1];[2:a]adelay=4000|4000[a2];[a0][a1][a2]amix=inputs=3:normalize=0[m];[m]apad=whole_dur=15.0,loudnorm=I=-14:TP=-1.5:LRA=11,atrim=0:15.0[out]"
+   }
+  ],
+  "probe_duration": {
+   "04a0db8809562777.mp3": 2.64,
+   "9fc089efad837a17.mp3": 2.952,
+   "aa0428996aa6729e.mp3": 3.24
+  }
+ }
+}

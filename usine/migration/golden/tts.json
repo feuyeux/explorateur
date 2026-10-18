@@ -1,0 +1,578 @@
+{
+ "_meta": {
+  "captured_at": "2026-10-18T12:11:23",
+  "machine": "Darwin/arm64",
+  "python": "3.12.13",
+  "browser": "('edge', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge')",
+  "ffmpeg": "/opt/homebrew/bin/ffmpeg",
+  "ffprobe": "/opt/homebrew/bin/ffprobe",
+  "edge_tts": "7.3.1"
+ },
+ "data": {
+  "content_hash": [
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "+0%",
+     "+0Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "04a0db8809562777"
+   },
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "+0%",
+     "-4Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "3b7ac019f2343964"
+   },
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "+8%",
+     "+0Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "0b48ce2d3d6ac5b5"
+   },
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "+8%",
+     "-4Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "a21753d6bab21fcb"
+   },
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "-12%",
+     "+0Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "546cece78f270a18"
+   },
+   {
+    "parts": [
+     "zh-CN-XiaoxiaoNeural",
+     "-12%",
+     "-4Hz",
+     "落叶知秋，岁月如歌。"
+    ],
+    "key": "e019ee53b0c287d5"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "+0%",
+     "+0Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "9fc089efad837a17"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "+0%",
+     "-4Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "dc7cb914ff6c47a2"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "+8%",
+     "+0Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "8b5a9194ff1b9401"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "+8%",
+     "-4Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "5593f5e41aeeead3"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "-12%",
+     "+0Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "3fef1d47670a6558"
+   },
+   {
+    "parts": [
+     "zh-CN-YunxiNeural",
+     "-12%",
+     "-4Hz",
+     "一条轰鸣着机器的工厂。"
+    ],
+    "key": "27eca88722eae298"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "+0%",
+     "+0Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "aa0428996aa6729e"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "+0%",
+     "-4Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "20cafd491231c6cc"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "+8%",
+     "+0Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "b6908119a3064eb9"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "+8%",
+     "-4Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "66d8d955e088923d"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "-12%",
+     "+0Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "1287b67b40a8128f"
+   },
+   {
+    "parts": [
+     "en-US-AriaNeural",
+     "-12%",
+     "-4Hz",
+     "The wind rises, and the leaves remember."
+    ],
+    "key": "7c0b61df684ea02b"
+   }
+  ],
+  "parse_signed": [
+   {
+    "v": "+7%",
+    "out": 7
+   },
+   {
+    "v": "-3Hz",
+    "out": -3
+   },
+   {
+    "v": "",
+    "out": 0
+   },
+   {
+    "v": "12%Hz",
+    "out": 12
+   },
+   {
+    "v": "garbage",
+    "out": 0
+   },
+   {
+    "v": "  +12  ",
+    "out": 12
+   },
+   {
+    "v": "12H",
+    "out": 0
+   },
+   {
+    "v": "12z",
+    "out": 0
+   },
+   {
+    "v": "-20%",
+    "out": -20
+   },
+   {
+    "v": "0",
+    "out": 0
+   }
+  ],
+  "voice_params": [
+   {
+    "base_rate": "+0%",
+    "base_pitch": "+0Hz",
+    "rate_off": 0,
+    "pitch_off": 0,
+    "out": [
+     "+0%",
+     "+0Hz"
+    ]
+   },
+   {
+    "base_rate": "+0%",
+    "base_pitch": "+0Hz",
+    "rate_off": -8,
+    "pitch_off": 0,
+    "out": [
+     "-8%",
+     "+0Hz"
+    ]
+   },
+   {
+    "base_rate": "+0%",
+    "base_pitch": "+0Hz",
+    "rate_off": 10,
+    "pitch_off": 5,
+    "out": [
+     "+10%",
+     "+5Hz"
+    ]
+   },
+   {
+    "base_rate": "+0%",
+    "base_pitch": "+0Hz",
+    "rate_off": -30,
+    "pitch_off": -30,
+    "out": [
+     "-20%",
+     "-12Hz"
+    ]
+   },
+   {
+    "base_rate": "+8%",
+    "base_pitch": "-3Hz",
+    "rate_off": 0,
+    "pitch_off": 0,
+    "out": [
+     "+8%",
+     "-3Hz"
+    ]
+   },
+   {
+    "base_rate": "+8%",
+    "base_pitch": "-3Hz",
+    "rate_off": -8,
+    "pitch_off": 0,
+    "out": [
+     "+0%",
+     "-3Hz"
+    ]
+   },
+   {
+    "base_rate": "+8%",
+    "base_pitch": "-3Hz",
+    "rate_off": 10,
+    "pitch_off": 5,
+    "out": [
+     "+18%",
+     "+2Hz"
+    ]
+   },
+   {
+    "base_rate": "+8%",
+    "base_pitch": "-3Hz",
+    "rate_off": -30,
+    "pitch_off": -30,
+    "out": [
+     "-20%",
+     "-12Hz"
+    ]
+   },
+   {
+    "base_rate": "-15%",
+    "base_pitch": "+12Hz",
+    "rate_off": 0,
+    "pitch_off": 0,
+    "out": [
+     "-15%",
+     "+12Hz"
+    ]
+   },
+   {
+    "base_rate": "-15%",
+    "base_pitch": "+12Hz",
+    "rate_off": -8,
+    "pitch_off": 0,
+    "out": [
+     "-20%",
+     "+12Hz"
+    ]
+   },
+   {
+    "base_rate": "-15%",
+    "base_pitch": "+12Hz",
+    "rate_off": 10,
+    "pitch_off": 5,
+    "out": [
+     "-5%",
+     "+12Hz"
+    ]
+   },
+   {
+    "base_rate": "-15%",
+    "base_pitch": "+12Hz",
+    "rate_off": -30,
+    "pitch_off": -30,
+    "out": [
+     "-20%",
+     "-12Hz"
+    ]
+   },
+   {
+    "base_rate": "bad",
+    "base_pitch": "bad",
+    "rate_off": 0,
+    "pitch_off": 0,
+    "out": [
+     "+0%",
+     "+0Hz"
+    ]
+   },
+   {
+    "base_rate": "bad",
+    "base_pitch": "bad",
+    "rate_off": -8,
+    "pitch_off": 0,
+    "out": [
+     "-8%",
+     "+0Hz"
+    ]
+   },
+   {
+    "base_rate": "bad",
+    "base_pitch": "bad",
+    "rate_off": 10,
+    "pitch_off": 5,
+    "out": [
+     "+10%",
+     "+5Hz"
+    ]
+   },
+   {
+    "base_rate": "bad",
+    "base_pitch": "bad",
+    "rate_off": -30,
+    "pitch_off": -30,
+    "out": [
+     "-20%",
+     "-12Hz"
+    ]
+   }
+  ],
+  "is_fake_word": [
+   {
+    "words": [
+     {
+      "t": 0.05,
+      "d": 0.5,
+      "w": "落叶知秋，岁月如歌。"
+     }
+    ],
+    "text": "落叶知秋，岁月如歌。",
+    "out": true
+   },
+   {
+    "words": [
+     {
+      "t": 0.1,
+      "d": 0.4,
+      "w": "落叶"
+     },
+     {
+      "t": 0.6,
+      "d": 0.4,
+      "w": "知秋"
+     }
+    ],
+    "text": "落叶知秋",
+    "out": false
+   },
+   {
+    "words": [
+     {
+      "t": 0.05,
+      "d": 0.5,
+      "w": "别的词面"
+     }
+    ],
+    "text": "落叶知秋",
+    "out": false
+   }
+  ],
+  "effective_dur": [
+   {
+    "words": [
+     {
+      "t": 0.1,
+      "d": 0.4,
+      "w": "落叶"
+     },
+     {
+      "t": 0.6,
+      "d": 0.4,
+      "w": "知秋"
+     }
+    ],
+    "probe": 3.2,
+    "text": "落叶知秋",
+    "out": 1.2
+   },
+   {
+    "words": [
+     {
+      "t": 0.05,
+      "d": 0.5,
+      "w": "落叶知秋，岁月如歌。"
+     }
+    ],
+    "probe": 3.2,
+    "text": "落叶知秋，岁月如歌。",
+    "out": 3.2
+   },
+   {
+    "words": [],
+    "probe": 2.8,
+    "text": "空词表",
+    "out": 2.8
+   }
+  ],
+  "synth": [
+   {
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "text": "落叶知秋，岁月如歌。",
+    "key": "04a0db8809562777",
+    "state": "NEW",
+    "words": [
+     {
+      "t": 0.1,
+      "d": 0.8375,
+      "w": "落叶知秋"
+     },
+     {
+      "t": 1.2,
+      "d": 0.3625,
+      "w": "岁月"
+     },
+     {
+      "t": 1.575,
+      "d": 0.2,
+      "w": "如"
+     },
+     {
+      "t": 1.775,
+      "d": 0.2875,
+      "w": "歌"
+     }
+    ],
+    "mp3_sha256": "cd22ce9427574ca5e81411a9c286a67287f57a5e99f58a6e5e916d8bdb126fb9",
+    "mp3_bytes": 15840,
+    "probe_duration": 2.64
+   },
+   {
+    "voice": "zh-CN-YunxiNeural",
+    "text": "一条轰鸣着机器的工厂。",
+    "key": "9fc089efad837a17",
+    "state": "NEW",
+    "words": [
+     {
+      "t": 0.1,
+      "d": 0.425,
+      "w": "一条"
+     },
+     {
+      "t": 0.55,
+      "d": 0.3625,
+      "w": "轰鸣"
+     },
+     {
+      "t": 0.9125,
+      "d": 0.2125,
+      "w": "着"
+     },
+     {
+      "t": 1.15,
+      "d": 0.35,
+      "w": "机器"
+     },
+     {
+      "t": 1.5,
+      "d": 0.075,
+      "w": "的"
+     },
+     {
+      "t": 1.5875,
+      "d": 0.4875,
+      "w": "工厂"
+     }
+    ],
+    "mp3_sha256": "72ac61e902d3ecdd4d4601057e7d77575386c47113fb5a54817c6aeb54ac0cf2",
+    "mp3_bytes": 17712,
+    "probe_duration": 2.952
+   },
+   {
+    "voice": "en-US-AriaNeural",
+    "text": "The wind rises, and the leaves remember.",
+    "key": "aa0428996aa6729e",
+    "state": "NEW",
+    "words": [
+     {
+      "t": 0.1,
+      "d": 0.175,
+      "w": "The"
+     },
+     {
+      "t": 0.2875,
+      "d": 0.25,
+      "w": "wind"
+     },
+     {
+      "t": 0.55,
+      "d": 0.5125,
+      "w": "rises"
+     },
+     {
+      "t": 1.225,
+      "d": 0.125,
+      "w": "and"
+     },
+     {
+      "t": 1.3625,
+      "d": 0.1,
+      "w": "the"
+     },
+     {
+      "t": 1.475,
+      "d": 0.3375,
+      "w": "leaves"
+     },
+     {
+      "t": 1.825,
+      "d": 0.525,
+      "w": "remember"
+     }
+    ],
+    "mp3_sha256": "e2fe1e56e61b7b6b1ee4cfc975f9e859ee7dfc98dcf3309ad95fa1e27b10e707",
+    "mp3_bytes": 19440,
+    "probe_duration": 3.24
+   }
+  ]
+ }
+}

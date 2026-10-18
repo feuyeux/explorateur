@@ -207,4 +207,8 @@ symlink 变更不合并、mode / exec-bit 变更不合并（拒绝如实记录�
 - 真 wave 1 触发时机（干跑已全绿，待喊跑）
 - POSIX 宿主验证窗口（§11 第 2 条）
 - 波次节奏（连续 / 定时）与预算上限
-- dsh 迁移启动点（v1 波次产出稳定后再谈）
+- ~~dsh 迁移启动点（v1 波次产出稳定后再谈）~~ → **已启用（2026-10-18，用户裁定）**：
+  范围 = usine 全量 TS 迁移为 dsh（DeepSeek Harness）原生工程（金样本 parity +
+  vitest 门禁移植 + Python 清场）。**RSI 影响**：真 wave 顺延至迁移完成后，
+  届时本适配层 gate_argv 改指 TS 门禁、围栏源清单 .py→.ts（适配层小改，
+  théâtre 本体不动）
