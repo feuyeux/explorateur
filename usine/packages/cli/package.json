@@ -9,6 +9,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@feuille/core": "workspace:*"
+    "@feuille/core": "workspace:*",
+    "@feuille/publish": "workspace:*"
   }
 }

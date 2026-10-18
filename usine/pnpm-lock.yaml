@@ -26,6 +26,9 @@ importers:
       '@feuille/core':
         specifier: workspace:*
         version: link:../core
+      '@feuille/publish':
+        specifier: workspace:*
+        version: link:../publish
 
   packages/core:
     dependencies:
@@ -79,6 +82,12 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.0
+
+  packages/publish:
+    dependencies:
+      '@feuille/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

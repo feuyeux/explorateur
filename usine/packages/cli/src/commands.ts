@@ -67,6 +67,29 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/lesson-doctor.js'),
     desc: '课件就绪度体检：①创意…⑦验收，每条未完成带下一条命令（FAIL → 退出码 1）',
   },
+  // ---- 平台发布（⑨⑩⑪）----
+  // ⚠️ 发布类叶子依赖 playwright（可选依赖）：@feuille/publish 只在函数内
+  // 动态 import，没装时报的是「缺 playwright」而不是「未知命令」——
+  // 这个区别很重要，前者告诉用户怎么修。publish() 是库函数，douyin/xhs/
+  // bilibili 挂 main 适配层；login 无参可调用，按 Python 侧 `fn(argv) if argv
+  // else fn()` 形态接线。清单组装（build_manifest）没有叶子——它吃带闭包的
+  // plans 契约，只能从项目脚本调用。
+  'publish/login': {
+    load: () => import('./leaves/publish-login.js'),
+    desc: '平台扫码登录：登录态存盘到持久 profile（默认四平台全扫）',
+  },
+  'publish/douyin': {
+    load: () => import('./leaves/publish-douyin.js'),
+    desc: '抖音批量发布（manifest.json 驱动；封面先发后补）',
+  },
+  'publish/xhs': {
+    load: () => import('./leaves/publish-xhs.js'),
+    desc: '小红书批量发布（manifest.json 驱动；3:4 封面回退）',
+  },
+  'publish/bilibili': {
+    load: () => import('./leaves/publish-bilibili.js'),
+    desc: 'B 站批量投稿（manifest.json 驱动；分区/声明/封面硬闸门 + .txt 字幕）',
+  },
 }
 
 /** 查表：先精确 `${grp}/${cmd}`，miss 再回退组省略形态 `${grp}/`。 */

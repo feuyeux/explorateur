@@ -686,3 +686,70 @@ CLI 接 lesson/new + lesson/doctor 两叶子。verify_lesson.py 的 §3（doctor
 Python verify_lesson 13/13、verify_scene_audio 14/0、verify_tts 16/0、
 verify_timeline 13/0、verify_publish、verify_audit 23/23 复跑全绿（双轨期纪律）。
 **P5-5 收口。**
+
+## P5-6：publish 族（Playwright TS 原生）——2026-10-18
+
+publish/ 八文件全量移植为 `@feuille/publish`（base / login / douyin / xhs /
+bilibili / collections / veriflive + index barrel），CLI 接 publish/login、
+publish/douyin、publish/xhs、publish/bilibili 四叶子。verify_publish.py 的
+vitest 对应 = packages/publish/test/publish.test.ts。
+
+### 设计决定（Playwright TS 原生的移植面）
+
+- **lazy 契约（使用契约第 1 条）**：playwright 不进静态依赖——包内一律函数内
+  `await import('playwright')`，环境缺它时 `import '@feuille/publish'` 也不炸
+  （真跑发布报「缺 playwright」）。类型面用 ambient `declare module 'playwright'`
+  （playwright.d.ts），page/ctx 使用点 any——不加包名依赖也能 typecheck。
+- **Python SystemExit → FeuilleError**（stderr + 退出码 1 口径不变）；
+  argparse 语义 → manifestArgs 手写解析：缺参/坏 int → usage 到 stderr +
+  {rc:2}；-h → stdout + {rc:0}。
+- **API 差异逐点补齐**（按原样镜像，不「顺手改」）：Python is_visible(timeout=N)
+  会等 → visibleWithin（waitFor）；JS Locator.boundingBox() 无 timeout 参数
+  → 先 waitFor 再 boundingBox；Python page.evaluate(expr, locator) 传参 →
+  JS 对应 jsClick（locator.evaluate）；evaluate 内嵌 JS 的 `\\s` 双写转义；
+  Python str 切片按码点 → clip()；repr/list/tuple 排版 → pyRepr/pyList/
+  pyReprList（报错文案逐字对齐）；argparse int 显式挡 Number('')===0。
+- **clock.ts seam**：sleep/now 独立小模块——门禁用 vi.mock 整模块记录
+  ['sleep', d] 事件（d<0.5 委托真睡），缺陷①的循环内节流事件序列断言不动
+  业务签名（Python 侧 monkeypatch time.sleep 的对应物）。
+- **launch 回调形态**：Python contextmanager with 块 → launch(profileDir,
+  opts, fn(ctx,page))，finally 里 ctx.close()（cookie 落盘语义保留）。
+- **CLI 叶子接线形态**：Python cli.py 的 `fn(argv) if argv else fn()` 原样
+  镜像——publish login 的 --status 怪癖（argv 非空才传 names，'--status'
+  会被当平台名报未知平台）保留为已知行为，要改另立议题。
+
+### 与 Python 侧的刻意差异（改进，非放松）
+
+- **run_tasks 门禁行离线跑**：stub page（screenshot 写真文件、goto 空操作）
+  驱动，不再像 Python 侧那样被「playwright 是否安装」门控——runTasks 骨架
+  本身不碰浏览器内部。断言逐条不变（事件序列 / 异常隔离 / result JSON /
+  pre-post-crash 截图）。
+- **playwright 门控行**：describe.skipIf(!hasPw)（hasPw = 动态 import 探测），
+  本机未装 → 整块 SKIP，镜像 verify_publish.py 的 SKIP 行；装上自动补齐
+  mock-A/B/C（真 Chrome + file:// 本地页，零平台流量）全部断言。
+- **静态依赖源码面断言**：TS 侧无 sys.modules 注入手段，lazy 契约由
+  「in-process import 全通」+「源码零静态 playwright import 正则」两行合证。
+- **证据**：build/publish-verify/（mock-*.html / mock-events.json /
+  mock-result.json；有 playwright 时另有 mock-*.png）。
+
+### 测试（packages/publish/test/publish.test.ts，11 用例；verify_publish.py 对应）
+
+- 第 0 条好数据放行：resolveChrome 真实文件、与 platform.browser('chrome')
+  同源、FEUILLE_BROWSER 坏路径 → FeuilleError。
+- lazy 契约：index 七命名空间 + filterTasks 纯函数全不炸；源码零写死
+  .exe/.app 路径（verify_platform ALLOWED 口径）+ 零静态 playwright 依赖。
+- 词表反向复现：v1 词表（缺「投递」）对「稿件投递成功」全不命中；
+  BILI_SUCCESS_WORDS 含全词。
+- filterTasks：only='2,4'→[2,4] / frm=3→[3,4,5] / 不过滤全量 / only='9'
+  → FeuilleError（纪律 12）。
+- run_tasks 缺陷①：事件序列逐条断言 [pub,1]→[sleep,0.15]→[pub,2]→…→[pub,4]
+  （节流在循环内）、第 2 条 RuntimeError 只记「异常 RuntimeError」、
+  mock-result.json 落盘回读、crash-02 + pre/post-NN 截图齐全、证据副本。
+- gated（skipIf）：findPublishButton 四诱饵全躲开（#real-publish）/ 隐藏后
+  不退回诱饵；login_wall 只认可见文本 + login.probe 三通道两态；
+  wait_success B 站全词命中 / 小红书超时 False / risk_hit 真假两态。
+- 导入冒烟：collections / veriflive import 成功即断言（Python 侧同款）。
+
+门禁：typecheck 干净；vitest 34 文件全绿（308 用例，3 skipped——gated 块
+随 playwright 缺席 SKIP，与 Python 侧口径一致）×4 连续；Python
+verify_publish 12/12 复跑全绿（双轨期纪律）。**P5-6 收口。**

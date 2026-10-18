@@ -1,0 +1,14 @@
+{
+  "name": "@feuille/publish",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Playwright 发布系统（⑨平台发布/⑩合集/⑪发布后核对）的 TS 移植。playwright 是可选依赖：包内只在函数内动态 import，没装时 import 本包也不炸（镜像 Python 侧可选依赖组契约）。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*"
+  }
+}
