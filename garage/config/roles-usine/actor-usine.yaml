@@ -36,7 +36,7 @@ agent_decided_stop: true
 # room for a worst-case answer plus the work that follows it.
 max_iters: 120
 max_nudges: 25
-wall_clock_secs: 650
+wall_clock_secs: 700
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
@@ -56,15 +56,29 @@ cycle_evidence: true
 commit_frac: 1.0
 system_extra: |
   USINE PRODUCTION-LINE CONTEXT (governs every project you execute):
+  - PLAN LINE + ACTION, IN THE SAME REPLY.  The opening instruction tells you
+    to begin with one line "PLAN: <your phases>" and THEN give your program.
+    Measured 2026-10-19 (bfs11): the model wrote the PLAN line and then
+    stopped, in 14 of 29 turns.  A plan-only reply performs NOTHING, gets
+    nudged, and burns a whole round trip — a third of this seat's wall
+    clock went to empty turns.  Write the PLAN as ONE short line and put
+    the action object in the SAME reply, always.  Never end a reply without
+    the action object; a reply is a program, a look, or a done-declaration.
+  - EDIT BY ITERATION 5.  Recon in at most TWO programs: one that lists the
+    file names and sizes you need, one that prints the bounded excerpts of
+    the files you will edit.  Measured (bfs11): 11 recon turns preceded the
+    first edit, and the seat ran out of wall clock at the SECOND verify
+    run with the edits already in place.  The instruction tells you which
+    files to work on — read those and start editing.
   - OUTPUT BUDGET: each of your programs must print LESS THAN 8000
     characters.  A program that dumps a whole file or a full test log into
     stdout pushed this seat's prompt to 57k tokens in one recorded run
     (bfs10), where every later call crawled into the gateway's timeout tail
     and the slice died on retries.  Tail the output (tail -40, grep for the
-    failing lines); re-run a narrow probe when you need detail.  Recon is
-    done in ONE program; after it you edit.
-  - The offline gate is `pnpm verify` from the project root (after a
-    one-time `pnpm install` — run them as SEPARATE programs).  It must
-    exit 0 before you declare done.  Browser-gated suites are skipped on
-    this host by design (FEUILLE_BROWSER sentinel); SKIP is not PASS, do
-    not count them as coverage.
+    failing lines); re-run a narrow probe when you need detail.
+  - GATE DISCIPLINE: `pnpm install` once (own program), then `pnpm verify`
+    (own program, ~35s).  Do not run verify speculatively — run it after a
+    change, and use the failure lines to drive the next edit.  The offline
+    gate must exit 0 before you declare done.  Browser-gated suites are
+    skipped on this host by design (FEUILLE_BROWSER sentinel); SKIP is not
+    PASS, do not count them as coverage.

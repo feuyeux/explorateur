@@ -61,7 +61,7 @@ max_nudges: 25
 # call.  400s >= 322s (worst first response) + 2x40s (tail rounds).
 # Measured: bfs10 published a 6-project wave in 204s of seat time; the slice
 # is sized for the worst first response, not for a wide wave.
-wall_clock_secs: 400
+wall_clock_secs: 350
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
