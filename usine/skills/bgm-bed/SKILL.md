@@ -44,10 +44,10 @@ description: >
 （报端点形状、退出码非 0），不许把超时当好曲；生成前可用
 `--list-providers` 探 Lyria 凭据，只看凭据不碰网络。
 
-**key 的统一配置**：`~/.config/feuille/bgm-bed.env`（样例与说明见
+**key 的统一配置**：`~/.config/feuille/keys.env`（全仓唯一凭据文件；样例与说明见
 [references/keys.env.sample](references/keys.env.sample)；`BGM_BED_ENV` 可改指
-任意路径）。优先级：**环境变量 > key 文件 > `~/.gemini_api_key`（Lyria 旧位）**；
-文件在 $HOME 下，密钥永不进仓库。
+任意路径）。优先级：**环境变量 > keys.env > `~/.gemini_api_key`（Lyria 旧位）**；
+旧名 `bgm-bed.env` 仍会读，只补 `keys.env` 缺的键；文件在 $HOME 下，密钥永不进仓库。
 
 ## 前置输入契约
 
@@ -56,7 +56,7 @@ description: >
 | 1 | **床要盖多长**（成片时长 + 余量） | 床短于成片 → 尾部裸奔，底床断在半路。床长判据照常验收，短了照样拦。走 `matrix` 时这项**无法直接满足**（无 duration 入参，实测固定 ≈29s，见「两个硬约束」） |
 | 2 | **配器与情绪的加权短词** | Lyria 实时端点吃短词；给段落标签长指令会跑偏 |
 | 3 | **旁白实测电平**，或明确的「低 N dB」目标 | 没有它 `gain` 只能抄常数，而抄错没有任何东西会报错 |
-| 4 | **Lyria 的 key**（matrix 线无 key；统一配置 `~/.config/feuille/bgm-bed.env`，`--list-providers` 先探） | 全空 → 脚本线无从生成，转告用户缺哪把 key |
+| 4 | **Lyria 的 key**（matrix 线无 key；统一配置 `~/.config/feuille/keys.env`，`--list-providers` 先探） | 全空 → 脚本线无从生成，转告用户缺哪把 key |
 | 5 | **这床垫在谁底下**（线性固定偏移 / 侧链动态余量） | 两者的配比判据不同，用错判据会得出相反结论 |
 
 **先量旁白，再生成床。** `gain` 是床与旁白之比的产物；顺序反过来就只能靠猜。
@@ -93,7 +93,7 @@ description: >
 ## 怎么用
 
 ```bash
-# 0) 先探 Lyria 凭据（不动网络；key 统一配在 ~/.config/feuille/bgm-bed.env，
+# 0) 先探 Lyria 凭据（不动网络；key 统一配在 ~/.config/feuille/keys.env，
 #    样例见 references/keys.env.sample）
 feuille bgm gen --list-providers
 
@@ -216,7 +216,7 @@ NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 | 步骤 | 判据 | 不达标怎么读 |
 |---|---|---|
 | 凭据探测 | `--list-providers` ✓ | ✗ = 缺 key，转告用户缺哪把（退出码 1） |
-| 采集 | 成曲 **≥ 目标床长**（`--duration`）——请求端已自动垫 **1.15×**（实时后端短约 10% 是实测规律，坑 1 的结构化对策） | 垫了还短 → `bed_len_check` ⚠ → **退出码 2**，文件落盘供排查但**不要挂床** |
+| 采集 | 成曲 **≥ 目标床长**（`--duration`）——收流按「凑够音频秒数」判，不按 wall 时间；请求端另垫 **1.15×** 作余量（坑 1） | 垫了还短 → `bed_len_check` ⚠ → **退出码 2**，文件落盘供排查但**不要挂床** |
 | 采样率 | 拍速反查 `ok`（仅 Lyria 实时后端） | `MISMATCH` = 采样率解读错了，文件不能用；自带容器的来源 n/a |
 | 配器 | 频段判据 `ok` | `太暗` = 拿到的是低音嗡鸣，不是配器 |
 | 床长 | 床 ≥ 成片时长（`bed_len_verdict` 按目标验收） | 短了尾部裸奔；垫量 + 退出码 2 双保险 |
@@ -245,11 +245,14 @@ NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 
 ## 三个真踩过的坑
 
-1. **床比请求短约 10%**（请求 62s → 实得 54.0s；请求 80s → 实得 78.0s）。
-   **已结构化**：`--duration` 是**目标床长**，实时后端请求端自动垫 1.15×
-   （`pad_request`），床长判据按目标验收（`bed_len_verdict`），垫了还短 → 退出码 2。
-   两个纯函数的反向验证在 `usine/packages/bgm/test/`（vitest；
-   凿洞用的就是这两组实测事故数字）。
+1. **床比请求短一半**（2026-10-19：请求 76.1s → 实得 36.0s；换短一点的请求 69s → 42s，比例随长度下滑）。
+   **根因不在后端**：`oneSession` 按「1 s wall 收 1 s 音频」睡，实测到账只有 **0.5–0.6× 实时**
+   （150 s wall 收到 88 s 音频），于是每次都在一半处 `close()`。已改成「凑够音频字节再关」：
+   `want = seconds × 48000 × 2 × 2`，wall 上限 2.5× 请求秒 + 30 s，20 s 无新数据即判流断，
+   多收的尾巴截掉。`--duration` 仍是**目标床长**，请求端垫 1.15× 只作余量；
+   床长判据按目标验收，垫了还短 → 退出码 2。原先记的「后端短约 10%」是这个缺陷的假象。
+   两个纯函数的反向验证在 `usine/packages/bgm/test/`（vitest；凿洞用的就是早期那两组
+   62s→54.0s / 80s→78.0s 的实测数字——它们同样是这个缺陷造成的）。
 2. **稀疏提示词 + 低 brightness 会换来一条低音嗡鸣**：>3 kHz 只剩 0.1%、64% 能量压在
    100 Hz 以下。旁白一盖完全听不出来，混完等于没挂床——**必须量频段，不能靠听**。
 3. **`bpm` 是软提示**：请求 84，实测拍速 175.8。拍速对不上**不能**判死刑，只有
@@ -263,7 +266,7 @@ NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 - `feuille bgm gen`（@feuille/bgm 包）— Lyria 床生成 + 实测（`--recheck` 只重算判据不重生成；
   `--list-providers` 只探测凭据；`--duration` = 目标床长，实时后端请求端自动垫
   1.15×）
-- `references/keys.env.sample` — 统一 key 文件样例（复制到
-  `~/.config/feuille/bgm-bed.env`；环境变量优先于文件）
+- `references/keys.env.sample` — 统一凭据文件样例（复制到
+  `~/.config/feuille/keys.env`；环境变量优先于文件）
 - `references/lyria-field-notes.md` — Lyria 端点/配额/地区围栏、两项自检的
   原理与阈值、报错速查、床位实测取窗口法

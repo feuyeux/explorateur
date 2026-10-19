@@ -151,14 +151,15 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     expect(names(ctx)).not.toContain("usine_publish")
   })
 
-  it("inject 声明 tools + systemPrompt + approval；publish 未声明（它是 config 门不是服务门）", async () => {
+  it("inject 声明 tools + systemPrompt + approval + skills；publish 未声明（它是 config 门不是服务门）", async () => {
     const plugin = await loadPlugin()
     expect(plugin.name).toBe("feuille-usine")
     // approval 必须声明：videoGenerationTool 在 apply 期就取 ctx.approval，真
     // cordis 对未声明就访问的服务抛 "cannot get property ... without inject"，
     // 整个插件加载失败、工具面全丢（2026-10-18 dsh 宿主真跑首测抓到；本文件
     // 的 fakeCtx 不校验 inject，这里把声明钉住防回退）。
-    expect(plugin.inject).toEqual(["tools", "systemPrompt", "approval"])
+    // skills 同理：apply 期注册 usine 技能资产（默认自动加载）要取 ctx.skills。
+    expect(plugin.inject).toEqual(["tools", "systemPrompt", "approval", "skills"])
   })
 
   it("config.publish === true 才注册 usine_publish；fiber 先销毁则异步注册放弃", async () => {
@@ -378,7 +379,9 @@ describe("假 LLM 干跑：产线经工具面驱动，红线在 Hailuo 处停车
       argv: ["leaf", "--title", "落叶", "--tokens", "apple:#D8453B", "--lessons", ld],
     })) as { exit_code: number; output: string }
     expect(rNew.exit_code).toBe(0)
-    expect(rNew.output).toContain("已写 lessons/leaf/brief.json")
+    // lesson new 的回显路径带平台分隔符（Mac 正斜杠 / Windows 反斜杠）——
+    // 断言跟随 path.join，别钉死某一端的分隔符。
+    expect(rNew.output).toContain(`已写 ${join("lessons", "leaf", "brief.json")}`)
     expect(existsSync(join(ld, "leaf", "brief.json"))).toBe(true)
 
     // ③ 设计：brief → scene.md（草稿）→ scene.json（解析）

@@ -1,6 +1,6 @@
 ---
-title: "feuille · 架构（全景 · 三层归属 · 门禁 · 路由 · RSI 定位）"
-updated: { by: dsh/fuyao-work, at: 2026-10-16 }
+title: "feuille · 架构（全景 · harness 装配 · 三层归属 · 门禁 · 路由 · RSI 定位）"
+updated: { by: zcode/fuyao-work, at: 2026-10-19 }
 related:
   - "../AGENTS.md —— 纪律与工程约定（权威）"
   - "workflow.md —— 工作流 ①–⑬ 运行手册（同目录）"
@@ -10,16 +10,7 @@ related:
 
 # 架构
 
-状态：v2 落地中（2026-10-18）——usine 已全量迁移为 dsh（DeepSeek Harness，开源
-TS 智能体 harness，everything-is-a-plugin / Cordis）原生工程：TS 十包 + dsh 插件
-工具面 + skills 资产层；Python 实现（src/feuille、scripts/verify_*.py、uv 工程）
-已随 P7 清场退役。迁移判据（金样本 parity，已采集入库）与阶段记录在
-`../migration/`（采集/比对脚本随 P7 退役，金样本与记录保留）。权威门禁 =
-`pnpm verify`（typecheck + 全部 vitest 测试）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬
-每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——数据从哪来、模块归谁、门禁
-怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。
-图表配色与术语纪律全篇统一（§0），与仓库级引擎文档
-`théâtre/ARCHITECTURE.md` §0（vendored 树，位于本树之外）同一套。
+状态：v2 落地中（2026-10-18）——usine 已全量迁移为 dsh（DeepSeek Harness，开源 TS 智能体 harness，everything-is-a-plugin / Cordis）原生工程：TS 十包 + dsh 插件工具面 + skills 资产层；Python 实现（src/feuille、scripts/verify_*.py、uv 工程）已随 P7 清场退役。迁移判据（金样本 parity，已采集入库）与阶段记录在 `../migration/`（采集/比对脚本随 P7 退役，金样本与记录保留）。权威门禁 = `pnpm verify`（typecheck + 全部 vitest 测试）。分工：[workflow.md](workflow.md) 教**怎么干活**（①–⑬ 每段的输入 / 步骤 / 产物 / 检查），本文教**结构**——智能体怎么装配（§2）、数据从哪来、模块归谁、门禁怎么兜底、命令怎么路由、RSI（由 théâtre 引擎驱动的波次化自动改进）从哪里接入。图表配色与术语纪律全篇统一（§0），与仓库级引擎文档 `théâtre/ARCHITECTURE.md` §0（vendored 树，位于本树之外）同一套。
 
 ---
 
@@ -48,6 +39,8 @@ TS 智能体 harness，everything-is-a-plugin / Cordis）原生工程：TS 十�
 | **路由表** | `cli.COMMANDS`：(组, 命令) → (模块, 函数) 的映射。路由是数据，不是 if/elif |
 | **门禁套件** | 各包 vitest 测试套（44 文件，反向验证纪律原样移植：凿洞必 FAIL），由 `pnpm verify` 一键全量；归属对账在 @feuille/gate |
 | **RSI** | 由 théâtre（vendored RSIAgent 引擎）驱动的波次化自动改进：Actor 在隔离 guest 里改代码，Verifier 判定，门禁绿才合并回本树。本树是**改进对象**，不承载任何 RSI 运行时代码 |
+| **dsh harness** | DeepSeek Harness：开源 TS 智能体 harness（everything-is-a-plugin / Cordis）。本工程智能体的**地基**——agent loop、LLM 供给、会话持久化、审批门、子代理、技能系统全部复用它，不重造（§2） |
+| **Cordis 插件** | 装进 dsh 宿主的集成单元：导出 `name` + `inject` + `apply`。`inject` 声明 apply 期要取的宿主服务，真 cordis 对未声明就访问的服务抛错——inject 列表即真实依赖清单。`@feuille/dsh-plugin` 是本工程唯一的插件 |
 
 ---
 
@@ -122,7 +115,7 @@ flowchart TB
 
 - **片名 / 首句 / 体式标签只写一处**（② `data/`），下游一切文字从 `core.data`
   来——设计只改数据，不改编码（③ 纪律）。
-- **三大产物依赖固定**：音频 → 视频 → 封面；上游一动全链重走（§2）。
+- **三大产物依赖固定**：音频 → 视频 → 封面；上游一动全链重走（§3）。
 - **发布是单向门**：⑧ manifest 逐项核对（素材在盘 / 字数不超限 / 话题非空 /
   条数齐全）不绿，⑨ 不开始；⑪ 只读核对不过，整条当失败——脚本自报成功不算成功。
 - **回流闭环**：⑫ 指标回填（没数据留 null 不填 0），经验沉淀进
@@ -133,7 +126,87 @@ flowchart TB
 
 ---
 
-## 2. 生产主线：三大产物、改稿数据流与三层验收
+## 2. 智能体装配：dsh harness 框架（复用不重造）
+
+一句话：**智能体 = dsh 地基（第三方，npm 钉版发布包）+ feuille 业务层（一个 Cordis 插件）**。agent loop、LLM 供给、会话持久化、审批门、子代理、技能系统全是 dsh 的；我们的代码只回答一件事——**往 dsh 里挂什么**（17 个工具、纪律 systemPrompt、审批挂点、10 个技能资产）。
+
+```mermaid
+flowchart TB
+    USER["你<br/>说意图：「自检」「做 12 语种海报」"]
+
+    subgraph ENTRYL["会话入口（packages/dsh-plugin/，编排控制面）"]
+        direction LR
+        ASK["ask.mjs 三挡<br/>preflight（零 LLM）/ ask（交互）/ ask 自检（单发）"]
+    end
+
+    subgraph DSH["dsh 地基 —— 第三方，npm 发布版钉版（宿主内核）"]
+        direction TB
+        SDK["@deepseek-ai/dsh-sdk-client 0.2.1-rc.2<br/>DeepSeekHarness：start / run / session / close"]
+        subgraph PROC["dsh runtime 子进程（拓扑范式：进程间——sdk-client 与 runtime 是父子进程，经 stdio JSON-RPC 通信）"]
+            direction TB
+            CORE["宿主内核（Cordis · everything-is-a-plugin）<br/>agent loop · LLM 请求 · 会话/压缩 · 沙箱 · 子代理 · 内置技能"]
+            SESS["~/.dsh/sessions/<br/>逐会话 zstd 存档（可回放取证）"]
+        end
+        OV["ask.cordis.yml 装配文件<br/>llm-pi-ai provider + 插件 insert + approval"]
+        LD["entry-loader.mjs<br/>require 垫片 → dist/index.mjs（esbuild 单文件）"]
+    end
+
+    LLMG["fuyao-ai-gateway<br/>llm-pi-ai provider（apiKeyEnv，密钥不进仓库）"]
+
+    subgraph FEUILLE["feuille 业务层 —— @feuille/dsh-plugin（本工程唯一插件）"]
+        direction TB
+        PLG["Cordis 插件契约：name + inject + apply<br/>inject：tools / systemPrompt / approval / skills"]
+        TOOLS["ctx.tools.register ×17<br/>usine_version / scene / lesson / persona / cover /<br/>framehash / ledger / theme / copy / bgm / karaoke /<br/>poetry / poster / storyteller / verify / quota /<br/>video_generation（残余参数 = CLI argv，退出码同口径）"]
+        SYSP["ctx.systemPrompt<br/>feuille:discipline 纪律 7 条"]
+        APPR["ctx.approval 挂点<br/>usine_video_generation 每次强制审批；<br/>usine_publish 默认不注册——工具面上没有"]
+        SKP["ctx.skills.registerProvider<br/>FileSystemSkillProvider（customSkillDirs = usine/skills）<br/>10 个技能资产宿主启动自动加载"]
+    end
+
+    CLI["@feuille/cli 路由表（§6）"]
+    BIZ["@feuille/* 业务包<br/>core · karaoke · poster · bgm · poetry · copy · storyteller"]
+    SKILLS["usine/skills/ 的 10 个 SKILL<br/>（说明书资产，不会被 import）"]
+
+    USER --> ASK
+    ASK --> SDK
+    SDK -->|"spawn 同版本 runtime"| CORE
+    OV -->|"启动装配"| CORE
+    OV --> LD
+    LD -->|"加载"| PLG
+    CORE <-->|"LLM 请求（域外）"| LLMG
+    CORE --> SESS
+    PLG --> TOOLS
+    PLG --> SYSP
+    PLG --> APPR
+    PLG --> SKP
+    SKP --> SKILLS
+    TOOLS -->|"工具 = CLI 的 dsh 面"| CLI
+    CLI --> BIZ
+
+    classDef ctrl fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
+    classDef host fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    classDef sandbox fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef isolated fill:#fff1f2,stroke:#e11d48,color:#4c0519
+    classDef neutral fill:#f8fafc,stroke:#334155,color:#0f172a
+    class USER neutral
+    class ASK,OV,LD ctrl
+    class SDK,CORE host
+    class PLG,TOOLS,SYSP,APPR,SKP host
+    class SESS,CLI,BIZ neutral
+    class SKILLS sandbox
+    class LLMG isolated
+```
+
+要点：
+
+- **依赖只走发布包定义**：dsh 侧的一切（sdk-client、dsh-skill-filesystem）钉版在 [packages/dsh-plugin/package.json](../packages/dsh-plugin/package.json)（0.2.1-rc.2，cordis 4.0.5 精确版），零 `link:` 机器路径——换 dsh 版本只改这处定义，与 dsh-example 的钉版纪律同口径（不依赖传递提升）。
+- **地基与业务层不分家**：宿主内核的一切能力（loop / 会话 / 审批 / 子代理 / 技能系统）复用不重造；插件不实现业务，只做「feuille → dsh」的集成——17 个工具的残余参数与 CLI 完全一致，业务仍在 @feuille/* 包里，一份实现两个面（dsh 工具面 / CLI 路由面）。
+- **技能资产自动加载**：插件注册 `FileSystemSkillProvider` 只扫 `usine/skills/`（路径运行期由 usineRoot() 推得，零机器路径）；宿主启动即在系统提示词的技能清单里——dsh 路不需要挂软链。软链只是无 dsh 环境的兼容路（agent 直读 `~/.agents/skills/`）。
+- **审批红线承载在 harness 的 approval 服务上**：花额度的 `usine_video_generation` 每次强制审批（fail-closed、单次有效，「你直接跑」不算授权）；`usine_publish` 默认不注册——发布不可达是「工具面上没有」，不是「调了会报错」。
+- **入口三挡，一条命令即会话**（详见 [guide.md](guide.md) §2）：`pnpm --filter @feuille/dsh-plugin preflight`（零 LLM 验装配）、`… ask`（交互）、`… ask 自检`（单发）。2026-10-19 实测：preflight 绿；「自检」真跑中 17 工具可调、10 技能全部在宿主技能清单、quota/verify 真执行（Windows 下固定 argv 通道经 cross-spawn 可跑 .cmd shim，模型可控 argv 通道 fail-closed 不拼 shell——注入红线）。
+
+---
+
+## 3. 生产主线：三大产物、改稿数据流与三层验收
 
 ```mermaid
 flowchart TB
@@ -184,7 +257,7 @@ flowchart TB
 
 ---
 
-## 3. 模块三层归属：ownership.json 是唯一事实源
+## 4. 模块三层归属：ownership.json 是唯一事实源
 
 归属不看目录，看 [ownership.json](../ownership.json)：目录解决打包（能不能被
 import），账本解决归属（算谁的）。**刻意不按归属层横切目录**——归属是易变
@@ -244,7 +317,7 @@ skill 层（`skills/<name>/`）只放**不会被 import** 的资产（SKILL.md �
 
 ---
 
-## 4. 门禁体系：vitest 全量反向验证（`pnpm verify`）
+## 5. 门禁体系：vitest 全量反向验证（`pnpm verify`）
 
 纪律是「**没验不许长得像验过了**」。Python 时代的 20 套 `scripts/verify_*.py`
 已随 P7 清场退役——反向验证纪律**原样移植**为各包 vitest 测试套（44 个测试文件
@@ -298,7 +371,7 @@ flowchart TB
 
 ---
 
-## 5. CLI 路由：表驱动，不是 if/elif
+## 6. CLI 路由：表驱动，不是 if/elif
 
 统一入口 `feuille <组> <命令>`。路由器只做三件事：查表、lazy import、
 把残余参数原样交给叶子——叶子拿不到组与命令，只拿真实参数（路由层消化掉的
@@ -354,9 +427,11 @@ flowchart LR
 
 三个设计取舍：
 
-- **发布类叶子要求可选依赖**（`@playwright/test` 装在 @feuille/publish）：
-  没装时 import 在函数内 lazy 失败，报的是「缺 playwright」而不是「未知命令」
-  ——前者告诉用户怎么修。
+- **发布类叶子要求可选依赖**（`playwright` 1.64.1 装在 @feuille/publish 的
+  optionalDependencies；代码是 `import('playwright')`，装 `@playwright/test` 不会
+  在这里解析得到）：没装时 import 在函数内 lazy 失败，报的是「缺 playwright」
+  而不是「未知命令」——前者告诉用户怎么修。系统 Chrome 经 `FEUILLE_BROWSER`
+  解析，不下载 Playwright 自带浏览器（`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`）。
 - **清单组装没有 CLI 叶子**：`core.manifest` 的构建吃带闭包的 plans 契约，
   只能从项目脚本调用（⑧ 的调用形态见 [toolchain.md](toolchain.md)）。
 - **聚合命令退役为 pnpm 脚本**：全量门禁 = `pnpm verify`
@@ -364,12 +439,12 @@ flowchart LR
 
 ---
 
-## 6. RSI 定位：本树如何被安全地自动改进
+## 7. RSI 定位：本树如何被安全地自动改进
 
 本树（`usine/`）在 explorateur 仓库里是 RSI 的**改进对象**；引擎
 （`../théâtre/`，vendored RSIAgent）与适配层（`../../benchmarks/usine/`）
 都在本树之外。**本树不承载任何 RSI 运行时代码**——波次合进来的只是对既有
-模块 / 文档的修改，且必须先过 §4 的门禁（`pnpm verify` 全量）。
+模块 / 文档的修改，且必须先过 §5 的门禁（`pnpm verify` 全量）。
 
 ```mermaid
 flowchart LR

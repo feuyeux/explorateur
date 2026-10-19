@@ -5,7 +5,10 @@
 # limits are emergency watchdogs, not semantic stopping criteria.
 #
 # usine seats: fuyao-coding (2026-10-18 lineup switch; M3 actor thrashed —
-# 220 iters + one 570s timeout with 25MB stdout). Text-only seat, no vision.
+# 220 iters + one 570s timeout with 25MB stdout). This seat runs text-only
+# (vision_model ""); the model itself sees natively (user-confirmed
+# 2026-10-19) - it also seats the Curriculum's delegated eye and the
+# escalated verifier.
 # RSIAGENT_LLM_ENDPOINTS_FILE routes every slug to its own gateway, and an
 # OpenRouter provider pin would be a foreign request field there.
 model: fuyao-coding

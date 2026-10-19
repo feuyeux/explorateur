@@ -7,16 +7,19 @@
 // - video-generation：每次执行强制 approval.request()，fail-closed、单次有效；
 // - publish：默认不注册（config.publish === true 才挂）——不可达不是报错。
 //
-// dsh 钉版 dsh-v0.1.7-rc.2（/Users/han/coding/deepseek-harness），升级单独裁定。
+// dsh 依赖按 package.json 依赖定义接入（@deepseek-ai/* npm 发布版），升级单独裁定。
 // 本文件只 import 类型（编译期擦除）+ @feuille/* 包（进程内原生调用——
 // 本次迁移的核心接缝证明：无 subprocess 桥；verify/quota/video 通道除外，
 // 它们本来就是进程外程序）。
 import type { Context } from '@deepseek-ai/cordis'
+import type { SkillProviderControl } from '@deepseek-ai/dsh-skill'
+import { FileSystemSkillProvider } from '@deepseek-ai/dsh-skill-filesystem'
+import { resolve } from 'node:path'
 import {
   DISCIPLINE_SECTION_NAME, DISCIPLINE_SECTION_ORDER, DISCIPLINE_TEXT,
 } from './discipline.js'
 import {
-  familyTools, publishTool, quotaTool, usineVersion, verifyTool, videoGenerationTool,
+  familyTools, publishTool, quotaTool, usineRoot, usineVersion, verifyTool, videoGenerationTool,
 } from './tools.js'
 
 export { usineRoot } from './tools.js'
@@ -26,7 +29,8 @@ export const name = 'feuille-usine'
 // 真 cordis 对未声明就访问的服务抛 "cannot get property ... without inject"，
 // 整个插件加载失败、17 工具面全丢（2026-10-18 dsh 宿主真跑首测抓到；vitest 的
 // fakeCtx 不校验 inject，测试面永远看不见这类断点）。
-export const inject = ['tools', 'systemPrompt', 'approval']
+// 'skills' 同理：apply 期注册 usine 技能资产要用 ctx.skills。
+export const inject = ['tools', 'systemPrompt', 'approval', 'skills']
 
 // 供测试/诊断定位 usine 工作区根（verify 工具同款逻辑）。
 
@@ -58,6 +62,23 @@ export function apply(ctx: Context, config: Config = {}) {
   ctx.effect(() => ctx.tools.register(verifyTool()))
   ctx.effect(() => ctx.tools.register(quotaTool()))
   ctx.effect(() => ctx.tools.register(videoGenerationTool(ctx)))
+
+  // usine 的 10 个 skill 是智能体的默认资产：插件装配即自动注册，不需要
+  // 任何挂载或显式指定。复用 dsh 的 FileSystemSkillProvider（目录束/扁平两种
+  // 布局 + YAML 前言解析），只扫 usine/skills/；路径运行期由 usineRoot() 推得，
+  // 零机器路径。宿主没装 skills 服务时整段跳过（结构性可选，不炸加载）。
+  const skills = (ctx as unknown as {
+    skills?: { registerProvider(create: (control: SkillProviderControl) => unknown): () => void }
+  }).skills
+  if (skills) {
+    ctx.effect(() => skills.registerProvider((control) =>
+      new FileSystemSkillProvider(ctx, control, {
+        providerName: 'feuille-usine-skills',
+        includeDefaultRoots: false,
+        customSkillDirs: [resolve(usineRoot(), 'skills')],
+        watch: false,
+      })))
+  }
 
   // 发布默认不可达：工具面上根本没有这个工具，而不是「调了会报错」。
   // 工具本体经动态 import 取 @feuille/publish（playwright 是可选依赖，

@@ -13,7 +13,7 @@ What one scripted wave exercises (exactly 8 fake chat calls):
   1. Curriculum (fuyao-work) authors the wave fixture scaffold and the
      /home/user/phase1_wave.json handoff in one python program; the
      terminal probe accepts it inside the same segment.
-  2. Actor (MiniMax-M3) runs the true offline gate inside the guest
+  2. Actor (fuyao-coding) runs the true offline gate inside the guest
      ("pnpm install" once, then "pnpm verify"), adds one note under
      docs/theatre-rsi/, and submits /home/user/actor_handoff.md.
      Prerequisite on the driving host (Windows wave host or POSIX):
@@ -21,9 +21,9 @@ What one scripted wave exercises (exactly 8 fake chat calls):
      access for the first install; POSIX hosts also need GNU coreutils
      (brew install coreutils) for the guest dialect.
   3. Actor declares done (the done probe checks the handoff exists).
-  4. Verifier (MiniMax-M3.1-Flash-Preview) publishes one
+  4. Verifier (fuyao-work) publishes one
      verifier-report program with exactly one standalone VERDICT line.
-  5.-8. Memory distillation and reconciliation (MiniMax-M3, dispatched
+  5.-8. Memory distillation and reconciliation (fuyao-coding, dispatched
      by the charter discriminators) each write then declare done.
 
 The completed wave triggers the real wave-merge event sink: the merge
@@ -463,11 +463,7 @@ class FakeChat:
                 return "actor"
             return None
 
-        if model == "MiniMax-M3.1-Flash-Preview":
-            seat = "verifier"
-        elif model == "fuyao-work":
-            seat = "curriculum"
-        elif model == "MiniMax-M3":
+        if model == "fuyao-coding":
             seat = seat_of(text)
             if seat is None and text.startswith("PROGRAM OUTPUT ("):
                 # The loop hands each observation back as a fresh user
@@ -487,8 +483,20 @@ class FakeChat:
                         + text[:200])
             if seat is None:
                 raise RuntimeError(
-                    "dry run: unmapped MiniMax-M3 seat (escalation or "
+                    "dry run: unmapped fuyao-coding seat (escalation or "
                     "nudge leaked in); text starts: " + text[:200])
+        elif model == "fuyao-work":
+            # The 2026-10-19 lineup seats both the Curriculum and the
+            # Verifier on fuyao-work; their charters open with distinct
+            # all-caps role banners, so the seat is read off the text.
+            if "CURRICULUM AGENT" in text:
+                seat = "curriculum"
+            elif "VERIFIER AGENT" in text:
+                seat = "verifier"
+            else:
+                raise RuntimeError(
+                    "dry run: unmapped fuyao-work seat; text starts: "
+                    + text[:200])
         else:
             raise RuntimeError(f"dry run: unexpected model {model!r}")
 
@@ -638,8 +646,7 @@ def check_endpoints_file() -> None:
     def fn():
         payload = json.loads(
             (_run_root() / "endpoints.json").read_text(encoding="utf-8"))
-        expected_slugs = {"MiniMax-M3", "MiniMax-M3.1-Flash-Preview",
-                          "fuyao-work"}
+        expected_slugs = {"fuyao-work", "fuyao-coding"}
         _require(set(payload) == expected_slugs,
                  f"endpoint slugs drifted: {sorted(payload)}")
         for slug, spec in payload.items():

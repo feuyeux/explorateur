@@ -11,5 +11,8 @@
   "dependencies": {
     "@feuille/core": "workspace:*",
     "sharp": "^0.35.5"
+  },
+  "optionalDependencies": {
+    "playwright": "1.64.1"
   }
 }

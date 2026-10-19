@@ -4,6 +4,11 @@
 
 这个仓库是工作区，不是单体工程——三个子项目之间没有代码引用，各自可单独 clone、单独构建、单独发布。RSI 工作流（[`théâtre/`](théâtre/) 引擎 + [`benchmarks/usine/`](benchmarks/usine/) 适配层）对 usine 是单向安全改进关系，不构成子项目间依赖（见下文「RSI 工作流」）。下面是入口索引；改代码前请直接进对应子项目读它自己的文档。
 
+BGM
+
+> https://aistudio.google.com/api-keys
+> ~/.config/feuille/keys.env
+
 ---
 
 ## 子项目

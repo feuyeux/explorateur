@@ -440,8 +440,9 @@ describe('main 护栏（不触网络）', () => {
       .rejects.toThrow('--text 是 --model lyria-3.x 这条 HTTP 后端必需的')
   })
 
-  // 本机可能真有 ~/.gemini_api_key / 默认 env 文件——key 缺席路径只有干净机器才可测
+  // 本机可能真有 ~/.gemini_api_key / 统一凭据文件——key 缺席路径只有干净机器才可测
   it.skipIf(existsSync(join(homedir(), '.gemini_api_key'))
+    || existsSync(join(homedir(), '.config', 'feuille', 'keys.env'))
     || existsSync(join(homedir(), '.config', 'feuille', 'bgm-bed.env')))(
     '找不到 key → 显式炸（不静默走空请求）', async () => {
       const savedKey = process.env['GEMINI_API_KEY']

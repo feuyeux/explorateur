@@ -335,11 +335,9 @@ def gate_preflight(usine_dir: Path, gate_argv: tuple,
 EXECUTE_ACK = "RUN-USINE-PHASE1-WAVES"
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+\Z")
 # The approved usine lineup.  Anything outside this set fails closed before a
-# single token is spent (user constraint: no models below M3 tier; fuyao-work
-# and fuyao-coding are the approved auxiliary seats).
+# single token is spent (user constraint: the 2026-10-19 reseating moved every
+# usine seat onto the fuyao pair; the MiniMax pair left the lineup).
 ALLOWED_MODEL_SLUGS = frozenset({
-    "MiniMax-M3",
-    "MiniMax-M3.1-Flash-Preview",
     "fuyao-work",
     "fuyao-coding",
 })
@@ -654,28 +652,30 @@ def _check_lineup(configs: dict, escalation_cfg) -> dict:
 
     # 2026-10-18 lineup switch (user decision): M3 actor thrashed on wave-1r
     # (220+ iters, one 570s timeout with 25 MB stdout); the Actor and its
-    # memory twin move to fuyao-coding.  The control seat (target-usine) stays
-    # on MiniMax-M3: it is the escalated-verifier fallback and its vision /
-    # cross-model invariants below are pinned to the M3 family.
+    # memory twin move to fuyao-coding.  2026-10-19 reseating (user decision):
+    # the control seat moves to fuyao-coding as well and the MiniMax pair
+    # leaves the lineup entirely; the control seat remains the
+    # escalated-verifier fallback and the vision / cross-model invariants
+    # below are pinned to the fuyao pair.
     if actor.model != "fuyao-coding":
         raise RuntimeError("usine Actor Agent must be fuyao-coding")
     if actor.vision_model != "":
         raise RuntimeError("usine Actor Agent must use native vision")
     if curriculum.model != "fuyao-work":
         raise RuntimeError("usine Curriculum Agent must be fuyao-work")
-    if curriculum.vision_model != "MiniMax-M3":
-        raise RuntimeError("usine Curriculum eyes must be MiniMax-M3")
-    if verifier.model != "MiniMax-M3.1-Flash-Preview":
+    if curriculum.vision_model != "fuyao-coding":
+        raise RuntimeError("usine Curriculum eyes must be fuyao-coding")
+    if verifier.model != "fuyao-work":
         raise RuntimeError(
-            "usine Agentic Verifier must be MiniMax-M3.1-Flash-Preview")
+            "usine Agentic Verifier must be fuyao-work")
     if verifier.vision_model != "":
         raise RuntimeError("usine Agentic Verifier must use native vision")
-    if control.model != "MiniMax-M3":
-        raise RuntimeError("usine control Actor seat must be MiniMax-M3 "
+    if control.model != "fuyao-coding":
+        raise RuntimeError("usine control Actor seat must be fuyao-coding "
                            "(the escalated verifier falls back to it)")
-    if control.verifier_model != "MiniMax-M3.1-Flash-Preview":
+    if control.verifier_model != "fuyao-work":
         raise RuntimeError("usine control verifier_model drifted")
-    if control.escalation_model != "MiniMax-M3.1-Flash-Preview":
+    if control.escalation_model != "fuyao-work":
         raise RuntimeError("usine control escalation_model drifted")
     if control.vision_model != control.escalation_model:
         raise RuntimeError(
@@ -700,7 +700,7 @@ def _check_lineup(configs: dict, escalation_cfg) -> dict:
     esc_vision = ("" if (control.vision_model
                          and control.escalation_model == control.vision_model)
                   else control.vision_model or control.model)
-    if esc_verifier != "MiniMax-M3" or esc_vision != "":
+    if esc_verifier != "fuyao-coding" or esc_vision != "":
         raise RuntimeError(
             f"escalated seats drifted: verifier={esc_verifier!r} "
             f"vision={esc_vision!r}")

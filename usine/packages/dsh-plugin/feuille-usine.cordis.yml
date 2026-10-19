@@ -1,14 +1,15 @@
-# feuille usine 的 dsh 插件 overlay（P1 最小骨架）。
+# feuille usine 的 dsh 插件 overlay（插件装配定义；机器无关，无绝对路径）。
 #
-# 跑法（钉 dsh-v0.1.7-rc.2 本地 checkout，不用 PATH 上全局装的 0.1.5-rc.3）：
-#   node /Users/han/coding/deepseek-harness/apps/cli/lib/bin.js web \
-#     --patch /Users/han/coding/personal/feuille/usine/packages/dsh-plugin/feuille-usine.cordis.yml
-#
-# dist/index.mjs 由 `pnpm --filter @feuille/dsh-plugin build` 产出（esbuild 单文件：
-# @feuille/core 源码打进包——dsh 宿主是纯 node，吃不了 TS 源直跑；sharp/
-# @napi-rs/canvas/ws 三个原生/重依赖保持 external，从 dsh-plugin 自己的
-# node_modules 解析——故它们同时声明为本包 dependencies）。
+# 依赖与装配链（依赖定义见本包 package.json：@deepseek-ai/* 走 npm 发布版）：
+#   - dist/index.mjs 由 `pnpm --filter @feuille/dsh-plugin build` 产出（esbuild
+#     单文件：@feuille/core 源码打进包——dsh 宿主是纯 node，吃不了 TS 源直跑；
+#     sharp/@napi-rs/canvas/ws 三个原生/重依赖保持 external，从 dsh-plugin 自己的
+#     node_modules 解析——故它们同时声明为本包 dependencies）。
+#   - insert 指向 entry-loader.mjs（require 互操作垫片），它再加载 dist/index.mjs。
+#   - 本 overlay 只装插件；带 provider 与 approval policy 的完整对话入口
+#     见 ./ask.cordis.yml + ./ask.mjs（`pnpm --filter @feuille/dsh-plugin ask`）。
 - insert:
     - id: feuille-usine
-      name: './dist/index.mjs'
+      name: './entry-loader.mjs'
+
 

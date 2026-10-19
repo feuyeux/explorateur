@@ -2,7 +2,7 @@
 #
 # Same seat contract as the stock practice curriculum: this Agent owns only
 # the high-level lifecycle decisions (WAVE / SATURATED / STALLED) and authors
-# each wave's projects. fuyao-work holds the pen; MiniMax-M3 is the delegated
+# each wave's projects. fuyao-work holds the pen; fuyao-coding is the delegated
 # eye for every Look (text-primary chair, native-sighted reader). This is a
 # distinct, persistent Agent context from every other seat; sharing a model
 # never shares private conversation, scratch, candidate access, or authority.
@@ -10,7 +10,7 @@ model: fuyao-work
 provider_order: []
 provider_allow_fallbacks: true
 provider_require_parameters: false
-vision_model: MiniMax-M3
+vision_model: fuyao-coding
 vision_rounds: 1
 look_ensemble: 1
 look_ensemble_temp: 0.8

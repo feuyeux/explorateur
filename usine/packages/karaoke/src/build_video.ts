@@ -195,7 +195,9 @@ async function buildFormat(fmt: FmtCfg, cfg: Record<string, any>, here: string, 
     sh([FF, '-y', '-loglevel', 'error', '-i', join(here, 'video_noaudio.mp4'),
       '-i', join(here, 'audio_all.wav'), '-i', track,
       '-filter_complex',
-      '[1:a]aformat=sample_rates=48000:channel_layouts=stereo[nar];'
+      // 升混必须用 pan 显式复制：aformat 的 mono→stereo 走 swr 矩阵，每声道
+      // −3.01 dB（实测 mean −22.9 → −26.0 dBFS），有床分支会把旁白整体压 3 dB。
+      '[1:a]aformat=sample_rates=48000,pan=stereo|c0=c0|c1=c0[nar];'
       + '[nar][2:a]amix=inputs=2:duration=first:normalize=0[aout]',
       '-map', '0:v', '-map', '[aout]', '-c:v', 'copy',
       '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out])

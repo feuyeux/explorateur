@@ -162,10 +162,10 @@ export async function launch<T>(
     throw new FeuilleError(
       `缺 playwright（可选依赖未装）：发布前先安装 playwright。原始报错：${errName(e)}`)
   }
-  const ctx = await pw.chromium.launchPersistentContext({
-    // JS Playwright 是 camelCase（user_data_dir/executable_path 是 Python 版形参，
-    // 在 JS 侧会被静默忽略，落到默认浏览器/默认 profile）
-    userDataDir,
+  // JS Playwright 的签名是 launchPersistentContext(userDataDir, options)：
+  // 目录是**第一个位置参数**，写进 options 会报 "path" argument must be a string。
+  // options 仍是 camelCase（executablePath；snake_case 的 executable_path 会被静默忽略）。
+  const ctx = await pw.chromium.launchPersistentContext(userDataDir, {
     executablePath: exe,
     headless: opts.headless ?? false,
     viewport: opts.viewport ?? { width: 1440, height: 900 },

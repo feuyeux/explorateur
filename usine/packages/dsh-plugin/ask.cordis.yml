@@ -1,0 +1,29 @@
+# ask.mjs 对话入口的 overlay：在 dsh `sdk` 剖面上临时叠加，不动 ~/.dsh 剖面。
+#
+#  1. llm-pi-ai 补 fuyao-ai-gateway provider（规格逐字照抄 ~/.dsh/profiles/desktop
+#     的同名条目；apiKeyEnv 只写环境变量名，key 本体在 $DSH_HOME 凭据店，永不进仓库）；
+#  2. insert feuille-usine 插件——入口指 require 互操作垫片（entry-loader.mjs），
+#     它再加载本包 dist/index.mjs（17 个 usine_* 工具 + 纪律 systemPrompt）；
+#  3. approval policy=never：所有审批问询确定性自动拒绝——红线双保险，花额度的
+#     生成提交结构性停摆（视频生成必停在审批），本入口零 H3/额度。
+- id: llm-pi-ai
+  config:
+    providers:
+      fuyao-ai-gateway:
+        displayName: fuyao-ai-gateway
+        apiKeyEnv: FUYAO_AI_GATEWAY_API_KEY
+        api: openai-completions
+        baseURL: https://fuyao-ai-gateway.xiaopeng.link/v1
+        models:
+          - id: fuyao-coding
+            name: fuyao-coding
+          - id: fuyao-work
+            name: fuyao-work
+          - id: fuyao-data
+            name: fuyao-data
+- insert:
+    - id: feuille-usine
+      name: './entry-loader.mjs'
+- id: approval
+  config:
+    policy: never

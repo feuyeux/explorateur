@@ -3,10 +3,10 @@
 # and across Actor resume segments for the same task. It freely chooses programs,
 # looks, evidence depth, and when its report is ready.
 #
-# usine seat: MiniMax-M3.1-Flash-Preview with NATIVE vision (vision_model "");
+# usine seat: fuyao-work with NATIVE vision (vision_model "");
 # the model reads pixels itself. No provider pins: the endpoints file routes
 # the slug to its own gateway.
-model: MiniMax-M3.1-Flash-Preview
+model: fuyao-work
 max_tokens: 65536
 temperature: 0.0
 primary_temperature: 1.0

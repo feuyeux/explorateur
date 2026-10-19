@@ -1,12 +1,12 @@
-# Persistent MiniMax-M3 Verifier Agent for a Flash escalation segment.
+# Persistent fuyao-coding Verifier Agent for an escalated segment.
 #
 # Full asymmetry is invariant (the stock GLM/K3 pairing, reseated):
-#   main:      MiniMax-M3 Actor <-> Flash Verifier
-#   escalated: Flash Actor <-> MiniMax-M3 Verifier
+#   main:      fuyao-coding Actor <-> fuyao-work Verifier
+#   escalated: fuyao-work Actor <-> fuyao-coding Verifier
 #
-# MiniMax-M3 reads images natively here (vision_model ""); there is no
-# second eye, witness ensemble, or ensemble judge.
-model: MiniMax-M3
+# The escalated verifier reads images natively here (vision_model ""); there is
+# no second eye, witness ensemble, or ensemble judge.
+model: fuyao-coding
 provider_order: []
 provider_allow_fallbacks: true
 provider_require_parameters: true

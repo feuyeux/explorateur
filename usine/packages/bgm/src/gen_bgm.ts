@@ -265,39 +265,57 @@ export function writeWav(path: string, pcm: Buffer): void {
 //  凭据探测（只看 key 在不在，不碰网络）
 // ============================================================
 
-/** 统一 key 文件：~/.config/feuille/bgm-bed.env（BGM_BED_ENV 可改指任意路径）。
+/** 统一凭据文件：~/.config/feuille/keys.env（BGM_BED_ENV 可改指任意路径）。
  *
  * 放在 $HOME 下是刻意的——密钥永不进仓库（usine/AGENTS.md 纪律：key 走环境
  * 或用户目录，不落盘到 git 管辖范围）。样例见 references/keys.env.sample。
+ * 旧的 ~/.config/feuille/bgm-bed.env 仍被读取（已有配置不用搬家）。
  */
 export function keyFile(): string {
-  return (process.env['BGM_BED_ENV'] ?? '').trim() || join(homedir(), '.config', 'feuille', 'bgm-bed.env')
+  const override = (process.env['BGM_BED_ENV'] ?? '').trim()
+  if (override) return override
+  const dir = join(homedir(), '.config', 'feuille')
+  const unified = join(dir, 'keys.env')
+  const legacy = join(dir, 'bgm-bed.env')
+  if (existsSync(unified)) return unified
+  return existsSync(legacy) ? legacy : unified
 }
 
 /** 把 key 文件里的变量灌进环境——**不覆盖已有环境变量**（环境优先于文件）。
  *
- * 返回实际加载的文件（不存在/没可解析行返回 null），供探测报告显示来源；
+ * 主文件 `keys.env` 优先，旧名 `bgm-bed.env` 兜底补缺（已有配置不用搬家，也
+ * 不会因为填错文件名而白忙）；`BGM_BED_ENV` 是显式指向，只管那一个文件。
+ * 返回第一个真正提供了变量的文件（都没有则 null），供探测报告显示来源；
  * 找不到不是错误（纯环境变量也能跑），只影响报告里那行提示。
  */
 export function loadEnvFile(): string | null {
-  const f = keyFile()
-  if (!existsSync(f)) return null
-  let got = false
-  for (let line of splitLines(readFileSync(f, 'utf8'))) {
-    line = line.trim()
-    if (line === '' || line.startsWith('#') || !line.includes('=')) continue
-    const eq = line.indexOf('=')
-    const k = line.slice(0, eq).trim()
-    // Python strip('"').strip("'")：先剥双引号、再剥单引号，两端逐字符
-    let v = line.slice(eq + 1).trim()
-      .replace(/^"+/, '').replace(/"+$/, '')
-      .replace(/^'+/, '').replace(/'+$/, '')
-    if (k && v && process.env[k] === undefined) {
-      process.env[k] = v
-      got = true
-    }
+  const primary = keyFile()
+  const files = [primary]
+  if (!(process.env['BGM_BED_ENV'] ?? '').trim()) {
+    const legacy = join(homedir(), '.config', 'feuille', 'bgm-bed.env')
+    if (legacy !== primary) files.push(legacy)
   }
-  return got ? f : null
+  let loaded: string | null = null
+  for (const f of files) {
+    if (!existsSync(f)) continue
+    let got = false
+    for (let line of splitLines(readFileSync(f, 'utf8'))) {
+      line = line.trim()
+      if (line === '' || line.startsWith('#') || !line.includes('=')) continue
+      const eq = line.indexOf('=')
+      const k = line.slice(0, eq).trim()
+      // Python strip('"').strip("'")：先剥双引号、再剥单引号，两端逐字符
+      let v = line.slice(eq + 1).trim()
+        .replace(/^"+/, '').replace(/"+$/, '')
+        .replace(/^'+/, '').replace(/'+$/, '')
+      if (k && v && process.env[k] === undefined) {
+        process.env[k] = v
+        got = true
+      }
+    }
+    if (got && loaded === null) loaded = f
+  }
+  return loaded
 }
 
 function lyriaKey(): string | null {
@@ -351,6 +369,9 @@ async function oneSession(
   const ai = new mod.GoogleGenAI({ apiKey: key, apiVersion: 'v1beta' })
   const chunks: Buffer[] = []
   const errs: unknown[] = []
+  const bytesPerSec = RATE * CHANNELS * WIDTH
+  const want = seconds * bytesPerSec
+  let got = 0 // 边收边记：判据要看「到账多少音频秒」，不是「睡了多久」
   const session = await ai.live.music.connect({
     model: `models/${model}`,
     callbacks: {
@@ -360,7 +381,10 @@ async function oneSession(
         if (sc == null) return
         // Node SDK 的 audio chunk 是 base64 文本（Python SDK 是 bytes）——就地解回
         for (const ch of sc.audioChunks ?? []) {
-          if (ch.data) chunks.push(Buffer.from(ch.data, 'base64'))
+          if (!ch.data) continue
+          const buf = Buffer.from(ch.data, 'base64')
+          chunks.push(buf)
+          got += buf.length
         }
       },
       onerror: (e) => {
@@ -385,11 +409,29 @@ async function oneSession(
     })
     await sleep(1500) // 握手 + 生成器预热
     session.play()
-    await sleep(seconds * 1000)
+    // 实测（2026-10，本机这把免费 key）：音频到账约 0.5–0.6× 实时——150s wall
+    // 只收 88s 音频，中间还成段停 5–10s。原来按 1× 实时 sleep(seconds) 再 close，
+    // 等于永远只收一半：请求 76.1s 得 36s、请求 69s 得 42s。床短不是后端短供，
+    // 是客户端提前收工。改成「凑够音频秒数再关」，另设两个死条件免得干等：
+    // wall 上限 = 2.5× 请求秒 + 30s 启动余量；20s 无新数据即判流断。
+    const maxWall = seconds * 2500 + 30_000
+    let last = 0
+    let grewAt = Date.now()
+    while (Date.now() - t0 < maxWall) {
+      if (got >= want) break
+      await sleep(250)
+      if (got > last) {
+        last = got
+        grewAt = Date.now()
+      } else if (Date.now() - grewAt > 20_000) {
+        console.log(`  ⚠ 音频流 ${((Date.now() - grewAt) / 1000).toFixed(0)}s 无新数据：`
+          + `已收 ${(got / bytesPerSec).toFixed(1)}s / 请求 ${pyG(seconds)}s`)
+        break
+      }
+    }
   } finally {
     session.close() // Node 无 task.cancel——关会话即断流
   }
-  const got = chunks.reduce((s, c) => s + c.length, 0)
   if (errs.length > 0) {
     const elapsed = (Date.now() - t0) / 1000
     // 报错时必须能看出「断在哪、已经拿到多少」——否则只能盲重试
@@ -413,7 +455,9 @@ async function oneSession(
       + `请求 ${pyG(seconds)}s，断在开流后 ${elapsed.toFixed(1)}s${hint}`,
     )
   }
-  return Buffer.concat(chunks)
+  // 多收的尾巴截掉：床长落在请求秒数上，别把一段没用上的音乐留在盘里
+  const pcm = Buffer.concat(chunks)
+  return pcm.length > want ? pcm.subarray(0, want) : pcm
 }
 
 /** 建连抖动的退避重试。
@@ -489,7 +533,7 @@ async function genLyria(a: GenArgs): Promise<[Buffer, boolean]> {
     if (prompts.length === 0) {
       throw new FeuilleError('至少给一个 --prompt（realtime 后端吃加权短词）')
     }
-    console.log(`[lyria] ${a.model} 目标 ${pyG(a.duration)}s · 请求 ${pyG(padRequest(a.duration))}s（已垫 ${pyG(PAD_FACTOR)}×——实时后端短约 10% 是实测规律） · ${prompts.map(([t, w]) => `${t}(${w.toFixed(1)})`).join(' + ')}`)
+    console.log(`[lyria] ${a.model} 目标 ${pyG(a.duration)}s · 请求 ${pyG(padRequest(a.duration))}s（已垫 ${pyG(PAD_FACTOR)}×；到账约 0.6× 实时，wall 约 ${pyG(pyRound(padRequest(a.duration) * 1.8, 0))}s） · ${prompts.map(([t, w]) => `${t}(${w.toFixed(1)})`).join(' + ')}`)
     const pcm = await captureRealtime(key, a.model, prompts,
       { bpm: a.bpm, density: a.density, brightness: a.brightness },
       padRequest(a.duration))
@@ -703,8 +747,9 @@ export function isRealtimePcm(model: string | null): boolean {
 // ============================================================
 
 export const PAD_FACTOR = 1.15
-// 实时后端「请求 80s 实得 78.0s、请求 62s 实得 54.0s」——短约 10% 是实测规律
-// （SKILL.md 坑 1），不是偶发。请求端垫 15% 让「床 ≥ 目标」成为结构保证而非运气。
+// 垫 15% 是给「凑够音频秒数」的收流判据留余量：流若在 90% 处停住，15% 的头寸
+// 仍能让床盖住成片。（2026-10 修：原先记的「后端短约 10%」其实是客户端按 1× 实时
+// sleep 提前 close 造成的假象，见 oneSession 的收流循环。）
 
 /** 实时后端的请求垫量：目标床长 → 实际请求秒数。纯函数，反向验证在
  * packages/bgm/test/gen_bgm.test.ts（凿洞：目标 80 → 请求 92，不是 80）。 */

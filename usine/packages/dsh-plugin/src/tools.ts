@@ -13,10 +13,12 @@
 // - **usine_verify / usine_quota**：门禁与额度查询是子进程步骤（vitest/
 //   mmx 本来就是进程外程序），其余全在进程内。
 //
-// dsh 钉版 dsh-v0.1.7-rc.2；approval/systemPrompt 接缝走结构化类型（结构性
-// 最小面，不 link harness 类型链——developer preview 的类型链易碎）。
+// dsh 依赖按 package.json 依赖定义接入（npm 发布版）；approval/systemPrompt 接缝
+// 走结构化类型（结构性最小面，不 link harness 类型链——developer preview 的
+// 类型链易碎）。
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { spawn } from 'node:child_process'
+import crossSpawn from 'cross-spawn'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
@@ -103,21 +105,17 @@ function argvTool(spec: {
 }
 
 /** win32 下裸名解析成绝对路径再 spawn：CreateProcess（无 shell）只执行 .exe，
- * .cmd/.bat shim 会静默 ENOENT。解析到 shim 时 fail-closed 并给出修法——
- * 本通道不开 shell（mcode-tools 的 --args 带用户 prompt JSON，shell 拼接
- * 既注又碎），与门禁预检 gate_preflight 对 standalone pnpm 的要求同源。 */
-function resolveSpawnCmd(cmd: string): { cmd: string; shimError?: string } {
+ * .cmd/.bat shim 会静默 ENOENT。解析到 shim 时按通道策略分流（见 runCapture）：
+ * argv 全由代码写死的通道（verify/quota——无模型可控内容）经 cross-spawn 执行
+ * shim（cmd.exe + 库级转义，无注入面）；argv 带模型可控内容的通道
+ * （mcode-tools 的 --args 带用户 prompt JSON）fail-closed 并给出修法——
+ * 本通道不开 shell（注入红线），与门禁预检 gate_preflight 对 standalone
+ * pnpm 的要求同源。 */
+function resolveSpawnCmd(cmd: string): { cmd: string; shim?: string } {
   if (process.platform !== 'win32') return { cmd }
   const found = platform.which(cmd)
   if (!found) return { cmd }
-  if (/\.(cmd|bat)$/i.test(found)) {
-    return {
-      cmd,
-      shimError: `${cmd} 在 PATH 上解析到 ${found}（.cmd/.bat shim）。`
-        + `无 shell 的子进程通道跑不了 shim：请装 standalone 版（.exe，如 standalone pnpm）`
-        + `并确保它排在 shim 之前。\n`,
-    }
-  }
+  if (/\.(cmd|bat)$/i.test(found)) return { cmd, shim: found }
   return { cmd: found }
 }
 
@@ -126,16 +124,26 @@ function runCapture(cmd: string, args: string[], opts: {
   cwd?: string
   signal?: AbortSignal
   input?: string
+  /** argv 全由代码写死（无模型可控内容）——win32 上允许经 cross-spawn 执行 .cmd/.bat shim。 */
+  fixedArgv?: boolean
 }): Promise<{ code: number; output: string; notFound: boolean }> {
   return new Promise((res) => {
     const resolved = resolveSpawnCmd(cmd)
-    if (resolved.shimError) {
-      res({ code: 127, output: resolved.shimError, notFound: true })
+    if (resolved.shim && !opts.fixedArgv) {
+      res({
+        code: 127,
+        output: `${cmd} 在 PATH 上解析到 ${resolved.shim}（.cmd/.bat shim）。`
+          + `本通道的 argv 带模型可控内容，不开 shell（注入红线）：`
+          + `请装 standalone 版（.exe，如 standalone mcode-tools）并确保它排在 shim 之前。\n`,
+        notFound: true,
+      })
       return
     }
+    const doSpawn = resolved.shim ? crossSpawn : spawn
+    const spawnTarget = resolved.shim ?? resolved.cmd
     let child: ReturnType<typeof spawn>
     try {
-      child = spawn(resolved.cmd, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+      child = doSpawn(spawnTarget, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] }) as ReturnType<typeof spawn>
     } catch {
       res({ code: 127, output: `无法启动 ${cmd}\n`, notFound: true })
       return
@@ -312,11 +320,11 @@ export function verifyTool(): ToolDefinition {
     output: { schema: mainOutputSchema, render: renderMainOutput },
     async execute(_args, exec) {
       const root = usineRoot()
-      const tc = await runCapture('pnpm', ['-s', 'typecheck'], { cwd: root, signal: exec.signal })
+      const tc = await runCapture('pnpm', ['-s', 'typecheck'], { cwd: root, signal: exec.signal, fixedArgv: true })
       const tcOut = `== pnpm -s typecheck（${root}）==\n${tc.output}`
       if (tc.notFound) return { exit_code: 127, output: tcOut }
       if (tc.code !== 0) return { exit_code: tc.code, output: tcOut + '\ntypecheck 未过，vitest 不跑。\n' }
-      const vt = await runCapture('pnpm', ['-s', 'vitest', 'run'], { cwd: root, signal: exec.signal })
+      const vt = await runCapture('pnpm', ['-s', 'vitest', 'run'], { cwd: root, signal: exec.signal, fixedArgv: true })
       return { exit_code: vt.code, output: tcOut + `\n== pnpm -s vitest run ==\n${vt.output}` }
     },
   }
@@ -333,7 +341,7 @@ export function quotaTool(): ToolDefinition {
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: { schema: mainOutputSchema, render: renderMainOutput },
     async execute(_args, exec) {
-      const r = await runCapture('mmx', ['quota'], { signal: exec.signal })
+      const r = await runCapture('mmx', ['quota'], { signal: exec.signal, fixedArgv: true })
       return { exit_code: r.code, output: r.output }
     },
   }
