@@ -43,6 +43,12 @@ EXPLORATEUR = HERE.parents[0]
 
 PASSED = 0
 
+# Worst-case gateway round trip measured on the fuyao endpoint (run
+# bfs-20261019): an APITimeoutError plus retry came back at 121s.  Any seat
+# slice below this is structurally guaranteed to abort before the model
+# answers, which is how the first run under this budget produced zero memory.
+WORST_CASE_ROUND_TRIP_SECS = 121
+
 
 def check(name: str, ok: bool, detail: str = "") -> None:
     global PASSED
@@ -130,6 +136,19 @@ def test_apply_slices_clamps_and_preserves_tighter(tb) -> None:
           all(0 < cfg.wall_clock_secs <= 300
               for cfg in configs.values()),
           str({k: v.wall_clock_secs for k, v in configs.items()}))
+
+    # Every seat slice must cover at least one worst-case gateway round trip.
+    # Measured: 121s (APITimeoutError + retry) on the fuyao gateway, recorded
+    # by run bfs-20261019 — which died at `safety_ceiling` with a Curriculum
+    # slice of 80s, before the model had answered once. A slice below the
+    # worst-case round trip is a guaranteed abort, not a budget.
+    for seat in ("curriculum", "actor"):
+        slice_secs = plan.slices.get("actor" if seat == "memory_actor" else seat)
+        check(
+            f"{seat} slice covers one worst-case round trip",
+            slice_secs >= WORST_CASE_ROUND_TRIP_SECS,
+            f"{slice_secs}s >= {WORST_CASE_ROUND_TRIP_SECS}s measured round trip",
+        )
 
     # An already-tighter budget is a deliberate config decision; the slice
     # plan is a ceiling, never a floor.

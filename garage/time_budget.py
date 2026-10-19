@@ -65,20 +65,27 @@ DEFAULT_RUN_CEILING_SECS = 600
 #   merge      : gate (`pnpm verify`) + commit.  The gate is a real cost and
 #                must be inside the ceiling, not after it.
 #
-# The four slices sum to 540s, and OVERHEAD_RESERVE_SECS (45s) brings the
-# plan to 585s — 15s of slack under the 600s ceiling.  A default plan that
+# The four slices sum to 550s, and OVERHEAD_RESERVE_SECS (40s) brings the
+# plan to 590s — 10s of slack under the 600s ceiling.  A default plan that
 # does not FIT would fail closed on every run, so plan_budget asserts it.
+#
+# Sizing is from MEASURED latency, not taste.  The first recorded run under
+# this budget (bfs-20261019) died at the Curriculum seat: the gateway's first
+# response took 121s (an APITimeoutError plus retry) and the old 80s slice was
+# already spent before the model had answered once — `safety_ceiling` after a
+# single iteration, zero memory.  Every seat slice must therefore cover at
+# least one full worst-case round trip plus the work that follows it.
 DEFAULT_SLICES = {
-    "curriculum": 80,
-    "actor": 270,
+    "curriculum": 180,
+    "actor": 240,
     "verifier": 100,
-    "merge": 90,
+    "merge": 30,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a
 # seat: preflight, fixture capture, seed staging, event fsync, the final
-# memory install and result.json write.  Measured slack, not guesswork.
-OVERHEAD_RESERVE_SECS = 45
+# memory install and result.json write.
+OVERHEAD_RESERVE_SECS = 40
 
 TIME_BUDGET_EXHAUSTED = "time_budget_exhausted"
 

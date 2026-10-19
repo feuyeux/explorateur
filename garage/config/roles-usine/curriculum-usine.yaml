@@ -31,9 +31,14 @@ agent_decided_stop: true
 # Tightened to the Curriculum slice of the 600s run ceiling (see
 # time_budget.DEFAULT_SLICES and run_usine's --run-ceiling-secs): a wave must
 # be able to finish, and be cheap to rerun.
+#
+# 180s, not less: the first run under this budget (bfs-20261019) measured a
+# 121s gateway round trip (APITimeoutError + retry) and died at
+# `safety_ceiling` before the model had answered once. A slice that cannot
+# cover one worst-case round trip is not a budget, it is a guaranteed abort.
 max_iters: 60
 max_nudges: 25
-wall_clock_secs: 80
+wall_clock_secs: 180
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""

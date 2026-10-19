@@ -31,12 +31,12 @@ agent_decided_stop: true
 # Emergency watchdogs, not semantic stopping criteria.  2026-10-19: these
 # were 2000 iters / 86400s; tightened to the Actor slice of the 600s run
 # ceiling (time_budget.DEFAULT_SLICES) so a branch self-terminates instead of
-# holding the whole run.  The 570s timeout that motivated the fuyao-coding
-# reseat still exceeds this slice on its own — that is deliberate: the slice
-# cuts it off before the wave can be abandoned mid-merge.
+# holding the whole run.  Sizing is measured: the fuyao gateway has returned
+# single round trips above 120s under retry (bfs-20261019), so 240s leaves
+# room for a worst-case answer plus the work that follows it.
 max_iters: 120
 max_nudges: 25
-wall_clock_secs: 270
+wall_clock_secs: 240
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
