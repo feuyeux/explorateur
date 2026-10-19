@@ -36,7 +36,7 @@ agent_decided_stop: true
 # room for a worst-case answer plus the work that follows it.
 max_iters: 120
 max_nudges: 25
-wall_clock_secs: 500
+wall_clock_secs: 650
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""

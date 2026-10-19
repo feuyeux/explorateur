@@ -36,7 +36,7 @@ reasoning_in_history: true
 agent_decided_stop: true
 max_iters: 200
 max_nudges: 25
-wall_clock_secs: 500
+wall_clock_secs: 650
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180

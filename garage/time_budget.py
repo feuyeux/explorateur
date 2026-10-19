@@ -85,9 +85,25 @@ DEFAULT_RUN_CEILING_SECS = 1500
 #   merge      : gate (`pnpm verify`) + commit.  The gate is a real cost and
 #                must be inside the ceiling, not after it.
 #
-# The four slices sum to 1250s, and OVERHEAD_RESERVE_SECS (100s) brings the
-# plan to 1350s — 150s of slack under the 1500s ceiling.  A default plan that
+# The four slices sum to 1330s, and OVERHEAD_RESERVE_SECS (100s) brings the
+# plan to 1430s — 70s of slack under the 1500s ceiling.  A default plan that
 # does not FIT would fail closed on every run, so plan_budget asserts it.
+#
+# The accounting that fixes this split (measured, bfs10 2026-10-19):
+#   * ONE project costs TWO Actor segments — the handoff segment (do the
+#     work) and the fresh-replay segment (a new context re-runs the
+#     candidate) — and the seat's wall clock is a BUDGET SHARED ACROSS
+#     SEGMENTS (practice_loop.py: remaining_wall = wall_clock_secs -
+#     used_wall).  So the actor slice must cover BOTH segments, not one.
+#   * ONE wave runs its projects in parallel (max_parallel workers), so a
+#     wave of N projects costs ONE round of actor wall clock, not N.
+#   * bfs10's 6-project wave at 2-way parallelism needed 3 rounds of actor
+#     seats — 2100s of actor time inside a 1500s run.  The Curriculum's
+#     wave width is agent-owned (wave_width_agent_owned) and the engine has
+#     no width cap, so the width is bounded HERE, in the seat prompt: one
+#     small project per wave.
+#   * curriculum measured 204s to publish a 6-project wave; 400s covers the
+#     worst recorded first response (322s) plus the authoring tail.
 #
 # bfs8 postmortem (2026-10-19 18:43): the 400s curriculum slice was spent as
 # 71s + 58s + 74s + 17s + 151s + 358s = 728s across six iterations.  The wave
@@ -107,10 +123,10 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # runs that died were all killed by a slice expiring before the model had
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
-    "curriculum": 500,
-    "actor": 450,
+    "curriculum": 400,
+    "actor": 650,
     "verifier": 200,
-    "merge": 100,
+    "merge": 80,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a
