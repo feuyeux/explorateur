@@ -95,16 +95,19 @@ def build_probe_input(transcript_path: Path) -> tuple[str, str, dict]:
 
 
 def one_arm(base_url: str, api_key: str, effort: str, system: str, user: str,
-            timeout: float) -> dict:
+            timeout: float, history: list | None = None,
+            slug: str | None = None) -> dict:
     reasoning = ({"enabled": False} if effort == "none"
                  else {"effort": effort})
     payload = dict(PAYLOAD_STATIC)
+    messages = [{"role": "system", "content": system}]
+    for message in history or []:
+        messages.append({"role": message["role"], "content": message["content"]})
+    if user:
+        messages.append({"role": "user", "content": user})
     payload.update({
-        "model": SLUG,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        "model": slug or SLUG,
+        "messages": messages,
         "reasoning": reasoning,
     })
     request = urllib.request.Request(

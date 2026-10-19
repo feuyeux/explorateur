@@ -60,7 +60,7 @@ if not DEFAULT_TRANSCRIPT.is_file():
 SLUG = "fuyao-coding"
 
 
-def build_probe_input(transcript_path: Path) -> tuple[str, str, dict]:
+def build_probe_input(transcript_path: Path, *, last_turn: bool = False) -> tuple[str, str, dict]:
     """Rebuild the current-shape first Actor call from recorded bytes.
 
     The engine assembles the system prompt as ``base + cfg.system_extra``
@@ -68,23 +68,43 @@ def build_probe_input(transcript_path: Path) -> tuple[str, str, dict]:
     actor-usine.yaml carried an EMPTY system_extra, so the recorded system
     IS the base; the current yaml's extra is appended to reproduce the
     configuration the next wave will actually run.
+
+    ``last_turn=True`` rebuilds the request for the LAST recorded turn
+    instead of the first: the system prompt plus the whole accumulated
+    conversation minus the final assistant reply.  That is the heavy-context
+    regime where the real cost lives — bfs14's actor spent 60-85s per call
+    with 9-12k reasoning tokens at a 22k prompt, while the same task in
+    bfs13 ran at 19s per call.  The first-turn probe cannot see that.
     """
     data = json.loads(Path(transcript_path).read_text(encoding="utf-8"))
     recorded = data["system"]
-    user = data["messages"][0]["content"]
+    messages = list(data.get("messages") or [])
+    if last_turn:
+        if len(messages) < 2:
+            raise RuntimeError("transcript has too few messages for a last-turn probe")
+        history = messages[:-1]
+        user = ""
+    else:
+        history = []
+        user = messages[0]["content"]
     extra = str(yaml.safe_load(
         ACTOR_YAML.read_text(encoding="utf-8"))["system_extra"])
-    system = recorded + extra
+    # The recorded system already carries the CURRENT extra when the recording
+    # was made with this yaml (bfs14+); older recordings carry an empty one.
+    # Appending blindly would double the text, so detect and adapt.
+    marker = extra.strip().splitlines()[0].strip()
+    already = bool(marker) and marker in recorded
+    system = recorded if already else recorded + extra
     diagnostics = {
         "recorded_base_chars": len(recorded),
         "extra_chars": len(extra),
         "system_chars": len(system),
         "user_chars": len(user),
+        "history_messages": len(history),
         "output_budget_present": "OUTPUT BUDGET" in system,
-        "recorded_had_extra": recorded.rstrip().endswith(".")
-            and "USINE PRODUCTION-LINE CONTEXT" in recorded,
+        "recorded_already_had_extra": already,
     }
-    return system, user, diagnostics
+    return system, user, diagnostics, history
 
 
 def main() -> int:
@@ -93,6 +113,9 @@ def main() -> int:
                         help="comma list, run in order")
     parser.add_argument("--transcript", default=str(DEFAULT_TRANSCRIPT))
     parser.add_argument("--timeout", type=float, default=240.0)
+    parser.add_argument("--last-turn", action="store_true",
+                        help="rebuild the LAST recorded turn (heavy context) "
+                             "instead of the first")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -106,14 +129,18 @@ def main() -> int:
     if not transcript.is_file():
         print(f"transcript not found: {transcript}")
         return 2
-    system, user, diag = build_probe_input(transcript)
+    system, user, diag, history = build_probe_input(
+        transcript, last_turn=args.last_turn)
     print("=== SPLICE DIAGNOSTICS (no content printed) ===")
     for key, value in diag.items():
         print(f"{key}: {value}")
-    if diag["recorded_had_extra"]:
-        print("FATAL: the recorded system already carried a system_extra; the "
-              "splice would double it")
-        return 2
+    print(f"slug: {SLUG}")
+    if diag["recorded_already_had_extra"]:
+        print("note: the recording already carries the current system_extra; "
+              "the probe uses it verbatim (no double append)")
+    else:
+        print("note: the recording predates the current system_extra; the "
+              "probe appends it (as the engine would)")
     if args.dry_run:
         return 0
 
@@ -129,7 +156,7 @@ def main() -> int:
         print(f"\n=== EFFORT {effort} (sending, timeout {args.timeout}s) ===",
               flush=True)
         result = one_arm(base_url, api_key, effort, system, user,
-                         float(args.timeout))
+                         float(args.timeout), history=history, slug=SLUG)
         results.append(result)
         if result["ok"]:
             print(f"{effort}: answered in {result['secs']}s  "

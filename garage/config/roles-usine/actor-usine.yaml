@@ -21,7 +21,25 @@ look_ensemble: 1
 look_ensemble_temp: 0.8
 split_done_gate: true
 max_tokens: 65536
-reasoning_effort: "max"
+# "low", not "max": measured 2026-10-19 on the REAL heavy-context Actor
+# turn (probe_actor_effort.py --last-turn, 29801 prompt tokens, same bytes
+# for every arm):
+#     effort  secs  completion  reasoning_tokens
+#     none     99.3      14197            12768   <- "disable thinking" is
+#                                                         IGNORED by this
+#                                                         gateway: it thinks
+#                                                         anyway, the slowest
+#                                                         arm
+#     low       6.4        840              489   <- 5x faster than max
+#     max      33.8       5080             3960
+# So the effort knob IS honored here (the engine's "M3 ignores effort" note
+# does not apply to this gateway) and the ordering is low < max < none —
+# the opposite of the intuition that less effort means less thinking.
+# Two full low-arm samples produced COMPLETE, careful edit programs (anchor
+# assertions, exact replacement blocks), so the speed does not cost quality
+# on this seat's real task.  Same-effort variance is still large (6.4s to
+# 72s), so the slice keeps its margin.
+reasoning_effort: "low"
 reasoning_max_tokens: 0
 reasoning_in_history: true
 temperature: 1.0
@@ -36,7 +54,7 @@ agent_decided_stop: true
 # room for a worst-case answer plus the work that follows it.
 max_iters: 120
 max_nudges: 25
-wall_clock_secs: 650
+wall_clock_secs: 780
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""

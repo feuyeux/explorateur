@@ -22,7 +22,7 @@ agent_decided_stop: true
 max_iters: 120
 # Inert in v2; retained for already-loaded v1 Verifier compatibility.
 max_nudges: 25
-wall_clock_secs: 300
+wall_clock_secs: 280
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180

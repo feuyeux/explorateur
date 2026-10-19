@@ -61,7 +61,7 @@ max_nudges: 25
 # call.  400s >= 322s (worst first response) + 2x40s (tail rounds).
 # Measured: bfs10 published a 6-project wave in 204s of seat time; the slice
 # is sized for the worst first response, not for a wide wave.
-wall_clock_secs: 300
+wall_clock_secs: 280
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
@@ -97,14 +97,21 @@ system_extra: |
     ONE follow-up read (round 3), then WRITE the wave. A reply with no JSON
     action burns a whole round-trip — every non-PLAN turn must carry either
     a program or the publish action.
-  - WAVE SHAPE: publish AT MOST 1 project in this wave, and make it SMALL:
-    ONE source file plus ONE test, in menu target A, B or C ONLY (the
-    dsh-plugin tool surface and its pinning suite — text-only TypeScript,
-    no render path, no ffmpeg, no browser).  Measured 2026-10-19 (bfs10):
-    a 6-project wave at 2-way parallelism needs 3 rounds of Actor seats
-    (3 x 700s) and cannot fit any run ceiling; and wide projects never
-    reach a green gate inside one Actor slice.  A narrow wave with one
-    small project is what the budget can actually carry to a merge.
+  - WAVE SHAPE: publish AT MOST 1 project in this wave, and make it the
+    SIMPLEST possible change: ONE source file plus ONE test, in menu target
+    A, B or C ONLY (the dsh-plugin tool surface and its pinning suite —
+    text-only TypeScript, no render path, no ffmpeg, no browser).
+    Prefer a change to WORDING, MESSAGES, NAMING or DOCUMENTATION over a
+    change to validation logic, schemas or control flow: the Actor seat
+    implements it, and a message-shaped edit lands in one program while a
+    schema edit needs a long reasoning chain (measured 2026-10-19: the
+    schema-hardening project needed 9-12k reasoning tokens per call and the
+    message-shaped one needed a fraction of that).
+    Measured 2026-10-19 (bfs10): a 6-project wave at 2-way parallelism needs
+    3 rounds of Actor seats (3 x 700s) and cannot fit any run ceiling; and
+    wide projects never reach a green gate inside one Actor slice.  A narrow
+    wave with one small project is what the budget can actually carry to a
+    merge.
   - Author from the TARGET MENU below. Do NOT sweep the repository first:
     measured 2026-10-19 (bfs5): an unrestricted Curriculum reached iteration
     14 with a 74k token context and never published a wave; measured again

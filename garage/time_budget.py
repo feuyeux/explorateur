@@ -85,11 +85,13 @@ DEFAULT_RUN_CEILING_SECS = 1500
 #   merge      : gate (`pnpm verify`) + commit.  The gate is a real cost and
 #                must be inside the ceiling, not after it.
 #
-# The four slices sum to 1330s, and OVERHEAD_RESERVE_SECS (100s) brings the
-# plan to 1430s — 70s of slack under the 1500s ceiling.  A default plan that
-# does not FIT would fail closed on every run, so plan_budget asserts it.
+# The four slices sum to 1400s, and OVERHEAD_RESERVE_SECS (100s) brings the
+# plan to 1500s — the plan fills the ceiling exactly, so the ACTUAL spend
+# must be below it (measured: 36s of setup inside the deadline; bfs13 spent
+# 804s of 1500s).  A default plan that does not FIT would fail closed on
+# every run, so plan_budget asserts it.
 #
-# The accounting that fixes this split (measured, bfs10/bfs11 2026-10-19):
+# The accounting that fixes this split (measured, bfs10-bfs14 2026-10-19):
 #   * ONE project costs TWO Actor segments — the handoff segment (do the
 #     work) and the fresh-replay segment (a new context re-runs the
 #     candidate) — and the seat's wall clock is a BUDGET SHARED ACROSS
@@ -102,12 +104,13 @@ DEFAULT_RUN_CEILING_SECS = 1500
 #     wave width is agent-owned (wave_width_agent_owned) and the engine has
 #     no width cap, so the width is bounded HERE, in the seat prompt: one
 #     small project per wave.
-#   * curriculum measured 204s (bfs10, 6 projects), 262s (bfs11, 1 project)
-#     and 168s (bfs13, 1 project) of seat time; 300s covers the worst
-#     recorded first response (322s was on a different seat/day) plus the
-#     authoring tail, and hands the slack to the Verifier, which is the
-#     seat that runs out of budget (bfs12: 250s, bfs13: 250s, both cut
-#     short of a VERDICT while the gate was already green).
+#   * curriculum measured 168s (bfs13) and 262s (bfs11) of seat time for a
+#     ONE-project wave; 280s covers both.
+#   * actor measured 332s (bfs13, 18 iterations) and 633s (bfs14, 8
+#     iterations at 9-12k reasoning tokens per call); 780s covers the slow
+#     mode.
+#   * verifier measured 275s (bfs13, with 45% of its turns wasted on native
+#     tool envelopes) and was still short of a VERDICT; 280s covers it.
 #
 # bfs8 postmortem (2026-10-19 18:43): the 400s curriculum slice was spent as
 # 71s + 58s + 74s + 17s + 151s + 358s = 728s across six iterations.  The wave
@@ -127,10 +130,10 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # runs that died were all killed by a slice expiring before the model had
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
-    "curriculum": 300,
-    "actor": 650,
-    "verifier": 300,
-    "merge": 80,
+    "curriculum": 280,
+    "actor": 780,
+    "verifier": 280,
+    "merge": 60,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a
