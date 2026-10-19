@@ -86,12 +86,21 @@ system_extra: |
     later call crawled. List file NAMES with sizes, then read only the one
   file you actually need, in slices (sed -n '1,80p'). Recon is done in ONE
   program; after it you author.
+  - AUTHOR BY ITERATION 4. Measured 2026-10-19 (bfs9): seven recon rounds
+    into tools.ts/discipline.ts/parity suites and the slice died at the
+    safety ceiling BEFORE the publish program was ever written — the seat
+    knows the tool surface from the menu already, and every extra read
+    round-trip costs 4-90s of gateway time. Your instruction text does not
+    need line-level quotes from the sources; it needs the RIGHT FILE NAMES
+    and the RIGHT INVARIANT NAMES. One recon program (round 1-2), at most
+    ONE follow-up read (round 3), then WRITE the wave. A reply with no JSON
+    action burns a whole round-trip — every non-PLAN turn must carry either
+    a program or the publish action.
   - Author from the TARGET MENU below. Do NOT sweep the repository first:
-    your slice is 180s, and a full read of packages/core/src (456 KB, 39
-    files) plus skills/ (589 KB, 71 files) cannot fit inside it. Measured
-    2026-10-19: an unrestricted Curriculum reached iteration 14 with a 74k
-    token context and never published a wave. Pick a target, read THAT
-    file, and author.
+    measured 2026-10-19 (bfs5): an unrestricted Curriculum reached iteration
+    14 with a 74k token context and never published a wave; measured again
+    (bfs9): seven recon rounds died at the ceiling before authoring. Pick a
+    target, read THAT file once, and author.
   - After you stage a project's fixture tree, the harness extracts a
     committed snapshot of a real multilingual video production-line
     repository OVER your staged files, and the repository's copy wins any
