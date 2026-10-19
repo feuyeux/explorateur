@@ -178,6 +178,36 @@ BRS 是并行广度，DRS 是串行深度（论文 RSIAgent §2.2）。DRS **必
 - 结果载荷带 `drs_delta`：基线/终态 tree hash、文件数增量、`memory_changed`。
   论文 §3.2 指出增长包含收缩（整合记录会替换多条旧记录），所以判据是
   **tree 变化**，不是体积增长。
+- DRS **不合并进 usine**：串行核发的是 `PROJECT_CLOSED` 而不是
+  `PHASE1_WAVE_COMPLETED`，wave-merge 的事件入口不触发。DRS 的产出是记忆，
+  不是代码。
+
+#### 5.1 DRS 有自己的运行上限，而且它的切片必须真的生效
+
+DRS 不是 Phase-1 的同一份活：出题席做的是**复盘**（不是出波），Actor 面对
+的是**更深的任务**（记忆已存在，要往深里钻），记忆相位要重写那棵记忆。
+两者共用一套切片必然错配。
+
+实测（2026-10-20，四次 DRS）给出的席位成本：出题复盘 152s、Actor 805s
+（31 轮、四份交付物）、验证 ~150s、记忆 277s——**零余量就已经 1384s**，
+1400s 的席位预算根本放不下。所以 DRS 有自己的上限（`time_budget.
+DRS_RUN_CEILING_SECS`，当前 2100s）与自己的切片计划
+（`time_budget.DRS_SLICES`：400/900/280/320/20 = 1920s）。Phase-1 仍是
+1500s / 280-580-420-120，两条路径互不影响。
+
+两个反复踩到的坑，**都该被冒烟钉住而不是靠真跑发现**：
+
+- **切片是天花板，不是地板。** `apply_slices` 只会把席位**收紧**到切片，
+  绝不会放松它自己声明的 `wall_clock_secs`。所以一个席位自己的配置如果比
+  计划切片更小，它会静默按那个更小的数跑——计划里的分配就是一句空话。
+  实测踩了两次：出题席自声明 280s 把 DRS 的 400s 夹回；Actor 席自声明
+  780s 把 DRS 的 900s 夹回。`smoke_time_budget` 现在用**真实角色配置**断言
+  每个计划切片都是**实际生效**的墙钟。
+- **DRS 的验证席接线与 Phase-1 不同。** 串行核的 `agentic_verifier_cfg` 要
+  的是**验证席控制档**（它用 `agentic_verifier_config` 指向验证 Agent 档），
+  传成 Agent 档本身会在 Actor 烧完整轮预算之后才炸：
+  "Phase-1 Agentic Verifier control config is missing"（实测 1158s）。
+  现在有 `_check_drs_wiring()` 在**开跑前** fail-closed。
 
 ## 二、怎么校验自进化产物
 
