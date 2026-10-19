@@ -1,0 +1,372 @@
+{
+  "episode": 9,
+  "slug": "ramen",
+  "title_zh": "拉面",
+  "title_en": "RAMEN",
+  "origin_locale": "zh-CN",
+  "series_sub": "各国美食名称 · 第 09 期",
+  "spine": "拉面是汉字先出发的：日本把「拉面」读成ラーメン，韩国再从日语借成라멘，一碗面绕了地球一圈。",
+  "chain": "汉语 拉面（词源）→ 日语 ラーメン（借自汉语）→ 韩语 라멘（借自日语）→ 英语 ramen / 德语 Ramen / 法语 ramen / 西语 ramen / 俄语 рамен / 希腊语 Ράμεν / 印地语 रामेन / 阿拉伯语 رامن / 希伯来语 ראמן（各按自己的音系再念一遍）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "拉面",
+      "inline": "拉面",
+      "zhuyin": [
+        [
+          "拉",
+          "<span class=\"c\">ㄌ</span><span class=\"v\">ㄚ</span>"
+        ],
+        [
+          "面",
+          "<span class=\"c\">ㄇ</span><span class=\"v\">ㄧㄢ</span><span class=\"n\">ˋ</span>"
+        ]
+      ],
+      "tag": "词源",
+      "translit_html": "<span class=\"c\">l</span><span class=\"v\">ā</span> <span class=\"c\">m</span><span class=\"v\">i</span><span class=\"c\">à</span><span class=\"v\">n</span>",
+      "sentence": "拉面是一种带汤的面条",
+      "tokens": [
+        "拉面",
+        "是",
+        "一种",
+        "带汤的",
+        "面条"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "ramen",
+      "inline": "Ramen",
+      "tag": "借自日语",
+      "translit_html": "/ˈræmən/",
+      "sentence": "Ramen is a bowl of noodle soup",
+      "tokens": [
+        "Ramen",
+        "is",
+        "a",
+        "bowl",
+        "of",
+        "noodle",
+        "soup"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Ramen",
+      "inline": "Ramen",
+      "tag": "借自日语",
+      "translit_html": "/ˈʁaːmən/",
+      "sentence": "Ramen ist eine Nudelsuppe",
+      "tokens": [
+        "Ramen",
+        "ist",
+        "eine",
+        "Nudelsuppe"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "ramen",
+      "inline": "ramen",
+      "tag": "借自日语",
+      "translit_html": "/ʁa.mɛn/",
+      "sentence": "Le ramen est une soupe de nouilles",
+      "tokens": [
+        "Le",
+        "ramen",
+        "est",
+        "une",
+        "soupe",
+        "de",
+        "nouilles"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "ramen",
+      "inline": "ramen",
+      "italic": true,
+      "tag": "借自日语 · 规范用斜体",
+      "translit_html": "/ɾaˈmen/",
+      "sentence": "El ramen es una sopa de fideos",
+      "tokens": [
+        "El",
+        "ramen",
+        "es",
+        "una",
+        "sopa",
+        "de",
+        "fideos"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "рамен",
+      "inline": "Рамен",
+      "tag": "借自日语",
+      "translit_html": "/ɐˈmʲen/",
+      "sentence": "Рамен — это лапша в бульоне",
+      "tokens": [
+        "Рамен",
+        "это",
+        "лапша",
+        "в",
+        "бульоне"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "Ράμεν",
+      "inline": "ράμεν",
+      "tag": "借自日语",
+      "translit_html": "/ˈɾamen/",
+      "sentence": "Το ράμεν είναι μια σούπα με νουδλάκια",
+      "tokens": [
+        "Το",
+        "ράμεν",
+        "είναι",
+        "μια",
+        "σούπα",
+        "με",
+        "νουδλάκια"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "रामेन",
+      "inline": "रामेन",
+      "tag": "借自日语",
+      "translit_html": "/ɾɑːmɛn/",
+      "sentence": "रामेन एक नूडल सूप है",
+      "tokens": [
+        "रामेन",
+        "एक",
+        "नूडल",
+        "सूप",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "رامن",
+      "inline": "رامن",
+      "tag": "借自日语",
+      "translit_html": "/ɾaːmin/",
+      "sentence": "رامن هو حساء نودلز",
+      "tokens": [
+        "رامن",
+        "هو",
+        "حساء",
+        "نودلز"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "ראמן",
+      "inline": "ראמן",
+      "tag": "借自日语",
+      "translit_html": "/ɾaˈmen/",
+      "sentence": "ראמן הוא מרק אטריות",
+      "tokens": [
+        "ראמן",
+        "הוא",
+        "מרק",
+        "אטריות"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "ラーメン",
+      "inline": "ラーメン",
+      "tag": "借自汉语 · 有争议",
+      "translit_html": "/ɾaːmen/",
+      "sentence": "ラーメンはスープ麺です",
+      "tokens": [
+        "ラーメン",
+        "は",
+        "スープ麺",
+        "です"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "라멘",
+      "inline": "라멘",
+      "ko_syllables": [
+        "라",
+        "멘"
+      ],
+      "tag": "借自日语",
+      "translit_html": "/ɾa.men/",
+      "sentence": "라멘은 국수입니다",
+      "tokens": [
+        "라멘",
+        "은",
+        "국수",
+        "입니다"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

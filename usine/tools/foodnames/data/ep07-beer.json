@@ -1,0 +1,369 @@
+{
+  "episode": 7,
+  "slug": "beer",
+  "title_zh": "啤酒",
+  "title_en": "BEER",
+  "origin_locale": "en-US",
+  "series_sub": "各国美食名称 · 第 07 期",
+  "spine": "啤酒的根只有一个，十二种语言却分成两派：绕道借来的，和压根没借的。",
+  "chain": "古英语 bēor（原始日耳曼语 *beuzą）→ 英语 beer / 德语 Bier → 各地（各格「来源」列写的是这一格直接借自谁）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "啤酒",
+      "inline": "啤酒",
+      "zhuyin": [
+        [
+          "啤",
+          "<span class=\"c\">ㄅ</span><span class=\"v\">ㄧ</span><span class=\"n\">ˊ</span>"
+        ],
+        [
+          "酒",
+          "<span class=\"c\">ㄐ</span><span class=\"v\">ㄧ</span><span class=\"v\">ㄡ</span><span class=\"n\">ˇ</span>"
+        ]
+      ],
+      "tag": "借自英语 · 或德语",
+      "translit_html": "<span class=\"c\">p</span><span class=\"v\">í</span><span class=\"c\">j</span><span class=\"v\">i</span><span class=\"c\">ǔ</span>",
+      "sentence": "啤酒是用麦芽酿的酒",
+      "tokens": [
+        "啤酒",
+        "是",
+        "用",
+        "麦芽",
+        "酿的",
+        "酒"
+      ],
+      "persona": {
+        "name": "苏念",
+        "latin": "Sū Niàn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "beer",
+      "inline": "Beer",
+      "tag": "词源 · 古英语",
+      "translit_html": "/ˈbɪr/",
+      "sentence": "Beer comes from an old English word",
+      "tokens": [
+        "Beer",
+        "comes",
+        "from",
+        "an",
+        "old",
+        "English",
+        "word"
+      ],
+      "persona": {
+        "name": "Elsie",
+        "latin": "Elsie"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Bier",
+      "inline": "Bier",
+      "tag": "词源 · 本族词",
+      "translit_html": "/ˈbiːɐ/",
+      "sentence": "Bier ist ein altes deutsches Wort",
+      "tokens": [
+        "Bier",
+        "ist",
+        "ein",
+        "altes",
+        "deutsches",
+        "Wort"
+      ],
+      "persona": {
+        "name": "Falk",
+        "latin": "Falk"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "bière",
+      "inline": "bière",
+      "tag": "借自荷兰语",
+      "translit_html": "/bjɛʁ/",
+      "sentence": "La bière vient du néerlandais bier",
+      "tokens": [
+        "La",
+        "bière",
+        "vient",
+        "du",
+        "néerlandais",
+        "bier"
+      ],
+      "persona": {
+        "name": "Auguste",
+        "latin": "Auguste"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "cerveza",
+      "inline": "cerveza",
+      "tag": "词源 · 拉丁源流",
+      "translit_html": "/θeɾˈθeza/",
+      "sentence": "La cerveza viene del latín cervisia",
+      "tokens": [
+        "La",
+        "cerveza",
+        "viene",
+        "del",
+        "latín",
+        "cervisia"
+      ],
+      "persona": {
+        "name": "Marisol",
+        "latin": "Marisol"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "пиво",
+      "inline": "Пиво",
+      "tag": "词源 · 本族词",
+      "translit_html": "<span class=\"c\">p</span><span class=\"v\">i</span> <span class=\"c\">v</span><span class=\"v\">ə</span>",
+      "sentence": "Пиво — это древнее славянское слово",
+      "tokens": [
+        "Пиво",
+        "это",
+        "древнее",
+        "славянское",
+        "слово"
+      ],
+      "persona": {
+        "name": "Ольга",
+        "latin": "Olga"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "μπύρα",
+      "inline": "μπύρα",
+      "tag": "借自意大利语",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">i</span> <span class=\"c\">r</span><span class=\"v\">a</span>",
+      "sentence": "Η μπύρα προέρχεται από την ιταλική birra",
+      "tokens": [
+        "Η",
+        "μπύρα",
+        "προέρχεται",
+        "από",
+        "την",
+        "ιταλική",
+        "birra"
+      ],
+      "persona": {
+        "name": "Πέτρος",
+        "latin": "Petros"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "बियर",
+      "inline": "बियर",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">i</span><span class=\"c\">y</span><span class=\"v\">ar</span>",
+      "sentence": "बियर अंग्रेज़ी शब्द है",
+      "tokens": [
+        "बियर",
+        "अंग्रेज़ी",
+        "शब्द",
+        "है"
+      ],
+      "persona": {
+        "name": "संजय",
+        "latin": "Sanjay"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "بيرة",
+      "inline": "البيرة",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">ī</span> <span class=\"c\">r</span><span class=\"v\">a</span>",
+      "sentence": "البيرة مشروب من الشعير",
+      "tokens": [
+        "البيرة",
+        "مشروب",
+        "من",
+        "الشعير"
+      ],
+      "persona": {
+        "name": "سامي",
+        "latin": "Sami"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "בירה",
+      "inline": "בירה",
+      "tag": "借自英语 · 或德语",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">i</span> <span class=\"c\">r</span><span class=\"v\">a</span>",
+      "sentence": "בירה היא משקה אלכוהולי",
+      "tokens": [
+        "בירה",
+        "היא",
+        "משקה",
+        "אלכוהולי"
+      ],
+      "persona": {
+        "name": "עדי",
+        "latin": "Adi"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "ビール",
+      "inline": "ビール",
+      "tag": "借自荷兰语",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">ī</span> <span class=\"c\">r</span><span class=\"v\">u</span>",
+      "sentence": "ビールはオランダ語の借用語です",
+      "tokens": [
+        "ビールは",
+        "オランダ語の",
+        "借用語です"
+      ],
+      "persona": {
+        "name": "悠真",
+        "latin": "Yūma"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "맥주",
+      "inline": "맥주",
+      "ko_syllables": [
+        "맥",
+        "주"
+      ],
+      "tag": "词源 · 本族词",
+      "translit_html": "<span class=\"c\">m</span><span class=\"v\">aek</span> <span class=\"c\">j</span><span class=\"v\">u</span>",
+      "sentence": "맥주는 한국 본토어입니다",
+      "tokens": [
+        "맥주는",
+        "한국",
+        "본토어입니다"
+      ],
+      "persona": {
+        "name": "수아",
+        "latin": "Sua"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

@@ -1,0 +1,372 @@
+{
+  "episode": 4,
+  "slug": "tomato",
+  "title_zh": "番茄",
+  "title_en": "TOMATO",
+  "origin_locale": "es-ES",
+  "series_sub": "各国美食名称 · 第 04 期",
+  "spine": "一道红色蔬菜，十二种叫法全是借来的——借完之后每个国家都按自己的菜谱改了名：中文叫「番茄」，字面意思是「外国茄子」。",
+  "chain": "纳瓦特尔语 tomatl → 西班牙语 tomate → 全世界（各国再按本地食材改叫：中文自造「番茄／西红柿」、泰语 มะเขือเทศ、波斯语 گوجه‌فرنگی 说的都是「外国茄子」；希伯来语 1886 年自造 עגבנייה）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "番茄",
+      "inline": "番茄",
+      "zhuyin": [
+        [
+          "番",
+          "<span class=\"c\">ㄈ</span><span class=\"v\">ㄢ</span>"
+        ],
+        [
+          "茄",
+          "<span class=\"c\">ㄑ</span><span class=\"v\">ㄧ</span><span class=\"v\">ㄝ</span><span class=\"n\">ˊ</span>"
+        ]
+      ],
+      "tag": "自造词 · 意译",
+      "translit_html": "<span class=\"c\">f</span><span class=\"v\">ān</span><span class=\"c\">q</span><span class=\"v\">ié</span>",
+      "sentence": "番茄的意思是外国茄子",
+      "tokens": [
+        "番茄",
+        "的",
+        "意思",
+        "是",
+        "外国",
+        "茄子"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "tomato",
+      "inline": "Tomato",
+      "tag": "借自西班牙语",
+      "translit_html": "/təˈmeɪtoʊ/",
+      "sentence": "Tomato came from Spanish",
+      "tokens": [
+        "Tomato",
+        "came",
+        "from",
+        "Spanish"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Tomate",
+      "inline": "Tomate",
+      "tag": "借自法语或西语",
+      "translit_html": "/toˈmaːtə/",
+      "sentence": "Tomate kam aus dem Spanischen",
+      "tokens": [
+        "Tomate",
+        "kam",
+        "aus",
+        "dem",
+        "Spanischen"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "tomate",
+      "inline": "tomate",
+      "tag": "借自西班牙语",
+      "translit_html": "/tɔ.mat/",
+      "sentence": "La tomate vient de l'espagnol",
+      "tokens": [
+        "La",
+        "tomate",
+        "vient",
+        "de",
+        "l'espagnol"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "tomate",
+      "inline": "tomate",
+      "tag": "借自纳瓦特尔语",
+      "translit_html": "/toˈmate/",
+      "sentence": "El tomate viene del náhuatl",
+      "tokens": [
+        "El",
+        "tomate",
+        "viene",
+        "del",
+        "náhuatl"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "томат",
+      "inline": "Томат",
+      "tag": "借自西班牙语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">o</span><span class=\"c\">m</span><span class=\"v\">a</span><span class=\"c\">t</span>",
+      "sentence": "Томат пришёл из Испании",
+      "tokens": [
+        "Томат",
+        "пришёл",
+        "из",
+        "Испании"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "ντομάτα",
+      "inline": "ντομάτα",
+      "tag": "借自西班牙语",
+      "translit_html": "<span class=\"c\">n</span><span class=\"v\">t</span><span class=\"c\">o</span><span class=\"v\">m</span><span class=\"v\">á</span><span class=\"c\">t</span><span class=\"v\">a</span>",
+      "sentence": "Η ντομάτα ήρθε από την Ισπανία",
+      "tokens": [
+        "Η",
+        "ντομάτα",
+        "ήρθε",
+        "από",
+        "την",
+        "Ισπανία"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "टमाटर",
+      "inline": "टमाटर",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">o</span><span class=\"c\">m</span><span class=\"v\">ā</span><span class=\"c\">t</span><span class=\"c\">r</span>",
+      "sentence": "टमाटर अंग्रेज़ी से आया",
+      "tokens": [
+        "टमाटर",
+        "अंग्रेज़ी",
+        "से",
+        "आया"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "طماطم",
+      "inline": "طماطم",
+      "tag": "借自西班牙语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">u</span><span class=\"c\">m</span><span class=\"v\">ā</span><span class=\"c\">t</span><span class=\"v\">i</span><span class=\"c\">m</span>",
+      "sentence": "الطماطم جاءت من إسبانيا",
+      "tokens": [
+        "الطماطم",
+        "جاءت",
+        "من",
+        "إسبانيا"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "עגבנייה",
+      "inline": "עגבנייה",
+      "tag": "自造词 · 仿德语",
+      "translit_html": "<span class=\"c\">ag</span><span class=\"v\">v</span><span class=\"c\">n</span><span class=\"v\">i</span><span class=\"c\">y</span><span class=\"v\">á</span>",
+      "sentence": "עגבנייה נוצרה בעברית",
+      "tokens": [
+        "עגבנייה",
+        "נוצרה",
+        "בעברית"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "トマト",
+      "inline": "トマト",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">o</span><span class=\"c\">m</span><span class=\"v\">a</span><span class=\"c\">t</span><span class=\"v\">o</span>",
+      "sentence": "トマトは英語から来た",
+      "tokens": [
+        "トマト",
+        "は",
+        "英語",
+        "から",
+        "来た"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "토마토",
+      "inline": "토마토",
+      "ko_syllables": [
+        "토",
+        "마",
+        "토"
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">o</span><span class=\"c\">m</span><span class=\"v\">a</span><span class=\"c\">t</span><span class=\"v\">o</span>",
+      "sentence": "토마토는 영어에서 왔어요",
+      "tokens": [
+        "토마토는",
+        "영어에서",
+        "왔어요"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ],
+  "extra_facts": {
+    "hebrew_coinage_year": 1886
+  }
+}

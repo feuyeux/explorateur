@@ -4,3 +4,6 @@ lib/
 *.tsbuildinfo
 .turbo/
 coverage/
+
+# QA 副产物：海报抽格对比图（临时裁剪，验完即弃）
+.tmp_*.png

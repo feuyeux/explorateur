@@ -1,0 +1,362 @@
+{
+  "episode": 3,
+  "slug": "tea",
+  "title_zh": "茶",
+  "title_en": "TEA",
+  "origin_locale": "zh-CN",
+  "series_sub": "各国美食名称 · 第 03 期",
+  "spine": "十二种叫法里，看着最像本地词的那两个——日语「ちゃ」、韩语「차」——恰恰都是借自中文的；倒是不怎么绕的英语 tea，是荷兰人替中文先译的。",
+  "chain": "中国 茶 → 闽南语 tê → 荷兰语 thee → 英语 tea ／ 西语 té；中国 茶 → 波斯语 چای → 印地语 चाय ／ 阿拉伯语 شاي；中国 茶 → 奥斯曼土耳其语 çay → 俄语 чай ／ 希腊语 τσάι；中国 茶 → 中古汉语 → 日语 ちゃ ／ 韩语 차（各格「来源」列写的是这一格自己的直接来路）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "茶",
+      "inline": "茶",
+      "zhuyin": [
+        [
+          "茶",
+          "<span class=\"c\">ㄔ</span><span class=\"v\">ㄚ</span><span class=\"n\">ˊ</span>"
+        ]
+      ],
+      "tag": "词源 · 有争议",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">á</span>",
+      "sentence": "茶最早起源于中国",
+      "tokens": [
+        "茶",
+        "最早",
+        "起源于",
+        "中国"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "tea",
+      "inline": "Tea",
+      "tag": "借自荷兰语",
+      "translit_html": "/tiː/",
+      "sentence": "Tea came from China",
+      "tokens": [
+        "Tea",
+        "came",
+        "from",
+        "China"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Tee",
+      "inline": "Tee",
+      "tag": "借自荷兰语",
+      "translit_html": "/teː/",
+      "sentence": "Tee kam aus China",
+      "tokens": [
+        "Tee",
+        "kam",
+        "aus",
+        "China"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "thé",
+      "inline": "thé",
+      "tag": "借自荷兰语",
+      "translit_html": "/te/",
+      "sentence": "Le thé vient de Chine",
+      "tokens": [
+        "Le",
+        "thé",
+        "vient",
+        "de",
+        "Chine"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "té",
+      "inline": "té",
+      "tag": "借自闽南语",
+      "translit_html": "/te/",
+      "sentence": "El té viene de China",
+      "tokens": [
+        "El",
+        "té",
+        "viene",
+        "de",
+        "China"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "чай",
+      "inline": "Чай",
+      "tag": "借自奥斯曼土耳其语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">ay</span>",
+      "sentence": "Чай пришёл из Китая",
+      "tokens": [
+        "Чай",
+        "пришёл",
+        "из",
+        "Китая"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "τσάι",
+      "inline": "τσάι",
+      "tag": "借自奥斯曼土耳其语",
+      "translit_html": "<span class=\"c\">ts</span><span class=\"v\">á</span><span class=\"c\">i</span>",
+      "sentence": "Το τσάι έρχεται από την Κίνα",
+      "tokens": [
+        "Το",
+        "τσάι",
+        "έρχεται",
+        "από",
+        "την",
+        "Κίνα"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "चाय",
+      "inline": "चाय",
+      "tag": "借自古典波斯语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">āy</span>",
+      "sentence": "चाय चीन से आई है",
+      "tokens": [
+        "चाय",
+        "चीन",
+        "से",
+        "आई",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "شاي",
+      "inline": "شاي",
+      "tag": "借自波斯语",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">āy</span>",
+      "sentence": "الشاي جاء من الصين",
+      "tokens": [
+        "الشاي",
+        "جاء",
+        "من",
+        "الصين"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "תה",
+      "inline": "תה",
+      "tag": "借自西欧语言",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">e</span>",
+      "sentence": "תה הגיע מסין",
+      "tokens": [
+        "תה",
+        "הגיע",
+        "מסין"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "茶",
+      "inline": "茶",
+      "word_html": "<ruby>茶<rt>ちゃ</rt></ruby>",
+      "tag": "借自中古汉语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">a</span>",
+      "sentence": "茶は中国から来た",
+      "tokens": [
+        "茶",
+        "は",
+        "中国",
+        "から",
+        "来た"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "차",
+      "inline": "차",
+      "ko_syllables": [
+        "차"
+      ],
+      "tag": "借自汉语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">a</span>",
+      "sentence": "차는 중국에서 왔어요",
+      "tokens": [
+        "차는",
+        "중국에서",
+        "왔어요"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

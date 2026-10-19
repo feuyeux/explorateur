@@ -1,0 +1,370 @@
+{
+  "episode": 6,
+  "slug": "curry",
+  "title_zh": "咖喱",
+  "title_en": "CURRY",
+  "origin_locale": "en-US",
+  "series_sub": "各国美食名称 · 第 06 期",
+  "spine": "同一个词走了半个地球，12 种语言里只剩两种还记得它是从哪儿来的。",
+  "chain": "泰米尔语 கரி (kari) → 英语 curry → 全世界（各格「来源」列写的是这一格直接借自谁）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "咖喱",
+      "inline": "咖喱",
+      "zhuyin": [
+        [
+          "咖",
+          "<span class=\"c\">ㄎ</span><span class=\"v\">ㄚ</span>"
+        ],
+        [
+          "喱",
+          "<span class=\"c\">ㄌ</span><span class=\"v\">ㄧ</span><span class=\"n\">ˊ</span>"
+        ]
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ā</span> <span class=\"c\">l</span><span class=\"v\">í</span>",
+      "sentence": "咖喱是南亚用香料做的菜",
+      "tokens": [
+        "咖喱",
+        "是",
+        "南亚",
+        "用",
+        "香料",
+        "做的",
+        "菜"
+      ],
+      "persona": {
+        "name": "沈知微",
+        "latin": "Shěn Zhīwēi"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "curry",
+      "inline": "Curry",
+      "tag": "借自泰米尔语",
+      "translit_html": "/ˈkɝi/",
+      "sentence": "Curry is a spiced South Asian dish",
+      "tokens": [
+        "Curry",
+        "is",
+        "a",
+        "spiced",
+        "South",
+        "Asian",
+        "dish"
+      ],
+      "persona": {
+        "name": "Nora",
+        "latin": "Nora"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Curry",
+      "inline": "Curry",
+      "tag": "借自英语",
+      "translit_html": "/ˈkœʁi/",
+      "sentence": "Curry ist ein scharfes indisches Gericht",
+      "tokens": [
+        "Curry",
+        "ist",
+        "ein",
+        "scharfes",
+        "indisches",
+        "Gericht"
+      ],
+      "persona": {
+        "name": "Jonas",
+        "latin": "Jonas"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "curry",
+      "inline": "curry",
+      "tag": "借自英语",
+      "translit_html": "/ky.ʁi/",
+      "sentence": "Le curry est un plat épicé",
+      "tokens": [
+        "Le",
+        "curry",
+        "est",
+        "un",
+        "plat",
+        "épicé"
+      ],
+      "persona": {
+        "name": "Rémi",
+        "latin": "Rémi"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "curri",
+      "inline": "curri",
+      "tag": "借自英语",
+      "translit_html": "/ˈkuɾi/",
+      "sentence": "El curri es un plato especiado",
+      "tokens": [
+        "El",
+        "curri",
+        "es",
+        "un",
+        "plato",
+        "especiado"
+      ],
+      "persona": {
+        "name": "Inés",
+        "latin": "Inés"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "карри",
+      "inline": "Карри",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span><span class=\"c\">r</span><span class=\"v\">r</span><span class=\"c\">i</span>",
+      "sentence": "Карри — это индийская пряность",
+      "tokens": [
+        "Карри",
+        "это",
+        "индийская",
+        "пряность"
+      ],
+      "persona": {
+        "name": "Вера",
+        "latin": "Vera"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "κάρι",
+      "inline": "κάρι",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">r</span><span class=\"v\">i</span>",
+      "sentence": "Το κάρι είναι ινδικό μπαχαρικό",
+      "tokens": [
+        "Το",
+        "κάρι",
+        "είναι",
+        "ινδικό",
+        "μπαχαρικό"
+      ],
+      "persona": {
+        "name": "Γιώργος",
+        "latin": "Giorgos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "करी",
+      "inline": "करी",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">r</span><span class=\"v\">ī</span>",
+      "sentence": "करी एक मसालेदार व्यंजन है",
+      "tokens": [
+        "करी",
+        "एक",
+        "मसालेदार",
+        "व्यंजन",
+        "है"
+      ],
+      "persona": {
+        "name": "विक्रम",
+        "latin": "Vikram"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "كاري",
+      "inline": "الكاري",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ā</span> <span class=\"c\">r</span><span class=\"v\">ī</span>",
+      "sentence": "الكاري نوع من التوابل الهندية",
+      "tokens": [
+        "الكاري",
+        "نوع",
+        "من",
+        "التوابل",
+        "الهندية"
+      ],
+      "persona": {
+        "name": "كريم",
+        "latin": "Karim"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "קארי",
+      "inline": "קארי",
+      "tag": "借自泰米尔语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">r</span><span class=\"v\">ī</span>",
+      "sentence": "קארי הוא תבלין הודי",
+      "tokens": [
+        "קארי",
+        "הוא",
+        "תבלין",
+        "הודי"
+      ],
+      "persona": {
+        "name": "תמר",
+        "latin": "Tamar"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "カレー",
+      "inline": "カレー",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">r</span><span class=\"v\">ē</span>",
+      "sentence": "カレーはインド風の料理です",
+      "tokens": [
+        "カレーは",
+        "インド風の",
+        "料理です"
+      ],
+      "persona": {
+        "name": "健太",
+        "latin": "Kenta"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "카레",
+      "inline": "카레",
+      "ko_syllables": [
+        "카",
+        "레"
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">r</span><span class=\"v\">e</span>",
+      "sentence": "카레는 향신료가 들어간 음식입니다",
+      "tokens": [
+        "카레는",
+        "향신료가",
+        "들어간",
+        "음식입니다"
+      ],
+      "persona": {
+        "name": "하윤",
+        "latin": "Ha-yoon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

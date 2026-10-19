@@ -1,0 +1,373 @@
+{
+  "episode": 5,
+  "slug": "chocolate",
+  "title_zh": "巧克力",
+  "title_en": "CHOCOLATE",
+  "origin_locale": "es-ES",
+  "series_sub": "各国美食名称 · 第 05 期",
+  "spine": "「巧克力」这三个字是从英语音译来的，最早在上海话里叫开；而它真正的祖宗，学者吵了几百年还没定。",
+  "chain": "纳瓦特尔语 chocolātl（怎么来的有争议）→ 西班牙语 chocolate → 英语 chocolate ／ 法语 chocolat ／ 荷兰语 chocolade → 德语 Schokolade → 俄语 шоколад → 希伯来语 שוקולד；英语 chocolate → 上海话 → 汉语 巧克力；英语 chocolate → 日语 チョコレート ／ 韩语 초콜릿（各格「来源」列写的是这一格自己的直接来路）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "巧克力",
+      "inline": "巧克力",
+      "zhuyin": [
+        [
+          "巧",
+          "<span class=\"c\">ㄑ</span><span class=\"v\">ㄧ</span><span class=\"v\">ㄠ</span><span class=\"n\">ˇ</span>"
+        ],
+        [
+          "克",
+          "<span class=\"c\">ㄎ</span><span class=\"v\">ㄜ</span><span class=\"n\">ˋ</span>"
+        ],
+        [
+          "力",
+          "<span class=\"c\">ㄌ</span><span class=\"v\">ㄧ</span><span class=\"n\">ˋ</span>"
+        ]
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">q</span><span class=\"v\">iǎo</span><span class=\"c\">k</span><span class=\"v\">è</span><span class=\"c\">l</span><span class=\"v\">ì</span>",
+      "sentence": "巧克力最早在上海话里流行",
+      "tokens": [
+        "巧克力",
+        "最早",
+        "在",
+        "上海话",
+        "里",
+        "流行"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "chocolate",
+      "inline": "Chocolate",
+      "tag": "借自西班牙语",
+      "translit_html": "/ˈtʃɒklət/",
+      "sentence": "Chocolate came from Spanish",
+      "tokens": [
+        "Chocolate",
+        "came",
+        "from",
+        "Spanish"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Schokolade",
+      "inline": "Schokolade",
+      "tag": "借自荷兰语",
+      "translit_html": "/ʃokoˈlaːdə/",
+      "sentence": "Schokolade kam aus dem Niederländischen",
+      "tokens": [
+        "Schokolade",
+        "kam",
+        "aus",
+        "dem",
+        "Niederländischen"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "chocolat",
+      "inline": "chocolat",
+      "tag": "借自西班牙语",
+      "translit_html": "/ʃɔ.kɔ.la/",
+      "sentence": "Le chocolat vient de l'espagnol",
+      "tokens": [
+        "Le",
+        "chocolat",
+        "vient",
+        "de",
+        "l'espagnol"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "chocolate",
+      "inline": "chocolate",
+      "tag": "借自纳瓦特尔语",
+      "translit_html": "/tʃoˈkolate/",
+      "sentence": "El chocolate viene del náhuatl",
+      "tokens": [
+        "El",
+        "chocolate",
+        "viene",
+        "del",
+        "náhuatl"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "шоколад",
+      "inline": "Шоколад",
+      "tag": "借自德语",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">o</span><span class=\"c\">k</span><span class=\"v\">o</span><span class=\"c\">l</span><span class=\"v\">á</span><span class=\"c\">d</span>",
+      "sentence": "Шоколад пришёл из Германии",
+      "tokens": [
+        "Шоколад",
+        "пришёл",
+        "из",
+        "Германии"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "persona_class": "f-west",
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "σοκολάτα",
+      "inline": "σοκολάτα",
+      "tag": "借自法语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">o</span><span class=\"c\">k</span><span class=\"v\">o</span><span class=\"c\">l</span><span class=\"v\">á</span><span class=\"c\">t</span><span class=\"v\">a</span>",
+      "sentence": "Η σοκολάτα έρχεται από τη Γαλλία",
+      "tokens": [
+        "Η",
+        "σοκολάτα",
+        "έρχεται",
+        "από",
+        "τη",
+        "Γαλλία"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "persona_class": "f-west",
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "चॉकलेट",
+      "inline": "चॉकलेट",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">ō</span><span class=\"c\">k</span><span class=\"v\">l</span><span class=\"v\">e</span><span class=\"c\">ṭ</span>",
+      "sentence": "चॉकलेट अंग्रेज़ी से आया",
+      "tokens": [
+        "चॉकलेट",
+        "अंग्रेज़ी",
+        "से",
+        "आया"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "شوكولاتة",
+      "inline": "شوكولاتة",
+      "tag": "借自西班牙语",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">u</span><span class=\"c\">k</span><span class=\"v\">u</span><span class=\"c\">l</span><span class=\"v\">ā</span><span class=\"c\">t</span><span class=\"v\">a</span>",
+      "sentence": "الشوكولاتة جاءت من إسبانيا",
+      "tokens": [
+        "الشوكولاتة",
+        "جاءت",
+        "من",
+        "إسبانيا"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "שוקולד",
+      "inline": "שוקולד",
+      "tag": "借自俄语",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">o</span><span class=\"c\">k</span><span class=\"v\">o</span><span class=\"c\">l</span><span class=\"v\">á</span><span class=\"c\">d</span>",
+      "sentence": "שוקולד הגיע מרוסיה",
+      "tokens": [
+        "שוקולד",
+        "הגיע",
+        "מרוסיה"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "チョコレート",
+      "inline": "チョコレート",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">o</span><span class=\"c\">k</span><span class=\"v\">o</span><span class=\"c\">r</span><span class=\"v\">ē</span><span class=\"c\">t</span><span class=\"v\">o</span>",
+      "sentence": "チョコレートは英語から来た",
+      "tokens": [
+        "チョコレート",
+        "は",
+        "英語",
+        "から",
+        "来た"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "초콜릿",
+      "inline": "초콜릿",
+      "ko_syllables": [
+        "초",
+        "콜",
+        "릿"
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">o</span><span class=\"c\">k</span><span class=\"c\">o</span><span class=\"c\">l</span><span class=\"v\">i</span><span class=\"c\">t</span>",
+      "sentence": "초콜릿은 영어에서 왔어요",
+      "tokens": [
+        "초콜릿은",
+        "영어에서",
+        "왔어요"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

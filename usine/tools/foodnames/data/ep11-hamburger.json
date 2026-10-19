@@ -1,0 +1,361 @@
+{
+  "episode": 11,
+  "slug": "hamburger",
+  "title_zh": "汉堡包",
+  "title_en": "HAMBURGER",
+  "origin_locale": "de-DE",
+  "series_sub": "各国美食名称 · 第 11 期",
+  "spine": "Hamburg 是德国一个城市名：它先变成「汉堡的人」，再变成汉堡这种食物；英语把这个德语词借走带去了美国，于是全世界现在说的是 hamburger——可这个词的根，在汉堡城。",
+  "chain": "德语 Hamburger（← 城市名 Hamburg）→ 英语 hamburger → 法语 hamburger / 西班牙语 hamburguesa / 俄语 гамбургер / 希腊语 χάμπουργκερ / 印地语 हैमबर्गर / 阿拉伯语 هامبرغر / 希伯来语 המבורגר / 日语 ハンバーガー / 韩语 햄버거 / 汉语 汉堡包（各格「来源」列写直接借词方向）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "汉堡包",
+      "inline": "汉堡包",
+      "zhuyin": [
+        [
+          "汉",
+          "<span class=\"c\">ㄏ</span><span class=\"v\">ㄢ</span>"
+        ],
+        [
+          "堡",
+          "<span class=\"c\">ㄅ</span><span class=\"v\">ㄠ</span>"
+        ],
+        [
+          "包",
+          "<span class=\"c\">ㄅ</span><span class=\"v\">ㄠ</span>"
+        ]
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">àn</span> <span class=\"c\">b</span><span class=\"v\">ǎo</span> <span class=\"c\">b</span><span class=\"v\">āo</span>",
+      "sentence": "汉堡包是一种三明治",
+      "tokens": [
+        "汉堡包",
+        "是",
+        "一种",
+        "三明治"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "hamburger",
+      "inline": "Hamburger",
+      "tag": "借自德语",
+      "translit_html": "/ˈhæm.bɜː.ɡə/",
+      "sentence": "Hamburger is a sandwich",
+      "tokens": [
+        "Hamburger",
+        "is",
+        "a",
+        "sandwich"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Hamburger",
+      "inline": "Hamburger",
+      "tag": "词源 · 地名派生",
+      "translit_html": "/ˈham.bʊʁ.ɡɐ/",
+      "sentence": "Ein Hamburger ist ein Sandwich",
+      "tokens": [
+        "Ein",
+        "Hamburger",
+        "ist",
+        "ein",
+        "Sandwich"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "hamburger",
+      "inline": "hamburger",
+      "tag": "借自英语",
+      "translit_html": "/ɑ̃.bœʁ.ɡœʁ/",
+      "sentence": "Le hamburger est un sandwich",
+      "tokens": [
+        "Le",
+        "hamburger",
+        "est",
+        "un",
+        "sandwich"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "hamburguesa",
+      "inline": "hamburguesa",
+      "tag": "借自英语",
+      "translit_html": "/amˈbuɾ.ɣe.sa/",
+      "sentence": "La hamburguesa es un sándwich",
+      "tokens": [
+        "La",
+        "hamburguesa",
+        "es",
+        "un",
+        "sándwich"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "гамбургер",
+      "inline": "Гамбургер",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">g</span><span class=\"v\">á</span><span class=\"c\">m</span><span class=\"v\">b</span><span class=\"c\">u</span><span class=\"v\">r</span><span class=\"c\">g</span><span class=\"v\">e</span><span class=\"c\">r</span>",
+      "sentence": "Гамбургер — это сэндвич",
+      "tokens": [
+        "Гамбургер",
+        "это",
+        "сэндвич"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "χάμπουργκερ",
+      "inline": "χάμπουργκερ",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">á</span><span class=\"c\">m</span><span class=\"v\">p</span><span class=\"c\">u</span><span class=\"v\">r</span><span class=\"c\">g</span><span class=\"v\">k</span><span class=\"c\">e</span><span class=\"v\">r</span>",
+      "sentence": "Το χάμπουργκερ είναι ένα σάντουιτς",
+      "tokens": [
+        "Το",
+        "χάμπουργκερ",
+        "είναι",
+        "ένα",
+        "σάντουιτς"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "हैमबर्गर",
+      "inline": "हैमबर्गर",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">ai</span> <span class=\"c\">m</span><span class=\"v\">b</span><span class=\"c\">ar</span> <span class=\"c\">g</span><span class=\"v\">er</span>",
+      "sentence": "हैमबर्गर एक सैंडविच है",
+      "tokens": [
+        "हैमबर्गर",
+        "एक",
+        "सैंडविच",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "هامبرغر",
+      "inline": "هامبرغر",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">ā</span><span class=\"c\">m</span><span class=\"v\">b</span><span class=\"c\">ur</span><span class=\"v\">gh</span><span class=\"c\">ar</span>",
+      "sentence": "الهامبرغر شطيرة لحم",
+      "tokens": [
+        "الهامبرغر",
+        "شطيرة",
+        "لحم"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "המבורגר",
+      "inline": "המבורגר",
+      "tag": "借自德语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">a</span><span class=\"c\">m</span><span class=\"v\">b</span><span class=\"c\">ur</span><span class=\"v\">g</span><span class=\"c\">er</span>",
+      "sentence": "המבורגר הוא כריך",
+      "tokens": [
+        "המבורגר",
+        "הוא",
+        "כריך"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "ハンバーガー",
+      "inline": "ハンバーガー",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">a</span><span class=\"c\">n</span><span class=\"v\">b</span> <span class=\"c\">ā</span><span class=\"v\">g</span> <span class=\"c\">ā</span>",
+      "sentence": "ハンバーガーはサンドイッチです",
+      "tokens": [
+        "ハンバーガー",
+        "は",
+        "サンドイッチ",
+        "です"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "햄버거",
+      "inline": "햄버거",
+      "ko_syllables": [
+        "햄",
+        "버",
+        "거"
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">h</span><span class=\"v\">aem</span><span class=\"c\">b</span><span class=\"v\">eo</span><span class=\"c\">g</span><span class=\"v\">eo</span>",
+      "sentence": "햄버거는 샌드위치입니다",
+      "tokens": [
+        "햄버거는",
+        "샌드위치",
+        "입니다"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

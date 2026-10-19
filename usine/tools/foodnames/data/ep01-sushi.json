@@ -1,0 +1,364 @@
+{
+  "episode": 1,
+  "slug": "sushi",
+  "title_zh": "寿司",
+  "title_en": "SUSHI",
+  "origin_locale": "ja-JP",
+  "series_sub": "各国美食名称 · 第 01 期",
+  "spine": "12 个写法里 11 个是从日语借的；唯一没借的那个（日语 すし）就是被借走的那个。",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "寿司",
+      "inline": "寿司",
+      "zhuyin": [
+        [
+          "寿",
+          "<span class=\"c\">ㄕ</span><span class=\"v\">ㄡ</span><span class=\"n\">ˋ</span>"
+        ],
+        [
+          "司",
+          "<span class=\"c\">ㄙ</span>"
+        ]
+      ],
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">òu</span> <span class=\"c\">s</span><span class=\"v\">ī</span>",
+      "sentence": "寿司是日本料理",
+      "tokens": [
+        "寿司",
+        "是",
+        "日本",
+        "料理"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "sushi",
+      "inline": "Sushi",
+      "tag": "借自日语",
+      "translit_html": "/ˈsuːʃi/",
+      "sentence": "Sushi is a Japanese dish",
+      "tokens": [
+        "Sushi",
+        "is",
+        "a",
+        "Japanese",
+        "dish"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 不发音 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Sushi",
+      "inline": "Sushi",
+      "tag": "借自日语",
+      "translit_html": "/ˈzuːʃi/",
+      "sentence": "Sushi ist japanisches Essen",
+      "tokens": [
+        "Sushi",
+        "ist",
+        "japanisches",
+        "Essen"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "sushi",
+      "inline": "sushi",
+      "tag": "借自日语",
+      "translit_html": "/sy.si/",
+      "sentence": "Le sushi est un plat japonais",
+      "tokens": [
+        "Le",
+        "sushi",
+        "est",
+        "un",
+        "plat",
+        "japonais"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "sushi",
+      "inline": "sushi",
+      "italic": true,
+      "tag": "借自日语 · 规范用斜体",
+      "translit_html": "/ˈsu.ʃi/",
+      "sentence": "El sushi es un plato japonés",
+      "tokens": [
+        "El",
+        "sushi",
+        "es",
+        "un",
+        "plato",
+        "japonés"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "суши",
+      "inline": "Суши",
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">ú</span> <span class=\"c\">sh</span><span class=\"v\">i</span>",
+      "sentence": "Суши, японское блюдо",
+      "tokens": [
+        "Суши",
+        "японское",
+        "блюдо"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "σούσι",
+      "inline": "σούσι",
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">oú</span> <span class=\"c\">s</span><span class=\"v\">i</span>",
+      "sentence": "Το σούσι είναι ιαπωνικό πιάτο",
+      "tokens": [
+        "Το",
+        "σούσι",
+        "είναι",
+        "ιαπωνικό",
+        "πιάτο"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "सुशी",
+      "inline": "सुशी",
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">u</span> <span class=\"c\">ś</span><span class=\"v\">ī</span>",
+      "sentence": "सुशी एक जापानी व्यंजन है",
+      "tokens": [
+        "सुशी",
+        "एक",
+        "जापानी",
+        "व्यंजन",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "سوشي",
+      "inline": "سوشي",
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">ū</span> <span class=\"c\">sh</span><span class=\"v\">ī</span>",
+      "sentence": "سوشي طبق ياباني",
+      "tokens": [
+        "سوشي",
+        "طبق",
+        "ياباني"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "סושי",
+      "inline": "סושי",
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">ú</span> <span class=\"c\">sh</span><span class=\"v\">i</span>",
+      "sentence": "סושי הוא מטבח יפני",
+      "tokens": [
+        "סושי",
+        "הוא",
+        "מטבח",
+        "יפני"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "すし",
+      "inline": "すし",
+      "tag": "和语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">u</span> <span class=\"c\">sh</span><span class=\"v\">i</span>",
+      "sentence": "すしは日本の料理です",
+      "tokens": [
+        "すし",
+        "は",
+        "日本",
+        "の",
+        "料理",
+        "です"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "스시",
+      "inline": "스시",
+      "ko_syllables": [
+        "스",
+        "시"
+      ],
+      "tag": "借自日语",
+      "translit_html": "<span class=\"c\">s</span><span class=\"v\">eu</span> <span class=\"c\">s</span><span class=\"v\">i</span>",
+      "sentence": "스시는 일본 요리입니다",
+      "tokens": [
+        "스시",
+        "는",
+        "일본",
+        "요리",
+        "입니다"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

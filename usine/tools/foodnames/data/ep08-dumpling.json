@@ -1,0 +1,371 @@
+{
+  "episode": 8,
+  "slug": "dumpling",
+  "title_zh": "饺子",
+  "title_en": "DUMPLING",
+  "origin_locale": "zh-CN",
+  "series_sub": "各国美食名称 · 第 08 期",
+  "spine": "饺子走遍世界，名字没跟着走：有的语言直接借了中文，有的借了英语和粤语，有的压根不知道这词跟中国没关系。",
+  "chain": "汉语 餃子 → 日语 餃子（ぎょうざ）/ 韩语 饅頭（만두）/ 希伯来语 מנטו；英语 dumpling 是十七世纪本族俗词，与汉语无关 → 各地（各格「来源」列写的是这一格直接借自谁）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "饺子",
+      "inline": "饺子",
+      "zhuyin": [
+        [
+          "饺",
+          "<span class=\"c\">ㄐ</span><span class=\"v\">ㄧ</span><span class=\"v\">ㄠ</span><span class=\"n\">ˇ</span>"
+        ],
+        [
+          "子",
+          "<span class=\"n\">˙</span><span class=\"c\">ㄗ</span>"
+        ]
+      ],
+      "tag": "词源",
+      "translit_html": "<span class=\"c\">j</span><span class=\"v\">iǎ</span> <span class=\"c\">z</span><span class=\"v\">i</span>",
+      "sentence": "饺子是包着馅儿的面食",
+      "tokens": [
+        "饺子",
+        "是",
+        "包着",
+        "馅儿",
+        "的",
+        "面食"
+      ],
+      "persona": {
+        "name": "温嘉",
+        "latin": "Wēn Jiā"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "dumpling",
+      "inline": "Dumpling",
+      "tag": "词源 · 十七世纪俗词",
+      "translit_html": "/ˈdʌmp.lɪŋ/",
+      "sentence": "Dumpling is an old English word",
+      "tokens": [
+        "Dumpling",
+        "is",
+        "an",
+        "old",
+        "English",
+        "word"
+      ],
+      "persona": {
+        "name": "Priya",
+        "latin": "Priya"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Knödel",
+      "inline": "Knödel",
+      "tag": "词源 · 本族词",
+      "translit_html": "/ˈknøːdl/",
+      "sentence": "Knödel kommt vom deutschen Wort Knoten",
+      "tokens": [
+        "Knödel",
+        "kommt",
+        "vom",
+        "deutschen",
+        "Wort",
+        "Knoten"
+      ],
+      "persona": {
+        "name": "Jakob",
+        "latin": "Jakob"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "dumpling",
+      "inline": "Dumpling",
+      "tag": "借自英语",
+      "translit_html": "/dœm.pliŋ/",
+      "sentence": "Dumpling est un emprunt à l'anglais",
+      "tokens": [
+        "Dumpling",
+        "est",
+        "un",
+        "emprunt",
+        "à",
+        "l'anglais"
+      ],
+      "persona": {
+        "name": "Yannick",
+        "latin": "Yannick"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "wantán",
+      "inline": "Wantán",
+      "tag": "借自粤语",
+      "translit_html": "/wanˈtan/",
+      "sentence": "Wantán es una empanadilla cantonesa",
+      "tokens": [
+        "Wantán",
+        "es",
+        "una",
+        "empanadilla",
+        "cantonesa"
+      ],
+      "persona": {
+        "name": "Rocío",
+        "latin": "Rocío"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "пельмень",
+      "inline": "Пельмень",
+      "tag": "词源 · 源自科米语",
+      "translit_html": "<span class=\"c\">pʲ</span><span class=\"v\">i</span><span class=\"c\">lʲ</span><span class=\"v\">mʲ</span><span class=\"c\">e</span><span class=\"v\">nʲ</span>",
+      "sentence": "Пельмень пришёл из языка коми",
+      "tokens": [
+        "Пельмень",
+        "пришёл",
+        "из",
+        "языка",
+        "коми"
+      ],
+      "persona": {
+        "name": "Нина",
+        "latin": "Nina"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "ραβιόλι",
+      "inline": "ραβιόλι",
+      "tag": "借自意大利语",
+      "translit_html": "<span class=\"c\">r</span><span class=\"v\">a</span> <span class=\"c\">v</span><span class=\"v\">io</span> <span class=\"c\">l</span><span class=\"v\">i</span>",
+      "sentence": "Το ραβιόλι είναι ιταλικό δάνειο",
+      "tokens": [
+        "Το",
+        "ραβιόλι",
+        "είναι",
+        "ιταλικό",
+        "δάνειο"
+      ],
+      "persona": {
+        "name": "Σταύρος",
+        "latin": "Stavros"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "मोमो",
+      "inline": "मोमो",
+      "tag": "借自藏语",
+      "translit_html": "<span class=\"c\">m</span><span class=\"v\">o</span> <span class=\"c\">m</span><span class=\"v\">o</span>",
+      "sentence": "मोमो भाप से पकने वाली डंपलिंग है",
+      "tokens": [
+        "मोमो",
+        "भाप",
+        "से",
+        "पकने",
+        "वाली",
+        "डंपलिंग",
+        "है"
+      ],
+      "persona": {
+        "name": "राहुल",
+        "latin": "Rahul"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "دامبلينغ",
+      "inline": "دامبلينغ",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">d</span><span class=\"v\">am</span> <span class=\"c\">b</span><span class=\"v\">līn</span> <span class=\"c\">gh</span>",
+      "sentence": "دامبلينغ فطيرة صينية محشوة",
+      "tokens": [
+        "دامبلينغ",
+        "فطيرة",
+        "صينية",
+        "محشوة"
+      ],
+      "persona": {
+        "name": "مروان",
+        "latin": "Marwan"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "מנטו",
+      "inline": "מנטו",
+      "tag": "借自汉语",
+      "translit_html": "<span class=\"c\">m</span><span class=\"v\">an</span> <span class=\"c\">t</span><span class=\"v\">u</span>",
+      "sentence": "מנטו הוא כיסוני בצק ממולא",
+      "tokens": [
+        "מנטו",
+        "הוא",
+        "כיסוני",
+        "בצק",
+        "ממולא"
+      ],
+      "persona": {
+        "name": "יעל",
+        "latin": "Yael"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "ギョーザ",
+      "inline": "ギョーザ",
+      "tag": "借自汉语",
+      "translit_html": "<span class=\"c\">g</span><span class=\"v\">yō</span> <span class=\"c\">z</span><span class=\"v\">a</span>",
+      "sentence": "ギョーザは中国語の餃子から借りました",
+      "tokens": [
+        "ギョーザは",
+        "中国語の",
+        "餃子から",
+        "借りました"
+      ],
+      "persona": {
+        "name": "颯太",
+        "latin": "Sōta"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "만두",
+      "inline": "만두",
+      "ko_syllables": [
+        "만",
+        "두"
+      ],
+      "tag": "词源 · 汉字 饅頭",
+      "translit_html": "<span class=\"c\">m</span><span class=\"v\">aen</span> <span class=\"c\">d</span><span class=\"v\">u</span>",
+      "sentence": "만두는 원래 중국 음식입니다",
+      "tokens": [
+        "만두는",
+        "원래",
+        "중국",
+        "음식입니다"
+      ],
+      "persona": {
+        "name": "유진",
+        "latin": "Yujin"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ]
+}

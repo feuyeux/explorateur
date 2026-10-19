@@ -1,0 +1,370 @@
+{
+  "episode": 12,
+  "slug": "fries",
+  "title_zh": "薯条",
+  "title_en": "FRIES",
+  "origin_locale": "fr-FR",
+  "series_sub": "各国美食名称 · 第 12 期",
+  "spine": "同一盘炸土豆，12 种语言给了 12 个名字：英语的 fries 前面还挂着一个国家名，德语整句是从法语搬来的，希伯来语借的是英国话，韩语则是两个本地词拼的。",
+  "chain": "英语 fries（French fried potatoes 的省略，1856）→ 法语 frites（pomme de terre frite 的省略）→ 德语 Pommes frites（20 世纪自法语借）/ 西班牙语 patatas fritas / 希腊语 τηγανητές πατάτες / 印地语 फ़्रेंच फ़्राइज़ / 阿拉伯语 بطاطا مقلية / 希伯来语 צ'יפס / 俄语 картофель фри / 日语 フライドポテト（和製英語）/ 韩语 감자튀김（감자＋튀김）/ 汉语 薯条（各格「来源」列写直接借词方向）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "薯条",
+      "inline": "薯条",
+      "zhuyin": [
+        [
+          "薯",
+          "<span class=\"c\">ㄕ</span><span class=\"v\">ㄨ</span>"
+        ],
+        [
+          "条",
+          "<span class=\"c\">ㄊ</span><span class=\"v\">ㄧ</span><span class=\"v\">ㄠ</span>"
+        ]
+      ],
+      "tag": "词源 · 中文造词",
+      "translit_html": "<span class=\"c\">sh</span><span class=\"v\">ǔ</span> <span class=\"c\">t</span><span class=\"v\">i</span><span class=\"v\">áo</span>",
+      "sentence": "薯条是一种炸土豆",
+      "tokens": [
+        "薯条",
+        "是",
+        "一种",
+        "炸土豆"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "fries",
+      "inline": "Fries",
+      "tag": "词源 · 英语自造",
+      "translit_html": "/fɹaɪz/",
+      "sentence": "Fries are fried potato sticks",
+      "tokens": [
+        "Fries",
+        "are",
+        "fried",
+        "potato",
+        "sticks"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Pommes frites",
+      "inline": "Pommes frites",
+      "tag": "借自法语",
+      "translit_html": "/pɔmˈfʁɪt/",
+      "sentence": "Pommes frites sind frittierte Kartoffeln",
+      "tokens": [
+        "Pommes frites",
+        "sind",
+        "frittierte",
+        "Kartoffeln"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "frites",
+      "inline": "frites",
+      "tag": "词源 · 短语缩略",
+      "translit_html": "/fʁit/",
+      "sentence": "Les frites sont des pommes de terre",
+      "tokens": [
+        "Les",
+        "frites",
+        "sont",
+        "des",
+        "pommes",
+        "de",
+        "terre"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "patatas fritas",
+      "inline": "patatas fritas",
+      "tag": "意译 · 法语借词",
+      "translit_html": "/paˈta.tas ˈfri.tas/",
+      "sentence": "Las patatas fritas son comida rápida",
+      "tokens": [
+        "Las",
+        "patatas",
+        "fritas",
+        "son",
+        "comida",
+        "rápida"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "картофель фри",
+      "inline": "Картофель фри",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ar</span><span class=\"c\">t</span><span class=\"v\">o</span><span class=\"c\">f</span><span class=\"v\">el</span> <span class=\"c\">fr</span><span class=\"v\">i</span>",
+      "sentence": "Картофель фри — это закуска",
+      "tokens": [
+        "Картофель фри",
+        "это",
+        "закуска"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "τηγανητές πατάτες",
+      "inline": "τηγανητές πατάτες",
+      "tag": "意译 · 借自英语",
+      "translit_html": "<span class=\"c\">t</span><span class=\"v\">i</span><span class=\"c\">g</span><span class=\"v\">a</span><span class=\"c\">n</span><span class=\"v\">i</span><span class=\"c\">t</span><span class=\"v\">é</span><span class=\"c\">s</span> <span class=\"c\">p</span><span class=\"v\">a</span><span class=\"c\">t</span><span class=\"v\">á</span><span class=\"c\">t</span><span class=\"v\">e</span><span class=\"c\">s</span>",
+      "sentence": "Οι τηγανητές πατάτες είναι ένα γρήγορο φαγητό",
+      "tokens": [
+        "Οι τηγανητές πατάτες",
+        "είναι",
+        "ένα",
+        "γρήγορο",
+        "φαγητό"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "फ़्रेंच फ़्राइज़",
+      "inline": "फ़्रेंच फ़्राइज़",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">f</span><span class=\"v\">ren</span><span class=\"c\">ch</span> <span class=\"c\">f</span><span class=\"v\">rāy</span><span class=\"c\">z</span>",
+      "sentence": "फ़्रेंच फ़्राइज़ तला हुआ आलू है",
+      "tokens": [
+        "फ़्रेंच फ़्राइज़",
+        "तला",
+        "हुआ",
+        "आलू",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "بطاطا مقلية",
+      "inline": "بطاطا مقلية",
+      "tag": "词源 · 土豆借词",
+      "translit_html": "<span class=\"c\">b</span><span class=\"v\">a</span><span class=\"c\">ṭ</span><span class=\"v\">ā</span><span class=\"c\">ṭ</span><span class=\"v\">ā</span> <span class=\"c\">m</span><span class=\"v\">a</span><span class=\"c\">q</span><span class=\"v\">l</span><span class=\"v\">ī</span><span class=\"c\">y</span><span class=\"v\">a</span>",
+      "sentence": "البطاطا المقلية أكل سريع",
+      "tokens": [
+        "البطاطا المقلية",
+        "أكل",
+        "سريع"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "צ'יפס",
+      "inline": "צ'יפס",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">ts</span><span class=\"v\">i</span><span class=\"c\">p</span><span class=\"v\">s</span>",
+      "sentence": "צ'יפס הוא תפוחי אדמה מטוגנים",
+      "tokens": [
+        "צ'יפס",
+        "הוא",
+        "תפוחי",
+        "אדמה",
+        "מטוגנים"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "フライドポテト",
+      "inline": "フライドポテト",
+      "tag": "词源 · 和製英語",
+      "translit_html": "<span class=\"c\">f</span><span class=\"v\">u</span><span class=\"c\">r</span><span class=\"v\">ai</span><span class=\"c\">d</span><span class=\"v\">o</span><span class=\"c\">p</span><span class=\"v\">o</span><span class=\"c\">t</span><span class=\"v\">e</span><span class=\"c\">t</span><span class=\"v\">o</span>",
+      "sentence": "フライドポテトは揚げたポテトです",
+      "tokens": [
+        "フライドポテト",
+        "は",
+        "揚げた",
+        "ポテト",
+        "です"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "감자튀김",
+      "inline": "감자튀김",
+      "ko_syllables": [
+        "감",
+        "자",
+        "튀",
+        "김"
+      ],
+      "tag": "词源 · 감자＋튀김",
+      "translit_html": "<span class=\"c\">g</span><span class=\"v\">am</span><span class=\"c\">j</span><span class=\"v\">a</span><span class=\"c\">t</span><span class=\"v\">wi</span><span class=\"c\">g</span><span class=\"v\">im</span>",
+      "sentence": "감자튀김은 기름에 튀긴 감자입니다",
+      "tokens": [
+        "감자튀김은",
+        "기름에",
+        "튀긴",
+        "감자입니다"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ],
+  "extra_facts": {
+    "jefferson_white_house_year": 1802,
+    "first_print_french_fried_potatoes_year": 1856
+  }
+}

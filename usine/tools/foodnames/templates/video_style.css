@@ -1,0 +1,129 @@
+:root {
+  --paper: #f7f2e6;
+  --ink:   #2c2620;
+  --line:  #d9cdb7;
+  --vowel: #c9403a;
+  --cons:  #2f5d9e;
+  --mut:   #a2967f;
+  --sub:   #8a7e6c;
+  --gold:  #b8860b;   /* title accent — ONLY the brand hanzi */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidden; }
+
+/* ---------- karaoke token states (deterministic, set by JS) ---------- */
+.tok { border-radius: 0.14em; }
+.tok.dim   { opacity: 0.18; }
+.tok.sung  { opacity: 1; }
+.tok.cur   { opacity: 1; background: rgba(44, 38, 32, 0.09); }
+
+/* ---------- scene chrome ---------- */
+.scene {
+  width: 1920px; height: 1080px; background: var(--paper); color: var(--ink);
+  font-family: "Food West", "Noto Sans", sans-serif;
+  display: none; flex-direction: column; padding: 52px 90px 44px; position: relative;
+}
+.scene.on { display: flex; }
+.brand { font-size: 21px; letter-spacing: 0.14em; color: var(--sub); font-weight: 600; }
+.brand b { color: var(--ink); }
+.brand .gold { color: var(--gold); font-weight: 600; }
+.pageno { position: absolute; top: 52px; right: 90px; font-size: 21px; color: var(--mut); letter-spacing: 0.2em; }
+.headrule { border-bottom: 2.5px solid var(--ink); margin-top: 18px; }
+
+.langline { margin-top: 66px; display: flex; align-items: baseline; gap: 22px; }
+.langlabel { font-size: 40px; font-weight: 600; letter-spacing: 0.05em; }
+.langlabel small { font-size: 22px; color: var(--mut); letter-spacing: 0.16em; margin-left: 12px; font-weight: 500; }
+.natv { font-size: 30px; color: var(--mut); }
+.tag {
+  font-family: "Food SC", "Noto Serif SC", serif;
+  font-size: 24px; color: var(--sub);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 2px 15px; letter-spacing: .06em;
+}
+
+.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+
+/* ---------- the big word (CSS lifted from the poster) ---------- */
+.word { white-space: nowrap; line-height: 1.28; }
+.v { color: var(--vowel); }
+.c { color: var(--cons); }
+.n { color: var(--mut); }
+.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.t { color: transparent; }
+
+/* Korean: in-glyph patches measured on this project's own subset
+   (`feuille poster measure-korean 스 시` → verify 0 wrong px each). */
+.ksyl {
+  display: inline-block; line-height: 1.28;
+  color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-repeat: no-repeat;
+}
+{{KO_CSS}}
+{{KO_CSS}}
+/* per-character columns (Chinese below / Japanese above);
+   annotation sizes ride on em so they scale with the fitted word */
+.zi { display: inline-flex; flex-direction: column; align-items: center; margin: 0 0.03em; vertical-align: top; }
+.hz { display: block; }
+.annot {
+  display: block; margin-top: 0.14em;
+  font-size: 0.30em;
+  font-family: "Food SC", "Noto Serif SC", serif;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-align: center; margin-left: 0.08em;
+}
+.wjp .zi { vertical-align: bottom; }
+
+/* script families */
+.f-sc   { font-family: "Food SC", "Noto Serif SC", serif; }
+.f-jp   { font-family: "Food JP", "Noto Sans JP", sans-serif; }
+.f-kr   { font-family: "Food KR", "Noto Sans KR", sans-serif; }
+.f-ar   { font-family: "Food Arabic", "Noto Sans Arabic", sans-serif; }
+.f-he   { font-family: "Food Hebrew", "Noto Sans Hebrew", sans-serif; }
+.f-deva { font-family: "Food Deva", "Noto Sans Devanagari", sans-serif; }
+
+/* two-layer overlay for mark-scripts (harakat / nikud / matras) */
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+
+/* ---------- persona badge ---------- */
+.badge {
+  margin-top: 8px; display: flex; align-items: center; justify-content: center;
+  gap: 16px; font-size: 27px;
+}
+.badge .pdot { width: 17px; height: 17px; border-radius: 50%; background: var(--vowel); flex: none; }
+.badge .pname { font-weight: 600; }
+.badge .platin { color: var(--sub); letter-spacing: 0.04em; }
+.badge .pvoice { color: var(--mut); font-size: 21px; }
+
+/* ---------- translit ---------- */
+.translit {
+  margin-top: 30px; text-align: center;
+  font-size: 44px; color: var(--sub);
+  letter-spacing: 0.05em;
+}
+.translit .v { color: var(--vowel); }
+.translit .c { color: var(--cons); }
+.translit .n { color: var(--mut); }
+
+.footrule { border-bottom: 1.5px solid var(--line); margin-top: 40px; }
+.footer { margin-top: 14px; display: flex; justify-content: space-between; font-size: 18px; color: var(--mut); letter-spacing: 0.14em; }
+
+/* ---------- portrait variant (?fmt=v): 1080x1920 ---------- */
+html.vert, body.vert { width: 1080px; height: 1920px; }
+body.vert .scene { width: 1080px; height: 1920px; padding: 64px 60px 52px; }
+body.vert .brand { font-size: 24px; }
+body.vert .pageno { top: 64px; right: 60px; font-size: 24px; }
+body.vert .langline { margin-top: 130px; flex-direction: column; gap: 16px; align-items: flex-start; }
+body.vert .langlabel { font-size: 54px; }
+body.vert .langlabel small { font-size: 28px; }
+body.vert .natv { font-size: 34px; }
+body.vert .tag { font-size: 28px; }
+body.vert .badge { font-size: 32px; gap: 18px; flex-wrap: wrap; }
+body.vert .badge .pvoice { font-size: 24px; }
+body.vert .translit { font-size: 52px; margin-top: 44px; }
+body.vert .footer { font-size: 20px; }

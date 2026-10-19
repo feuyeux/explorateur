@@ -1,0 +1,359 @@
+{
+  "episode": 2,
+  "slug": "coffee",
+  "title_zh": "咖啡",
+  "title_en": "COFFEE",
+  "origin_locale": "ar-SA",
+  "series_sub": "各国美食名称 · 第 02 期",
+  "spine": "同一个词，12 种语言，7 条不同的来路——它绕了半个地球才到你嘴边。",
+  "chain": "阿拉伯语 قَهْوَة → 奥斯曼土耳其语 قهوه → 意大利语 caffè → 荷兰语 koffie → 英语 coffee → 全世界（词源链见各格「来源」列）",
+  "words": [
+    {
+      "locale": "zh-CN",
+      "label": "汉语",
+      "label_en": "CHINESE",
+      "natv": "中文",
+      "natv_class": "f-sc",
+      "script": "sc",
+      "word": "咖啡",
+      "inline": "咖啡",
+      "zhuyin": [
+        [
+          "咖",
+          "<span class=\"c\">ㄎ</span><span class=\"v\">ㄚ</span>"
+        ],
+        [
+          "啡",
+          "<span class=\"c\">ㄈ</span><span class=\"v\">ㄟ</span>"
+        ]
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ā</span> <span class=\"c\">f</span><span class=\"v\">ē</span>",
+      "sentence": "咖啡是一种饮料",
+      "tokens": [
+        "咖啡",
+        "是",
+        "一种",
+        "饮料"
+      ],
+      "persona": {
+        "name": "林小满",
+        "latin": "Lín Xiǎomǎn"
+      },
+      "persona_class": "f-sc",
+      "gender": "f",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voice_short": "Xiaoxiao Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 声调 <span class=\"n\">■</span>"
+    },
+    {
+      "locale": "en-US",
+      "label": "英语",
+      "label_en": "ENGLISH",
+      "natv": "English",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "coffee",
+      "inline": "Coffee",
+      "tag": "借自荷兰语",
+      "translit_html": "/ˈkɔːfi/",
+      "sentence": "Coffee is a drink",
+      "tokens": [
+        "Coffee",
+        "is",
+        "a",
+        "drink"
+      ],
+      "persona": {
+        "name": "Ruby",
+        "latin": "Ruby"
+      },
+      "gender": "f",
+      "voice": "en-US-JennyNeural",
+      "voice_short": "Jenny Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "de-DE",
+      "label": "德语",
+      "label_en": "GERMAN",
+      "natv": "Deutsch",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "Kaffee",
+      "inline": "Kaffee",
+      "tag": "借自土耳其语",
+      "translit_html": "/ˈkaːfə/",
+      "sentence": "Kaffee ist ein Getränk",
+      "tokens": [
+        "Kaffee",
+        "ist",
+        "ein",
+        "Getränk"
+      ],
+      "persona": {
+        "name": "Felix",
+        "latin": "Felix"
+      },
+      "gender": "m",
+      "voice": "de-DE-ConradNeural",
+      "voice_short": "Conrad Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "fr-FR",
+      "label": "法语",
+      "label_en": "FRENCH",
+      "natv": "Français",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "café",
+      "inline": "café",
+      "tag": "借自意大利语",
+      "translit_html": "/ka.fe/",
+      "sentence": "Le café est une boisson",
+      "tokens": [
+        "Le",
+        "café",
+        "est",
+        "une",
+        "boisson"
+      ],
+      "persona": {
+        "name": "Théo",
+        "latin": "Théo"
+      },
+      "gender": "m",
+      "voice": "fr-FR-HenriNeural",
+      "voice_short": "Henri Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "es-ES",
+      "label": "西班牙语",
+      "label_en": "SPANISH",
+      "natv": "Español",
+      "natv_class": "f-west",
+      "script": "latin",
+      "word": "café",
+      "inline": "café",
+      "tag": "借自法语",
+      "translit_html": "/kaˈfe/",
+      "sentence": "El café es una bebida",
+      "tokens": [
+        "El",
+        "café",
+        "es",
+        "una",
+        "bebida"
+      ],
+      "persona": {
+        "name": "Lucía",
+        "latin": "Lucía"
+      },
+      "gender": "f",
+      "voice": "es-ES-ElviraNeural",
+      "voice_short": "Elvira Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "ru-RU",
+      "label": "俄语",
+      "label_en": "RUSSIAN",
+      "natv": "Русский · кириллица",
+      "natv_class": "f-west",
+      "script": "cyrillic",
+      "word": "кофе",
+      "inline": "Кофе",
+      "tag": "借自西欧 · 三说",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ó</span> <span class=\"c\">f</span><span class=\"v\">e</span>",
+      "sentence": "Кофе — это напиток",
+      "tokens": [
+        "Кофе",
+        "это",
+        "напиток"
+      ],
+      "persona": {
+        "name": "Аня",
+        "latin": "Anya"
+      },
+      "gender": "f",
+      "voice": "ru-RU-SvetlanaNeural",
+      "voice_short": "Svetlana Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "el-GR",
+      "label": "希腊语",
+      "label_en": "GREEK",
+      "natv": "Ελληνικά",
+      "natv_class": "f-west",
+      "script": "greek",
+      "word": "καφές",
+      "inline": "καφές",
+      "tag": "借自意大利语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">a</span> <span class=\"c\">f</span><span class=\"v\">e</span><span class=\"c\">s</span>",
+      "sentence": "Ο καφές είναι ένα ποτό",
+      "tokens": [
+        "Ο",
+        "καφές",
+        "είναι",
+        "ένα",
+        "ποτό"
+      ],
+      "persona": {
+        "name": "Νίκος",
+        "latin": "Nikos"
+      },
+      "gender": "m",
+      "voice": "el-GR-NestorasNeural",
+      "voice_short": "Nestoras Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    },
+    {
+      "locale": "hi-IN",
+      "label": "印地语",
+      "label_en": "HINDI",
+      "natv": "हिन्दी · मात्रा",
+      "natv_class": "f-deva",
+      "script": "deva",
+      "word": "कॉफ़ी",
+      "inline": "कॉफ़ी",
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ó</span> <span class=\"c\">f</span><span class=\"v\">ī</span>",
+      "sentence": "कॉफ़ी एक पेय है",
+      "tokens": [
+        "कॉफ़ी",
+        "एक",
+        "पेय",
+        "है"
+      ],
+      "persona": {
+        "name": "अर्जुन",
+        "latin": "Arjun"
+      },
+      "persona_class": "f-deva",
+      "gender": "m",
+      "voice": "hi-IN-MadhurNeural",
+      "voice_short": "Madhur Neural",
+      "foot_html": "元音符号 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ar-SA",
+      "label": "阿拉伯语",
+      "label_en": "ARABIC",
+      "natv": "العربية · حركات",
+      "natv_class": "f-ar",
+      "script": "ar",
+      "word": "قهوة",
+      "inline": "قهوة",
+      "tag": "词源 · 有争议",
+      "translit_html": "<span class=\"c\">q</span><span class=\"v\">á</span> <span class=\"c\">hw</span><span class=\"v\">a</span>",
+      "sentence": "القهوة مشروب",
+      "tokens": [
+        "القهوة",
+        "مشروب"
+      ],
+      "persona": {
+        "name": "عمر",
+        "latin": "Omar"
+      },
+      "persona_class": "f-ar",
+      "gender": "m",
+      "voice": "ar-SA-HamedNeural",
+      "voice_short": "Hamed Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "he-IL",
+      "label": "希伯来语",
+      "label_en": "HEBREW",
+      "natv": "עברית · ניקוד",
+      "natv_class": "f-he",
+      "script": "he",
+      "word": "קפה",
+      "inline": "קפה",
+      "tag": "借自法语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">á</span> <span class=\"c\">f</span><span class=\"v\">e</span>",
+      "sentence": "קפה הוא משקה",
+      "tokens": [
+        "קפה",
+        "הוא",
+        "משקה"
+      ],
+      "persona": {
+        "name": "נועה",
+        "latin": "Noa"
+      },
+      "persona_class": "f-he",
+      "gender": "f",
+      "voice": "he-IL-HilaNeural",
+      "voice_short": "Hila Neural",
+      "foot_html": "母音字母 <span class=\"v\">■</span>（下层红）· 辅音 <span class=\"c\">■</span>（上层蓝）"
+    },
+    {
+      "locale": "ja-JP",
+      "label": "日语",
+      "label_en": "JAPANESE",
+      "natv": "日本語 · かな",
+      "natv_class": "f-jp",
+      "script": "jp",
+      "word": "コーヒー",
+      "inline": "コーヒー",
+      "tag": "借自荷兰语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">ō</span> <span class=\"c\">h</span><span class=\"v\">ī</span>",
+      "sentence": "コーヒーは飲み物です",
+      "tokens": [
+        "コーヒー",
+        "は",
+        "飲み物",
+        "です"
+      ],
+      "persona": {
+        "name": "リク",
+        "latin": "Riku"
+      },
+      "persona_class": "f-jp",
+      "gender": "m",
+      "voice": "ja-JP-KeitaNeural",
+      "voice_short": "Keita Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span> · 合体假名 <span class=\"cv\">■</span>"
+    },
+    {
+      "locale": "ko-KR",
+      "label": "韩语",
+      "label_en": "KOREAN",
+      "natv": "한국어 · 한글",
+      "natv_class": "f-kr",
+      "script": "kr",
+      "word": "커피",
+      "inline": "커피",
+      "ko_syllables": [
+        "커",
+        "피"
+      ],
+      "tag": "借自英语",
+      "translit_html": "<span class=\"c\">k</span><span class=\"v\">eo</span> <span class=\"c\">p</span><span class=\"v\">i</span>",
+      "sentence": "커피는 음료입니다",
+      "tokens": [
+        "커피는",
+        "음료",
+        "입니다"
+      ],
+      "persona": {
+        "name": "서연",
+        "latin": "Seoyeon"
+      },
+      "persona_class": "f-kr",
+      "gender": "f",
+      "voice": "ko-KR-SunHiNeural",
+      "voice_short": "SunHi Neural",
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+    }
+  ],
+  "extra_facts": {
+    "english_entry_year": 1582,
+    "ottoman_turkish_century": 16,
+    "russian_borrow_accounts": 3
+  }
+}

@@ -1,0 +1,149 @@
+:root {
+  --paper: #f7f2e6;
+  --ink:   #2c2620;
+  --line:  #d9cdb7;
+  --vowel: #c9403a;
+  --cons:  #2f5d9e;
+  --mut:   #a2967f;
+  --sub:   #8a7e6c;
+  --gold:  #b8860b;   /* title accent — used ONLY by the top-left hanzi */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: #e8e2d4; }
+.poster {
+  width: 1240px; height: 1754px;
+  margin: 0 auto; background: var(--paper);
+  color: var(--ink);
+  font-family: "Food West", "Noto Sans", sans-serif;
+  display: flex; flex-direction: column;
+  padding: 46px 50px 40px;
+}
+
+/* ---------- header ---------- */
+header { display: flex; align-items: flex-end; justify-content: space-between; }
+.title-zh {
+  font-weight: 700; font-size: 88px; line-height: 1;
+  letter-spacing: .06em; color: var(--gold);
+}
+.title-sub {
+  margin-top: 14px; font-size: 17px; color: var(--sub);
+  letter-spacing: .14em;
+}
+.title-sub b { color: var(--ink); font-weight: 700; }
+.legend { display: flex; flex-direction: column; gap: 7px; padding-bottom: 6px; }
+.legend .li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--sub); }
+.legend .li b { color: var(--ink); font-weight: 500; font-size: 15px; }
+.dot { width: 15px; height: 15px; border-radius: 50%; flex: none; }
+.dot.v { background: var(--vowel); }
+.dot.c { background: var(--cons); }
+.dot.n { background: var(--mut); }
+.dot.cv { background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%); border-radius: 3px; }
+.dot.ink { background: var(--ink); border-radius: 3px; }
+
+.rule { border-bottom: 2.5px solid var(--ink); margin: 26px 0 0; }
+
+/* ---------- grid ---------- */
+.grid {
+  flex: 1; margin-top: 26px; min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 1.5px; background: var(--line);
+  border: 1.5px solid var(--line);
+}
+.cell {
+  background: var(--paper); display: flex; flex-direction: column;
+  padding: 18px 20px 14px; min-height: 0; min-width: 0; overflow: hidden;
+}
+.cellhead { display: flex; justify-content: space-between; align-items: baseline; flex: none; }
+.lang { font-size: 15.5px; color: var(--ink); letter-spacing: .06em; }
+.lang small { color: var(--mut); font-size: 12.5px; letter-spacing: .1em; margin-left: 7px; font-weight: 500; }
+.natv { font-size: 13px; color: var(--mut); }
+
+.wordbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+           padding: 4px 0 8px; }
+
+/* the big word — size set per-cell by the fit script below */
+.word { white-space: nowrap; line-height: 1.28; }
+.v { color: var(--vowel); }
+.c { color: var(--cons); }
+.n { color: var(--mut); }
+.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.t { color: transparent; }               /* hidden spacing letter in overlay layers */
+
+/* source tag: 本土词 / 借自日语 —— the series' point */
+.tagrow { flex: none; display: flex; justify-content: center; margin: 0 0 7px; }
+.tag {
+  font-family: "Food SC", "Noto Serif SC", serif;
+  font-size: 15px; color: var(--sub);
+  border: 1px solid var(--line); border-radius: 11px;
+  padding: 1px 11px; letter-spacing: .06em; white-space: nowrap;
+}
+
+/* Korean: direct in-glyph coloring — each syllable is an inline-block whose ink
+   is painted by stacked hard-edged background patches under background-clip:text.
+   Patch geometry measured by `feuille poster measure-korean` on THIS project's
+   own subset (see README §测量来源). */
+.ksyl {
+  display: inline-block; line-height: 1.28;
+  color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-repeat: no-repeat;
+}
+.fallback .ksyl { color: var(--ink); }
+/* measured on Food KR @200px by `feuille poster measure-korean` (this project's own
+   subset) — 스 U+C2A4 = ᄉ+ᅳ, 시 U+C2DC = ᄉ+ᅵ; verify 0 wrong px each.
+   스: red = ㅡ bar (bottom band). 시: red = ㅣ bar (right band). */
+{{KO_CSS}}
+{{KO_CSS}}
+/* transliteration — same two-color coding as the scripts */
+.translit {
+  flex: none; text-align: center;
+  font-size: 24px; color: var(--sub);
+  letter-spacing: .05em;
+}
+.translit .v { color: var(--vowel); }
+.translit .c { color: var(--cons); }
+.translit .n { color: var(--mut); }
+
+/* script-specific families — embedded subset FIRST so rendering is identical
+   with or without local fonts */
+.f-sc   { font-family: "Food SC", "Noto Serif SC", serif; }
+.f-jp   { font-family: "Food JP", "Noto Sans JP", sans-serif; }
+.f-kr   { font-family: "Food KR", "Noto Sans KR", sans-serif; }
+.f-ar   { font-family: "Food Arabic", "Noto Sans Arabic", sans-serif; }
+.f-he   { font-family: "Food Hebrew", "Noto Sans Hebrew", sans-serif; }
+.f-deva { font-family: "Food Deva", "Noto Sans Devanagari", sans-serif; }
+.f-west { font-family: "Food West", "Noto Sans", sans-serif; }
+
+/* Chinese cell: one column per hanzi, zhuyin sits inside its own character's
+   column — per-character alignment, not one left/center line */
+.zi { display: inline-flex; flex-direction: column; align-items: center; margin: 0 0.03em; vertical-align: top; }
+.hz { display: block; }
+.annot {
+  display: block; margin-top: 0.14em;
+  font-size: 34px;              /* fixed: does NOT scale with the fit */
+  font-family: "Food SC", "Noto Serif SC", serif;
+  font-weight: 600; letter-spacing: 0.08em;
+  text-align: center;           /* centered inside its own column */
+  margin-left: 0.08em;
+}
+
+/* two-layer overlay for mark-scripts (harakat / nikud / matras):
+   both layers share one grid cell — identical layout origin, so the two
+   rasters land on the same subpixel grid. */
+.stack { display: inline-grid; }
+.stack .lay, .stack .top { grid-area: 1 / 1; }
+.fallback .cv { color: var(--cons); } /* bg-clip unsupported fallback */
+
+/* cover frame: the 2px ring sampled by `feuille cover check` must be the
+   platform contract colour (SPECS.bg), so each fullscreen variant wears an
+   edge frame of its own platform colour. */
+body:has(.poster.pt) .poster { border: 8px solid #FFFFFF; }
+body:has(.poster.lc) .poster { border: 8px solid #FB7299; }
+
+ruby rt { font-weight: 500; }
