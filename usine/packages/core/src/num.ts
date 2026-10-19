@@ -22,6 +22,11 @@ export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }
 
+/** Python str(float)：整值补 `.0`（滤镜图 / 种子串要逐字节对齐）。 */
+export function pyFloat(x: number): string {
+  return Number.isInteger(x) ? `${x}.0` : `${x}`
+}
+
 /** Python round() 的移植：对二进制精确值做十进制舍入 + 平手取偶。 */
 export function roundHalfEven(x: number, digits = 0): number {
   if (!Number.isFinite(x)) return x

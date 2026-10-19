@@ -29,6 +29,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { createHash } from "node:crypto"
 import { basename, dirname, join, relative, resolve } from "node:path"
 
+import { argValue } from "./argv.js"
 import { LESSONS_DIR, personas, sceneDoc } from "./data.js"
 import { FeuilleError } from "./errors.js"
 import * as ledger from "./ledger.js"
@@ -235,15 +236,6 @@ export async function runScene(
 }
 
 // ---------------------------------------------------------------- CLI
-
-/** argparse 同款取值：`--k v` 与 `--k=v` 两种写法都收。 */
-function argValue(argv: string[], flag: string): string | undefined {
-  const i = argv.indexOf(flag)
-  if (i >= 0) return argv[i + 1]
-  const p = `${flag}=`
-  const j = argv.findIndex((a) => a.startsWith(p))
-  return j >= 0 ? argv[j]!.slice(p.length) : undefined
-}
 
 /** `feuille scene tts --scene <id> [--lessons DIR] [--gap S] [--force]`。 */
 export async function mainTts(argv: string[] = []): Promise<number> {

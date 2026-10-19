@@ -2,8 +2,8 @@
 title: "feuille · 智能体使用指南（交互手册）"
 updated: { by: zcode/fuyao-work, at: 2026-10-19 }
 related:
-  - "run-record-one-city-12lang.md —— 同目录：实测记录 + 交互契约（A）+ 机制（B）+ 逐条实录（§1–§17）"
-  - "workflow.md —— ①–⑬ 工作流运行手册（段级输入/步骤/产物/检查）"
+  - "reference.md —— 结构 / 工作流 / 工具 / 不变量"
+  - "record.md —— 实测数字与已修缺陷"
   - "../AGENTS.md —— 纪律与工程约定（权威）"
 ---
 
@@ -12,8 +12,7 @@ related:
 > 像 Codex CLI 之于编码——**feuille 是装在你终端/对话里的内容生产智能体**。
 > 你说意图，它自己调产线、跑门禁、交成品；花额度的生成和平台发布由**强制审批门**把守。
 > 本文只讲交互：装好后怎么说、它会怎么答、哪些关口必须你点头。
-> 机制与判据见 [run-record-one-city-12lang.md](run-record-one-city-12lang.md) 的 B 节；
-> 逐条命令与输出的证据在同文件 §1–§17。
+> 机制与判据见 [reference.md](reference.md)；逐条命令与实测证据见 [record.md](record.md)。
 
 ## 1. 这是什么
 
@@ -92,7 +91,7 @@ pnpm --filter @feuille/dsh-plugin ask 自检
 | 想用的能力 | 需要什么 | 你怎么给 | 它怎么验 |
 |---|---|---|---|
 | TTS / 海报 / 成片 | 无凭据 | — | — |
-| BGM 配乐 | `GEMINI_API_KEY`（Lyria 免费层，$0） | 填进 `~/.config/feuille/keys.env` 的 `GEMINI_API_KEY=`（等号后直接贴，别加引号；**勿进仓库**） | 说「查一下 BGM 凭据」→ 只探凭据不碰网络 |
+| BGM 配乐 | `GEMINI_API_KEY`（Lyria 免费层，$0） | 填进 `explorateur/config/.env` 的 `GEMINI_API_KEY=`（等号后直接贴，别加引号；样例见同目录 `env.sample`；**勿进仓库**） | 说「查一下 BGM 凭据」→ 只探凭据不碰网络 |
 | 实拍母版 | MiniMax 套餐额度 / 积分 | 宿主侧账号 | 说「查一下额度」→ 只读查询 |
 | 平台发布 | 各平台登录态 | 说「登录小红书」→ 扫码**你自己扫** | 回读登录态；profile 目录存盘勿删 |
 
@@ -134,10 +133,9 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
   不贴整屏日志（原始 stdout 落 `examples/<项目>/logs/`，只追加不改写）。
 - **四态不混**：PASS / FAIL / SKIP / NOT RUN。**SKIP 不是 PASS**——看到 SKIP 是它在说实话，
   补齐前置（§3）再喊它跑即可。
-- **卡住才问，一次只问一个决策**：给 2–3 个带代价的选项 + 建议（模板见
-  [run-record A.6](run-record-one-city-12lang.md#a6-卡住时怎么问)）。
+- **卡住才问，一次只问一个决策**：给 2–3 个带代价的选项 + 建议。
 - **坑自己修**：CRLF 换行、字族嵌套、浏览器视口、参数引号——全部真踩过、已修、有证据
-  （[run-record §14 坑位表](run-record-one-city-12lang.md#14-坑位表)）；同一修复连试 2 次不收敛它会停下来问你。
+  （[record.md §2](record.md#2-坑位表一次真跑暴露)）；同一修复连试 2 次不收敛它会停下来问你。
 - **完成有定义**：画面 / 音频 / 混后 / 收尾四层全齐才算完（定义见
   [skills/README.md](../skills/README.md) 的完成定义表），缺层它会明说缺哪层、为什么。
 - **验收可自查**：收成品扫三个数字——全部环节 exit 0；成片 `nb_frames = 时长 × 30`；
@@ -188,7 +186,7 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 |---|---|
 | 发布开关 | dsh 宿主 config `publish: true` 才注册发布工具（有意设计，见 §7） |
 | `FEUILLE_BROWSER` | 临时钉 headless 浏览器路径（如 Edge 视口异常时指到 Chrome） |
-| `~/.config/feuille/keys.env` | **全仓唯一**凭据文件（`key=value`，`#` 注释，环境变量优先；旧名 `bgm-bed.env` 仍兼容）；`BGM_BED_ENV` 可换路径 |
+| `explorateur/config/.env` | **工作区唯一**配置/凭据文件（`KEY=VALUE`，`#` 注释，环境变量优先；LLM 波次凭据与 `GEMINI_API_KEY` 都在这里，样例同目录 `env.sample`）；`BGM_BED_ENV` 仅测试显式改指 |
 | 平台 profile | `~/.{douyin,xhs,bili,zhihu}_creator_profile`，登录态存盘**勿删** |
 | 交付位置 | 一律在当前工作区项目目录内；不写 Desktop / Downloads / 临时目录 |
 
@@ -211,9 +209,7 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 
 | 想了解 | 读 |
 |---|---|
-| 交互契约全文（A）+ 机制与判据（B）+ 一次真跑的逐条实录（§1–§17） | [run-record-one-city-12lang.md](run-record-one-city-12lang.md) |
-| ①–⑬ 每段的输入 / 步骤 / 产物 / 检查 | [workflow.md](workflow.md) |
-| 工具与版本明细 | [toolchain.md](toolchain.md) |
+| 结构 / ①–⑬ 流程 / 工具链 / 渲染不变量 / 发布规则 | [reference.md](reference.md) |
+| 一次真跑的 12 语种数字、坑位表、三个后置缺陷 | [record.md](record.md) |
 | 10 个 skill 的路由与完成定义 | [../skills/README.md](../skills/README.md) |
 | 22 条纪律与工程约定（权威） | [../AGENTS.md](../AGENTS.md) |
-| 架构总图（含 dsh harness 装配图 §2） | [architecture.md](architecture.md) |

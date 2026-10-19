@@ -22,6 +22,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { basename, join } from "node:path"
 
+import { argValue } from "./argv.js"
 import { languageManifests, lessonsDirOf, scenePaths } from "./data.js"
 import { FeuilleError } from "./errors.js"
 import { validateScene } from "./scene_schema.js"
@@ -770,15 +771,6 @@ export function pyJsonDump(v: unknown, indent = 0): string {
   if (!entries.length) return "{}"
   return "{\n" + entries.map(([k, x]) => `${padIn}${JSON.stringify(k)}: ${pyJsonDump(x, indent + 1)}`)
     .join(",\n") + "\n" + pad + "}"
-}
-
-/** argparse 同款取值：`--k v` 与 `--k=v` 两种写法都收。 */
-function argValue(argv: string[], flag: string): string | undefined {
-  const i = argv.indexOf(flag)
-  if (i >= 0) return argv[i + 1]
-  const p = `${flag}=`
-  const j = argv.findIndex((a) => a.startsWith(p))
-  return j >= 0 ? argv[j]!.slice(p.length) : undefined
 }
 
 /** `feuille scene parse [--scene colors] [--lessons DIR] [--list]`。 */

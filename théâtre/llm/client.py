@@ -270,7 +270,16 @@ def _recoverable_transport(exc) -> bool:
                                  ConnectionError, TimeoutError))
                 or (isinstance(exc, ValueError)
                     and str(exc) == "response had no choices"))
-    if status in {401, 402, 403, 408, 409, 425, 429}:
+    # 401 is deliberately absent: the endpoint/key map is loaded once per
+    # process (_MODEL_ENDPOINTS and _client are process-cached), so no
+    # in-process change can ever make the identical request authenticate.
+    # An auth rejection is terminal for this run — fail fast to a terminal
+    # infra error so the operator can fix the credential store and restart,
+    # instead of sleeping toward the pause cap (observed 2026-10-16..19: a
+    # placeholder key 401'd for three days straight). 402/403/429 stay
+    # recoverable: server-side balance/quota/permission state can heal
+    # without a restart, and llm_infra_max_pauses bounds that wait.
+    if status in {402, 403, 408, 409, 425, 429}:
         return True
     if 500 <= status <= 599:
         return True

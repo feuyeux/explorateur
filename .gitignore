@@ -1,4 +1,6 @@
-# 仓库 = humming(Tauri/JS) + reading(Tauri/JS) + usine(TS/pnpm) 三个子项目
+# 仓库 = usine(TS/pnpm) + théâtre/garage（RSI 引擎与适配层）
+# 两个应用（humming、reading）在仓库外同级 ../app/，其生成物不再进入本仓库
+# （若移回仓库内，需恢复 **/gen/schemas/ 与 app/humming/src/vendor/ 两条规则）
 # 下面的规则对全仓库任意层级生效（未锚定的模式会匹配每一层目录）
 
 # ── 操作系统 ───────────────────────────────────────────────
@@ -38,17 +40,6 @@ target/
 dist/
 build/
 *.tsbuildinfo
-
-# ── Tauri 生成物 ──────────────────────────────────────────
-# gen/schemas 由 tauri-build 生成，仅用于 capabilities 的 IDE 自动补全
-# （** 前缀必需：该目录在 humming/src-tauri/ 与 reading/src-tauri/ 之下）
-**/gen/schemas/
-
-# ── humming 专属生成物 ────────────────────────────────────
-# vendor/ 由 humming/scripts/build_vendor.mjs 从 node_modules 打包产出
-# （basic-pitch.bundle.js + 模型权重 .bin），每次 tauri dev/build 自动重建，
-# 且已有 mtime 增量判定 —— 删掉重跑 npm run build:vendor 即可复原
-humming/src/vendor/
 
 # ── 测试与静态检查缓存 ────────────────────────────────────
 .pytest_cache/

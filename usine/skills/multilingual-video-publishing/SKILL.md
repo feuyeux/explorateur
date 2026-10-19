@@ -158,7 +158,7 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 
 ## 手册与代码
 
-- `docs/publish-playbook.md` — 32 条坑、每步判据、三条元规则
-- `docs/publish-lessons.md` — 各平台实测踩坑与**已排除的嫌疑**
+- `docs/reference.md` §5 — 平台硬限制、铁律、逐段判据
+- `docs/record.md` §4 — 各平台实测踩坑与**已排除的嫌疑**
 - **@feuille/publish** — 发布器本体
 - `assets/example/plans.py` / `go_douyin.py` — 本 skill 的可跑实现，见该目录 `README.md`

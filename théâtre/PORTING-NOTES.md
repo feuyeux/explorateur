@@ -2,7 +2,7 @@
 
 记录 2026-10-16 这轮 Windows 便携化跨平台补丁的病根与修法。
 纪律与改动总清单见 `PROVENANCE.md`；本文只讲「为什么」。
-这些教训的**生产消费方**是适配层传输层 `benchmarks/usine/guest_env.py`
+这些教训的**生产消费方**是适配层传输层 `garage/guest_env.py`
 （worktree guest 的 bash 发现 / PATH 自管 / MSYS_NO_PATHCONV / python3 shim
 全部按本文病根 4–6 落地；机制见 `ARCHITECTURE.md` §5）。
 

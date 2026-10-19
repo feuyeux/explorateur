@@ -1,14 +1,14 @@
 # ARCHITECTURE — théâtre × usine：RSI 引擎与适配层
 
-状态：v1 实现完成（2026-10-16，§9 的 12/12 干跑为 Python 时代 usine 的记录）；
+状态：v1 实现完成（2026-10-16）；零额度干跑剧本已于 2026-10-19 按用户决定退役——**只跑真实 wave**（§9）。
 2026-10-18 P9 真作用力改造后 usine 已是 TS pnpm monorepo、门禁为 `pnpm verify`、
 改进方向含智能体面——**现行运行手册（怎么跑 wave、怎么校验产物）见
-[../benchmarks/usine/README.md](../benchmarks/usine/README.md)**。
+[../garage/README.md](../garage/README.md)**。
 本文是常青文档，图随代码维护。纪律与补丁清单见 [PROVENANCE.md](PROVENANCE.md)；
 实现相对设计稿的偏离记录见 [ADAPTATION.md](ADAPTATION.md)；跨平台补丁的病根见
 [PORTING-NOTES.md](PORTING-NOTES.md)；上游 [README.md](README.md) 与 `docs/` 冻结不动。
 usine 侧（被改进对象）的架构文档见
-[../usine/docs/architecture.md](../usine/docs/architecture.md)。
+[../usine/docs/reference.md](../usine/docs/reference.md)。
 
 ---
 
@@ -38,7 +38,7 @@ usine 侧（被改进对象）的架构文档见
 | **rollback_mirror** | Verifier 的执行隔离模式：先做整盘快照，模型代码在受控 workspace 执行，结束后整盘回滚，副作用归零 |
 | **terminal handoff** | 一个 practice 段的「交付物文件」；段的完成探针就是 `test -f` 它（Actor 段还要求首行匹配 token） |
 | **8-gram shingle** | 文本的滑动 8 词组；两文本的 shingle 集合相交即「有逐字重叠」 |
-| **分布（distribution）** | Curriculum 的指令语料（`benchmarks/usine/distribution-usine.md`），是围栏与审计的对照基准 |
+| **分布（distribution）** | Curriculum 的指令语料（`garage/distribution-usine.md`），是围栏与审计的对照基准 |
 | **seed** | 波次开始时 usine 树的 `git archive` 快照（tgz），推入每个 guest 作为初始工作树 |
 | **delta** | 一次分支候选相对基线的变更，分 modified / added / deleted 三类 |
 | **gitlink** | git 索引里指嵌套仓库的空指针条目（mode 160000）；入库时必须避免 |
@@ -49,7 +49,7 @@ usine 侧（被改进对象）的架构文档见
 
 explorateur 工作区里住着三样东西：**usine 生产树**（RSI 的改进对象，git tracked）、
 **théâtre**（vendored RSIAgent 引擎，内嵌 `.git` 仅保留在磁盘、绝不进 explorateur 索引）、
-**benchmarks/usine 适配层**（把引擎嫁接到生产树的编排代码）。所有运行产物落在
+**garage 适配层**（把引擎嫁接到生产树的编排代码）。所有运行产物落在
 **仓库外**的 run root；模型程序只活在 guest scratch 里。
 
 ```mermaid
@@ -59,7 +59,7 @@ flowchart LR
             CORE["core / explore / env / llm"]
             AD["ADAPTATION / PROVENANCE / PORTING-NOTES / ARCHITECTURE"]
         end
-        subgraph BM["benchmarks/usine —— 适配层"]
+        subgraph BM["garage —— 适配层"]
             RU["run_usine.py 编排器"]
             WM["wave_merge.py 合并器"]
             HK["usine_hooks.py 审计围栏"]
@@ -185,14 +185,14 @@ actor 提示补丁）必须在引擎 import 前/后按序落位。
 
 ```mermaid
 flowchart TD
-    A1["_install_paths<br/>sys.path：théâtre 根 + benchmarks/usine"] --> A2
+    A1["_install_paths<br/>sys.path：théâtre 根 + garage"] --> A2
     A2["install_verifier_adapter()<br/>运行时替换 core.verifier_runtime 三符号"] --> A3
     A3["import guest_env / usine_hooks / wave_merge"] --> A4
     A4["_install_actor_prompt_patch()<br/>core.actor + core.loop 提示 substrate-true 化"] --> A5
     A5["读 distribution（指令语料）"] --> A6
     A6["_load_roles（5 份 YAML）"] --> A7
     A7["_check_lineup<br/>fail-closed：座位 × 允许 slug 集"] --> A8
-    A8["_resolve_endpoints<br/>~/.minimax/config.yaml → run-root/endpoints.json<br/>（干跑时被 monkeypatch 为假值）"] --> A9
+    A8["_resolve_endpoints<br/>explorateur/config/.env → run-root/endpoints.json"] --> A9
     A9["merge_config（波次预算/并行度）"] --> A10
     A10["_assert_preconditions"] --> A11
     A11["_check_distribution_fences<br/>静态围栏：435 shingle × 447 源零相交"] --> A12
@@ -247,6 +247,8 @@ scratch 根由环境变量在 **VM 构造时**读取（每 VM 独立子目录）
 > **运维实录**：subst 盘符映射不随进程消亡——早前一个未 close 的 VM 把 `Z:`
 > 泄漏成了悬空映射（目标目录已回收）。后果仅是全部 VM 统一回退 `Y:`（行为一致、
 > 无正确性影响），但盘符卫生要在收口时人工核查：`subst` 列出后逐个 `subst X: /D`。
+
+> **CRLF 底座事实**：guest 里跑的是 Windows Python，`write_text` / `open("a")` 默认文本模式把 `\n` 落成 `\r\n`（实测记忆文件 14 个换行 = +14 字节）。管线从 guest 拉取 → journal → install 全程**字节保真**，对账按底座真实字节进行——哪天擅自规范化换行，终态记忆对账当场红。bash heredoc 写的文件保持 LF（note 字节对账同理）。
 
 ---
 
@@ -343,67 +345,9 @@ flowchart TD
 
 ---
 
-## 9. 干跑验证剧本（假 LLM，零额度）
+## 9. 干跑剧本（已退役）
 
-干跑回答一个问题：**在零 LLM 额度下，三角色到门禁到合并的每一道接缝是否真的
-咬合**。做法：fixture 仓库（`git archive HEAD -- usine/` 剥前缀成独立仓）+
-FakeChat（判别词分派，off-script 全 raise）+ monkeypatch 假端点（真配置文件
-**永不打开**）。
-
-```mermaid
-sequenceDiagram
-    participant RU as run_usine（真门禁在环）
-    participant FC as FakeChat（8 步脚本）
-    participant GT as guest（worktree）
-
-    RU->>FC: ① Curriculum：写 wave 骨架 + phase1_wave.json
-    FC-->>GT: python Program（探针即收，1 段）
-    RU->>FC: ② Actor：NEW PROJECT charter
-    FC-->>GT: bash Program：UV_PROJECT_ENVIRONMENT 重定向跑真门禁<br/>→ 清 __pycache__ → 写 note + SUBMIT handoff
-    Note over GT: 真门禁 53s exit 0
-    RU->>FC: ③ Actor：PROGRAM OUTPUT 续轮
-    FC-->>RU: done（探针 GATE_YES）
-    RU->>FC: ④ Verifier：verifier-report
-    FC-->>RU: 恰一行 VERDICT: PASS
-    RU->>FC: ⑤⑥ 蒸馏：写 ~/.memory → 续轮 done
-    RU->>FC: ⑦⑧ 调和：追加 addendum → 续轮 done
-    Note over RU: PHASE1_WAVE_COMPLETED → 同步 merge（真门禁 44s）
-    Note over RU: USINE_WAVE_MERGED → budget_exhausted → exit 0
-```
-
-FakeChat 分派规则（fail-loud 的核心）：
-
-1. 按 model slug 定座（verifier / curriculum），M3 座再按 charter 判别词定
-   蒸馏/调和/actor（**蒸馏先查**——三份 charter 都含 ACTOR AGENT 字样）；
-2. `PROGRAM OUTPUT` 续轮**倒序**扫 history 找最近的 charter 归座（记忆段续接
-   actor 会话，正序会错归）；
-3. off-script 一律 raise：图像附件、SAME-CONTEXT 传输恢复、未映射座、超脚本数。
-
-**12 项断言全绿**（2026-10-16 实测，全流程 115–128s）：
-
-| # | 断言 | 实测 |
-|---|---|---|
-| 1 | 脚本文本与 distribution 8-gram 零相交 | 5 文本 × 435 shingle 清 |
-| 2 | run_usine 退出码 0 | exit 0（115s） |
-| 3 | 调用序列 = 脚本 8 步（fresh 座 history=0；蒸馏/调和续接非空） | 8/8 |
-| 4 | result.json：budget_exhausted / 1 project / 记忆 602 字节 | ✓ |
-| 5 | endpoints.json 全假值（3 slug，零真凭据） | ✓ |
-| 6 | events.jsonl 五里程碑齐全、无分支异常 | 5 事件 |
-| 7 | Curriculum 一段发布、一项目声明 | ✓ |
-| 8 | episode 工件：指令原文 / SUBMIT / VERDICT: PASS / outcome | ✓ |
-| 9 | 终态记忆 = 蒸馏 + 附录（逐字节） | 602 字节吻合 |
-| 10 | merge_report：merged / delta 只加 note / gate 绿 / tag 建成 / base=fixture init | ✓ |
-| 11 | fixture 仓：2 commits、tag 指 HEAD、merge 只碰 note、-uno 干净 | ✓ |
-| 12 | 真 usine 子树分毫未动（HEAD 不变 + 字节一致） | ✓ |
-
-> **CRLF 底座事实**：guest 里跑的是 Windows Python，`write_text` / `open("a")`
-> 默认文本模式把 `\n` 落成 `\r\n`（干跑记忆文件 14 个换行 = +14 字节）。管线从
-> guest 拉取 → journal → install 全程**字节保真**；断言按底座真实字节断言——若
-> 管线哪天擅自规范化换行，第 9 项当场红。bash heredoc 写的文件保持 LF（note
-> 字节断言同理）。
->
-> 干跑迭代实录（假脚本自身 2 bug，接缝 0 bug）：① FakeChat 没给 PROGRAM OUTPUT
-> 续轮配响应（修：倒序归座）；② 记忆断言没算 CRLF（修：按底座字节断言）。
+零额度干跑（fixture 仓库 + FakeChat 8 步脚本 + monkeypatch 假端点，12 项断言，2026-10-16 实测 12/12、全流程 115–128s）已于 2026-10-19 按用户决定退役：**只跑真实 wave**。脚本 `garage/smoke_dry_run_wave.py` 已删除；其历史价值是在零额度下证明过三角色到门禁到合并的接缝真实咬合（2026-10-18 POSIX 移植时暴露了 harness-link 锚点缺口）。CRLF 底座事实对真波次依然承重，已移入 §5。
 
 ---
 
@@ -419,7 +363,7 @@ FakeChat 分派规则（fail-loud 的核心）：
 
 ```mermaid
 flowchart LR
-    CFG["~/.minimax/config.yaml<br/>（仓库外，唯一凭据源）"] --> RE["_resolve_endpoints<br/>（启动时一次）"]
+    CFG["explorateur/config/.env<br/>（工作区唯一凭据源）"] --> RE["_resolve_endpoints<br/>（启动时一次）"]
     RE -->|"写"| EP["run-root/endpoints.json<br/>模型 → base_url + api_key"]
     EP --> CLI["llm.client._client_for(model)<br/>逐模型 OpenAI 兼容客户端"]
     CLI -->|"坏/缺文件"| FB["fail-closed：回默认 OpenRouter<br/>（无环境变量时逐字节不变）"]
@@ -433,6 +377,4 @@ flowchart LR
     class EP,FB,G1,G2 neutral
 ```
 
-密钥纪律：凭据只存在于 `~/.minimax/config.yaml` 与 run-root 的
-`endpoints.json`（仓库外 + `.gitignore` 兜底）；**永不进仓库、永不进日志**。
-干跑时 `_resolve_endpoints` 被 monkeypatch，返回全假值——第 5 项断言守着这条线。
+密钥纪律：凭据只存在于工作区根的 `explorateur/config/.env`（样例 `env.sample`，根 `.gitignore` 兜底）与 run-root 的 `endpoints.json`（仓库外 + `.gitignore` 兜底）；**永不进仓库、永不进日志**。

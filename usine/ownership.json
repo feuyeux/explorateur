@@ -67,7 +67,8 @@
     "core.packaging": "交付打包（zip，非 ASCII 文件名必须置 UTF-8 flag）",
     "cli": "统一入口路由表 `feuille <组> <命令>`，只做路由不做业务（main / commands / leaves 薄适配全在此包）",
     "core.errors": "库层显式错误通道 FeuilleError：库函数显式报错的唯一异常类型，cli 统一接住（stderr + 退出码 1）",
-    "core.num": "数值口径底座：pyFloat / pyG / pyFixed / roundHalfEven——Python 银行家舍入的镜像，全仓数值 parity 的唯一事实源",
+    "core.num": "数值口径底座：pyFloat / roundHalfEven / clamp——Python 口径的镜像，全仓数值 parity 的唯一事实源",
+    "core.argv": "CLI 旗标取值：--k v 与 --k=v 同收",
     "core.imaging": "成像底座：sharp 解码/编码 + @napi-rs/canvas 绘制（draw / matte / pildraw——Pillow 语义镜像），业务模块共用的唯一成像实现",
     "dsh-plugin": "dsh 原生智能体插件（@feuille/dsh-plugin）：17 工具面 + approval 红线门控 + systemPrompt 纪律节，工具进程内直调各包（capture / discipline / tools）"
   },

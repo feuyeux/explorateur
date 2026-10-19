@@ -55,7 +55,7 @@
 | `core.persona` | 人设契约校验器（`feuille persona validate` 直调） | character-rig + lesson-scene（doctor 班底体检） |
 | `core.themes` | 教学视频垂域主题匹配器（`feuille theme match` 直调） | karaoke + poster |
 
-### infrastructure —— 9 个（与业务无关的底座）
+### infrastructure —— 10 个（与业务无关的底座）
 
 | 模块 | 职责 |
 |---|---|
@@ -65,7 +65,8 @@
 | `core.packaging` | 交付打包（zip，非 ASCII 文件名必须置 UTF-8 flag） |
 | `cli` | 统一入口路由表 `feuille <组> <命令>`——路由表是数据不是 if/elif |
 | `core.errors` | 库层显式错误通道 `FeuilleError`：库函数报错的唯一异常类型，CLI 统一接住（stderr + 退出码 1） |
-| `core.num` | 数值口径底座：pyFloat / pyG / pyFixed / roundHalfEven——Python 银行家舍入镜像 |
+| `core.num` | 数值口径底座：pyFloat / roundHalfEven / clamp——Python 口径镜像 |
+| `core.argv` | CLI 旗标取值：`--k v` 与 `--k=v` 同收 |
 | `core.imaging` | 成像底座：sharp 解码/编码 + @napi-rs/canvas 绘制（Pillow 语义镜像），唯一成像实现 |
 | `dsh-plugin` | dsh 原生智能体插件：17 工具面 + approval 红线门控 + systemPrompt 纪律节 |
 
@@ -120,12 +121,6 @@ for s in usine/skills/*/; do ln -sfn "$PWD/$s" ~/.agents/skills/"$(basename "$s"
 
 | 文件 | 内容 |
 |---|---|
-| [architecture.md](docs/architecture.md) | 架构总图（数据→生产→发布全景 · 模块三层归属 · vitest 门禁 · CLI 路由 · RSI 定位） |
-| [workflow.md](docs/workflow.md) | 工作流运行手册（①–⑬：内容创作→合集收录，每段输入/步骤/产物/检查） |
-| [toolchain.md](docs/toolchain.md) | 工具链：①–⑬ 每段用什么工具 + 工具明细 + 平台后台 |
-| [publish-lessons.md](docs/publish-lessons.md) | 发布踩坑与经验教训总账（按平台分节） |
-| [publish-playbook.md](docs/publish-playbook.md) | 多平台发布手册（分平台坑表 + 三条元规则） |
-| [zhihu-publish-playbook.md](docs/zhihu-publish-playbook.md) | 知乎发布手册 |
-| [metrics-playbook.md](docs/metrics-playbook.md) | 数据取数手册 |
-| [render-handbook.md](docs/render-handbook.md) | 渲染工程手册（含踩坑实录 §5） |
-| [lessons-learned.md](docs/lessons-learned.md) | 经验总纲（入口式，只写最终成立的结论） |
+| [guide.md](docs/guide.md) | 人机交互：安装 / 凭据 / 怎么说 / 审批门 / 工具面 |
+| [reference.md](docs/reference.md) | 结构 · ①–⑬ 流程 · 工具链 · 渲染不变量 · 发布规则 |
+| [record.md](docs/record.md) | 实测数字（12 语种）· 坑位表 · 已修缺陷 · 发布判据 |

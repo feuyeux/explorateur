@@ -65,7 +65,7 @@ heart＝上圆下贝塞尔圆收下巴（禁尖角——尖下巴观感像鬼）
 
 渲染与 qa 探针都从 `face_geo()` 取派生几何，永不漂移。**躯干与肩同宽、臂嵌进躯干轮廓、
 肩楔填平头-肩缺口**（剪影连续是硬要求，杜绝"头身手脱节/手像悬挂"——
-见 render-handbook.md §5 坑⑪）：
+见 `docs/reference.md` §4）：
 
 | 部位 | 比例 | 说明 |
 |---|---|---|
@@ -84,4 +84,4 @@ BOX 精确降采样 = 全形状抗锯齿）；无描边纯平涂 + 双色发丝�
 
 ---
 
-**相关**：[roster.md](roster.md) 每人的色板/脸型/挂件 · [schema.md](schema.md) `palette`/`movement` 字段 · `render-handbook.md` 坑⑪⑮
+**相关**：[roster.md](roster.md) 每人的色板/脸型/挂件 · [schema.md](schema.md) `palette`/`movement` 字段 · `docs/reference.md` §4

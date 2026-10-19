@@ -136,6 +136,6 @@ H3 文本生视频要显式给 `ratio`；Hailuo 不需要。
 
 - **额度纪律的权威文本在 `usine/AGENTS.md` 铁律「H3 与额度」**；本 skill 是它的
   执行细则（选线顺序、展示清单、消耗估算）。
-- **工具条目在 `docs/toolchain.md`**（⑥ 视频阶段的 H3 行）。
+- **工具条目在 `docs/reference.md` §3**（⑥ 视频阶段的 H3 行）。
 - **成片消费母版在 `multilingual-video-poetry`**；本 skill 只负责「把母版生出来
   并冻结」，不碰母版上的字幕 / 旁白 / 混音。

@@ -72,7 +72,7 @@ https://github.com/user-attachments/assets/b939a9c2-4acb-4c30-b72e-18bab646529c
 
 *The paper's original framework figure, illustrated with a FreeCAD task. Broad
 experience is progressively refined into targeted memory, then frozen for reuse.
-Click the figure for full resolution. [Figure provenance](docs/PAPER.md#figure-provenance).*
+Click the figure for full resolution. [Figure provenance](docs/reference.md#4-paper-and-results).*
 
 <a id="method"></a>
 
@@ -105,7 +105,7 @@ Memory is the persistent learning state across tasks. Interaction histories and
 task environments are reset between independent attempts; the Agent framework
 remains unchanged. Both grounded successes and failures can teach useful lessons.
 Official benchmark scores are kept outside the learning loop. See
-[Architecture](docs/ARCHITECTURE.md) for the role interfaces, wave memory barrier,
+[Architecture](docs/reference.md#1-architecture) for the role interfaces, wave memory barrier,
 and stopping rules.
 
 <a id="results"></a>
@@ -126,7 +126,7 @@ RSI entries for OSWorld and 19 for ALE, retaining baseline scores for the other
 the three GPU baseline results. The RSI column includes selected retries and
 checkpoints with differing budgets; it is not an average over matched repeated
 runs. ALE also includes qualified local
-regrades and protocol variants. See the [paper and reporting notes](docs/PAPER.md)
+regrades and protocol variants. See the [paper and reporting notes](docs/reference.md#4-paper-and-results)
 for the full scope, full-credit metrics, and aggregation details.
 
 The paper also examines stage ablations, memory growth, and game development.
@@ -174,7 +174,7 @@ docs/                Guides, architecture, and attribution
 
 The two root entrypoints are the starting point for benchmark runs. Internal
 OSWorld stages are Python modules under `benchmarks/osworld/`; see the
-[source map](docs/ARCHITECTURE.md#source-map) for their responsibilities.
+[source map](docs/reference.md#1-architecture) for their responsibilities.
 
 <a id="installation"></a>
 
@@ -258,7 +258,7 @@ Check both guest types before running the full CPU cohort:
 
 ALE requires a successful smoke for each requested OS on the current source and
 runner image. Use a new `--output` directory when repeating a smoke. See
-[ALE operations](docs/ALE.md) for storage options and the upstream guide.
+[ALE operations](docs/reference.md#3-ale) for storage options and the upstream guide.
 
 <a id="run-batches"></a>
 
@@ -303,7 +303,7 @@ duplicate scored attempts.
 
 Both entrypoints run batches directly. Begin with `--concurrency 1`; raise it
 when the host has capacity for additional independent task lineages. For custom
-OSWorld protocols and recovery, see [operations](docs/OPERATIONS.md).
+OSWorld protocols and recovery, see [operations](docs/reference.md#2-operations).
 
 <a id="validation"></a>
 
@@ -335,12 +335,12 @@ experiments with the pinned configuration.
 
 ## 📚 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [OSWorld operations and recovery](docs/OPERATIONS.md)
-- [ALE setup, batches, and reports](docs/ALE.md)
-- [Release provenance and validation](docs/RELEASE.md)
-- [Paper and reporting scope](docs/PAPER.md)
-- [Contributing](docs/CONTRIBUTING.md) · [Third-party attribution](docs/THIRD_PARTY.md)
+- [Architecture](docs/reference.md#1-architecture)
+- [OSWorld operations and recovery](docs/reference.md#2-operations)
+- [ALE setup, batches, and reports](docs/reference.md#3-ale)
+- [Release provenance and validation](docs/reference.md#5-release-provenance-and-validation)
+- [Paper and reporting scope](docs/reference.md#4-paper-and-results)
+- [Contributing](docs/reference.md#6-runtime-fixes-attribution-contributing) · [Third-party attribution](docs/reference.md#6-runtime-fixes-attribution-contributing)
 
 <a id="citation"></a>
 
@@ -364,4 +364,4 @@ If you use RSIAgent, please cite the [arXiv preprint](https://arxiv.org/abs/2609
 
 ## ⚖️ License
 
-RSIAgent is licensed under the [Apache License 2.0](LICENSE). Third-party dependencies and benchmark assets retain their respective licenses and terms; see [third-party attribution](docs/THIRD_PARTY.md).
+RSIAgent is licensed under the [Apache License 2.0](LICENSE). Third-party dependencies and benchmark assets retain their respective licenses and terms; see [third-party attribution](docs/reference.md#6-runtime-fixes-attribution-contributing).

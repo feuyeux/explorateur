@@ -21,6 +21,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
+import { argValue } from "./argv.js"
 import { cardsDoc, languageManifests, personas } from "./data.js"
 import { DEVICE_STYLES } from "./devices.js"
 import { FeuilleError } from "./errors.js"
@@ -431,15 +432,6 @@ export function gaps(md: string): Record<string, number> {
 
 
 // ---------------------------------------------------------------- CLI
-
-/** argparse 同款取值：`--k v` 与 `--k=v` 两种写法都收。 */
-function argValue(argv: string[], flag: string): string | undefined {
-  const i = argv.indexOf(flag)
-  if (i >= 0) return argv[i + 1]
-  const p = `${flag}=`
-  const j = argv.findIndex((a) => a.startsWith(p))
-  return j >= 0 ? argv[j]!.slice(p.length) : undefined
-}
 
 /** `feuille scene draft --brief ... [--out ...] [--languages DIR] [--personas DIR]
  * [--force] [--print-plan] [--gaps]`。 */

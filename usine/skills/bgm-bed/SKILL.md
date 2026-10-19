@@ -30,7 +30,7 @@ description: >
 
 | 线 | key | 状态（2026-10） |
 |---|---|---|
-| `lyria`（Google，`feuille bgm gen`） | `GEMINI_API_KEY` 或 `~/.gemini_api_key` | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
+| `lyria`（Google，`feuille bgm gen`） | `GEMINI_API_KEY`（统一配置 `explorateur/config/.env`） | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
 | `matrix`（MCode 内置 Matrix 工具集的音乐线） | **无 key**——用 Code 登录态，经 `mcode-tools`（**仅 MCode 运行时的 PATH 上**） | **整链实测过（2026-10-09，古典吉他纯器乐，判据 ok）**，但**不是 `feuille bgm gen` 的通路**——入参无时长字段、计费不公开，见下 |
 
 **`matrix` 为什么不进 `feuille bgm gen`**，两个原因缺一不可：① 入参没有 duration 字段
@@ -44,10 +44,7 @@ description: >
 （报端点形状、退出码非 0），不许把超时当好曲；生成前可用
 `--list-providers` 探 Lyria 凭据，只看凭据不碰网络。
 
-**key 的统一配置**：`~/.config/feuille/keys.env`（全仓唯一凭据文件；样例与说明见
-[references/keys.env.sample](references/keys.env.sample)；`BGM_BED_ENV` 可改指
-任意路径）。优先级：**环境变量 > keys.env > `~/.gemini_api_key`（Lyria 旧位）**；
-旧名 `bgm-bed.env` 仍会读，只补 `keys.env` 缺的键；文件在 $HOME 下，密钥永不进仓库。
+**key 的统一配置**：`explorateur/config/.env`（全工作区唯一配置点，théâtre 波次与 usine 流水线同源；样例与说明见 `explorateur/config/env.sample`）。优先级：**环境变量 > config/.env**；旧位置（`~/.config/feuille/keys.env`、`bgm-bed.env`、`~/.gemini_api_key`）自 2026-10-19 起退役不再读取；该文件被 explorateur 根 `.gitignore` 兜底，密钥永不进仓库（`BGM_BED_ENV` 仅测试显式改指用）。
 
 ## 前置输入契约
 
@@ -56,7 +53,7 @@ description: >
 | 1 | **床要盖多长**（成片时长 + 余量） | 床短于成片 → 尾部裸奔，底床断在半路。床长判据照常验收，短了照样拦。走 `matrix` 时这项**无法直接满足**（无 duration 入参，实测固定 ≈29s，见「两个硬约束」） |
 | 2 | **配器与情绪的加权短词** | Lyria 实时端点吃短词；给段落标签长指令会跑偏 |
 | 3 | **旁白实测电平**，或明确的「低 N dB」目标 | 没有它 `gain` 只能抄常数，而抄错没有任何东西会报错 |
-| 4 | **Lyria 的 key**（matrix 线无 key；统一配置 `~/.config/feuille/keys.env`，`--list-providers` 先探） | 全空 → 脚本线无从生成，转告用户缺哪把 key |
+| 4 | **Lyria 的 key**（matrix 线无 key；统一配置 `explorateur/config/.env`，`--list-providers` 先探） | 全空 → 脚本线无从生成，转告用户缺哪把 key |
 | 5 | **这床垫在谁底下**（线性固定偏移 / 侧链动态余量） | 两者的配比判据不同，用错判据会得出相反结论 |
 
 **先量旁白，再生成床。** `gain` 是床与旁白之比的产物；顺序反过来就只能靠猜。
@@ -93,8 +90,8 @@ description: >
 ## 怎么用
 
 ```bash
-# 0) 先探 Lyria 凭据（不动网络；key 统一配在 ~/.config/feuille/keys.env，
-#    样例见 references/keys.env.sample）
+# 0) 先探 Lyria 凭据（不动网络；key 统一配在 explorateur/config/.env，
+#    样例见同目录 env.sample）
 feuille bgm gen --list-providers
 
 # 1) 量旁白：从 TTS 成品的真实语音区间量（tokens[0].start → 末 token 结束），
@@ -266,7 +263,6 @@ NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 - `feuille bgm gen`（@feuille/bgm 包）— Lyria 床生成 + 实测（`--recheck` 只重算判据不重生成；
   `--list-providers` 只探测凭据；`--duration` = 目标床长，实时后端请求端自动垫
   1.15×）
-- `references/keys.env.sample` — 统一凭据文件样例（复制到
-  `~/.config/feuille/keys.env`；环境变量优先于文件）
+- `references/keys.env.sample` — 已退役的旧样例，仅存指向 `explorateur/config/.env`（现行唯一配置点）的迁移指引；现行样例是 `explorateur/config/env.sample`
 - `references/lyria-field-notes.md` — Lyria 端点/配额/地区围栏、两项自检的
   原理与阈值、报错速查、床位实测取窗口法

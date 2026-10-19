@@ -258,7 +258,7 @@ export function familyTools(): ToolDefinition[] {
     }),
     argvTool({
       name: 'usine_bgm',
-      description: '纯器乐 BGM 床生成（Google Lyria realtime，免费层 $0、出口 IP 判区）+ 实测判据（拍速反查/频段分布/床长）。key 在 ~/.config/feuille/bgm-bed.env，不进仓库。',
+      description: '纯器乐 BGM 床生成（Google Lyria realtime，免费层 $0、出口 IP 判区）+ 实测判据（拍速反查/频段分布/床长）。key（GEMINI_API_KEY）在 explorateur/config/.env，不进仓库。',
       actions: { gen: gen_bgm.main },
       argvDoc: '残余参数，与 `feuille bgm gen` 一致（--list-providers 只探凭据不碰网络；--recheck 只重算判据）',
     }),

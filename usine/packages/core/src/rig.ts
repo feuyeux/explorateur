@@ -26,7 +26,7 @@
 // - rnd = sha256 前 8 字节大端 ÷ 2^64；(hi*2^32+lo)/2^64 与 Python 大整数除法逐位一致。
 import { createHash } from "node:crypto"
 
-import { clamp, roundHalfEven } from "./num.js"
+import { clamp, pyFloat, roundHalfEven } from "./num.js"
 import type { Box, PilDraw, Pt, RGB } from "./imaging/pildraw.js"
 
 /** 人设 dict（personas.json 原样 JSON，只读消费）——键访问走 any，口径同 data 的 Json。 */
@@ -35,9 +35,6 @@ export type Persona = any
 export type RigCtx = any
 
 const rad = (deg: number): number => (deg * Math.PI) / 180
-/** Python str(float) 口径：整值补 ".0"（f-string 拼种子串必须逐字节一致）。 */
-const pyFloat = (n: number): string => (Number.isInteger(n) ? `${n}.0` : String(n))
-
 // rig 语义画布基准：faceGeo 的 cx=540 / ground=1700 / hy=1140 与 scenes 的全部场景坐标
 // 都锚定在 1080×1920 上（几何事实，非路径常量）；目标画布不同时经 ctx["ss"] 等比缩放。
 export const W = 1080
@@ -199,8 +196,6 @@ export const FACE_SPECS = {
   heart: [368.0, 0.90] as const,    // 心形：清秀俏丽，下颌圆润微收
   square: [374.0, 0.88] as const,    // 方颌：端庄沉稳，骨相分明而不生硬
 } as const
-
-export interface JawSpec { readonly y0: number; readonly y1: number; readonly m: number; readonly n: number }
 
 // 下颌轮廓参数（单一事实源）——heart / square 两种非椭圆下颌都走 jawPoint()。
 // 轮廓 = **超椭圆** f(s) = (1 − s^m)^(1/m)，s ∈ [0,1] 从颊部走到下巴底，半宽相对 rx。

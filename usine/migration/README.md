@@ -1292,7 +1292,7 @@ pnpm 化）、docs/publish-playbook.md:861 标注历史命令形态、languages/
    examples/、skills/*/assets/example/、lessons/）= **0 个**。留存 .py 仅为
    归档与数据：lessons/guangchaoshi-逛超市/review/build_prompts.py（课堂数据）、
    examples/*.py 与 skills/*/assets/example/*.py（历史产线归档）、
-   benchmarks/usine 适配层（théâtre RSI 波次机器，Python 属引擎侧，不在
+   garage 适配层（théâtre RSI 波次机器，Python 属引擎侧，不在
    usine 树内、不随本迁移退役）。
 4. **dsh Web UI 实测（待用户）**：一句 brief → 自主产出 ②–⑧ → Hailuo 处
    approval 停车 → publish 不可达。真 LLM 首任务喊跑才跑——本项留待用户点头
@@ -1351,7 +1351,7 @@ Actor 改 dsh-plugin 源码/skills → capture 剪枝 → Verifier 复核（底�
 ## P9 后续：dsh 宿主真跑首任务（2026-10-18，✅ 通过）
 
 P8 遗留项 4（「dsh Web UI 实测」）以 dsh SDK 路线收口（用户裁定：基于 SDK 跑、
-非 web UI）。全套现场归档 `benchmarks/usine/runs/dsh-sdk-first-task-20261018/`
+非 web UI）。全套现场归档 `garage/runs/dsh-sdk-first-task-20261018/`
 （零 LLM 成本 preflight + 真跑 run.mjs + 双轮完整日志）。
 
 - **两个真宿主发现（vitest 面结构性不可见）**：
@@ -1372,7 +1372,7 @@ P8 遗留项 4（「dsh Web UI 实测」）以 dsh SDK 路线收口（用户裁�
   `approval/decided(rejected)` → 返回 `asked-rejected`、无 task_id、零额度。
   全程零 shell 误调；模型思考中原样引用纪律「额度自查先行」——纪律节注入生效。
 - **现行运行手册**：怎么跑一次 wave、怎么三层校验自进化产物（合并完整性 /
-  门禁 / 智能体面真验），常青维护于 `benchmarks/usine/README.md`。
+  门禁 / 智能体面真验），常青维护于 `garage/README.md`。
 
 ## P10：POSIX 底座移植收尾（2026-10-18，✅ Mac 全链路绿、零弹窗）
 

@@ -12,7 +12,7 @@
 import { execFileSync } from "node:child_process"
 
 import { FeuilleError } from "./errors.js"
-import { roundHalfEven } from "./num.js"
+import { pyFloat, roundHalfEven } from "./num.js"
 import { ffmpeg as resolveFfmpeg, ffprobe as resolveFfprobe } from "./platform.js"
 
 function requireTool(tool: string | null, what: string): string {
@@ -21,11 +21,6 @@ function requireTool(tool: string | null, what: string): string {
     throw new FeuilleError(`缺 ${what}（resolver 未找到；缺件清单见 platform.missing()）`)
   }
   return tool
-}
-
-/** Python str(float)：整值浮点带 `.0` 尾（滤镜图字符串跨语言逐字节对齐要它）。 */
-function pyFloat(x: number): string {
-  return Number.isInteger(x) ? `${x}.0` : `${x}`
 }
 
 /** 构建 filter_complex 字符串（纯函数，供 composeTrack 与反向验证共用）。

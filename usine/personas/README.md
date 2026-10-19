@@ -70,6 +70,6 @@ updated: { by: dsh/fuyao-work, at: 2026-10-06, note: "随 docs/plan.md 人设正
 - 规划与实现路线：[`docs/plan.md`](../docs/plan.md)（目标、设计原则、示范场景、管线、阶段验收）
 - 人物技术选型裁定：[`docs/adr-character-tech.md`](../docs/adr-character-tech.md)
 - 多邻国对标台账：[`docs/benchmark-duolingo.md`](../docs/benchmark-duolingo.md)
-- 工程与踩坑手册：[`docs/render-handbook.md`](../docs/render-handbook.md)
+- 工程与踩坑手册：[`docs/reference.md`](../docs/reference.md)
 - 亮相卡内容种子：[`docs/self-introductions.md`](../docs/self-introductions.md)
 - 新增语种流程：[`languages/README.md`](../languages/README.md)

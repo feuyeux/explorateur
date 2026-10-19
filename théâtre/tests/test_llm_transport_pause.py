@@ -60,6 +60,30 @@ def test_bad_request_is_explicit_fatal_transport(monkeypatch):
     assert raised.value.status_code == 400
 
 
+def test_401_is_fatal_not_pause_forever(monkeypatch):
+    """Auth rejection is terminal for the running process.
+
+    The endpoint/key map is process-cached, so the identical request can
+    never authenticate later; pausing would only burn clock until the cap
+    escalates.  (Observed 2026-10-16..19: a placeholder key 401'd for three
+    days before the cap existed.)  Contrast 402 in the test above: a
+    balance can heal server-side without a restart, so it stays
+    recoverable.
+    """
+    completions = _FailingCompletions(
+        _StatusError(401, {"code": 401, "message": "auth failed"}))
+    monkeypatch.setattr(
+        C, "_client",
+        SimpleNamespace(chat=SimpleNamespace(completions=completions)))
+    monkeypatch.setattr(C.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(LLMTransportError) as raised:
+        C.chat("model", "system", "user")
+
+    assert raised.value.recoverable is False
+    assert raised.value.status_code == 401
+
+
 def test_local_sdk_programming_error_does_not_pause_forever(monkeypatch):
     completions = _FailingCompletions(TypeError("unexpected keyword"))
     monkeypatch.setattr(

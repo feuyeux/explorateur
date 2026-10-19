@@ -6,8 +6,8 @@
 // 凭空变出音乐来）。床的电平是**反推**出来的，不是抄模板常数：本命令量出
 // 床的实际电平，配合 --narration-rms-db 直接给出该写进 video.json 的 gain。
 //
-// 出床线（本命令只管 Lyria）：GEMINI_API_KEY 或 ~/.gemini_api_key（免费层
-// 走实时端点）。MCode 内置音乐（matrix，经 mcode-tools）是另一条**成品床
+// 出床线（本命令只管 Lyria）：GEMINI_API_KEY，从统一配置 explorateur/config/.env
+// 读（免费层走实时端点）。MCode 内置音乐（matrix，经 mcode-tools）是另一条**成品床
 // 来源**：无 key、入参无时长、计费不公开——不经本命令，用法见 SKILL.md。
 //
 // 请求一律**纯器乐**——床要垫在旁白底下，人声床是配乐事故。时长由 lyria
@@ -15,14 +15,8 @@
 //
 // --list-providers 只做凭据探测不动网络，适合先看一眼 Lyria 的 key 在不在。
 //
-// Lyria 选哪个模型（2026-10 实测，免费层 key = 0 额度的那三个会被直接拒）：
-//   lyria-realtime-exp（默认）：Live API WebSocket，免费层可用，$0，流式裸
-//     PCM，采样率/声道由服务端定（模型卡：48 kHz / Stereo / Raw 16-bit PCM）。
-//     按设计**不出人声**；提示词走加权短词（WeightedPrompt），多个 --prompt
-//     按序降权，或直接 --text 给一段。
-//   lyria-3.5 / lyria-3-pro-preview / lyria-3-clip-preview：POST /v1beta/
-//     interactions，免费层 429「0 requests per day」，$0.04–0.08/首，一次
-//     请求整首。
+// 默认 lyria-realtime-exp：Live API WebSocket，$0，流式裸 PCM，按设计不出人声；
+// 模型取舍与计费（免费层 429）见 skills/bgm-bed/SKILL.md。
 //
 // 为什么 Lyria 实时后端不写死采样率：SDK 的 LiveMusicGenerationConfig 没有
 // audio_format 字段，采样率是服务端定的。所以用**实测拍速反查**：请求 72
@@ -43,9 +37,9 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
-import { FeuilleError, roundHalfEven, audio, platform } from '@feuille/core'
+import { FeuilleError, roundHalfEven, audio, platform, data } from '@feuille/core'
 
 // 文档声明的流格式（Lyria RealTime 模型卡：48 kHz / Stereo / Raw 16-bit PCM）。
 // 服务端没给协商字段，只能按文档解读——并用实测拍速反查，见 verifyRate。
@@ -265,78 +259,60 @@ export function writeWav(path: string, pcm: Buffer): void {
 //  凭据探测（只看 key 在不在，不碰网络）
 // ============================================================
 
-/** 统一凭据文件：~/.config/feuille/keys.env（BGM_BED_ENV 可改指任意路径）。
+/** 统一配置文件：explorateur/config/.env（全工作区唯一配置点；BGM_BED_ENV 为测试显式改指）。
  *
- * 放在 $HOME 下是刻意的——密钥永不进仓库（usine/AGENTS.md 纪律：key 走环境
- * 或用户目录，不落盘到 git 管辖范围）。样例见 references/keys.env.sample。
- * 旧的 ~/.config/feuille/bgm-bed.env 仍被读取（已有配置不用搬家）。
+ * 2026-10-19 起按用户决定统一：théâtre 波次与 usine 流水线都只读
+ * explorateur/config/.env，样例见同目录 env.sample。旧位置
+ * （~/.config/feuille/keys.env、bgm-bed.env、~/.gemini_api_key）一律退役，
+ * 不再被读取。密钥永不进仓库（该文件被 explorateur 根 .gitignore 兜底）。
+ * 仓库根由 core data.ROOT 定位（FEUILLE_ROOT 可覆盖），config 在其上一级。
  */
 export function keyFile(): string {
   const override = (process.env['BGM_BED_ENV'] ?? '').trim()
   if (override) return override
-  const dir = join(homedir(), '.config', 'feuille')
-  const unified = join(dir, 'keys.env')
-  const legacy = join(dir, 'bgm-bed.env')
-  if (existsSync(unified)) return unified
-  return existsSync(legacy) ? legacy : unified
+  return join(dirname(data.ROOT), 'config', '.env')
 }
 
-/** 把 key 文件里的变量灌进环境——**不覆盖已有环境变量**（环境优先于文件）。
+/** 把配置文件里的变量灌进环境——**不覆盖已有环境变量**（环境优先于文件）。
  *
- * 主文件 `keys.env` 优先，旧名 `bgm-bed.env` 兜底补缺（已有配置不用搬家，也
- * 不会因为填错文件名而白忙）；`BGM_BED_ENV` 是显式指向，只管那一个文件。
- * 返回第一个真正提供了变量的文件（都没有则 null），供探测报告显示来源；
- * 找不到不是错误（纯环境变量也能跑），只影响报告里那行提示。
+ * 只读 keyFile() 指的那一个文件；返回它（真正提供了变量的场合）供探测报告
+ * 显示来源，没读到任何变量则 null。找不到不是错误（纯环境变量也能跑），
+ * 只影响报告里那行提示。
  */
 export function loadEnvFile(): string | null {
-  const primary = keyFile()
-  const files = [primary]
-  if (!(process.env['BGM_BED_ENV'] ?? '').trim()) {
-    const legacy = join(homedir(), '.config', 'feuille', 'bgm-bed.env')
-    if (legacy !== primary) files.push(legacy)
-  }
-  let loaded: string | null = null
-  for (const f of files) {
-    if (!existsSync(f)) continue
-    let got = false
-    for (let line of splitLines(readFileSync(f, 'utf8'))) {
-      line = line.trim()
-      if (line === '' || line.startsWith('#') || !line.includes('=')) continue
-      const eq = line.indexOf('=')
-      const k = line.slice(0, eq).trim()
-      // Python strip('"').strip("'")：先剥双引号、再剥单引号，两端逐字符
-      let v = line.slice(eq + 1).trim()
-        .replace(/^"+/, '').replace(/"+$/, '')
-        .replace(/^'+/, '').replace(/'+$/, '')
-      if (k && v && process.env[k] === undefined) {
-        process.env[k] = v
-        got = true
-      }
+  const f = keyFile()
+  if (!existsSync(f)) return null
+  let got = false
+  for (let line of splitLines(readFileSync(f, 'utf8'))) {
+    line = line.trim()
+    if (line === '' || line.startsWith('#') || !line.includes('=')) continue
+    const eq = line.indexOf('=')
+    const k = line.slice(0, eq).trim()
+    // Python strip('"').strip("'")：先剥双引号、再剥单引号，两端逐字符
+    let v = line.slice(eq + 1).trim()
+      .replace(/^"+/, '').replace(/"+$/, '')
+      .replace(/^'+/, '').replace(/'+$/, '')
+    if (k && v && process.env[k] === undefined) {
+      process.env[k] = v
+      got = true
     }
-    if (got && loaded === null) loaded = f
   }
-  return loaded
+  return got ? f : null
 }
 
 function lyriaKey(): string | null {
   const env = (process.env['GEMINI_API_KEY'] ?? '').trim()
-  if (env) return env
-  const f = join(homedir(), '.gemini_api_key')
-  if (existsSync(f)) {
-    const key = readFileSync(f, 'utf8').trim()
-    if (key) return key
-  }
-  return null
+  return env || null
 }
 
 /** [(供应商, 凭据来源描述)]。只看凭据在不在，不碰网络。 */
 export function detectProviders(): Array<[string, string]> {
-  return lyriaKey() ? [['lyria', 'GEMINI_API_KEY / ~/.gemini_api_key']] : []
+  return lyriaKey() ? [['lyria', 'GEMINI_API_KEY（explorateur/config/.env）']] : []
 }
 
 function loadLyriaKey(): string {
   const key = lyriaKey()
-  if (!key) throw new FeuilleError('找不到 Lyria key：设 GEMINI_API_KEY 或写 ~/.gemini_api_key')
+  if (!key) throw new FeuilleError(`找不到 Lyria key：把 GEMINI_API_KEY 写进 ${keyFile()}（环境变量优先于该文件）`)
   return key
 }
 
@@ -839,11 +815,11 @@ function listProviders(envFile: string | null): number {
   if (envFile) {
     console.log(`  key 文件已加载：${envFile}`)
   } else {
-    console.log(`  key 文件：${keyFile()}（不存在或没可解析行；样例见 skills/bgm-bed/references/keys.env.sample）`)
+    console.log(`  key 文件：${keyFile()}（不存在或没可解析行；样例见 explorateur/config/env.sample）`)
   }
   if (got.length === 0) {
     console.log(`\nLyria 没有可用凭据：\n`
-      + '  lyria    GEMINI_API_KEY（或 ~/.gemini_api_key）——实测过，免费层可用\n'
+      + '  lyria    GEMINI_API_KEY——实测过，免费层可用\n'
       + `统一配置：把 key 写进 ${keyFile()}（环境变量优先于该文件）\n`
       + '（MCode 内置音乐线无需 key，不经本脚本，见 SKILL.md）')
     return 1

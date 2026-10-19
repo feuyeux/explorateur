@@ -3,7 +3,7 @@
 状态：v1 实现完成（2026-10-16）。本文件只记**实现相对设计稿的偏离与
 裁定**，是 v1 当时的记录——其中「usine 保持 Python」「uv 门禁」等表述随
 P7 TS 迁移与 P9 真作用力改造（2026-10-18）失效：现行门禁为 `pnpm verify`，
-现行机制与运行手册见 [../benchmarks/usine/README.md](../benchmarks/usine/README.md)。
+现行机制与运行手册见 [../garage/README.md](../garage/README.md)。
 机制、图表与装配次序见 [ARCHITECTURE.md](ARCHITECTURE.md)；跨平台
 补丁清单见 [PROVENANCE.md](PROVENANCE.md)；POSIX 病根见
 [PORTING-NOTES.md](PORTING-NOTES.md)。本文件的设计稿形态（v0）在 git 历史。
@@ -46,13 +46,10 @@ P7 TS 迁移与 P9 真作用力改造（2026-10-18）失效：现行门禁为 `p
 
 两个网关都实测支持 OpenAI `/chat/completions` 协议：
 
-- minimax：`https://agent.minimax.cn/mavis/api/v1/llm/v1`（`~/.minimax/config.yaml`
-  → `provider.minimax.options.{baseURL,apiKey}`）
-- fuyao：`http://fuyao-ai-gateway.xiaopeng.link/v1`（同文件
-  → `custom_provider.fuyao.options.{baseURL,apiKey}`）
+- minimax：`https://agent.minimax.cn/mavis/api/v1/llm/v1`（`explorateur/config/.env` → 组级 `LLM_MINIMAX_BASE_URL` / `LLM_MINIMAX_API_KEY`，覆盖全部 MiniMax slug）
+- fuyao：`http://fuyao-ai-gateway.xiaopeng.link/v1`（同文件 → 组级 `LLM_FUYAO_BASE_URL` / `LLM_FUYAO_API_KEY`，覆盖 fuyao-work / fuyao-coding / fuyao-data）
 
-实现（相对设计稿的收窄）：`_resolve_endpoints` **在内存里**按 needed slug 集扫
-`provider.*` 再 `custom_provider.*`，任一 slug 缺凭据或字段不齐即 fail-closed；
+实现（相对设计稿的收窄）：`_resolve_endpoints` **在内存里**解析统一配置 `explorateur/config/.env`（扁平 KEY=VALUE），按 needed slug 集取「最长前缀」的组级/逐 slug 变量对（`LLM_FUYAO_WORK_*` 覆盖 `LLM_FUYAO_*`，两级都只在成对齐全时注册），任一 slug 缺凭据或字段不齐即 fail-closed（报错点名要填的变量）；
 `endpoints.json` 写**仓库外 run root**（不是设计稿的"临时文件"——run root
 整条血缘共享一份），经 `RSIAGENT_LLM_ENDPOINTS_FILE` 注入；explorateur 根
 `.gitignore` 对 `endpoints.json` 兜底。密钥永不进日志、manifest、preflight
@@ -138,7 +135,7 @@ usine 的 docs 清账门禁（`verify_docs.py` DEAD_PATTERNS）对 **usine 树�
 `.md` 生效：`USINE_*` 环境变量拼写与 `usine-` 连字符词一律不得出现。适配层
 自己的标记（如 seed 解包回显 `USINE_SEED_RC`、合并事件 `USINE_WAVE_MERGED`）
 **只出现在 théâtre 侧文档**（本文件与 ARCHITECTURE.md，均在门禁与围栏之外）；
-usine 树内文档（含 [../usine/docs/architecture.md](../usine/docs/architecture.md)
+usine 树内文档（含 [../usine/docs/reference.md](../usine/docs/reference.md)
 的 RSI 定位节）只写「VM 门面拒绝发布类命令」这类不含拼写的表述。
 
 ## 8. 发布红线（三层防线，比设计稿更强）
@@ -158,9 +155,9 @@ usine 树内文档（含 [../usine/docs/architecture.md](../usine/docs/architect
 **preflight / execute 二元入口 + ack token**（比 `--dry-run` 硬）：
 
 ```
-uv run python benchmarks/usine/run_usine.py --run-name <名> --preflight
+uv run python garage/run_usine.py --run-name <名> --preflight
     # 打印就绪载荷，什么都不写：无 endpoints 文件、无 run root、无 corpus
-uv run python benchmarks/usine/run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
+uv run python garage/run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
     # 没有精确 ack token 不执行
 ```
 
@@ -168,7 +165,7 @@ uv run python benchmarks/usine/run_usine.py --run-name <名> --execute RUN-USINE
 且 Curriculum 持久转录完好时恢复）；`--root` 默认 `theatre-usine-runs`
 （**仓库外**，endpoints.json 在那里生成）；`--project-budget 8` /
 `--checkpoints 0,2,4,8` / `--max-parallel 4`（宿主调度容量，不规定波宽）；
-`--gate-argv` / `--gate-timeout`；`--llm-config` 默认 `~/.minimax/config.yaml`。
+`--gate-argv` / `--gate-timeout`；`--llm-config` 默认 `explorateur/config/.env`（样例 `config/env.sample`）。
 按需波次：一波一喊，不自动连续波（节奏升级留待用户裁定）。
 
 ## 10. 合并管线 v1 限制

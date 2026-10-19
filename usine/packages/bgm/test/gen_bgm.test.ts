@@ -2,7 +2,7 @@
 // 零真 API 调用：Lyria 通路（实时 WebSocket / HTTP）不在测试面——免费层
 // $0 但区围栏严，测试一律纯函数面 + 本地 ffmpeg 合成音频。
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -311,7 +311,7 @@ describe('key 文件与环境', () => {
     expect(await g.main(['--list-providers'])).toBe(0)
     const out = log.join('\n')
     expect(out).toContain('lyria')
-    expect(out).toContain('✓ GEMINI_API_KEY / ~/.gemini_api_key')
+    expect(out).toContain('✓ GEMINI_API_KEY（explorateur/config/.env）')
     expect(out).toContain(`key 文件：${D}/nope.env（不存在或没可解析行`)
     expect(out).toContain('Lyria 线凭据就绪，可以生成。')
   })
@@ -440,18 +440,15 @@ describe('main 护栏（不触网络）', () => {
       .rejects.toThrow('--text 是 --model lyria-3.x 这条 HTTP 后端必需的')
   })
 
-  // 本机可能真有 ~/.gemini_api_key / 统一凭据文件——key 缺席路径只有干净机器才可测
-  it.skipIf(existsSync(join(homedir(), '.gemini_api_key'))
-    || existsSync(join(homedir(), '.config', 'feuille', 'keys.env'))
-    || existsSync(join(homedir(), '.config', 'feuille', 'bgm-bed.env')))(
-    '找不到 key → 显式炸（不静默走空请求）', async () => {
+  // BGM_BED_ENV 显式改指缺席文件 → keyFile() 不触统一配置，机器状态无法干扰
+  it('找不到 key → 显式炸（不静默走空请求）', async () => {
       const savedKey = process.env['GEMINI_API_KEY']
       const savedBedEnv = process.env['BGM_BED_ENV']
       delete process.env['GEMINI_API_KEY']
       process.env['BGM_BED_ENV'] = `${D}/nope.env`
       try {
         await expect(g.main(['--out', `${D}/z.wav`, '--prompt', 'soft piano']))
-          .rejects.toThrow('找不到 Lyria key：设 GEMINI_API_KEY 或写 ~/.gemini_api_key')
+          .rejects.toThrow('找不到 Lyria key：把 GEMINI_API_KEY 写进')
       } finally {
         if (savedKey !== undefined) process.env['GEMINI_API_KEY'] = savedKey
         if (savedBedEnv === undefined) delete process.env['BGM_BED_ENV']
