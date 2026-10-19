@@ -35,7 +35,9 @@ Design
     so an operator sees "this wave will cost at most N minutes" before
     saying go.
 
-The 10-minute rule: ``DEFAULT_RUN_CEILING_SECS`` is 600.  A run that would
+The standing rule: ``DEFAULT_RUN_CEILING_SECS`` is 1500 (twenty-five
+minutes, raised from ten on 2026-10-19 once the gateway's measured
+first-response latency made the old ceiling unreachable).  A run that would
 exceed it fails closed at preflight unless the operator passes an explicit
 ``--run-ceiling-secs`` larger value (still recorded in the manifest — the
 ceiling is auditable, never implicit).
@@ -48,44 +50,63 @@ import json
 import time
 from pathlib import Path
 
-# One wave of self-evolution, start to finish, must fit in ten minutes.
-# This is the user's standing ceiling (2026-10-19), not a suggestion: the
-# loop is only iterable while a failed run is cheap to rerun.
-DEFAULT_RUN_CEILING_SECS = 600
+# One wave of self-evolution, start to finish, must fit in twenty-five
+# minutes.  This was the user's standing ceiling at ten minutes (2026-10-19
+# 09:44) and was raised the same day at 18:30 after two independent blockers
+# were measured, not guessed:
+#
+#   * gateway first-response latency on the Curriculum seat: 50.6s / 108.2s /
+#     138.7s / 322s / >300s across runs at the SAME effort (see
+#     garage/probe_curriculum_effort.py).  A 180s slice cannot cover one
+#     worst-case round trip, let alone the authoring that follows it.
+#   * the Actor seat must run the offline gate (`pnpm verify`, measured 40s
+#     on a red tree / 24s green) plus its own edit rounds.
+#
+# A ceiling that the gateway cannot meet inside is not a budget, it is a
+# guaranteed abort — so the standing rule follows the measurement.  Pass
+# --run-ceiling-secs explicitly to go lower or higher; it is always recorded
+# in the manifest, never implicit.
+DEFAULT_RUN_CEILING_SECS = 1500
 
 # Slice plan under the ceiling.  These are UPPER BOUNDS for a single seat,
 # not targets; the engine charges only what it actually uses.
-#   curriculum : authoring one wave.  It is the cheapest seat and the one
-#                that decides whether a wave happens at all.
-#   actor      : one practice segment.  Includes verifier dialogue, so it
-#                gets the largest slice.
+#   curriculum : authoring one wave.  Authoring starts with one expensive
+#                first response (measured 50.6s..322s) and then runs cheap
+#                rounds: bfs5 measured 14 iterations in 204.6s of wall clock
+#                with 0.3-0.5s of tool execution each, i.e. ~14.6s a
+#                round-trip.  So this slice buys one worst-case first
+#                response PLUS a realistic authoring tail.
+#   actor      : one practice segment.  Must carry the offline gate
+#                (`pnpm verify`: 24s green on this host) plus its edit
+#                rounds and one more worst-case round trip.
 #   verifier   : rolled into the actor slice in the stock loop (the Verifier
 #                runs inside the actor branch), but kept explicit here so a
 #                future split can tighten it without re-deriving numbers.
 #   merge      : gate (`pnpm verify`) + commit.  The gate is a real cost and
 #                must be inside the ceiling, not after it.
 #
-# The four slices sum to 550s, and OVERHEAD_RESERVE_SECS (40s) brings the
-# plan to 590s — 10s of slack under the 600s ceiling.  A default plan that
+# The four slices sum to 1250s, and OVERHEAD_RESERVE_SECS (100s) brings the
+# plan to 1350s — 150s of slack under the 1500s ceiling.  A default plan that
 # does not FIT would fail closed on every run, so plan_budget asserts it.
 #
-# Sizing is from MEASURED latency, not taste.  The first recorded run under
-# this budget (bfs-20261019) died at the Curriculum seat: the gateway's first
-# response took 121s (an APITimeoutError plus retry) and the old 80s slice was
-# already spent before the model had answered once — `safety_ceiling` after a
-# single iteration, zero memory.  Every seat slice must therefore cover at
-# least one full worst-case round trip plus the work that follows it.
+# Sizing is from MEASURED latency, not taste.  Every seat slice must cover at
+# least one full worst-case round trip plus the work that follows it — the
+# runs that died were all killed by a slice expiring before the model had
+# answered once, never by the work being too large.
 DEFAULT_SLICES = {
-    "curriculum": 180,
-    "actor": 240,
-    "verifier": 100,
-    "merge": 30,
+    "curriculum": 400,
+    "actor": 500,
+    "verifier": 200,
+    "merge": 150,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a
-# seat: preflight, fixture capture, seed staging, event fsync, the final
-# memory install and result.json write.
-OVERHEAD_RESERVE_SECS = 40
+# seat: preflight, fixture capture, seed staging (git-archive of the real
+# repository), event fsync, the final memory install and result.json write.
+# Measured at ~40s on the recorded runs, which is why the reserve was raised
+# to 100s together with the ceiling: a reserve thinner than the overhead it
+# covers turns ordinary variance into an aborted run.
+OVERHEAD_RESERVE_SECS = 100
 
 TIME_BUDGET_EXHAUSTED = "time_budget_exhausted"
 

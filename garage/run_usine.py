@@ -189,7 +189,7 @@ DEFAULT_GATE_ARGV = ("pnpm", "verify")
 # argparse default is built before garage modules are importable (the
 # theater checkout has to be on sys.path first).  time_budget asserts the
 # two agree at load time.
-_DEFAULT_RUN_CEILING_SECS = 600
+_DEFAULT_RUN_CEILING_SECS = 1500
 
 # ---------------------------------------------------------- gate preflight
 

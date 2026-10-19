@@ -9,7 +9,7 @@ with day-long ``wall_clock_secs`` and no seat declared a folding policy.
 This smoke pins the two defences that make a run time-bounded, and it is
 deliberately offline — it spends no token and starts no VM:
 
-  * time_budget.plan_budget: the DEFAULT slice plan fits the DEFAULT 600s
+  * time_budget.plan_budget: the DEFAULT slice plan fits the DEFAULT 1500s
     ceiling (a default plan that does not fit would fail closed on every
     run — the budget module would be the thing that breaks the pipeline)
   * time_budget.plan_budget: an oversized or degenerate plan fails closed
@@ -95,8 +95,8 @@ def test_plan_fits_default_ceiling(tb) -> None:
     check("default slice plan fits the default ceiling", plan.fits,
           f"planned {plan.planned_total_secs}s <= "
           f"{plan.ceiling_secs}s (slack {plan.slack_secs}s)")
-    check("default ceiling is ten minutes",
-          tb.DEFAULT_RUN_CEILING_SECS == 600,
+    check("default ceiling is twenty-five minutes",
+          tb.DEFAULT_RUN_CEILING_SECS == 1500,
           f"{tb.DEFAULT_RUN_CEILING_SECS}s")
     check("every seat has a positive slice",
           all(value > 0 for value in plan.slices.values()),
@@ -139,9 +139,14 @@ def test_apply_slices_clamps_and_preserves_tighter(tb) -> None:
           configs["memory_actor"].wall_clock_secs
           == configs["actor"].wall_clock_secs,
           str(applied))
+    # "no seat is left unbounded" means: every applied slice is clamped to its
+    # plan, not left at the stock 86400s day budget.  Bound it by the plan
+    # itself rather than a literal, so raising the ceiling does not silently
+    # turn this guard into a no-op.
     check("no seat is left unbounded",
-          all(0 < cfg.wall_clock_secs <= 300
-              for cfg in configs.values()),
+          all(0 < cfg.wall_clock_secs <= tb.DEFAULT_SLICES[seat]
+              for seat, cfg in configs.items()
+              if seat in tb.DEFAULT_SLICES),
           str({k: v.wall_clock_secs for k, v in configs.items()}))
 
     # Every seat slice must cover at least one worst-case gateway round trip.

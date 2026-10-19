@@ -20,20 +20,37 @@ pytest 808 过 3 跳 + 五 smoke 全绿（fence / wave_merge / hooks /
 verifier_adapter / guest_env）+ 只读 `--preflight` ready。（干跑
 smoke_dry_run_wave.py 已于 2026-10-19 按用户决定退役：只跑真实 wave。）
 
-**macOS 无浏览器门禁（刻意设计，不是缺陷）**：Edge 无头模式每次启动都会写
-一个随机 GUID 名的钥匙串项并弹「找不到钥匙串」系统弹窗——「始终允许」永远
-盖不住（项名无界），`--use-mock-keychain` 在 Edge 正式版二进制里不存在
-（0d59354 提交说明称其能抑制钥匙串，实测为 no-op，该记录以本节为准）。因此
-POSIX 侧**双侧**导出 `FEUILLE_BROWSER=<不存在路径>` 哨兵：guest 侧
+**全平台无浏览器门禁（刻意设计，不是缺陷）**：**双侧**导出
+`FEUILLE_BROWSER=<不存在路径>` 哨兵——guest 侧
 `guest_env._disable_in_guest_browser`，host 侧
-`run_usine._posix_host_no_browser`（`setdefault`——操作员显式指定真浏览器
+`run_usine._wave_host_no_browser`（`setdefault`——操作员显式指定真浏览器
 可覆盖）。`usine` 的 `platform.browser()` 对 `FEUILLE_BROWSER` 优先于一切
 查找、路径不存在 = null → 浏览器门控用例 skipIf / early-return，零 Edge 启动。
-**诚实成本：macOS 门禁不跑渲染路径**（浏览器用例计入 skip，SKIP 不是 PASS）；
-浏览器真机覆盖归 Windows wave host（DPAPI，无钥匙串）。**singleFork 陷阱**：
+
+两个平台各自的理由，都是实测：
+
+- **macOS**：Edge 无头模式每次启动都写一个随机 GUID 名的钥匙串项并弹
+  「找不到钥匙串」系统弹窗——「始终允许」永远盖不住（项名无界），
+  `--use-mock-keychain` 在 Edge 正式版二进制里不存在（0d59354 提交说明称其能
+  抑制钥匙串，实测为 no-op）。
+- **Windows**（2026-10-19 加入，用户决定「不必非得真浏览器」）：本机 Edge 在
+  vitest 下**稳定**产不出截图——`covers.test.ts` 4/4 渲染用例单独跑也全败
+  （`textlayer.edgeScreenshot` → `cropTo` 拿不到文件），而裸跑
+  `Edge --screenshot` 成功。门禁因此必红（13 败），每个候选都会被判 FAIL、
+  wave 永远合不上。无浏览器哨兵把它变成诚实的 SKIP，门禁回到
+  **524 过 / 8 跳 / 0 败**（退出码 0，24s）。
+  顺带修了同族真 bug：`publish.test.ts` 的「playwright 驱动本地 mock」整块只判
+  `hasPw`、漏判浏览器在场，而 `base.resolveChrome()` 在无浏览器时是**显式抛错**
+  而非返回 null（本包契约：绝不静默换浏览器），于是无浏览器主机上把该块打成
+  FAIL；现已补上 `pt.browserPath() === null` 门控，与同文件另两处同形。
+
+**诚实成本：门禁不跑渲染路径**（浏览器用例计入 skip，**SKIP 不是 PASS**），
+任何运行报告必须如实把它们记为跳过，不得充作覆盖。**singleFork 陷阱**：
 vitest edge 工程单 worker 串行跑全部测试文件，任何用例里无条件
 `delete process.env.FEUILLE_BROWSER` 都会毒化同 worker 的后续用例——改环境
 变量必须保存旧值、finally 里还原（poster/publish 的旧写法曾导致测试中弹窗）。
+新增浏览器门控用例时，**两个条件都要判**（依赖在场 ∧ 浏览器在场），
+只判其一会把「显式报缺」型契约打成 FAIL 而不是 SKIP。
 
 ### 1. 前置（两台 host 一次性/每次核对）
 
@@ -47,7 +64,7 @@ vitest edge 工程单 worker 串行跑全部测试文件，任何用例里无条
 | **症状 → 动作** | **开跑前先解掉这两条，否则每个 wave 都白烧满 10 分钟**：<br/>• preflight 报 `'pnpm' resolves to …\pnpm.CMD` → 门禁会静默毁掉每个候选，装 standalone `pnpm.exe`<br/>• 跑到一半 `HTTP 401 auth failed` → key 与端点不配对（wave1-blocked 即此因：平台 key 打在 `agent.minimax.cn/mavis` 控制台端点上；MiniMax 平台 key 只配 `https://api.minimaxi.com/v1`），核对 `config/.env` 里每组 `LLM_*_BASE_URL` 与 `LLM_*_API_KEY` 是配对的一对<br/>• 跑到一半 `HTTP 400 context window exceeds limit` → 席的窗口声明大于端点真实窗口（wave1r 即此因），现已被 `context_budget` 门禁提前拦住，但端点侧窗口变更仍需改角色 yaml | 同左 |
 | harness `link:` 锚 | `deepseek-harness` checkout 在 usine 树上五级目录（dsh-plugin 的 `link:` devDeps 解析锚：`vendor/cordis` + `packages/core/tools`）；缺则 `_seed_guest` fail-closed 直接红（不烧 token） | 同左 |
 | 代码同步 | 三棵树（`théâtre/`、本目录、`usine/`）同步到同一血缘。**本地永不 push**，同步机制由用户在仓库外完成 | 同左（Windows wave host 上未 push 的本地 commit 需带过去） |
-| usine 门禁 | 开跑前 wave host 与真树各跑一次 `pnpm verify` 全绿（当前基线：559 过 / 0 败 / 4 跳） | 同左，但 macOS 是无浏览器基线：**548 过 / 0 败 / 14 跳**（多出的 10 跳是浏览器渲染用例，见第 0 节；跳过数对不上基线先查哨兵是否被清） |
+| usine 门禁 | 开跑前 wave host 与真树各跑一次 `pnpm verify` 全绿（**当前实测基线：无浏览器哨兵下 524 过 / 0 败 / 8 跳**，退出码 0，24s） | 同左，但 macOS 是无浏览器基线：**548 过 / 0 败 / 14 跳**（多出的跳数是浏览器渲染用例，见第 0 节；跳过数对不上基线先查哨兵是否被清） |
 
 ### 2. 开跑前自检（全绿才许进 3；théâtre venv，从 `théâtre/` 根目录起跑）
 
@@ -106,12 +123,23 @@ outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终�
 
 ### 4. 时间上限（每次自进化都必须可控）
 
-**一次自进化不超过 10 分钟**（`--run-ceiling-secs` 默认 600）。这不是建议：
-前两次真跑各烧掉约 40 分钟才暴露基础设施故障（401、上下文 400），
+**一次自进化不超过 25 分钟**（`--run-ceiling-secs` 默认 1500）。这不是建议：
 没有时间闸门的自进化跑不起来，也就无法迭代。
 
-- 上限按席切片：curriculum 80s / actor 270s / verifier 100s / merge 90s，
-  加 45s 适配层开销预留 = 585s，留 15s 余量。逐席 `wall_clock_secs` 在装配期
+上限在 2026-10-19 从 10 分钟提到 25 分钟，依据是**实测**而非口味，两个独立的
+阻塞各自被量出来：
+
+- **网关首响应时延**：出题席首响应实测 50.6s / 108.2s / 138.7s / 322s / >300s
+  （同档位同输入的方差远大于档位差异，见 `probe_curriculum_effort.py`）。
+  180s 切片连一次最差往返都盖不住。
+- **门禁**：Actor 必须跑离线门禁（`pnpm verify`，本机绿树实测 24s）外加自己的
+  编辑轮次与又一次最差往返。
+
+**上限跟着测量走**：门禁修好后（见第 1 节无浏览器策略）若时延显著改善，
+应当重新量并把上限收回去——25 分钟不是新常态，是当前网关条件下的必要值。
+
+- 上限按席切片：curriculum 400s / actor 500s / verifier 200s / merge 150s，
+  加 100s 适配层开销预留 = 1350s，留 150s 余量。逐席 `wall_clock_secs` 在装配期
   被夹紧；**已有的更紧配置不会被放松**（切片是天花板，不是地板）。
 - 超时是独立终态 `time_budget_exhausted`（**退出码 3**），与引擎的
   `budget_exhausted`（项目预算花完）区分。收口永远落在**完整 wave 边界**，
@@ -159,8 +187,9 @@ BRS 是并行广度，DRS 是串行深度（论文 RSIAgent §2.2）。DRS **必
 
 ### L2 门禁层（真树上 `pnpm verify`）
 
-- 全绿，对照基线：Windows（有浏览器）**559 过 / 0 败 / 4 跳**；macOS（无浏览器
-  哨兵下）**548 过 / 0 败 / 14 跳**——跳过名单只许诚实新增，不许把红的算成跳；
+- 全绿，对照基线：Windows wave host（无浏览器哨兵，2026-10-19 起）
+  **524 过 / 0 败 / 8 跳**；macOS（同样哨兵下）**548 过 / 0 败 / 14 跳**——
+  跳过名单只许诚实新增，不许把红的算成跳；
 - 钉版对账自动在环：`packages/dsh-plugin/test/plugin-parity.test.ts`——argv 族工具
   action 枚举 ↔ `@feuille/cli` COMMANDS 路由、video-generation 规格/积分 ↔
   `skills/video-generation/SKILL.md` 速查表，wave 改任何一侧不跟另一侧，当场红；

@@ -50,7 +50,7 @@ agent_decided_stop: true
 # cover one worst-case round trip is not a budget, it is a guaranteed abort.
 max_iters: 60
 max_nudges: 25
-wall_clock_secs: 180
+wall_clock_secs: 400
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
