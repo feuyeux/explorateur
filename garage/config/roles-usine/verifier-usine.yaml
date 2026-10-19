@@ -11,7 +11,20 @@ max_tokens: 65536
 temperature: 0.0
 primary_temperature: 1.0
 top_p: 1.0
-reasoning_effort: "max"
+# 2026-10-19 (bfs15 postmortem): the Verifier seat is the ONLY hard gate of the
+# whole pipeline, and it died there on a WALL CLOCK, not on a judgment: bfs13
+# burned its whole 280s slice on 19 real probes and was killed by
+# `safety_ceiling` (core/loop.py: the emergency wall ceiling reached before the
+# agent published), with the report never written.  bfs12 died the same way at
+# iteration 31 while its own probes already showed every test passing.
+#
+# The probes are shell commands and file greps; max reasoning is pure latency
+# on them.  The same A/B probe that moved the Actor seat to "low" (5x faster on
+# the same bytes, output quality unchanged) applies here, and a wrong verdict
+# is structurally contained: wave_merge re-runs the real gate ("pnpm verify")
+# before it commits a candidate, so a false PASS cannot reach the usine tree
+# un-gated.  A false FAIL only costs the merge, never the memory.
+reasoning_effort: "low"
 reasoning_max_tokens: 0
 reasoning_in_history: true
 
@@ -22,7 +35,14 @@ agent_decided_stop: true
 max_iters: 120
 # Inert in v2; retained for already-loaded v1 Verifier compatibility.
 max_nudges: 25
-wall_clock_secs: 280
+# 2026-10-19 (bfs13 postmortem): 280s was too thin for the one seat that has
+# to finish an investigation AND write a report.  bfs13 spent all 280s on
+# 19 probes and was killed at the wall with nothing published; the same run
+# shows the seat one turn away from its closing cross-check.  420s buys the
+# same seat the room to conclude, and the run ceiling still holds because
+# time_budget.DEFAULT_SLICES was re-balanced around it (the Actor slice lost
+# 160s that the low-effort switch no longer needs).
+wall_clock_secs: 420
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180

@@ -797,10 +797,51 @@ _VERIFIER_WORKFLOW_NOTE = (
     "`pnpm verify` (own program); that is the gate.\n")
 
 
+# How to CONCLUDE, measured 2026-10-19 (bfs13).  The stock charter says "There
+# is no prescribed checklist, report schema, probe count, or number of turns" —
+# so the Verifier is free to keep investigating forever, and the ONLY thing that
+# ends an inspection is the seat's wall clock.  bfs13 spent its whole 280s on
+# 19 real probes (19 of 23 turns were genuine Programs, not transport noise)
+# and was killed by the emergency wall ceiling with the report never written;
+# its last turn was a closing cross-check, one step from a verdict.  bfs12 died
+# the same way at iteration 31 while its own probes already reported every test
+# passing.  The charter tells the seat what PASS means but never says that a
+# budget expiry yields NO verdict at all — so the seat rationally keeps
+# confirming, and every confirming round is charged to the same clock.
+#
+# This note states that cost, in the seat's own terms, and clarifies the
+# `doubts` field the way the engine defines it (core/verifier.py: "unresolved
+# material TASK uncertainty; MUST be empty for pass").  It does not tell the
+# seat WHICH verdict to reach: the judgment stays the Verifier's, and a wrong
+# verdict is contained downstream — wave_merge re-runs the real gate before it
+# commits a candidate, so a false PASS cannot reach the usine tree un-gated.
+_VERIFIER_PUBLISH_NOTE = (
+    "\n\nRuling inside your budget: this inspection runs on a bounded wall-clock "
+    "budget, and if that budget expires before you publish, the harness records "
+    "NO verdict at all. An unpublished report is indistinguishable from no "
+    "inspection, and every probe you ran is then wasted. So rule as soon as the "
+    "evidence you have already gathered supports a ruling. For this task the "
+    "offline gate is the requirement's mechanical check, so a green gate "
+    "together with the evidence you read for the changed surface is what "
+    "affirmative support looks like here. Re-reading a file you have already "
+    "read, re-running a gate you have already run, and re-confirming a fact you "
+    "have already confirmed are not new evidence — do not spend a round on them "
+    "unless the tree changed since.\n\n"
+    "Doubts: the report field `doubts` is for unresolved material uncertainty "
+    "about the REQUIREMENT itself — something your probes could not settle "
+    "either way. An optional check you chose not to run is not a doubt, and "
+    "neither is a stylistic reservation about the candidate. If the evidence "
+    "supports the requirement, the doubts field is empty; if the evidence "
+    "establishes a violation, the report names it. Decide, then publish exactly "
+    "one report, with exactly one standalone VERDICT line, and stop — a second "
+    "ceremonial declaration buys nothing.\n")
+
+
 def _substrate_system_prompt(base: str) -> str:
     for old, new in _SUBSTRATE_REPLACEMENTS:
         base = base.replace(old, new)
-    return base + _SUBSTRATE_NOTE + _TRANSPORT_NOTE + _VERIFIER_WORKFLOW_NOTE
+    return (base + _SUBSTRATE_NOTE + _TRANSPORT_NOTE
+            + _VERIFIER_WORKFLOW_NOTE + _VERIFIER_PUBLISH_NOTE)
 
 
 def install_verifier_adapter() -> dict:

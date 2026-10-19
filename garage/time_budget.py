@@ -104,13 +104,29 @@ DEFAULT_RUN_CEILING_SECS = 1500
 #     wave width is agent-owned (wave_width_agent_owned) and the engine has
 #     no width cap, so the width is bounded HERE, in the seat prompt: one
 #     small project per wave.
-#   * curriculum measured 168s (bfs13) and 262s (bfs11) of seat time for a
+#   * curriculum measured 168s (bfs13) and 176s (bfs15) of seat time for a
 #     ONE-project wave; 280s covers both.
-#   * actor measured 332s (bfs13, 18 iterations) and 633s (bfs14, 8
-#     iterations at 9-12k reasoning tokens per call); 780s covers the slow
-#     mode.
-#   * verifier measured 275s (bfs13, with 45% of its turns wasted on native
-#     tool envelopes) and was still short of a VERDICT; 280s covers it.
+#   * actor measured 332s (bfs13, 18 iterations at max effort) and 633s
+#     (bfs14, 8 iterations at 9-12k reasoning tokens per call).  The Actor
+#     seat now runs at reasoning_effort "low" (measured 5x faster on the
+#     same bytes, output quality unchanged), so its slice drops from 780s
+#     to 580s — still 1.75x over bfs13's measured 332s.
+#   * verifier measured 275s (bfs13) and STILL PRODUCED NO VERDICT: 19 of
+#     its 23 turns were real probes, and the emergency wall ceiling killed
+#     the seat with the report unwritten.  The verifier is the pipeline's
+#     only hard gate (no report means no memory AND no merge), so its
+#     slice is the one that grows: 280s -> 420s.  That is where the Actor
+#     slice's 200s went.
+#   * merge carries the real gate ("pnpm verify": 24s green, more on a
+#     changed tree) plus the commit; 60s -> 120s.
+#
+# The re-balance keeps the four slices at 1400s, so the plan still fits the
+# 1500s ceiling exactly and the run ceiling is unchanged.
+#
+# bfs15 postmortem (2026-10-19 23:50): the Verifier slice was the binding
+# constraint of the whole pipeline for three consecutive runs (bfs12, bfs13,
+# bfs15), not the Actor's.  Sizing a budget from the seat that failed is
+# backwards; the seat that must PUBLISH A VERDICT needs the room.
 #
 # bfs8 postmortem (2026-10-19 18:43): the 400s curriculum slice was spent as
 # 71s + 58s + 74s + 17s + 151s + 358s = 728s across six iterations.  The wave
@@ -131,9 +147,9 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
     "curriculum": 280,
-    "actor": 780,
-    "verifier": 280,
-    "merge": 60,
+    "actor": 580,
+    "verifier": 420,
+    "merge": 120,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a

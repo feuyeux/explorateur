@@ -24,7 +24,14 @@ max_tokens: 65536
 temperature: 1.0
 primary_temperature: 1.0
 top_p: 1.0
-reasoning_effort: "max"
+# 2026-10-19 (bfs15 postmortem): the control profile drives the LAST turn of an
+# inspection — the forced verdict object the harness demands when the seat's
+# probe budget is spent.  That turn reads the evidence already gathered and
+# writes one JSON object; it is not a place to spend max-reasoning latency,
+# and every second it burns comes out of the same seat's wall clock.  The
+# agent's own turns run on verifier-usine.yaml's effort (the control profile
+# is the escalation/arbiter side), so this knob only moves the final demand.
+reasoning_effort: "low"
 reasoning_max_tokens: 0
 reasoning_in_history: true
 
