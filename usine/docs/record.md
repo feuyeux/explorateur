@@ -96,3 +96,51 @@ pnpm exec feuille publish check-plan $P\publish\manifest.json --root $P
 **2026-10-06 基线**（发布后 8.5h）：小红书 +35 粉 / 3,965 观看 / 曝光环比 +4249%；
 抖音 +3 粉 / 平均播放 4.72s / 完播 0.8%。归因两次被推翻：不是「批量发布」，也不是
 「45–56s 太长」；区分变量是语种与包装。
+
+## 5 一次真跑：各国美食名称 · 寿司 · 12 语种（2026-10-19）
+
+「各国美食名称」系列第 1 期。画面 = 一道菜的 12 语种对照：海报每格只放菜名，
+视频每格放整句「菜名 + 是日本料理」。**题眼**：12 个写法里 11 个是从日语借的，
+唯一没借的那个（日语 すし）就是被借走的那个。
+
+项目源文件在 `examples/sushi-12lang/`（该目录被仓库根 `.gitignore` 忽略，
+源文件不入库；完整命令块见该目录的 `README.md`）。下面只留可复算的数字与已修缺陷。
+
+| 项 | 实测 |
+|---|---|
+| 语种 | 12（zh/en/de/fr/es/ru/el/hi/ar/he/ja/ko） |
+| 菜名 12 形 | 寿司 / sushi / Sushi / sushi / *sushi* / суши / σούσι / सुशी / سوشي / סושי / すし / 스시 |
+| 成片 | 1920×1080 与 1080×1920，30fps，62.60s，1878 帧，H.264 crf18 + AAC 160k/48 kHz 立体声 |
+| 同步门 | 横竖各 36/36 OK，最大 diff 512（横）/ 487（竖），阈值 40000 |
+| 白帧门 | 两版各 63 帧采样，0 白帧 |
+| 旁白 | 12 段 edge-tts Neural；语音窗实测加权 RMS **−18.57 dBFS**（最响 hi-IN −14.5，最轻 es-ES/ar-SA −22.0，跨度 7.5 dB） |
+| BGM | Lyria 床 72.45s / 48 kHz / 16-bit / 立体声 / RMS −15.1 dBFS / 峰值 0.0 dBFS；拍速实测 87.9 BPM（请求 84，1 倍命中 → 采样率解读可信）；`gain` 0.1063，fade 1.5→3.0 |
+| 床位 | 混后 `_bgm_track.wav` RMS −34.9 dBFS，比旁白低 **16.3 dB**（判据 15–18 dB） |
+| 字体 | 7 字族子集，`fonts.css` 215,091 B（base64 woff2） |
+| 封面 | `cover_lc.png` 1920×1080（B 站）、`cover_pt.png` 1080×1920（竖版全屏）、`cover_t34.png` 1080×1440（竖版平台信息流原生比例） |
+| 复现 | SHA256：`poster.png` 14144A56…、`cover_lc` 75AC7142…、`cover_t34` FE8CB4E9…、`sushi_landscape` B00522FA…、`sushi_portrait` D92E877E… |
+| 发布侧 | `copy check` 三平台 × 8 项 0 违规（带 `--facts`）；`publish check-plan` 3 条无阻塞 |
+
+未跑（要人或要外部副作用）：`publish login`（扫码）、三平台真实发布（不可撤回）。
+
+**词形口径（两个别混）**：海报/封面用**词条形**（英语 sushi、俄语 суши 小写），
+视频用**句中形**（英语 Sushi、俄语 Суши——句首大写是各语正字法，不是另一个词形）。
+带音符的词典形（阿拉伯语 سُوشِي、希伯来语 סוּשִׁي）**只进发布词注记**，画面用通行形
+（无音符）。未证实的说法不写（「俄语 суши 兼指风干鱼」等一律不落笔）。
+
+## 6 本轮新暴露的坑
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 16 | `verify-colors` 除首格外全报「NO … pixels」 | `verify_colors.ts` 的 `cluster()` 把「簇内最后一个元素」写成 `out[out.length-1][out.length-1]`（簇下标），只有第 0 簇能合并；2x 渲染时 1.5px 网格线占 3px，格子取样框退化成空区间 | 改回元素下标；新增 3px 粗线夹具的反向验证用例（1px 夹具永远测不到） |
+| 17 | `karaoke build` 最后一步炸 `No such file or directory`，前面十几分钟状态帧全白跑 | build 建了 `frames/`，没建输出目录 `out/` | `mkdirSync(dirname(out))`；e2e 用例的输出路径改成**尚不存在的子目录**当回归 |
+| 18 | Edge headless `--dump-dom` 返回空 | Edge 在本机拿不到 dump | 所有渲字/门禁显式设 `FEUILLE_BROWSER` 与 `CHROME_BIN` 指 Chrome（否则 `measure-korean` 报「rect dump not found」） |
+| 19 | 竖版平台封面按 3:4 裁掉标题 | 投的是 9:16 全屏封面，平台信息流按 3:4 居中裁切，上下各掉 12.5%，而标题在顶部 | `make-covers` 加第三个变体 `?fmt=T`（1080×1440），竖版平台投它；视频本体仍 9:16 全屏 |
+
+两条 PowerShell 陷阱（不报错，只是静默给错结果）：
+
+- **`$U?lang=zh-CN&state=1` 里的 `?` 会被 PowerShell 7 当三元运算符**，
+  整段被吃掉 → Chrome 报 `Page load failed: net::ERR_NAME_NOT_RESOLVED`。
+  URL 必须显式拼接：`$URL = $BASE + '?lang=zh-CN&state=1'`。
+- **Chrome 批量截图那一轮的命令输出整段是空的，但文件其实已落盘**。
+  同一段代码换个写法又正常输出，判不出确切机制——**以文件落盘为准，别以 stdout 为准**。
