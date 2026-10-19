@@ -520,6 +520,89 @@ def test_drs_seat_selection_is_phase_scoped(ru) -> None:
           p1_configs["curriculum"] is configs["curriculum"])
 
 
+def test_drs_fixture_capture_seeds_the_guest(ru) -> None:
+    """The DRS's fixture capture MUST seed the guest — it is the only seam.
+
+    The serial core (Phase 2) resets the guest between seats.  That reset
+    restores the guest from its snapshot and takes the seeded tree with it,
+    so the seed pushed at VM creation is GONE by the time the Actor starts —
+    unless the capture seam re-seeds it.  The DRS's fixture capture key is
+    ``ep<N>-fixtures``; Phase 1's is ``phase1-project-<n>``; candidate
+    captures must never be seeded (they capture the Actor's tree, which
+    already carries the baseline).
+
+    Measured 2026-10-20 (bfs16h): the DRS Actor's owned root held ONLY the
+    Curriculum's two fixture files — no package.json, no packages/, no
+    source — and the Actor spent its wall clock hunting for a repository
+    that was not there.  Every DRS run before this died the same way, with
+    an unchanged memory tree.
+    """
+    seeded: list = []
+    original = ru._seed_guest
+    ru._seed_guest = lambda vm, state: seeded.append(vm)
+    try:
+        captured: list = []
+
+        def inner(vm, key, host_dir, *args, **kwargs):
+            captured.append((key, kwargs.get("exclude_parts")))
+            return {"ok": True}
+
+        wrapped = ru._seeded_capture(inner, {"cache": {}})
+        wrapped("VM", "phase1-project-001", "host")
+        check("Phase 1's fixture capture seeds the guest", len(seeded) == 1,
+              f"{len(seeded)} seed call(s)")
+        wrapped("VM", "ep001-fixtures", "host")
+        check("the DRS's fixture capture seeds the guest", len(seeded) == 2,
+              f"{len(seeded)} seed call(s)")
+        wrapped("VM", "ep001-candidate-001", "host")
+        check("a candidate capture never seeds the guest", len(seeded) == 2,
+              f"{len(seeded)} seed call(s)")
+        wrapped("VM", "unpublished-curriculum-wave", "host")
+        check("a blocked draft never seeds the guest", len(seeded) == 2,
+              f"{len(seeded)} seed call(s)")
+        check("every capture prunes the regenerable heavy directories",
+              all(part == ru._CAPTURE_EXCLUDE_PARTS for _, part in captured),
+              str(captured))
+    finally:
+        ru._seed_guest = original
+
+    for marker in ("package.json", "packages/dsh-plugin/src/tools.ts"):
+        check(f"the baseline marker exists in the real tree: {marker}",
+              (EXPLORATEUR / "usine" / marker).is_file())
+
+
+def test_replay_guard_fails_closed_without_a_baseline(ru) -> None:
+    """The replay seam must PROVE the Actor gets a repository.
+
+    A missing baseline is a wiring gap, and a wiring gap must cost seconds,
+    not a thirty-minute run: the Actor would otherwise burn its whole wall
+    clock looking for code that is not there.  The guard fails closed.
+    """
+    class FakeVM:
+        def __init__(self, present: bool):
+            self.present = present
+
+        def run_command(self, command, timeout=None):
+            if self.present:
+                return "BASELINE_OK"
+            return "BASELINE_MISSING:evolution_project/package.json"
+
+    def inner(vm, host_dir, *args, **kwargs):
+        return {"ok": True}
+
+    guarded = ru._baseline_guarded_replay(inner, {})
+    result = guarded(FakeVM(True), "host")
+    check("the replay guard passes when the baseline is present",
+          bool(result.get("ok")))
+    try:
+        guarded(FakeVM(False), "host")
+        check("the replay guard fails closed without a baseline", False,
+              "no error was raised")
+    except RuntimeError as exc:
+        check("the replay guard fails closed without a baseline", True,
+              str(exc)[:120])
+
+
 def test_drs_brief_has_a_closed_scope() -> None:
     """The DRS brief must state the bounds, and the Actor must have the
     matching fallback.
@@ -612,6 +695,8 @@ def main() -> int:
     test_real_usine_roles_pass(ru, tb)
     test_every_plan_slice_is_actually_effective(ru, tb)
     test_drs_seat_selection_is_phase_scoped(ru)
+    test_drs_fixture_capture_seeds_the_guest(ru)
+    test_replay_guard_fails_closed_without_a_baseline(ru)
     test_drs_brief_has_a_closed_scope()
     test_curriculum_target_menu_is_honest()
 

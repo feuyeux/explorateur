@@ -56,6 +56,12 @@ Assembly contract (order is load-bearing)
     of the usine prefix into the guest and extracts it over /home/user
     (baseline wins collisions; the Curriculum scaffold is preserved), and the
     captured fixture — the merge baseline — becomes scaffold UNION baseline.
+    The DRS's serial core needs the SAME seam under its OWN key
+    (``ep<N>-fixtures``): it resets the guest between seats, and that reset
+    takes the seeded tree with it, so a DRS Actor whose capture seam did not
+    re-seed would find ONLY the Curriculum's fixture files in its owned root
+    — no repository to edit (measured 2026-10-20, bfs16h).  A replay guard
+    then fails closed if the tree handed to the Actor carries no baseline.
     Candidate captures (``phase1-candidate-*``) and blocked-draft captures
     are never seeded.  Every capture (fixture and candidate alike) prunes the
     regenerable heavy directories (node_modules, dist: _CAPTURE_EXCLUDE_PARTS
@@ -1518,13 +1524,91 @@ def _seeded_capture(inner, state: dict):
     declared in ``_CAPTURE_EXCLUDE_PARTS`` (the engine seam is a no-op when
     the tree carries no such directories, so the pruned fixture and the
     pruned candidate stay symmetric).
+
+    THE DRS NEEDS THE SAME SEAM, AND ITS OWN KEY.  The serial core (Phase 2)
+    captures the Curriculum's fixture as ``ep<N>-fixtures`` and then REPLAYS
+    that capture onto the Actor's freshly-reset guest.  The seed pushed at
+    VM creation does NOT survive that reset — ``_reset_null_vm`` calls
+    ``env.reset()``, which restores the guest from its snapshot and takes
+    the whole seeded tree with it — so without a seed at the DRS's capture
+    seam the Actor's owned root holds ONLY the Curriculum's fixture files:
+    no package.json, no packages/, no source.  The Actor then has no
+    repository to edit, and it burns its whole wall clock hunting for one
+    (measured 2026-10-20, bfs16h: the Actor probed guest paths, the pnpm
+    store, and OTHER runs' stale guest worktrees — and found the monorepo
+    only in a previous run's guest, at a different HEAD).  Every DRS run
+    before this died there, with an unchanged memory tree.
+
+    Seeding at the DRS's fixture capture seam makes the capture
+    scaffold UNION baseline, exactly like Phase 1 — and the replay then
+    hands the Actor the real repository.  The Curriculum's own publish
+    checks still pass: the seed lands AFTER the Curriculum published, so
+    its "no code files in the owned root" self-check is unaffected.
     """
     def capture_project(vm, key, host_dir, *args, **kwargs):
-        if isinstance(key, str) and key.startswith("phase1-project-"):
+        if isinstance(key, str) and _is_fixture_capture_key(key):
             _seed_guest(vm, state)
         kwargs.setdefault("exclude_parts", _CAPTURE_EXCLUDE_PARTS)
         return inner(vm, key, host_dir, *args, **kwargs)
     return capture_project
+
+
+# Capture keys that carry the Curriculum's staged fixture — the one moment
+# the guest must hold the seeded baseline.  Phase 1 names it
+# ``phase1-project-<n>``; the DRS's serial core names it ``ep<n>-fixtures``.
+# Candidate captures (``phase1-candidate-*``, ``ep<n>-candidate-<n>``) are
+# NEVER seeded: they capture the Actor's tree, which already carries the
+# baseline, and seeding them would be a no-op at best.
+_DRS_FIXTURE_CAPTURE_KEY = re.compile(r"^ep\d{3}-fixtures$")
+
+
+def _is_fixture_capture_key(key: str) -> bool:
+    """True for the capture keys that stage a fixture (and need the seed)."""
+    return bool(key.startswith("phase1-project-")
+                or _DRS_FIXTURE_CAPTURE_KEY.match(key))
+
+
+# Two files that only exist if the seeded baseline was really extracted.
+# ``package.json`` is the monorepo root; ``tools.ts`` is the TARGET MENU's
+# first target, so a tree carrying it is the real repository.
+_BASELINE_MARKERS = (
+    "evolution_project/package.json",
+    "evolution_project/packages/dsh-plugin/src/tools.ts",
+)
+
+
+def _baseline_present(vm) -> bool:
+    """Ask the guest whether the seeded baseline is really there."""
+    probe = " ".join(f'"/home/user/{marker}"' for marker in _BASELINE_MARKERS)
+    out = vm.run_command(
+        f"for f in {probe}; do test -f \"$f\" || "
+        "{ echo BASELINE_MISSING:$f; exit 1; }; done; echo BASELINE_OK",
+        timeout=120) or ""
+    return "BASELINE_OK" in out
+
+
+def _baseline_guarded_replay(inner, state: dict):
+    """Wrap hooks.replay_project: fail closed if the replay lost the baseline.
+
+    The replay is the last seam before the Actor starts.  If the tree it
+    restored carries no seeded repository, the Actor cannot do the project
+    at all — it will spend its entire wall clock looking for code that is
+    not there.  That is a WIRING gap, and (measured 2026-10-20) a wiring gap
+    must cost seconds, not a thirty-minute run: this guard turns it into an
+    immediate, named failure.
+    """
+    def replay_project(vm, host_dir, *args, **kwargs):
+        result = inner(vm, host_dir, *args, **kwargs)
+        if not result.get("ok"):
+            return result
+        if not _baseline_present(vm):
+            raise RuntimeError(
+                "the replayed project tree carries no seeded baseline "
+                f"(missing one of {_BASELINE_MARKERS}): the Actor would have "
+                "no repository to edit and would burn its whole wall clock "
+                "hunting for one. This is a wiring gap, not a seat failure.")
+        return result
+    return replay_project
 
 
 # -------------------------------------------------------------------- corpus
@@ -2065,6 +2149,12 @@ def main(argv: list | None = None) -> int:
     seed_state = {"usine_dir": str(usine_dir), "run_root": str(run_root),
                   "cache": {}}
     hooks.capture_project = _seeded_capture(hooks.capture_project, seed_state)
+    # The DRS's serial core RESETS the guest between seats, which takes the
+    # seeded tree with it; the capture seam re-seeds, and this guard proves
+    # the replay handed the Actor a real repository before it spends a
+    # single token looking for one.
+    hooks.replay_project = _baseline_guarded_replay(hooks.replay_project,
+                                                     seed_state)
     vm_factory = usine_hooks.publish_blacklist_vm_factory(
         guest_env.worktree_vm_factory())
     # Seed at VM creation (see _harness_staging_vm_factory): the Curriculum
