@@ -5,10 +5,9 @@
 // 冲刷竞态：后置时 10 连跑丢补尾 3 次）。顺序写错不会立刻炸，只会随机
 // 出片——所以用断言钉住 filterGraph 的字符串顺序，不跑 ffmpeg 也能验。
 import { execFileSync } from "node:child_process"
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { composeTrack, filterGraph, probeDuration } from "../src/audio.js"
@@ -17,14 +16,6 @@ import { roundHalfEven } from "../src/num.js"
 
 const FFMPEG = platform.ffmpeg()
 const FFPROBE = platform.ffprobe()
-const goldenPath = fileURLToPath(new URL("../../../migration/golden/audio.json", import.meta.url))
-const golden = JSON.parse(readFileSync(goldenPath, "utf8")) as {
-  data: {
-    filter_graph: { n: number; starts: number[]; dur: number; loudness_i: number; out: string }[]
-    probe_duration: Record<string, number>
-  }
-}
-const assetsDir = fileURLToPath(new URL("../../../migration/golden/assets/tts-cache", import.meta.url))
 
 const tmpRoots: string[] = []
 function tmp(): string {
@@ -34,15 +25,6 @@ function tmp(): string {
 }
 afterEach(() => {
   for (const d of tmpRoots.splice(0)) rmSync(d, { recursive: true, force: true })
-})
-
-describe("filter_graph 金样本 parity（滤镜图字符串逐字节）", () => {
-  it("三种形态与 Python 逐字节一致", () => {
-    expect(golden.data.filter_graph.length).toBe(3)
-    for (const g of golden.data.filter_graph) {
-      expect(filterGraph(g.n, g.starts, g.dur, g.loudness_i)).toBe(g.out)
-    }
-  })
 })
 
 describe("filter_graph 反向验证（verify_audio 移植）", () => {
@@ -112,12 +94,6 @@ describe.skipIf(FFMPEG === null || FFPROBE === null)("真机混音 smoke（verif
     for (const x of durs) expect(Math.abs(x - 3.0)).toBeLessThanOrEqual(0.05)
     expect(new Set(durs).size).toBe(1)
     expect(Math.abs(probeDuration(a1) - 1.0)).toBeLessThan(0.05)
-  })
-
-  it("probe_duration 金样本（同机 ffprobe 桶内确定性）", () => {
-    for (const [name, want] of Object.entries(golden.data.probe_duration)) {
-      expect(roundHalfEven(probeDuration(join(assetsDir, name)), 3), name).toBe(want)
-    }
   })
 
   it("坏文件显式炸（check=True 口径：不静默返回垃圾）", () => {

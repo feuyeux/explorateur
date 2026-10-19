@@ -98,26 +98,6 @@ describe('P5 课件线叶子经路由端到端可达', () => {
     }
   })
 
-  it('scene draft 落盘字节 parity（Python --print-plan 金样本口径）+ 拒覆盖已定稿 → 1', async () => {
-    const { data } = await import('@feuille/core')
-    const lessonId = 'guangchaoshi-逛超市'
-    const lessonDir = join(data.LESSONS_DIR, lessonId)
-    const d = mkdtempSync(join(tmpdir(), 'feuille-cli-draft-'))
-    try {
-      copyFileSync(join(lessonDir, 'brief.json'), join(d, 'brief.json'))
-      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(0)
-      const golden = readFileSync(join(lessonDir, '..', '..', 'migration', 'golden', 'scene_draft.md'), 'utf8')
-      expect(readFileSync(join(d, 'scene.md'), 'utf8')).toBe(golden)
-      // 落盘产物自带草稿标记 → 免 --force 重跑仍 0；换成无标记定稿 → FeuilleError → 1
-      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(0)
-      writeFileSync(join(d, 'scene.md'), '# 已定稿，无 draft 标记', 'utf8')
-      expect(await main(['scene', 'draft', '--brief', join(d, 'brief.json')])).toBe(1)
-      expect(readFileSync(join(d, 'scene.md'), 'utf8')).toBe('# 已定稿，无 draft 标记')
-    } finally {
-      rmSync(d, { recursive: true, force: true })
-    }
-  })
-
   it('lesson new 开坑 + lesson doctor 体检：经路由端到端可达（退出码口径一致）', async () => {
     const d = mkdtempSync(join(tmpdir(), 'feuille-cli-lesson-'))
     try {

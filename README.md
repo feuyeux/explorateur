@@ -1,13 +1,8 @@
 # explorateur
 
-> 一个装了三台独立机器和一台 RSI 引擎的工作区。每个子项目自带栈、自带文档、自带测试，**互不依赖**。
+> 一个装着一台多语种视频生产机器和一台 RSI 自进化引擎的工作区仓库。
 
-这个仓库是工作区，不是单体工程——子项目之间没有代码引用，各自可单独构建、单独发布。本仓库（`explorateur/`）承载 `usine/` 与 RSI 工作流（[`théâtre/`](théâtre/) 引擎 + [`garage/`](garage/) 适配层）；两个独立应用 `humming` 与 `reading` 在**仓库外**的同级目录 [`app/`](../app/)，不随本仓库 git 版本化。RSI 工作流对 usine 是单向安全改进关系，不构成子项目间依赖（见下文「RSI 工作流」）。下面是入口索引；改代码前请直接进对应子项目读它自己的文档。
-
-BGM
-
-> https://aistudio.google.com/api-keys
-> explorateur/config/.env（样例：config/env.sample）
+这个仓库是工作区，不是单体工程。本仓库（`explorateur/`）承载 `usine/` 与 RSI 工作流（[`théâtre/`](théâtre/) 引擎 + [`garage/`](garage/) 适配层）；RSI 工作流对 usine 是单向安全改进关系，不构成子项目间依赖（见下文「RSI 工作流」）。两个独立应用 `humming` 与 `reading` 在**仓库外**的同级目录 [`app/`](../app/)，各自维护、各自版本化，本仓库不覆盖其文档与测试。下面是入口索引；改代码前请直接进对应子项目读它自己的文档。
 
 ---
 
@@ -15,15 +10,9 @@ BGM
 
 | 目录 | 是什么 | 栈 | 规模 | 入口文档 |
 |---|---|---|---|---|
-| [`../app/humming/`](../app/humming/)（仓库外） | **HummingScore** 哼唱识谱：哼一段 → 实时转五线谱 / 简谱 / MIDI / MusicXML | Tauri 2 + 原生 JS（无框架） | 32 文件 / 7853 行 | [README](../app/humming/README.md) · [使用指南](../app/humming/docs/使用指南.md) · [架构](../app/humming/docs/设计/架构.md) |
-| [`../app/reading/`](../app/reading/)（仓库外） | **Ready Reader** 外语原著精读：导入 Markdown → LLM 结构化拆解 → 双栏逐句精读 | Tauri 2 + 纯 Rust 后端 | 30 文件 / 8119 行 | [README](../app/reading/README.md) · [使用指南](../app/reading/docs/使用指南.md) · [架构](../app/reading/docs/设计/架构.md) |
 | [`usine/`](usine/) | **feuille** 多语种视频生产与发布可复用层：TTS / 渲字 / 合成 / 封面 / 四平台发布 / 发布后核对 | TS pnpm monorepo（Node ≥24） | 10 包 / 约 3.2 万行 TS | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md) · [架构](usine/docs/architecture.md) |
 
-规模一栏的口径：`humming` / `reading` 统计 `.js`/`.mjs`/`.rs`/`.css`/`.html`/`.sql`
-源文件及其行数，已排除 `target/`、`node_modules/`、`src/vendor/` 等构建产物；
-`usine` 按 `packages/` 各包 TS 源文件行数计（排除 `node_modules/`、`dist/`；口径见 [usine/README.md](usine/README.md)）。
-
-`humming` 与 `reading` 是两个**应用**（可打包成安装包分发的桌面程序，位于仓库外同级 [`app/`](../app/)）；`usine` 是一个**库层**（被其它内容项目复用的机制 + 体例 + 纪律，不直接分发）。
+规模口径见 [usine/README.md](usine/README.md)。
 
 ---
 
@@ -34,7 +23,7 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 
 | 目录 | 是什么 | 入口 |
 |---|---|---|
-| [`théâtre/`](théâtre/) | vendored RSIAgent 引擎（上游 `4d7ef43`；内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [PROVENANCE.md](théâtre/PROVENANCE.md)（补丁纪律）· [ADAPTATION.md](théâtre/ADAPTATION.md)（实现偏离） |
+| [`théâtre/`](théâtre/) | vendored RSIAgent 引擎（上游 [AetherLabsAI/RSIAgent](https://github.com/AetherLabsAI/RSIAgent) @ `4d7ef43`；内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [PROVENANCE.md](théâtre/PROVENANCE.md)（补丁纪律）· [ADAPTATION.md](théâtre/ADAPTATION.md)（实现偏离） |
 | [`garage/`](garage/) | 适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检；**改进方向含智能体面（dsh 插件工具面）** | [README](garage/README.md)（**运行手册：怎么跑一次 wave、怎么校验自进化产物**）· `run_usine.py`（`--preflight` 先行；`--execute` 需 ack token；真波次喊跑才跑；Windows wave host 与 macOS POSIX host 均可跑） |
 | [`plan/`](plan/) | 排产与调研文档 | [rsiagent-memory.md](plan/rsiagent-memory.md)（RSI 调研） |
 
@@ -46,27 +35,17 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 
 ## 前置依赖
 
-| 子项目 | 需要 |
-|---|---|
-| `humming` | Rust 1.77.2+、tauri-cli 2.x、Node（仅用于 vendor 构建依赖） |
-| `reading` | Rust 1.77.2+、tauri-cli 2.x。**前端无 npm 依赖，不需要 Node** |
-| `usine` | Node ≥24、pnpm ≥11（standalone）；`pnpm install` 一次后 `pnpm verify` 全量门禁 |
+- `usine`：Node ≥24、pnpm ≥11（standalone）；`pnpm install` 一次后 `pnpm verify` 全量门禁。
 
-`humming` 与 `reading` 的 `cargo tauri` 命令要在**各自项目根目录**（仓库外 `../app/humming/`、`../app/reading/`）执行，不是仓库根目录。
+BGM 底床生成（`usine/skills/bgm-bed`，走 Google Lyria）的 API key 统一配在 `explorateur/config/.env`（样例见 `config/env.sample`；环境变量优先于文件），key 申请页：https://aistudio.google.com/api-keys 。
 
 ---
 
 ## 测试
 
-三个子项目各有独立测试套件，全部应保持全绿：
+usine 的测试套件应保持全绿：
 
 ```bash
-# humming —— 6 个 Node 测试：流水线 / 音符编辑 / 合成器 / UI 契约 / 原声播放 / 端到端
-cd ../app/humming && npm install && npm test
-
-# reading —— 119 个 Rust 测试：单元 + command 调度 + 前后端契约 + 全链路冒烟
-cd ../app/reading/src-tauri && cargo test
-
 # usine —— pnpm monorepo 全量门禁：typecheck + 全部 vitest 套件（545 用例 / 4 跳过，2026-10-18 基线）
 cd usine && pnpm install && pnpm verify
 ```
@@ -79,57 +58,18 @@ cd usine && pnpm install && pnpm verify
 ## 仓库级约定
 
 - **`.gitignore` 在根目录统一管理**，覆盖仓库内项目：依赖目录（`node_modules/`、`.venv/`）、构建产物（`target/`、`dist/`、`build/`）、密钥文件与系统文件。
-- **lockfile 一律入库**：仓库内 `pnpm-lock.yaml`、`uv.lock`；仓库外两个应用的 lockfile（`package-lock.json`、`Cargo.lock`）随 [`app/`](../app/) 目录各自维护。可复现构建优先于 diff 整洁。
-- **两个应用均以 MIT 发布**：各自项目根目录带 `LICENSE`（`../app/humming/LICENSE`、`../app/reading/LICENSE`），
-  版权署名分别为 HummingScore 与 Ready Reader；机器可读声明在 `package.json` / `Cargo.toml` 的 `license` 字段。
-- **`src-tauri/target/` 是本机私有的**，不随仓库分发，也因此**会带上编译时的绝对路径**。项目目录一旦改名或移动，必须 `cargo clean` 后重建，否则 tauri-build 会继续去读旧路径而构建失败（见下方「已知坑」）。
+- **lockfile 一律入库**：仓库内 `pnpm-lock.yaml`（uv.lock 已随 P7 Python 清场退役）。可复现构建优先于 diff 整洁。
 - 纪律条文的权威文本在 [`usine/AGENTS.md`](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）；工作区级约束（技能库路由 / 规则层级）在 [AGENTS.md](AGENTS.md)——两层各管各的，互不覆盖。
-
----
-
-## 已知坑
-
-**Tauri 项目移动目录后构建失败**，报 `failed to read plugin permissions: ... No such file or directory`，且路径指向旧目录。
-
-原因不是源码问题：`tauri-build` 的构建脚本会把权限文件清单以**绝对路径**写进 `target/debug/build/tauri-*/output`，cargo 会缓存并在后续构建中直接回放。目录改名/移动后这份缓存不会自动失效，于是构建脚本去读一个已不存在的旧路径。
-
-`cargo clean -p <包名>` **不足以修复**——它只清本包的产物，不会重跑依赖的构建脚本。有效做法是清掉这些缓存文件，强制 tauri-build 重跑：
-
-```bash
-cd <项目>/src-tauri
-grep -rl "<旧绝对路径>" target/debug/build --include=output --include=root-output \
-  | xargs -I{} mv {} {}.stale
-cargo test
-```
 
 ---
 
 ## 文档分层
 
-三个层次，职责不重叠：
+两个层次，职责不重叠：
 
 | 层 | 位置 | 写什么 | 生命周期 |
 |---|---|---|---|
 | **工作区级** | 本文件 | 子项目索引与跨项目约定 | 随工作区 |
-| **项目级** | 各子项目的 `README.md` | 这是什么、怎么构建、怎么跑测试、目录树 | 随项目 |
-| **使用者级** | 各子项目的 `docs/使用指南.md` | 日常操作步骤、界面总览、数据与重置、常见问题、命令速查表 | 随项目 |
-| **设计级** | `../app/{humming,reading}/docs/{设计,计划}/`（仓库外） | 架构说明（长期维护）与一次性决策记录（历史） | 见下方命名约定 |
+| **项目级** | [usine/README.md](usine/README.md) | 这是什么、怎么构建、怎么跑测试、目录树 | 随项目 |
 
-`usine` 自带 [AGENTS.md](usine/AGENTS.md)（纪律条文 + 工程约定），是该项目的权威文本。
-
-### 命名约定
-
-`humming` 与 `reading` 共用同一套文档命名规则：
-
-- **常青文档不带日期** —— 随代码持续维护，文件名就是它的身份：
-  `docs/使用指南.md`、`docs/设计/架构.md`
-- **历史文档带日期前缀** —— 一次性决策记录，格式 `YYYY-MM-DD-<主题>.md`：
-  - 同一主题的设计与实施计划成对出现，设计稿加 `-design` 后缀
-    （`docs/设计/2026-10-07-tauri-跨平台重构-design.md` ↔ `docs/计划/2026-10-07-tauri-跨平台重构.md`）
-- **主题保留原文字形**，不转成 ASCII slug；分隔符一律用连字符 `-`，不用下划线
-
-### 历史文档的读法
-
-`docs/{设计,计划}/` 里带日期的文件是**当时的记录**，其中的路径、命令与目录树反映
-当时的机器状态，**不必与现状一致**。判断现状请以各项目的 `README.md` 与
-`docs/设计/架构.md` 为准。
+`usine` 自带 [AGENTS.md](usine/AGENTS.md)（纪律条文 + 工程约定），是该项目的权威文本；人机交互与工具面细节在 [usine/docs/guide.md](usine/docs/guide.md)，分层架构在 [usine/docs/dsh.md](usine/docs/dsh.md)。

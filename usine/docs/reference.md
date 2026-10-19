@@ -33,7 +33,7 @@ systemPrompt、审批挂点、10 个技能资产自动加载。`usine_video_gene
 目录按域分，不按层分。`@feuille/gate` 三方对账（账本 ↔ 实际模块 ↔ 每个 SKILL.md
 「拥有模块」行），改一处不改另一处当场 FAIL；完整模块表见 [../README.md](../README.md)。
 
-`pnpm verify` = `tsc --noEmit` + 全部 vitest（45 文件）。纪律：**反向验证**（每套注入已知
+`pnpm verify` = `tsc --noEmit` + 全部 vitest（42 文件）。纪律：**反向验证**（每套注入已知
 缺陷，凿洞必 FAIL）、**SKIP ≠ PASS**。Edge 系测试单独串行（并发抢浏览器）。
 
 ### CLI 路由

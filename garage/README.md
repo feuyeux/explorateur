@@ -44,6 +44,7 @@ vitest edge 工程单 worker 串行跑全部测试文件，任何用例里无条
 | coreutils | guest 内 GNU `sha256sum` / `stat -c`（capture 回放校验用） | **`brew install coreutils`** + 把 gnubin 写进 bash 登录 PATH（`~/.bash_profile` 里 `export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"`）——引擎回放测试与 guest GNU 方言都走 `bash -lc`，macOS path_helper 会把仅前缀的 PATH 降级，必须落在 profile 里 |
 | guest python | théâtre venv | théâtre venv（`feuille/.venv/theatre-mac`）自动被选为 guest `python3` |
 | 凭据 | `explorateur/config/.env`：组级合并写法 `LLM_<组>_{BASE_URL,API_KEY}`（如 `LLM_FUYAO_*` 覆盖 fuyao-work / fuyao-coding / fuyao-data，逐 slug 变量可覆盖组级）+ `GEMINI_API_KEY`，样例见 `config/env.sample`（密钥永不进仓库/日志） | 同左（本机已有） |
+| **症状 → 动作** | **开跑前先解掉这两条，否则每个 wave 都白烧满 10 分钟**：<br/>• preflight 报 `'pnpm' resolves to …\pnpm.CMD` → 门禁会静默毁掉每个候选，装 standalone `pnpm.exe`<br/>• 跑到一半 `HTTP 401 auth failed` → 端点凭据失效（wave1-blocked 即此因），重跑 `--preflight` 确认端点解析<br/>• 跑到一半 `HTTP 400 context window exceeds limit` → 席的窗口声明大于端点真实窗口（wave1r 即此因），现已被 `context_budget` 门禁提前拦住，但端点侧窗口变更仍需改角色 yaml | 同左 |
 | harness `link:` 锚 | `deepseek-harness` checkout 在 usine 树上五级目录（dsh-plugin 的 `link:` devDeps 解析锚：`vendor/cordis` + `packages/core/tools`）；缺则 `_seed_guest` fail-closed 直接红（不烧 token） | 同左 |
 | 代码同步 | 三棵树（`théâtre/`、本目录、`usine/`）同步到同一血缘。**本地永不 push**，同步机制由用户在仓库外完成 | 同左（Windows wave host 上未 push 的本地 commit 需带过去） |
 | usine 门禁 | 开跑前 wave host 与真树各跑一次 `pnpm verify` 全绿（当前基线：559 过 / 0 败 / 4 跳） | 同左，但 macOS 是无浏览器基线：**548 过 / 0 败 / 14 跳**（多出的 10 跳是浏览器渲染用例，见第 0 节；跳过数对不上基线先查哨兵是否被清） |
@@ -102,6 +103,47 @@ Verifier 复核 → 记忆蒸馏 → **合并前 `pnpm verify` 门禁**（红即
 
 run root（仓库外）落：`events.jsonl`（里程碑）、episode 工件（指令原文/SUBMIT/VERDICT/
 outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终态记忆。
+
+### 4. 时间上限（每次自进化都必须可控）
+
+**一次自进化不超过 10 分钟**（`--run-ceiling-secs` 默认 600）。这不是建议：
+前两次真跑各烧掉约 40 分钟才暴露基础设施故障（401、上下文 400），
+没有时间闸门的自进化跑不起来，也就无法迭代。
+
+- 上限按席切片：curriculum 80s / actor 270s / verifier 100s / merge 90s，
+  加 45s 适配层开销预留 = 585s，留 15s 余量。逐席 `wall_clock_secs` 在装配期
+  被夹紧；**已有的更紧配置不会被放松**（切片是天花板，不是地板）。
+- 超时是独立终态 `time_budget_exhausted`（**退出码 3**），与引擎的
+  `budget_exhausted`（项目预算花完）区分。收口永远落在**完整 wave 边界**，
+  不会中途丢下半合并状态。
+- `--time-budget-allow-over` 可放宽 fail-closed，但**必须同时**给更大的
+  `--run-ceiling-secs`；上限永远记进 `manifest.json`，从不明示。
+- 上下文预算门禁（`_context_budget_check`）静态自洽检查各席声明，
+  **不发请求不烧 token**：输出上限 vs 高水位、水位倒置、声明了高水位
+  却无保留策略、输出上限超网关上限。wave1r 的 `HTTP 400 context window
+  exceeds limit` 就是四个席 `ctx_high_water: 0` 长出来的。
+- 离线验证：`.\.venv\Scripts\python.exe ..\garage\smoke_time_budget.py`
+
+### 5. DRS 深度波次（`--phase 2`）
+
+BRS 是并行广度，DRS 是串行深度（论文 RSIAgent §2.2）。DRS **必须在 BRS 之后**，
+且有独立 ack token——深度波次绝不会被一条陈旧的 Phase-1 命令行带起来：
+
+```powershell
+# 先把 Phase-1 跑完（它产出 phase1/memory/ 这棵记忆树）
+.\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
+# 再在它之上加深：
+.\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --phase 2 --preflight
+.\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --phase 2 --execute RUN-USINE-PHASE2-DRS
+```
+
+- run root 是 Phase-1 的**同级兄弟**（`phase2/`），Phase-1 的 manifest 与
+  tree hash 保持权威，DRS 只复制不搬移。
+- **fail-closed**：`phase1/memory/` 为空时拒绝跑 DRS——空记忆上的深度波次
+  退化成第二次广度波次，证明不了深度递归。
+- 结果载荷带 `drs_delta`：基线/终态 tree hash、文件数增量、`memory_changed`。
+  论文 §3.2 指出增长包含收缩（整合记录会替换多条旧记录），所以判据是
+  **tree 变化**，不是体积增长。
 
 ## 二、怎么校验自进化产物
 

@@ -110,7 +110,7 @@ describe("cmd_new：开坑", () => {
     expect(brief["spec"]["open.pose"]).toBe("bounce-in both-hands")
 
     // 打印：显示路径相对项目根（lessons 上推一层），显示代码不该让命令失败
-    expect(lines.some((l) => l.includes("已写 lessons/fruit/brief.json"))).toBe(true)
+    expect(lines.some((l) => l.includes("已写 lessons/fruit/brief.json") || l.includes("已写 lessons\\fruit\\brief.json"))).toBe(true)
     expect(lines.some((l) => l.includes("选角已验：zh-CN") && l.includes("×"))).toBe(true)
     expect(lines.some((l) => l.includes("空跑草稿通过——这份 brief 渲得出来"))).toBe(true)
     expect(lines.some((l) => l.includes("⚑ note-floor=0"))).toBe(true)

@@ -1,18 +1,13 @@
-// scene_draft.test.ts — 草稿生成器金样本 parity + 反向验证。
-//
-// **金样本判据（纪律 1）**：真实 brief（guangchaoshi-逛超市/brief.json）经 TS
-// render 生成的全文，与 Python `feuille scene draft --brief ...` **落盘**入库的
-// migration/golden/scene_draft.md **逐字节一致**——frontmatter、§0 全部机读字段、
-// §2 每语种台词槽（引号对来自 manifest）、§5 词表格子、节拍表 n-K 记法，
-// 全在这一条里。（不取 --print-plan 口径：print 会多补一个换行，落盘字节才是
-// render 的真身。）
+// scene_draft.test.ts — 草稿生成器反向验证。
 //
 // 反向验证（纪律 2）：坏骨架（双 rest / 缺 n / rest 超载 / n 不一致）、坏取值
 // （姿态/情绪/装置样式不在注册表）、坏选角、拒绝覆盖已定稿，定向破坏各自命中。
+// 落盘契约（拒覆盖 / --force / --gaps）+ mainDraft 端到端用真实 brief 跑，
+// 期望产物与 render(brief) 自身输出一致——以 ts 真身做参考（不再依赖 Python
+// 落盘金样本，P0-P8 删场后 Python parity 不再有意义）。
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { LESSONS_DIR, cardsDoc, personas } from "../src/data.js"
@@ -20,10 +15,8 @@ import { FeuilleError } from "../src/errors.js"
 import * as sd from "../src/scene_draft.js"
 
 const LESSON_ID = "guangchaoshi-逛超市"
-const BRIEF = JSON.parse(readFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), "utf8"))
-// Python `feuille scene draft` 落盘入库的金样本（确定性纯函数，逐字节可比）
-const GOLDEN_PATH = fileURLToPath(new URL("../../../migration/golden/scene_draft.md", import.meta.url))
-const GOLDEN = readFileSync(GOLDEN_PATH, "utf8")
+const BRIEF_PATH = join(LESSONS_DIR, LESSON_ID, "brief.json")
+const BRIEF = JSON.parse(readFileSync(BRIEF_PATH, "utf8"))
 
 const tmps: string[] = []
 function tmp(): string {
@@ -41,18 +34,15 @@ function renderBrief(brief: any = BRIEF): string {
   return sd.render(brief, personas(), cardsDoc(), sd.langs(), sd.registries())
 }
 
-describe("金样本字节 parity（Python 落盘口径）", () => {
-  it("真实 brief → render 全文与入库金样本逐字节一致", () => {
-    expect(renderBrief()).toBe(GOLDEN)
-  })
-
-  it("mainDraft 端到端：--brief 临时目录落盘 → 退出码 0 + 字节一致 + 欠账清单", () => {
+describe("mainDraft 端到端：--brief 临时目录落盘 + 字节一致 + 欠账清单", () => {
+  it("落盘字节 == render(brief)（以 ts 真身做参考，Python 落盘金样本已退场）", () => {
     const d = tmp()
-    copyFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), join(d, "brief.json"))
+    copyFileSync(BRIEF_PATH, join(d, "brief.json"))
     const logs: string[] = []
     vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")))
     expect(sd.mainDraft(["--brief", join(d, "brief.json")])).toBe(0)
-    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(GOLDEN)
+    const expected = renderBrief()
+    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(expected)
     expect(logs[0]).toContain(`已生成草稿 → ${join(d, "scene.md")}`)
     // 3 语种 × 17 行 = 51 条台词槽；舞台三语种 brief 都给了 → 0
     expect(logs[1]).toContain("欠账清单：台词行=51")
@@ -61,11 +51,11 @@ describe("金样本字节 parity（Python 落盘口径）", () => {
 
   it("mainDraft --print-plan：只打印不落盘 → 退出码 0", () => {
     const d = tmp()
-    copyFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), join(d, "brief.json"))
+    copyFileSync(BRIEF_PATH, join(d, "brief.json"))
     const logs: string[] = []
     vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")))
     expect(sd.mainDraft(["--brief", join(d, "brief.json"), "--print-plan"])).toBe(0)
-    expect(logs.join("\n")).toBe(GOLDEN)
+    expect(logs.join("\n")).toBe(renderBrief())
     // 只打印：scene.md 没有落盘
     expect(() => readFileSync(join(d, "scene.md"), "utf8")).toThrow()
   })
@@ -81,32 +71,35 @@ describe("金样本字节 parity（Python 落盘口径）", () => {
 describe("落盘纪律（拒覆盖已定稿）", () => {
   it("目标存在且无草稿标记 → FeuilleError 拒绝覆盖；--force 才放行", () => {
     const d = tmp()
-    copyFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), join(d, "brief.json"))
+    copyFileSync(BRIEF_PATH, join(d, "brief.json"))
     writeFileSync(join(d, "scene.md"), "# 已定稿，没有 draft 标记", "utf8")
     expect(() => sd.mainDraft(["--brief", join(d, "brief.json")])).toThrow(FeuilleError)
     expect(readFileSync(join(d, "scene.md"), "utf8")).toBe("# 已定稿，没有 draft 标记")
     vi.spyOn(console, "log").mockImplementation(() => {})
     expect(sd.mainDraft(["--brief", join(d, "brief.json"), "--force"])).toBe(0)
-    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(GOLDEN)
+    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(renderBrief())
   })
 
   it("目标存在但带草稿标记 → 免 --force 直接重写", () => {
     const d = tmp()
-    copyFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), join(d, "brief.json"))
+    copyFileSync(BRIEF_PATH, join(d, "brief.json"))
     writeFileSync(join(d, "scene.md"), "---\ngenerated: { by: scene_draft, draft: true }\n---", "utf8")
     vi.spyOn(console, "log").mockImplementation(() => {})
     expect(sd.mainDraft(["--brief", join(d, "brief.json")])).toBe(0)
-    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(GOLDEN)
+    expect(readFileSync(join(d, "scene.md"), "utf8")).toBe(renderBrief())
   })
 
   it("--gaps：只数欠账不生成；目标不存在 → FeuilleError", () => {
     const d = tmp()
-    copyFileSync(join(LESSONS_DIR, LESSON_ID, "brief.json"), join(d, "brief.json"))
+    copyFileSync(BRIEF_PATH, join(d, "brief.json"))
     expect(() => sd.mainDraft(["--brief", join(d, "brief.json"), "--gaps"]))
       .toThrow(/没有 .*scene\.md/)
     const logs: string[] = []
     vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")))
-    expect(sd.mainDraft(["--brief", join(d, "brief.json"), "--gaps", "--out", GOLDEN_PATH])).toBe(0)
+    // --gaps + --out：要算的对象已落盘（用 renderBrief 的真身做参考）
+    const outPath = join(d, "scene.md")
+    writeFileSync(outPath, renderBrief(), "utf8")
+    expect(sd.mainDraft(["--brief", join(d, "brief.json"), "--gaps", "--out", outPath])).toBe(0)
     expect(logs[0]).toContain("欠账清单：台词行=51")
   })
 })
@@ -208,24 +201,25 @@ describe("render 反向验证：坏输入定向命中", () => {
     hit((b) => delete b["devices"]["ru-RU"]["style"], /style \[None\] 不在 DEVICE_STYLES/)
   })
 
-  it("levels 可选节：给了就渲染 §0.3，没给整节缺席（金样本无此节）", () => {
+  it("levels 可选节：给了就渲染 §0.3，没给整节缺席", () => {
     const b = structuredClone(BRIEF)
     b["levels"] = { "ru-RU": { a: "正式", b: "口语", marker: "您", note: "敬语对照" } }
     const md = renderBrief(b)
     expect(md).toContain("### 0.3 语种文本规范")
     expect(md).toContain("| ru-RU | 正式 | 口语 | 您 | 敬语对照 |")
-    expect(GOLDEN).not.toContain("### 0.3")
+    // 无 levels 的真身里也不应有 §0.3
+    expect(renderBrief()).not.toContain("### 0.3")
   })
 
-  it("rtlLocales 可选行按需出现（金样本无此行）", () => {
+  it("rtlLocales 可选行按需出现", () => {
     const b = structuredClone(BRIEF)
     b["rtlLocales"] = ["he-IL"]
     expect(renderBrief(b)).toContain("rtlLocales: he-IL")
-    expect(GOLDEN).not.toContain("rtlLocales:")
+    expect(renderBrief()).not.toContain("rtlLocales:")
   })
 
   it("noteOn：⚑TODO 与 ＋蹦跳出画 按节内偏移点亮（bye 只有末行 exit）", () => {
-    const lines = GOLDEN.split("\n")
+    const lines = renderBrief().split("\n")
     const byeFirst = lines.find((l) => l.startsWith("- **B**（encouraging）"))
     const byeLast = lines.find((l) => l.includes("＋蹦跳出画"))
     expect(byeFirst).toBeTruthy()
@@ -237,7 +231,7 @@ describe("render 反向验证：坏输入定向命中", () => {
 
 describe("欠账清单（gaps）", () => {
   it("逐类计数（Python 实测口径）：51 台词槽全带 TODO、§5 表 3 行、舞台 0", () => {
-    expect(sd.gaps(GOLDEN)).toEqual({
+    expect(sd.gaps(renderBrief())).toEqual({
       "台词行": 51,
       "仍带 TODO 的台词行": 51,
       "词表/表格里的 TODO 格": 3,

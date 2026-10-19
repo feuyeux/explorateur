@@ -1,6 +1,6 @@
 # AGENTS.md · explorateur 工作区约束
 
-> 本工作区有三个子项目：`usine/`（feuille——多语种视频生产与发布的可复用层）、`humming` 与 `reading`（两个独立应用，位于**仓库外**同级 `app/` 目录，本文件不约束其内部实现）；另有 RSI 工作流（`théâtre/` 引擎 + `garage/` 适配层，只对 usine 做单向安全改进）。
+> 本仓库承载 `usine/`（feuille——多语种视频生产与发布的可复用层）与 RSI 工作流（`théâtre/` 引擎 + `garage/` 适配层，只对 usine 做单向安全改进）；仓库外同级 `app/` 目录另有两个独立应用，不随本仓库版本化，本文件不约束。
 > 本文件只定**工作区级**的约束：技能库在哪、怎么复用、与全局技能的分工、规则以哪份文件为准、Markdown 怎么排版。
 
 ## Markdown 排版（硬规则，全工作区一律遵守，屡犯）
@@ -28,7 +28,7 @@
 | `video-generation` | 视频生成母版（选线/提交确认/取回冻结） |
 
 - **总路由表**：[usine/skills/README.md](usine/skills/README.md)——先判断在哪一层，再选 skill；每个 skill 的 description 自带排除语句（Not for …），路由靠它而不是靠猜。
-- **运行方式**：一切 Python 走 `uv run --project usine …`；音乐类依赖（bgm-bed 的 Lyria 客户端）在可选组 `--group music`。
+- **运行方式**：feuille 已全量 TS 化（P0–P8 迁移完成，P7 已把 uv/Python 工程物清场退役）——运行与门禁一律走 `pnpm`（Node ≥24）：`pnpm verify` 全量门禁、`pnpm feuille …` CLI；bgm-bed 的 Lyria 客户端（`@google/genai`）随 `@feuille/bgm` 包常装，无需另配 Python 环境。skills 资产里残留的历史 Python 示例脚本只作参考，不是运行路径。
 - **发现与引用**：运行机器 `~/.agents/skills/` 只放指向这里的**全局软链**，不存实体（见 usine/AGENTS.md「SKILL 资产」条）。当前只有部分 skill 做了软链——若会话技能列表里没有某个 skill，**直接读本仓库 `usine/skills/<name>/SKILL.md` 照常使用**，不依赖软链存在。
 
 ## 与全局同名能力的关系
@@ -38,6 +38,6 @@
 
 ## 规则层级
 
-- 在 `usine/` 内工作、或把 feuille 资产用于任何内容项目时，纪律与工程约定的**权威文本是 [usine/AGENTS.md](usine/AGENTS.md)**（22 条纪律 + 跨平台/uv 约定 + H3 铁律）；冲突时以它为准。Markdown 排版条（上文）是工作区级新增，usine/AGENTS.md 与它不冲突时同时生效。
+- 在 `usine/` 内工作、或把 feuille 资产用于任何内容项目时，纪律与工程约定的**权威文本是 [usine/AGENTS.md](usine/AGENTS.md)**（22 条纪律 + 跨平台/pnpm 约定 + H3 铁律）；冲突时以它为准。Markdown 排版条（上文）是工作区级新增，usine/AGENTS.md 与它不冲突时同时生效。
 - 在 `théâtre/` 内工作或操作 RSI 波次时，先读 [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）与 [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制、图表与红线）；适配层操作走 `garage/run_usine.py`（`--preflight` 先行，执行需 ack token；发布永不自动，真波次用户喊跑才跑）。
 - 生成类命令默认不覆盖已有产物（显式 `--force` 才覆盖）；验收一律看退出码。

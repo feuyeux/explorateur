@@ -3,31 +3,15 @@
 // **第 0 条纪律是好数据放行**：登记 → status 必须报 fresh；这条不过，后面的
 // 「能抓坏」全部没有意义。其余各条各防一种真实退化（见每条断言的注释）。
 //
-// 另含**金样本批次 2 核心判据**：_digest 是纯字节数学，跨语言（Python↔TS）
-// 逐字节可对齐——夹具字节内嵌在 migration/golden/ledger.json（base64），
-// 这里重建同字节文件复算，断言与 Python 引擎算出的指纹**逐字一致**。
-//
 // 全部断言自带夹具（临时 root / 临时数据文件），不碰真实源码与真实产物——
 // 门禁必须能在任何没渲过东西的机器上跑（纪律 12：没验不许长得像验过了）。
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
 import * as ledger from '../src/ledger.js'
-
-// 金样本：migration/golden/ledger.json（Python 引擎在删场前落盘的不可变参照）
-const GOLDEN = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../../migration/golden/ledger.json', import.meta.url)), 'utf8'),
-) as {
-  data: {
-    fixtures: Array<{ name: string; bytes_b64: string }>
-    sha256: Record<string, string>
-    digest: Record<string, string | null>
-  }
-}
 
 let tmpRoots: string[] = []
 
@@ -258,49 +242,5 @@ describe('缓存账本（注册制 + root 参数化）', () => {
     expect(a).toBe(b) // 同一对象引用 = 命中缓存，没再 spawn ffmpeg -version
     expect(a.node).toBe(process.version)
     expect(a.sharp).toMatch(/\/vips-/)
-  })
-})
-
-describe('金样本批次 2：_digest 跨语言逐字节 parity（Python 删场前的不可变参照）', () => {
-  // 夹具在每个测试内重建：afterEach 清空的是共享 tmpRoots，收集期建的目录活不过第一个测试
-  function buildGoldenFixtures(): { root: string; parts: Array<[string, string]>; binPart: Array<[string, string]> } {
-    const root = freshRoot()
-    for (const f of GOLDEN.data.fixtures) {
-      writeFileSync(join(root, f.name), Buffer.from(f.bytes_b64, 'base64'))
-    }
-    const parts: Array<[string, string]> = [
-      ['mod:a', join(root, 'mod_a.py')],
-      ['data:b', join(root, 'data_b.json')],
-    ]
-    return { root, parts, binPart: [...parts, ['data:bin', join(root, 'bin.bin')]] }
-  }
-
-  it('夹具文件 sha256 与 Python 引擎一致（含 UTF-8 中文与二进制字节）', () => {
-    const { root } = buildGoldenFixtures()
-    for (const [name, sha] of Object.entries(GOLDEN.data.sha256)) {
-      expect(ledger.sha256File(join(root, name))).toBe(sha)
-    }
-  })
-
-  it('digest 各形态与 Python 逐字一致', () => {
-    const { root, parts, binPart } = buildGoldenFixtures()
-    const g = GOLDEN.data.digest
-    expect(ledger.digest(parts)).toBe(g.two_parts)
-    expect(ledger.digest([...parts].reverse())).toBe(g.order_swapped)
-    expect(
-      ledger.digest([
-        ['zzz:a', join(root, 'mod_a.py')],
-        ['data:b', join(root, 'data_b.json')],
-      ]),
-    ).toBe(g.label_changed)
-    expect(ledger.digest(binPart)).toBe(g.with_binary)
-    expect(ledger.digest([])).toBe(g.empty)
-    expect(ledger.digest([['mod:a', join(root, 'nope.py')]])).toBeNull()
-    expect(g.missing).toBeNull() // Python 侧同为 null（对照自证）
-
-    writeFileSync(join(root, 'mod_a.py'), 'x = 2\n', 'utf8')
-    expect(ledger.digest(parts)).toBe(g.one_byte_changed)
-    writeFileSync(join(root, 'mod_a.py'), 'x = 1\n', 'utf8')
-    expect(ledger.digest(parts)).toBe(g.two_parts) // 可复现
   })
 })

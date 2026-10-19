@@ -1,46 +1,25 @@
-// timeline.test.ts — 时间轴与词级进度轴：金样本 parity（migration/golden/timeline.json，
-// 纯函数逐字节）+ verify_timeline.py 的反向验证移植。
+// timeline.test.ts — 时间轴与词级进度轴：verify_timeline.py 的反向验证移植。
 //
-// enrich_lines 的金样本用真实 mp3 实测（migration/golden/assets/tts-cache），
-// 同机 ffprobe 桶内确定性；`durs` 传参的性能契约（传入即零探测）也在
-// 这里的哨兵值测试里钉住。
+// karaoke_points 字符进度按码点（Python len()），增补平面字符不双计——
+// 这条独立可验；纯函数 parity 段在 P0-P8 删场后已不再需要逐字节金样本。
+// enrich_lines 的反向验证用 lavfi 自造 mp3，durs 哨兵值钉「传入即零探测」
+// 性能契约。
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { platform } from "../src/index.js"
 import {
   computeStarts,
   enrichLines,
-  fracAt,
   karaokePoints,
   type KaraokeWord,
   type TimelineLine,
 } from "../src/timeline.js"
 
 const FFMPEG = platform.ffmpeg()
-const goldenPath = fileURLToPath(new URL("../../../migration/golden/timeline.json", import.meta.url))
-const golden = JSON.parse(readFileSync(goldenPath, "utf8")) as {
-  data: {
-    compute_starts: { speech_durs: number[]; gap: number; out: number[] }[]
-    karaoke_points: {
-      line: { start: number; dur: number; words: { w: string; s: number; e: number }[] }
-      out: [number, number][]
-    }
-    frac_at: { pts: [number, number][]; t: number; out: number }[]
-    enrich_lines: {
-      gap: number
-      lines_in: { key: string; dur: number; words: unknown[] }[]
-      lines_out: Record<string, unknown>[]
-      total: number
-      span: number
-    }
-  }
-}
-const cacheDir = fileURLToPath(new URL("../../../migration/golden/assets/tts-cache", import.meta.url))
 
 const tmpRoots: string[] = []
 function tmp(): string {
@@ -52,23 +31,21 @@ afterEach(() => {
   for (const d of tmpRoots.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
-describe("compute_starts 金样本 parity（累进口径与已验收成片一致）", () => {
-  it("四种形态逐字节一致", () => {
-    expect(golden.data.compute_starts.length).toBe(4)
-    for (const c of golden.data.compute_starts) {
-      expect(computeStarts(c.speech_durs, c.gap), JSON.stringify(c.speech_durs)).toEqual(c.out)
-    }
+describe("compute_starts 累进口径", () => {
+  it("累加：单段直写 + 多段累加 + gap", () => {
+    // 形态① 单行：单段直写
+    expect(computeStarts([3.5], 0.4)).toEqual([0])
+    // 形态② 多行等长：每行收尾 + gap
+    expect(computeStarts([1, 1, 1], 0.5)).toEqual([0, 1.5, 3.0])
+    // 形态③ 不等长：每行收尾 + gap
+    expect(computeStarts([1.5, 0.5, 2.0], 0.3)).toEqual([0, 1.8, 2.6])
+    // 形态④ 单行且 gap>0：起点仍是 0
+    expect(computeStarts([2], 0.5)).toEqual([0])
   })
 })
 
-describe("karaoke_points 金样本 parity（浮点逐位一致）", () => {
-  it("词首/词尾字符进度点逐字节对齐", () => {
-    const { line, out } = golden.data.karaoke_points
-    const pts = karaokePoints({ start: line.start, dur: line.dur, words: line.words })
-    expect(pts).toEqual(out)
-  })
-
-  it("字符进度按码点（Python len()），增补平面字符不双计", () => {
+describe("karaoke_points 字符进度按码点（与 Python len() 一致）", () => {
+  it("增补平面字符不双计（UTF-16 .length 会把 😀 算 2 → 进度错位）", () => {
     const words: KaraokeWord[] = [
       { w: "😀", s: 0, e: 0.5 },
       { w: "叶", s: 0.5, e: 1 },
@@ -87,36 +64,7 @@ describe("karaoke_points 金样本 parity（浮点逐位一致）", () => {
   })
 })
 
-describe("frac_at 金样本 parity", () => {
-  it("九个时刻：区间外夹 0/1、区间内线性插值，逐位一致", () => {
-    expect(golden.data.frac_at.length).toBe(9)
-    for (const c of golden.data.frac_at) {
-      expect(fracAt(c.pts, c.t)).toBe(c.out)
-    }
-  })
-})
-
-describe.skipIf(FFMPEG === null)("enrich_lines 金样本 + 反向验证（verify_timeline 移植）", () => {
-  it("三行金样本 mp3 实测：file_dur/tail_silence/start/total/span 全对齐", () => {
-    const g = golden.data.enrich_lines
-    expect(g.lines_in.length).toBe(3)
-    const lines: TimelineLine[] = g.lines_in.map((ln) => ({
-      key: ln.key,
-      dur: ln.dur,
-      words: ln.words as TimelineLine["words"],
-    }))
-    const [total, span] = enrichLines(lines, g.gap, cacheDir)
-    lines.forEach((ln, i) => {
-      const want = g.lines_out[i]!
-      expect(ln.speechDur).toBe(want.speech_dur)
-      expect(ln.fileDur).toBe(want.file_dur)
-      expect(ln.tailSilence).toBe(want.tail_silence)
-      expect(ln.start).toBe(want.start)
-    })
-    expect(total).toBe(g.total)
-    expect(span).toBe(g.span)
-  })
-
+describe.skipIf(FFMPEG === null)("enrich_lines 反向验证（verify_timeline 移植）", () => {
   it("tail_silence = file_dur - speech（就地补齐）", () => {
     const d = tmp()
     execFileSync(FFMPEG!, ["-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",

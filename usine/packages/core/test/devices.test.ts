@@ -5,17 +5,11 @@
 //
 // 画法断言用录制桩（PilDraw 接口的最小实现），不断像素——装置画的是
 // 几何图形序列，录制桩断的是「画了什么」，比像素反推更精确。
-import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import * as devices from "../src/devices.js"
 import { hexc, mix } from "../src/rig.js"
 import type { Box, DrawOpts, PilDraw, Pt, RGB } from "../src/imaging/pildraw.js"
-
-const GOLDEN = JSON.parse(
-  readFileSync(fileURLToPath(new URL("../../../migration/golden/scenes_registry.json", import.meta.url)), "utf8"),
-) as { device_styles: string[] }
 
 afterEach(() => {
   devices.setGroundY(1700)  // 成片默认地面线还原（封面用例会把它置 null）
@@ -59,12 +53,6 @@ class Recorder implements PilDraw {
     this.calls.push({ op: "polygon", pts, opts })
   }
 }
-
-describe("DEVICE_STYLES 注册表（单一事实源 ↔ Python 金样本）", () => {
-  it("键集与 Python 注册表逐名一致（16 样式）", () => {
-    expect(Object.keys(devices.DEVICE_STYLES).sort()).toEqual([...GOLDEN.device_styles].sort())
-  })
-})
 
 describe("装置规格读取与 chip 两型契约", () => {
   it("deviceOf：prop.device 存在则取之，缺行 = 纯对话无装置", () => {

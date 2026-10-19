@@ -11,34 +11,16 @@
 // - 桶标识可读、含 sharp、**不含 ffmpeg**（合成器入桶只会让基线无谓失效）
 // - memoize 键含 (size, mtime)：文件字节变了不会拿到旧哈希（性能修复内建的
 //   反向面——快不能以错为代价）
-// 另含金样本批次 2：classify / firstDrift / 基线文件格式与 Python 逐字节对齐。
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
 import * as fh from '../src/framehash.js'
 import * as platform from '../src/platform.js'
-
-const GOLDEN = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../../migration/golden/framehash.json', import.meta.url)), 'utf8'),
-) as {
-  data: {
-    classify: {
-      base: Record<string, string>
-      cur: Record<string, string>
-      full: fh.ClassifyResult
-      subset: fh.ClassifyResult
-      empty_base: fh.ClassifyResult
-    }
-    first_drift: Array<{ ref: string[]; cur: string[]; out: [number | null, number | null] }>
-    baseline_text: string
-    baseline_roundtrip: Record<string, string>
-  }
-}
 
 const FFMPEG = platform.ffmpeg()
 
@@ -203,31 +185,6 @@ describe.skipIf(FFMPEG === null)('逐帧像素基线（framehash / 分桶 / 漂�
     const bareBuild = freshDir()
     mkdirSync(join(bareBuild, 'build'), { recursive: true })
     expect(() => fh.discoverVideos(bareBuild)).toThrow(/没有 mp4/)
-  })
-})
-
-describe('金样本批次 2：纯函数跨语言逐字节 parity', () => {
-  it('classify：full / subset / empty-base 三形态与 Python 一致', () => {
-    const { base, cur, full, subset, empty_base: emptyBase } = GOLDEN.data.classify
-    expect(fh.classify(base, cur, false)).toEqual(full)
-    expect(fh.classify(base, cur, true)).toEqual(subset)
-    expect(fh.classify({}, cur, false)).toEqual(emptyBase)
-  })
-
-  it('firstDrift：一致 / 中段漂移 / 帧数缺失 / 尾帧漂移 四形态与 Python 一致', () => {
-    for (const { ref, cur, out } of GOLDEN.data.first_drift) {
-      expect(fh.firstDrift(ref, cur)).toEqual(out)
-    }
-  })
-
-  it('基线文件格式逐字节一致（含非 ASCII 文件名）+ 回读往返一致', () => {
-    const d = freshDir()
-    const p = fh.saveBaseline(
-      { 'b.mp4': 'MD5=bbb', 'a.mp4': 'MD5=aaa', '中文视频.mp4': 'MD5=ccc' },
-      join(d, 'base.txt'),
-    )
-    expect(readFileSync(p, 'utf8')).toBe(GOLDEN.data.baseline_text)
-    expect(fh.readBaseline(p)).toEqual(GOLDEN.data.baseline_roundtrip)
   })
 })
 
