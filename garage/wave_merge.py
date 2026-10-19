@@ -698,6 +698,41 @@ def _assert_preconditions(ctx: dict, usine_dir) -> str:
     return head
 
 
+def _assert_seedable(ctx: dict, usine_dir) -> dict:
+    """The preconditions a SEED needs — not the ones a MERGE needs.
+
+    ``_assert_preconditions`` is a merge-safety gate: a wave commit could
+    absorb staged or dirty work, so it refuses to merge into a tree that
+    carries either.  The DRS (Phase 2) never merges — the serial core
+    emits PROJECT_CLOSED, not PHASE1_WAVE_COMPLETED, so the wave-merge
+    sink never fires.  Requiring a pristine worktree there gates a job that
+    cannot be damaged by it, and it blocks a legitimate run for no reason:
+    an operator with uncommitted editor scratch in the real tree still
+    gets the exact COMMITTED seed, because the seed is a ``git archive
+    HEAD`` of the prefix and never reads the worktree.
+
+    So the DRS asks for what it actually needs — a resolvable HEAD — and
+    RECORDS the worktree state instead of refusing on it.  The record goes
+    into the run manifest, so "the DRS ran against commit X while the
+    worktree carried N dirty files" is auditable rather than invisible.
+    Phase 1 keeps the strict gate: a real merge follows it.
+    """
+    head = _git(["rev-parse", "HEAD"], cwd=ctx["toplevel"]) \
+        .stdout.decode("utf-8", "replace").strip()
+    if not head:
+        raise UsineMergeError(f"{usine_dir} has no commits to seed from")
+    dirty = _porcelain_tracked(usine_dir)
+    staged = _git(["diff", "--cached", "--quiet"], cwd=ctx["toplevel"],
+                  check=False)
+    return {
+        "head": head,
+        "worktree_dirty_tracked": dirty,
+        "index_has_staged_changes": staged.returncode != 0,
+        "note": "the DRS seeds from the committed HEAD (git archive); the "
+                "worktree state is recorded, not merged against",
+    }
+
+
 def _atomic_json(path: pathlib.Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + ".rsiagent-merge-part")

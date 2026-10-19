@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -603,6 +604,71 @@ def test_replay_guard_fails_closed_without_a_baseline(ru) -> None:
               str(exc)[:120])
 
 
+def test_drs_seed_gate_does_not_require_a_clean_worktree(ru) -> None:
+    """Phase 1 merges, Phase 2 does not — so only Phase 1 needs a clean tree.
+
+    The merge-safety gate refuses a dirty worktree because a wave commit
+    could absorb it.  The DRS never merges (the serial core emits
+    PROJECT_CLOSED, not PHASE1_WAVE_COMPLETED) and its seed is a
+    ``git archive HEAD`` that never reads the worktree, so a dirty tree
+    cannot change a byte of what the DRS works on.  The DRS therefore asks
+    for a resolvable HEAD and RECORDS the worktree state; Phase 1 keeps the
+    strict gate.
+
+    Both directions are pinned: relaxing the DRS gate must not relax the
+    merge gate, and the DRS gate must still refuse a repository with no
+    commits.
+    """
+    import subprocess
+    import tempfile
+
+    sys.path.insert(0, str(HERE))
+    theatre = [p for p in EXPLORATEUR.iterdir()
+               if p.is_dir() and p.name.startswith("th")]
+    if not theatre:
+        check("théâtre checkout present", False, "no th* directory")
+        return
+    sys.path.insert(0, str(theatre[0]))
+    import wave_merge
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "usine"
+        repo.mkdir()
+        env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+               "PATH": os.environ.get("PATH", "")}
+
+        def git(*args):
+            return subprocess.run(["git", "-C", str(repo), *args],
+                                  capture_output=True, env=env, check=True)
+
+        git("init", "-q")
+        (repo / "a.txt").write_text("one\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-qm", "one")
+        ctx = wave_merge._repo_context(repo)
+
+        (repo / "a.txt").write_text("two\n", encoding="utf-8")
+        try:
+            wave_merge._assert_preconditions(ctx, repo)
+            check("the merge gate refuses a dirty worktree", False,
+                  "no error was raised")
+        except wave_merge.UsineMergeError:
+            check("the merge gate refuses a dirty worktree", True,
+                  "the merge gate refused the dirty tree")
+
+        source = wave_merge._assert_seedable(ctx, repo)
+        check("the DRS seed gate accepts a dirty worktree",
+              bool(source.get("head")))
+        check("the DRS seed gate records the dirty files",
+              any("a.txt" in name for name in
+                  source.get("worktree_dirty_tracked", [])),
+              str(source.get("worktree_dirty_tracked")))
+        check("the DRS seed gate names the commit it seeds from",
+              source.get("head") == git("rev-parse", "HEAD").stdout
+              .decode("utf-8").strip())
+
+
 def test_drs_brief_has_a_closed_scope() -> None:
     """The DRS brief must state the bounds, and the Actor must have the
     matching fallback.
@@ -697,6 +763,7 @@ def main() -> int:
     test_drs_seat_selection_is_phase_scoped(ru)
     test_drs_fixture_capture_seeds_the_guest(ru)
     test_replay_guard_fails_closed_without_a_baseline(ru)
+    test_drs_seed_gate_does_not_require_a_clean_worktree(ru)
     test_drs_brief_has_a_closed_scope()
     test_curriculum_target_menu_is_honest()
 

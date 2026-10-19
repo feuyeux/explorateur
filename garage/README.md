@@ -247,6 +247,49 @@ Actor 席另加一道**兜底**（`SCOPE DOWN, DO NOT SEARCH`）：万一 brief 
 `role_yaml` 期望值从 5 改成 6——**新增受审计面必须是刻意动作**，而且 DRS
 那份 brief 自己也进围栏，它的话术不能漏进 distribution。
 
+#### 5.3 DRS 的 guest 必须真的拿到仓库：种子会被 reset 抹掉
+
+第 6 次 DRS（bfs16h）跑到一半才确诊的**最硬的一条**。
+
+- 出题席的 brief 这次是有上界的（一个源文件、一个测试文件、报告至多 12 行、
+  点名要加深的两条已有记忆记录，禁用措辞 0 命中），出题席 6 轮 / 220s 收工。
+- 可 Actor 依然找不到代码：它的 `/home/user/evolution_project` 里**只有出题席
+  staged 的 2 个 fixture**，没有 `package.json`、没有 `packages/`、没有源码。
+  它探 guest 路径、探 pnpm store、探**别的 run 的旧 guest**（找到的是上一轮
+  的 `tools.ts`，字节数都不是当前 HEAD 的）——900s 墙钟就在找仓库里烧光。
+
+因果链（三段，每段都能独立查）：
+
+1. 建机时 `_harness_staging_vm_factory(seed=True)` 确实推了种子；
+2. 但串行核在席位之间调 `_fresh_vm` → `env.reset()`，**把 guest 还原成快照，
+   种子连同仓库一起没了**；
+3. 补种的那道接缝只认 `phase1-project-*` 这个 capture key，而 DRS 的
+   fixture capture key 是 `ep<N>-fixtures`——**接缝一次都没被触发**。
+
+Phase-1 走的是另一条接缝，所以 Phase-1 一直有仓库；DRS 五次全死在这，记忆树
+始终与基线逐字节相同。
+
+修法（都在适配层，不动引擎）：
+
+- `_seeded_capture` 的接缝判据扩到 DRS 自己的 key（`_is_fixture_capture_key`），
+  于是 DRS 的 capture 变成 scaffold ∪ baseline，replay 交给 Actor 的就是真仓库；
+  候选 capture 与被拦草稿仍然不补种。
+- 新增 `_baseline_guarded_replay`：replay 之后验 guest 里确实有基线标记
+  （`package.json` + `packages/dsh-plugin/src/tools.ts`），缺了就 **fail-closed**
+  ——接线缺口该付几秒，不该付三十分钟。
+- 出题席的「自有根里不许有代码文件」自检不受影响：种子落在出题席**发布之后**。
+
+#### 5.4 DRS 不合并，所以它不需要一棵干净的工作树
+
+`_assert_preconditions`（脏树 / 暂存区 fail-closed）是**给 merge 的**门：
+波次提交会把脏内容一起吞进去。DRS 根本不合并（串行核发 `PROJECT_CLOSED`），
+而它的种子是 `git archive HEAD`，**一个字节都不读工作树**。
+
+所以 Phase-1 保留严门，Phase-2 改走 `_assert_seedable`：只要求 HEAD 可解析，
+并把工作树状态**记进 `seed_source.json`**（不是记进 manifest——manifest 是
+resume 的逐字比对门，HEAD 会随波次合并而移动，放进去 resume 就废了）。
+实测：并发会话正在改 `usine/docs/record.md` 时，DRS 该跑得动、Phase-1 该拦住。
+
 ## 二、怎么校验自进化产物
 
 三层验收，全部机械可查；**SKIP 不是 PASS，编出来的数据比没有数据更坏**。

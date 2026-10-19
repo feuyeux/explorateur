@@ -1163,11 +1163,13 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     import wave_merge  # deferred: _install_paths must run first on odd paths
 
     usine_dir = Path(usine_dir)
-    # NOTE: _assert_preconditions (the dirty-tree fail-closed) runs INSIDE
-    # the locked rebuild path only.  The reuse fast-path below must not
-    # require a clean tree: an operator with uncommitted editor scratch in
-    # the real tree still gets the exact committed seed they built before,
-    # and a read-only verification never depends on worktree state.
+    # NOTE: the merge-safety fail-closed (_assert_preconditions) runs in
+    # main(), for the phases that actually merge.  Neither the reuse
+    # fast-path below nor the seed build itself may require a clean tree:
+    # an operator with uncommitted editor scratch in the real tree still
+    # gets the exact committed seed they built before, and a read-only
+    # verification never depends on worktree state.  The seed build asks
+    # only for a resolvable HEAD.
     ctx = wave_merge._repo_context(usine_dir)
     head = wave_merge._git(["rev-parse", "HEAD"], cwd=ctx["toplevel"]) \
         .stdout.decode("utf-8", "replace").strip()
@@ -1194,7 +1196,15 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
         except (OSError, ValueError):
             pass
 
-    head = wave_merge._assert_preconditions(ctx, usine_dir)
+    # The seed is a `git archive HEAD` of the prefix: it never reads the
+    # worktree, so a dirty worktree cannot change a single byte of it.  The
+    # merge-safety gate (_assert_preconditions) runs in main(), before this,
+    # for the phases that actually merge.  Here the seed only needs a
+    # resolvable HEAD — an operator with uncommitted editor scratch still
+    # gets the exact committed seed, and the DRS (which never merges) is
+    # not blocked by work it could not have damaged anyway.
+    seed_source = wave_merge._assert_seedable(ctx, usine_dir)
+    head = seed_source["head"]
     with _SEED_BUILD_LOCK:
         # Re-check under the lock: a parallel thread may have finished the
         # rebuild while this one waited on the git-archive probe above.
@@ -1943,8 +1953,25 @@ def main(argv: list | None = None) -> int:
         usine_dir=str(usine_dir), gate_argv=gate_argv,
         gate_timeout=float(args.gate_timeout))
     # Fail closed on a dirty/foreign usine repository before anything else.
+    # Phase 1 MERGES into that repository, so it takes the strict merge-safety
+    # gate.  Phase 2 (the DRS) never merges — its serial core emits
+    # PROJECT_CLOSED, not PHASE1_WAVE_COMPLETED, so the wave-merge sink never
+    # fires — and its seed is a `git archive HEAD` that never reads the
+    # worktree.  So the DRS asks for what it needs (a resolvable HEAD) and
+    # RECORDS the worktree state instead of refusing on it: the manifest
+    # then says which commit the DRS seeded from and what the worktree
+    # carried at that moment.
     ctx = wave_merge._repo_context(usine_dir)
-    wave_merge._assert_preconditions(ctx, usine_dir)
+    if args.phase == "2":
+        seed_source = wave_merge._assert_seedable(ctx, usine_dir)
+    else:
+        wave_merge._assert_preconditions(ctx, usine_dir)
+        seed_source = {"head": wave_merge._git(
+            ["rev-parse", "HEAD"], cwd=ctx["toplevel"]
+        ).stdout.decode("utf-8", "replace").strip(),
+            "worktree_dirty_tracked": [],
+            "index_has_staged_changes": False,
+            "note": "Phase 1 merges: the strict merge-safety gate applies"}
 
     # The distribution must be 8-gram-disjoint from every audited surface
     # BEFORE anything is written or spent (fail-closed on both entrypoints;
@@ -2009,6 +2036,7 @@ def main(argv: list | None = None) -> int:
             "usine_dir": str(usine_dir),
             "usine_repo_toplevel": ctx["toplevel"],
             "usine_repo_prefix": ctx["prefix"] or "(repo root)",
+            "seed_source": seed_source,
             "seed_preview": seed_preview,
             "gate": {"argv": list(gate_argv),
                      "timeout": float(args.gate_timeout)},
@@ -2144,6 +2172,18 @@ def main(argv: list | None = None) -> int:
                 "usine resume protocol/config manifest drifted")
     else:
         _write_json_atomic(manifest_path, manifest)
+
+    # The seed's provenance is an audit artifact, NOT part of the resume
+    # gate: the manifest must stay byte-identical across a resume, and the
+    # commit the run seeded from moves when a wave merges.  So it goes to
+    # its own file next to the manifest.
+    _write_json_atomic(run_root / "seed_source.json", {
+        "phase": phase_label,
+        "head": seed_source["head"],
+        "worktree_dirty_tracked": seed_source["worktree_dirty_tracked"],
+        "index_has_staged_changes": seed_source["index_has_staged_changes"],
+        "note": seed_source["note"],
+    })
 
     hooks = usine_hooks.hooks_for(corpus_path)
     seed_state = {"usine_dir": str(usine_dir), "run_root": str(run_root),
