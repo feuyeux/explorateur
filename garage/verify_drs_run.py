@@ -168,10 +168,29 @@ def main() -> int:
         hits = [phrase for phrase in open_set if phrase.lower() in text.lower()]
         check("the published brief carries no open-set scope", not hits,
               f"found: {hits}" if hits else f"{path.name}")
-        for clause in ("at most 12 lines", "plugin-parity.test.ts",
-                       "tools.ts"):
-            check(f"the published brief names its bound: {clause}",
-                  clause in text)
+        check("the published brief caps the report",
+              "at most 12 lines" in text)
+        # The bound is EXACTLY one source file and one test file — not a
+        # specific pair: each drill may legitimately pick a different test
+        # file, and a verifier that hard-codes the Phase-1 pair would call a
+        # good drill a bad one.  The boundary clause is excluded from the
+        # count: it names the files the drill must NOT touch.
+        import re
+        scope = text
+        for marker in ("Create or modify nothing outside", "no changes to",
+                       "Boundaries"):
+            cut = scope.find(marker)
+            if cut > 0:
+                scope = scope[:cut]
+                break
+        sources = set(re.findall(
+            r"packages/dsh-plugin/src/[A-Za-z0-9_.-]+\.ts", scope))
+        tests = set(re.findall(
+            r"packages/dsh-plugin/test/[A-Za-z0-9_.-]+\.ts", scope))
+        check("the published brief names exactly ONE source file",
+              len(sources) == 1, f"{sorted(sources)}")
+        check("the published brief names exactly ONE test file",
+              len(tests) == 1, f"{sorted(tests)}")
 
     print(f"\nDRS VERIFY: {PASSED} passed / {FAILED} failed")
     return 0 if FAILED == 0 else 1

@@ -290,6 +290,51 @@ Phase-1 走的是另一条接缝，所以 Phase-1 一直有仓库；DRS 五次�
 resume 的逐字比对门，HEAD 会随波次合并而移动，放进去 resume 就废了）。
 实测：并发会话正在改 `usine/docs/record.md` 时，DRS 该跑得动、Phase-1 该拦住。
 
+#### 5.5 DRS 跑通了（bfs16i，2026-10-20）：`memory_changed: true`
+
+第七次尝试，第一次拿到深度波次的真信号。
+
+- **记忆树变了**：`21c6846c…` → `56b3afb9…`（用引擎自己的 `_memory_tree_sha256`
+  重算过，不是读载荷）；3 个文件全改，7290B → 8410B，新增 0、删除 0。
+- **用时 1650.6s / 2100s**，`over_ceiling: false`；status `budget_exhausted`
+  （项目预算用完，是边界不是失败）。
+- 出题席 4 轮（首响应撞了 120s 网关尾巴，393s / 400s 切片内收工）；
+  Actor 26 轮（墙钟用掉 620s / 900s 就交了 `STATUS: SUBMIT`）；
+  验证席 14 轮 100s 出版 `VERDICT: PASS`（`doubts: none`）；
+  记忆相位 5 轮 + 整合段 5 轮。
+- **改了什么**：`packages/dsh-plugin/src/tools.ts` 里"审批被拒/取消"那一条
+  拒答卡（`审批结果：${outcome}——未提交。`）改写成对人说话的话——请求没被批准、
+  什么都没提交没排队没生成、下一步该怎么做；`plugin.test.ts` 补两条钉子
+  （rejected / cancelled 各一条，逐字匹配新卡 + 断言 status 未变 + 无 task_id）；
+  报告 `WORDING_CHANGE_REPORT.md` 就 1 行 4 字段。门禁 `pnpm verify` exit 0，
+  42 个测试文件 / 527 通过 / 8 跳过。
+- **记忆被加深并纠正**（不是追加）：
+  - `usine-monorepo.md` 现在写明 `config.publish === true` 的字面量在
+    **index.ts**、不在 tools.ts（这是本轮一个失败探针换来的纠正）；
+    还记下"`await approval.request(` 只算 await 形式才是 1"、
+    以及 parity:230 逐字钉了 `审批结果：rejected` ——**今后任何改写都必须保留
+    `（审批结果：${outcome}——未提交。）` 这个括号回声**。
+  - `verification-discipline.md` 标题变成 "PASS ×2"，新增两条纪律：
+    探针失败先归类（针选错 / 通道错 / 对象错；**每个探针的 needle 必须来自
+    打印出来的源码证据，不能来自任务散文或记忆**）；冻结套件逐字钉着旧措辞
+    而任务要求新措辞时，**用新措辞开头 + 保留旧结论作括号回声**来同时满足。
+  - `environment-quirks.md` 把"handoff 跨相位不持久"的结论**纠正**成
+    "两个方向都不可靠"（三个数据点：10-19 没了；10-20 过了蒸馏还在、到整合
+    相位又没了）。
+
+**怎么验的**：`garage/verify_drs_run.py --run-root <lineage>`——它用引擎自己的
+哈希函数重算终态与基线两棵树、重算逐文件 manifest、查载荷的 `memory_changed`
+与 `files_added` 是否诚实，并把出题席真正发布的 brief 读出来判上界（开放集
+措辞？恰好一个源文件 + 一个测试文件？报告 ≤12 行？）。对第 5 次失败跑
+（bfs16g）它是反例：9 passed / 5 failed，如实点出"记忆树没变""brief 带开放集
+措辞""brief 没有报告上界"。
+
+**这一轮真正的三个修复**（前六次全败的原因链）：
+1. brief 要有上界（§5.2）——切片吸收不了无界的任务；
+2. guest 必须真的拿到仓库（§5.3）——种子被 reset 抹掉、capture key 不匹配，
+   Actor 满墙钟找代码；
+3. DRS 不该被 merge 门拦住（§5.4）——它不合并。
+
 ## 二、怎么校验自进化产物
 
 三层验收，全部机械可查；**SKIP 不是 PASS，编出来的数据比没有数据更坏**。
