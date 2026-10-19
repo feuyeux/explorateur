@@ -46,7 +46,7 @@ P7 TS 迁移与 P9 真作用力改造（2026-10-18）失效：现行门禁为 `p
 
 两个网关都实测支持 OpenAI `/chat/completions` 协议：
 
-- minimax：`https://agent.minimax.cn/mavis/api/v1/llm/v1`（`explorateur/config/.env` → 组级 `LLM_MINIMAX_BASE_URL` / `LLM_MINIMAX_API_KEY`，覆盖全部 MiniMax slug）
+- minimax：`https://api.minimaxi.com/v1`（`explorateur/config/.env` → 组级 `LLM_MINIMAX_BASE_URL` / `LLM_MINIMAX_API_KEY`，覆盖全部 MiniMax slug）。2026-10-19 修正：原文记的 `agent.minimax.cn/mavis/api/v1/llm/v1` 是 agent 控制台端点，不认平台 API key——同 key 实测 mavis 全 401 `auth failed`（wave1-blocked 的直接死因），打 `api.minimaxi.com/v1` 同 key 200
 - fuyao：`http://fuyao-ai-gateway.xiaopeng.link/v1`（同文件 → 组级 `LLM_FUYAO_BASE_URL` / `LLM_FUYAO_API_KEY`，覆盖 fuyao-work / fuyao-coding / fuyao-data）
 
 实现（相对设计稿的收窄）：`_resolve_endpoints` **在内存里**解析统一配置 `explorateur/config/.env`（扁平 KEY=VALUE），按 needed slug 集取「最长前缀」的组级/逐 slug 变量对（`LLM_FUYAO_WORK_*` 覆盖 `LLM_FUYAO_*`，两级都只在成对齐全时注册），任一 slug 缺凭据或字段不齐即 fail-closed（报错点名要填的变量）；
