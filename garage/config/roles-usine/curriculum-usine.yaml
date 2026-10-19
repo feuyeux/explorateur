@@ -25,8 +25,9 @@ max_tokens: 65536
 # knob from intuition.  Re-run the probe before changing it.
 #
 # Caveat that outranks all of the above: first-response latency at the SAME
-# effort has been observed at 51s, 108s, 322s and >300s across runs.  The
-# guard that matters is the 600s run ceiling plus per-seat wall_clock_secs
+# effort has been observed at 51s, 108s, 138.7s, 322s and >300s across runs.
+# The guard that matters is the run ceiling (now 1500s, see
+# time_budget.DEFAULT_RUN_CEILING_SECS) plus per-seat wall_clock_secs
 # slices (see time_budget.DEFAULT_SLICES) — not this line.
 reasoning_effort: "max"
 reasoning_max_tokens: 0
