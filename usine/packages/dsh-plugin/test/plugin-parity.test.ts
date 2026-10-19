@@ -272,3 +272,98 @@ describe("积分速查 ↔ 审批卡算账", () => {
     expect(SKILL).toContain("Token Plan / M Plan 套餐额度")
   })
 })
+
+// ---------------------------------------------------------------------------
+// inject 声明 ↔ apply 实际取用的 ctx 服务
+// ---------------------------------------------------------------------------
+//
+// 这条断言来自 2026-10-18 dsh 宿主首测的真实事故：`inject` 漏了
+// `'approval'`，而 videoGenerationTool 在 **apply 期**就取 ctx.approval。
+// 真 cordis 对未声明就访问的服务抛 "cannot get property ... without
+// inject"，整个插件加载失败——17 个工具面全丢，而宿主**毫无感知**（dsh
+// 静默吞 apply 抛错，boot 照样成功）。
+//
+// 为什么 vitest 一直看不见：plugin.test.ts 的 fakeCtx 不校验 inject，
+// 假 ctx 上取什么都返回 undefined，插件照样"跑通"。所以这条门禁必须
+// 静态读 src，把「声明了什么」和「apply 期用了什么」对起来。
+
+describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
+  const SRC = fileURLToPath(new URL("../src/index.ts", import.meta.url))
+  const source = readFileSync(SRC, "utf8")
+
+  /** `export const inject = ['tools', 'systemPrompt', ...]` 里声明的服务名。 */
+  function declaredInject(): string[] {
+    const m = source.match(/export const inject\s*=\s*\[([^\]]*)\]/)
+    if (!m) throw new Error("src/index.ts 找不到 `export const inject = [...]`")
+    return [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
+  }
+
+  /**
+   * apply() 函数体里在**装配期**（apply 调用栈内，不含工具 execute 内部）
+   * 访问的 ctx 服务。装配期访问才是致命的：工具 execute 里的访问发生在
+   * apply 成功之后，缺 inject 不会让整个插件加载失败。
+   */
+  function applyTimeServices(): string[] {
+    const start = source.indexOf("export function apply(")
+    if (start < 0) throw new Error("src/index.ts 找不到 `export function apply(`")
+    // apply 结束于下一个顶层 `export `（或文件尾）。
+    const rest = source.slice(start + 1)
+    const next = rest.search(/\nexport\s/)
+    const text = next > 0 ? rest.slice(0, next) : rest
+    const found = new Set<string>()
+    // 形状 A：直接取用 —— `ctx.tools.register(...)`
+    for (const m of text.matchAll(/\bctx\.(\w+)\b/g)) found.add(m[1])
+    // 形状 B：结构化取用后存别名 —— `const x = (ctx as unknown as {...}).x`。
+    // systemPrompt 与 skills 都走这条路；其中 skills 的类型标注跨了多行，
+    // 所以类型体要用 [\s\S] 而不是 [^}]。
+    for (const m of text.matchAll(
+      /\(\s*ctx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
+    )) found.add(m[1])
+    // ctx.effect 是 Cordis 生命周期 API，不是 DI 服务。
+    found.delete("effect")
+    return [...found].sort()
+  }
+
+  it("inject 是显式声明且非空", () => {
+    const declared = declaredInject()
+    expect(declared.length).toBeGreaterThan(0)
+    expect(new Set(declared).size).toBe(declared.length)
+  })
+
+  it("apply 装配期取用的每个 ctx 服务都在 inject 里（否则整个插件加载失败、工具面全丢）", () => {
+    const declared = new Set(declaredInject())
+    const used = applyTimeServices()
+    expect(used.length, "解析出的 apply 期服务应非空，否则断言本身失效").toBeGreaterThan(0)
+    const missing = used.filter((service) => !declared.has(service))
+    expect(
+      missing,
+      `apply 期访问了未声明 inject 的服务 ${missing.join(", ")}——真 cordis 会抛 ` +
+        `"cannot get property ... without inject" 并静默丢掉整个工具面`,
+    ).toEqual([])
+  })
+
+  it("红线服务 approval 与 tools 始终在 inject 里（护栏只可加强不可放松）", () => {
+    const declared = new Set(declaredInject())
+    for (const guard of ["approval", "tools"]) {
+      expect(declared.has(guard), `inject 必须包含 ${guard}`).toBe(true)
+    }
+  })
+
+  it("门禁能复现 2026-10-18 首测事故：inject 漏 approval 时必须变红", () => {
+    // 负控制。没有这条，上面的断言可能因为「什么都没解析出来」而永远绿。
+    const used = applyTimeServices()
+    const withoutApproval = declaredInject().filter((s) => s !== "approval")
+    // approval 经 videoGenerationTool(ctx) 在装配期被取用（src/index.ts:64
+    // 传 ctx 进工具，工具内取 ctx.approval），所以它必须出现在门禁视野里。
+    const gated = [...used, "approval"]
+    const missing = gated.filter((s) => !withoutApproval.includes(s))
+    expect(missing, "inject 漏 approval 时门禁必须报红").toContain("approval")
+  })
+
+  it("apply 期取用的服务集合确实非平凡（防止解析器静默失效）", () => {
+    const used = applyTimeServices()
+    for (const expected of ["tools", "systemPrompt", "skills"]) {
+      expect(used, `apply 期必须解析出 ${expected}`).toContain(expected)
+    }
+  })
+})
