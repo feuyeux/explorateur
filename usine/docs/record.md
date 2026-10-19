@@ -196,4 +196,7 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 | 24 | 韩语补丁门红：`토`（토마토）、`버`（햄버거）报 LABEL FAIL「initial and medial ink are ONE fused component」 | 初声+中声笔画**横接成一个连通域**（ㅌ+ㅗ、ㅂ+ㅓ），矩形补丁按连通域切，分不开 | 数据文件用 `ko_fused_syllables` **显式声明**融合音节（哪些融合**必须实测**，不猜）→ 这些音节整字走 `.cv` 融合渐变（与日语假名同款），不进矩形补丁；runner 只量非融合音节 |
 | 25 | `run_series.mjs --eps 03 04` 只跑了 03，04 被静默丢掉 | `--eps` 只取 `argv[i+1]`，后面的裸值被忽略——不报错也不跑，看着像「排队没轮到」 | 多值参数吃到下一个 `--` 开关为止（`argList`） |
 | 26 | 后台任务报 succeeded，但产物目录空 | PowerShell 后台任务壳被回收时把子进程一起带走 | 长跑产线用 `Start-Process` 脱离任务壳，输出重定向到日志文件 |
+| 27 | 韩语融合音节在**海报与封面**上渲染成**实心色块**（ep04「토」、ep11「버」），而**成片正常** | `.ksyl.cv` 规则用了 `background:` **简写** → 简写把 `background-clip` 重置回 `border-box`；`.ksyl.cv` 的权重 (0,2,0) 高于 `.cv`/`.ksyl` 的 `background-clip: text` (0,1,0) → 渐变不再裁到字形，画满整个 inline-block 盒子。视频侧 `video_style.css` 没有 `.ksyl.cv` 规则，所以**只有海报坏** | ① 规则改用 `background-image:` 长写，并在**同一条规则里**自带 `-webkit-background-clip: text; background-clip: text; color: transparent;`（别指望别的规则兜底）；② 加像素门 `check_fused_glyph.mjs`：量韩语格里彩色像素的**最大实心轴对齐矩形**，短边 ≥60px 且长宽比 <3 即失败（实测坏例 134×134、长宽比 1.00；正常各期最大实心都是细长条，长宽比 8.8~10.2）——**「实心」本身不是病（横竖笔画就是实心的），「又大又方正」才是** |
+| 28 | 并发跑两期时其中一期 TTS 步失败：`Error: Opening handshake has timed out` | edge-tts 连微软端点的瞬时网络故障，与代码无关；runner 的 fail-fast 正确地把它变成非零退出 | 直接重跑该期即可（TTS 目录已缓存的语种不重做）；注意 `--jobs 1` 单独重跑比整批重跑省时 |
+| 29 | 汇总表 `series_report` 里第 12 期整行不见了，看着像「那期没跑完」 | 表头 6 行 + 12 行数据，输出时 `md.slice(0, 6 + rows.length)` **少切一行** → 最后一行（ep12）被吞。产物其实全在（海报/三封面/双成片/发布词/清单都齐） | 切片放宽一行，并加自检：**输出里的期行数 ≠ 期数就响亮失败**（这类「汇总工具自己截断」的 bug 极难用肉眼发现——先怀疑工具，再怀疑产物） |
 

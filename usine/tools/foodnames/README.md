@@ -18,6 +18,10 @@
 | `run_series.mjs` | 批量跑若干期（并发可调；任一期红即非零退出） |
 | `make_publish.mjs` | 发布侧产物：`facts.json`（事实表）+ `copy-*.md` + `manifest.json` |
 | `audit_copy_numbers.mjs` | 离线预检：发布词读者面的每个数字能否在事实表里找到出处 |
+| `check_fused_glyph.mjs` | 像素门：韩语融合音节必须渲成渐变字形，不能是实心色块 |
+| `check_series_consistency.mjs` | 跨期一致性门（12 格 / 语种序 / 版式结构件 / 画幅与清单） |
+| `check_ep01_regression.mjs` | 第 01 期回归基准门（生成器重出 == 已交付手写版） |
+| `series_report.mjs` | 只读汇总：12 期实测产物一览 |
 | `patch_publish.mjs` | 一次性：修 worker 交回的发布词里的文件名/封面贴士硬伤 |
 | `measure_narration.mjs` | 旁白语音窗实测 + 时间线预算（成片前先量旁白再定床位） |
 | `extract_templates.mjs` | 一次性：把第 01 期手写源文件剥成模板（改模板时重跑） |
@@ -133,6 +137,20 @@ Chrome 不带 `--user-data-dir` 时会共用默认 profile，抢得厉害就出�
 
 ## 已知坑（都在本目录的代码里留了注释）
 
+- **`background:` 简写会重置 `background-clip`**（2026-10-20 实测事故，ep04/ep11 中招）。
+  `.ksyl.cv`（韩语融合音节的整字渐变）若写成 `background: linear-gradient(...)`，
+  简写会把 `background-clip` 打回 `border-box`；而 `.ksyl.cv` 的权重 (0,2,0) 高于
+  `.cv`/`.ksyl` 的 `background-clip: text` (0,1,0) → 渐变不再裁到字形里，
+  而是**画满整个 inline-block 盒子**，韩语融合音节渲染成实心色块。
+  **凡是靠 `background-clip: text` 上色的规则，一律用 `background-image:` 长写，
+  并在同一条规则里自带 `-webkit-background-clip: text; background-clip: text;
+  color: transparent;`**（别指望别的规则兜底）。
+  视频侧 `video_style.css` 没有 `.ksyl.cv` 规则 → **成片正常、只有海报/封面坏**，
+  肉眼极难发现；`check_fused_glyph.mjs` 这个像素门就是为此加的。
+- `check_fused_glyph.mjs` 判据：量韩语格里**彩色像素的最大实心轴对齐矩形**。
+  正常笔画是细长条（实测长宽比 8.8~10.2），色块是又大又方正（实测 134×134，
+  长宽比 1.00）。判为失败的条件：短边 ≥ 60px 且长宽比 < 3。
+  「实心块」本身不是病（横/竖笔画就是实心的），**又大又方正**才是。
 - `check-overlay` 的矩形是 **CSS px**（工具自己乘 `--scale`），且必须是**词形墨迹框**——
   从 `fit-diag` 的 dump 里取（`DIAG` JSON 的 `word: [x,y,w,h]`），别从网格线推。
 - edge-tts 的词边界**不带标点**（俄语 `Суши, японское блюдо` 的边界是 `Суши`），
