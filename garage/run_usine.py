@@ -1728,12 +1728,16 @@ def main(argv: list | None = None) -> int:
     # bfs8 postmortem: a 128k-token context (one recon program printed 153k
     # characters) pushed every later round into the gateway's slow tail, where
     # the SDK's default 120s read timeout killed LEGITIMATE in-flight
-    # responses twice per call, burning 480s of a 400s slice on retries.  180s
-    # covers the slow tail without enabling a hung-provider stall (the
-    # engine's own 4-attempt transport loop and the seat wall clock still
-    # bound the damage).  setdefault keeps an operator's explicit value
-    # authoritative.
-    os.environ.setdefault("RSIAGENT_LLM_TIMEOUT_SECS", "180")
+    # responses twice per call, burning 480s of a 400s slice on retries.
+    #   180s covered that case, but bfs12 measured the cost of a HANGING
+    # provider instead: the engine's 4-attempt transport loop burned 891s of
+    # RUN wall clock on one call (4 x 180s + backoff).  Provider downtime is
+    # EXCLUDED from the seat budget (loop.py moves the work origin forward),
+    # so it is charged only to the run ceiling — and 891s is 59% of 1500s.
+    #   120s still covers every measured legitimate call (3-60s, and 89s on
+    # the gateway's cold instance) with margin, while bounding one hanging
+    # call to ~570s.
+    os.environ.setdefault("RSIAGENT_LLM_TIMEOUT_SECS", "120")
 
     gate_argv = tuple(str(item) for item in args.gate_argv)
     merge_config = wave_merge.UsineMergeConfig(

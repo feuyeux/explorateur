@@ -755,10 +755,35 @@ else:
         + _CANDIDATE_TREE_FACTS)
 
 
+# Transport format, stated for the Verifier seat the same way the Curriculum
+# wave phase states it (explore/phase1_wave.py appends
+# core.actor.PLAIN_JSON_TRANSPORT_NOTE to the Curriculum's system prompt).
+# The Verifier's own prompt says "Use exactly ONE plain JSON action object
+# per reply" but never forbids the native tool envelope, and the model
+# reaches for it anyway.
+#
+# Measured 2026-10-19 (bfs12): 14 of 31 Verifier turns were wrapped in a
+# native <tool_call> tag.  The harness cannot parse those, so every one
+# of them was a dry turn: nudged, retried, and charged to the Verifier's
+# wall budget.  The seat ran out of budget at iteration 31 WITHOUT
+# publishing a VERDICT — while its own probes had already reported every
+# test passing.  Forty-five percent of the Verifier's budget went to the
+# envelope, not to verification.
+_TRANSPORT_NOTE = (
+    "\n\nTRANSPORT CLARIFICATION: Native API tool/function calls are not this "
+    "harness's action channel. A plain JSON action in assistant content is "
+    "ordinary reply text that the harness parses and executes, including when "
+    "native tool_choice is \"none\". Do not emit native tool tags "
+    "(<tool_call>, <function_calls>, or any provider-specific tool "
+    "envelope) and do not emit a tool_choice field; emit the plain JSON "
+    "object itself. A reply the harness cannot parse performs NOTHING and "
+    "burns a whole round-trip of your wall budget.\n")
+
+
 def _substrate_system_prompt(base: str) -> str:
     for old, new in _SUBSTRATE_REPLACEMENTS:
         base = base.replace(old, new)
-    return base + _SUBSTRATE_NOTE
+    return base + _SUBSTRATE_NOTE + _TRANSPORT_NOTE
 
 
 def install_verifier_adapter() -> dict:

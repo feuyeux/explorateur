@@ -125,8 +125,8 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
     "curriculum": 350,
-    "actor": 700,
-    "verifier": 200,
+    "actor": 650,
+    "verifier": 250,
     "merge": 80,
 }
 
