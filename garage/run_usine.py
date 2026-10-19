@@ -160,6 +160,7 @@ import signal
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
@@ -1029,6 +1030,14 @@ def _lfs_smudge_overlay(usine_dir) -> dict[str, Path]:
     return overlay
 
 
+# Process-wide serialization for seed builds, and a HEAD-keyed memo of the
+# last build.  Parallel wave guests share one run_root/baselines directory;
+# without the lock, two concurrent cold starts both rebuild and the second
+# os.replace races the first guest's push_file (bfs10, WinError 32).
+_SEED_BUILD_LOCK = threading.Lock()
+_SEED_BUILD_MEMO: dict[str, dict] = {}
+
+
 def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     """git-archive the committed usine prefix into an evolution_project seed.
 
@@ -1042,12 +1051,77 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
     probes the gold assets for real).  With ``write_to`` the compressed
     seed is written atomically next to a manifest; without it nothing is
     written (preflight preview).
+
+    Concurrency (measured 2026-10-19, bfs10): parallel wave guests start
+    concurrently, each with its OWN scratch dir, so a per-scratch memo does
+    not stop two guests from both missing the cache and building at the same
+    time — and the second ``os.replace`` then yanked ``baselines/seed.tgz``
+    out from under the first guest's ``push_file`` ([WinError 32], ep001 died
+    three seconds after the wave started).  Rebuilds are therefore
+    serialized behind a process-wide lock and keyed by HEAD sha: the first
+    builder writes, everyone else reuses the existing file after verifying
+    its recorded digest.
     """
-    import wave_merge
+    import wave_merge  # deferred: _install_paths must run first on odd paths
 
     usine_dir = Path(usine_dir)
+    # NOTE: _assert_preconditions (the dirty-tree fail-closed) runs INSIDE
+    # the locked rebuild path only.  The reuse fast-path below must not
+    # require a clean tree: an operator with uncommitted editor scratch in
+    # the real tree still gets the exact committed seed they built before,
+    # and a read-only verification never depends on worktree state.
     ctx = wave_merge._repo_context(usine_dir)
+    head = wave_merge._git(["rev-parse", "HEAD"], cwd=ctx["toplevel"]) \
+        .stdout.decode("utf-8", "replace").strip()
+
+    # Fast path: the seed for THIS HEAD already exists and its manifest
+    # verifies — reuse it, whatever thread got here first.  A concurrent
+    # builder holds _SEED_BUILD_LOCK, so a reader either sees the manifest of
+    # a fully finished build or misses and joins the locked rebuild.
+    if write_to is not None:
+        seed_dir = Path(write_to) / "baselines"
+        manifest_path = seed_dir / "seed_manifest.json"
+        seed_path = seed_dir / "seed.tgz"
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (existing.get("head") == head and existing.get("written")
+                    and seed_path.is_file() and existing.get("sha256")
+                    and existing.get("bytes") is not None
+                    and hashlib.sha256(seed_path.read_bytes()).hexdigest()
+                    == existing["sha256"]
+                    and seed_path.stat().st_size == existing["bytes"]):
+                info = dict(existing)
+                info["reused"] = True
+                return info
+        except (OSError, ValueError):
+            pass
+
     head = wave_merge._assert_preconditions(ctx, usine_dir)
+    with _SEED_BUILD_LOCK:
+        # Re-check under the lock: a parallel thread may have finished the
+        # rebuild while this one waited on the git-archive probe above.
+        if write_to is not None:
+            try:
+                existing = json.loads((Path(write_to) / "baselines"
+                                       / "seed_manifest.json")
+                                      .read_text(encoding="utf-8"))
+                seed_path = Path(write_to) / "baselines" / "seed.tgz"
+                if (existing.get("head") == head and existing.get("written")
+                        and seed_path.is_file() and existing.get("sha256")
+                        and hashlib.sha256(seed_path.read_bytes()).hexdigest()
+                        == existing["sha256"]):
+                    info = dict(existing)
+                    info["reused"] = True
+                    _SEED_BUILD_MEMO[head] = info
+                    return info
+            except (OSError, ValueError):
+                pass
+        return _build_seed_locked(usine_dir, head, ctx, write_to)
+
+
+def _build_seed_locked(usine_dir: Path, head: str, ctx: dict,
+                       write_to: Path | None) -> dict:
+    """Rebuild the seed archive.  Caller holds _SEED_BUILD_LOCK."""
     prefix = str(ctx["prefix"])
     base = prefix if prefix.endswith("/") else prefix + "/"
     argv = ["git", "-C", ctx["toplevel"], "archive", "--format=tar", "HEAD"]
@@ -1127,6 +1201,7 @@ def _build_seed(usine_dir: Path, write_to: Path | None) -> dict:
         _write_json_atomic(seed_dir / "seed_manifest.json", info)
         log.info("usine seed rebuilt at HEAD %s: %d member(s), %d bytes",
                  head[:10], files, len(data))
+    _SEED_BUILD_MEMO[head] = info
     return info
 
 

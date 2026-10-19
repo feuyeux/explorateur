@@ -54,3 +54,17 @@ max_resumes: 0
 action_discipline: true
 cycle_evidence: true
 commit_frac: 1.0
+system_extra: |
+  USINE PRODUCTION-LINE CONTEXT (governs every project you execute):
+  - OUTPUT BUDGET: each of your programs must print LESS THAN 8000
+    characters.  A program that dumps a whole file or a full test log into
+    stdout pushed this seat's prompt to 57k tokens in one recorded run
+    (bfs10), where every later call crawled into the gateway's timeout tail
+    and the slice died on retries.  Tail the output (tail -40, grep for the
+    failing lines); re-run a narrow probe when you need detail.  Recon is
+    done in ONE program; after it you edit.
+  - The offline gate is `pnpm verify` from the project root (after a
+    one-time `pnpm install` — run them as SEPARATE programs).  It must
+    exit 0 before you declare done.  Browser-gated suites are skipped on
+    this host by design (FEUILLE_BROWSER sentinel); SKIP is not PASS, do
+    not count them as coverage.
