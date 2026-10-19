@@ -100,8 +100,14 @@ header { display: flex; align-items: flex-end; justify-content: space-between; }
    哪些音节融合必须实测（measure-korean 会响亮报），在数据文件里
    用 ko_fused_syllables 显式声明。 */
 .ksyl.cv {
-  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  /* ⚠️ 必须用 background-image（长写）而不是 background（简写）：
+   * 简写会把 background-clip 重置回 border-box，而本规则选择器 (0,2,0)
+   * 高于 .cv/.ksyl 的 background-clip: text → 渐变画满整个盒子变成实心色块。
+   * 同理 background-clip / color 必须在这里自带，不能指望 .cv/.ksyl 兜底。 */
+  background-image: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
   background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
 }
 .fallback .ksyl { color: var(--ink); }
 /* measured on Food KR @200px by `feuille poster measure-korean` (this project's own

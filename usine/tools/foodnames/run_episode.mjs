@@ -139,6 +139,13 @@ const vcOut = feuille(
 )
 console.log(vcOut.split('\n').filter((l) => l.includes('lines:')).join('\n'))
 
+// ---------------------------------------------------------------- 5b 融合音节渲染门
+// 韩语融合音节（`ko_fused_syllables`）整字走 `.cv` 渐变。若 CSS 规则误用
+// `background:` 简写，background-clip 会被重置回 border-box → 渐变画满整个
+// 盒子 → 渲染成实心色块（2026-10-20 实测：ep04「토」/ep11「버」）。
+// 视频侧 CSS 无此规则 → 成片正常、只有海报坏，肉眼极易漏，必须像素门兜。
+run('node', ['--import', 'tsx', join(here, 'check_fused_glyph.mjs'), '--out', OUT])
+
 // ---------------------------------------------------------------- 6 叠印对齐门（ar/he/hi 三格）
 {
   // 词框从 fit-diag 的 dump 里取（页面自己报的 .word 矩形，CSS px）：

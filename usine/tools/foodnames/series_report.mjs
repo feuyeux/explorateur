@@ -92,5 +92,16 @@ if (outPath) {
   writeFileSync(outPath, md.join('\n'), 'utf8')
   console.log(`wrote ${outPath}`)
 }
-console.log(md.slice(0, 6 + rows.length).join('\n'))
+// ⚠️ 切片边界：表头 6 行（标题/空/说明/空/表头/分隔）+ N 行数据。
+//    少一行就会把**最后一期**（ep12）整行吞掉——看着像「那期没跑完」，
+//    实际产物全在。宁可多打一行空行，也不能少打一期。
+//    下面的自检就是防这个：行数与期数不等就响亮失败。
+const HEAD_LINES = 6
+const mdOut = md.slice(0, HEAD_LINES + rows.length + 1)
+const dataLines = mdOut.filter((l) => /^\|?\s*\d\d\s\|/.test(l))
+if (dataLines.length !== rows.length) {
+  console.error(`✖ 表格行数 ${dataLines.length} ≠ 期数 ${rows.length}——有期被截掉了`)
+  process.exit(1)
+}
+console.log(mdOut.join('\n'))
 console.log(`\n${done}/${rows.length} 期完整`)
