@@ -8,7 +8,7 @@
 // 3. 候选全不命中 → null（拿不到就说拿不到，不编造路径）
 // 4. 候选表覆盖三套系统
 // 第 0 条纪律是好数据放行：恒判 FAIL 的检查毫无价值。
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -50,9 +50,10 @@ describe('跨平台：外部件解析（浏览器 / ffmpeg / ffprobe / magick）
     const hits: string[] = []
     let nFiles = 0
     for (const p of walkTs(packagesDir).sort()) {
-      // 归一化为仓库相对路径再比对白名单。相对 packages/ 的父目录算，
-      // 与 checkout 目录名无关：RSI 演进客体的检出叫 evolution_project。
-      const rel = relative(dirname(packagesDir), p)
+      // 归一化为仓库相对路径再比对白名单（`\` 折叠成 `/`——relative() 在 win32
+      // 给反斜杠，白名单是 POSIX 写法，不折叠则候选表自身在 Windows 上永远「违例」）。
+      // 相对 packages/ 的父目录算，与 checkout 目录名无关：RSI 演进客体的检出叫 evolution_project。
+      const rel = relative(dirname(packagesDir), p).replaceAll('\\', '/')
       if (ALLOWED.includes(rel)) continue
       nFiles += 1
       const text = readFileSync(p, 'utf8')
@@ -69,7 +70,10 @@ describe('跨平台：外部件解析（浏览器 / ffmpeg / ffprobe / magick）
     if (b) {
       const st = statSync(b[1])
       expect(st.isFile()).toBe(true)
-      expect(st.mode & 0o111).not.toBe(0)
+      // X_OK 是跨 OS 的「可执行」判据，一条代码路径无平台分支：POSIX 查执行位；
+      // win32 的 statSync 不带执行位（mode 恒 0o666），libuv 把 X_OK 实现为
+      // 存在性检查——.exe 的可启动性由候选表只收可执行扩展名保证。
+      expect(() => accessSync(b[1], constants.X_OK), `${b[1]} 应可执行`).not.toThrow()
     }
     // 本机找不到 Chromium 只是渲不了，不算失败；解析逻辑由下面几条证明
   })

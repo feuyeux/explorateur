@@ -32,6 +32,11 @@
 *.7z filter=lfs diff=lfs merge=lfs -text
 *.rar filter=lfs diff=lfs merge=lfs -text
 
+# ── 字节 parity 夹具：checkout 不许改行尾 ──
+# parse_scene 金样本判据是「逐字节一致」，夹具经 git EOL 转换（autocrlf=true 机器
+# checkout 成 CRLF）后本地必炸；钉 eol=lf 让三系统 working tree 都拿 LF。
+usine/lessons/**/scene.json text eol=lf
+
 # 音视频（若确需入库）
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.mov filter=lfs diff=lfs merge=lfs -text

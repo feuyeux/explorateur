@@ -130,7 +130,9 @@ export async function main(argv: string[]): Promise<number> {
     if (mp3 === undefined) {
       throw new FeuilleError(`缺 TTS 产物 ${join(here, 'tts', `${aid}.mp3`)}`)
     }
-    const ttsKey = mp3.replace(/^.*[/]/, '').replace(/\.mp3$/, '')   // TTS 落盘键（zh-<act>）
+    // TTS 落盘键（zh-<act>）。`[\\/]`：win32 路径是 `\` 分隔，`^.*[/]` 剥不掉
+    // 目录会把整条绝对路径当键拼进 join，ENOENT 翻倍路径（win32 实测事故）。
+    const ttsKey = mp3.replace(/^.*[\\/]/, '').replace(/\.mp3$/, '')
     const framePrefix = aid                                        // 帧名前缀 = render 的 act id（fa1…）
     const adur = audio.probeDuration(mp3)
     // 幕时长 = preroll + 词段（由词表尾推）+ done —— 与 render 口径一致
@@ -179,7 +181,7 @@ export async function main(argv: string[]): Promise<number> {
         tpaths.push(tp)
       }
       for (const tp of tpaths) {
-        const stem3 = tp.replace(/^.*[/]/, '').replace(/\.png$/, '').slice(-3)
+        const stem3 = tp.replace(/^.*[\\/]/, '').replace(/\.png$/, '').slice(-3)
         const pT = join(F, `_seg_t${gi}-${stem3}.mp4`)
         sh([FF, '-y', '-loglevel', 'error',
           '-framerate', fps, '-loop', '1', '-i', tp,

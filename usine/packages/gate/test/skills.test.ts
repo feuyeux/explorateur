@@ -84,8 +84,7 @@ function actualModules(): Set<string> {
       const p = join(dir, ent.name)
       if (ent.isDirectory()) walk(pkg, p)
       else if (ent.isFile() && ent.name.endsWith('.ts') && !ent.name.endsWith('.d.ts') && ent.name !== 'index.ts') {
-        const rel = relative(join(pkgsDir, pkg, 'src'), p).replace(/\.ts$/, '').replaceAll('/', '.')
-        out.add(`${pkg}.${rel}`)
+        out.add(`${pkg}.${modRel(relative(join(pkgsDir, pkg, 'src'), p))}`)
       }
     }
   }
@@ -94,6 +93,13 @@ function actualModules(): Set<string> {
     if (existsSync(src)) walk(pkg, src)
   }
   return out
+}
+
+/** 相对路径 → 模块 ID 相对段。node:path 的 relative() 在 win32 返回 `\` 分隔，
+ * 必须与 POSIX `/` 同折叠成 `.`——否则 core.tts/client.ts 在 Windows 上派生出
+ * `core.tts\client`，归属对账 8 个子模块当场全红（imaging/tts 拆子目录后暴露）。 */
+function modRel(relPath: string): string {
+  return relPath.replace(/\.ts$/, '').replaceAll('\\', '/').replaceAll('/', '.')
 }
 
 // ---------------------------------------------------------------- 主检查链
@@ -568,6 +574,15 @@ describe('skills/ 去歧义门禁（verify_skills.py 移植）', () => {
     const fails = rows.filter(([ok]) => !ok)
     const npass = rows.length - fails.length
     expect(fails, `FAIL：${npass}/${rows.length} 项\n${fails.map(([, why]) => why).join('\n')}`).toEqual([])
+  })
+
+  test('模块 ID 派生凿洞：win32 反斜杠与 POSIX 斜杠折叠成同一 ID（修前 `\\` 原样保留、对账全红）', () => {
+    // 反向验证（纪律 2）：拆子目录后 relative() 在 win32 给 `tts\client.ts`，
+    // 修前 modRel 派生 `tts\client`，归属对账把它当无主模块、`core.tts` 当幽灵。
+    expect(modRel('tts\\client.ts')).toBe('tts.client')
+    expect(modRel('tts/client.ts')).toBe('tts.client')
+    expect(modRel('imaging\\draw.ts')).toBe('imaging.draw')
+    expect(modRel('drm.ts')).toBe('drm')
   })
 
   test('地图对账凿洞：地图多画 bogus → 被抓；账本有 audio 地图没画 → 被抓', () => {
