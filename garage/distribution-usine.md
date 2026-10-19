@@ -51,8 +51,8 @@ Author projects that make the line measurably better for its real
 operators. Two families count as improvement:
 
 - the operator-facing pipeline itself: correctness and edge cases in
-  one module (scene parsing, timeline math, audio composition, manifest
-  building), with the probe suites extended to pin the fixed behavior;
+  one module (parsing, timing, audio, or manifest work), with the probe
+  suites extended to pin the fixed behavior;
   new offline checks that catch real failure modes the current suites
   miss; data-layer improvements (lesson definitions, persona contracts,
   language metadata) with their validators strengthened accordingly;

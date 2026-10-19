@@ -50,13 +50,20 @@ PASSED = 0
 WORST_CASE_ROUND_TRIP_SECS = 121
 
 
-def check(name: str, ok: bool, detail: str = "") -> None:
+def check(name: str, ok: bool, detail: str = "") -> bool:
+    """Assert one thing.  Raises SystemExit on failure; returns True on pass.
+
+    Returns the boolean rather than None so callers can branch on it without
+    inverting a None into False (``if not check(...)`` is always True for a
+    None-returning helper, which silently skipped whole sections).
+    """
     global PASSED
     if not ok:
         print(f"FAIL  {name}" + (f" — {detail}" if detail else ""))
         raise SystemExit(1)
     PASSED += 1
     print(f"PASS  {name}" + (f" — {detail}" if detail else ""))
+    return True
 
 
 def _seat(wall: int, *, high: int = 0, low: int = 0, out: int = 65536,
@@ -242,6 +249,54 @@ def test_real_usine_roles_pass(ru, tb) -> None:
               f"{seat}: {wall}s of {plan.ceiling_secs}s")
 
 
+def test_curriculum_target_menu_is_honest() -> None:
+    """The Curriculum TARGET MENU must quote real files at real sizes.
+
+    The menu exists to stop the Curriculum from sweeping a 456 KB package
+    inside a 180s slice (measured: iteration 14, 74k tokens, no wave ever
+    published).  A menu that names a moved file, or quotes a size that has
+    drifted, is worse than no menu — the model trusts it, reads nothing, and
+    authors against a fiction.  So the numbers are pinned here.
+    """
+    import yaml
+
+    config = HERE / "config" / "roles-usine" / "curriculum-usine.yaml"
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
+    extra = str(data.get("system_extra", ""))
+    check("curriculum carries a TARGET MENU", "TARGET MENU" in extra)
+    if "TARGET MENU" not in extra:
+        return
+
+    menu_targets = {
+        "packages/dsh-plugin/src/tools.ts": 24_000,
+        "packages/dsh-plugin/src/index.ts": 3_000,
+        "packages/dsh-plugin/src/discipline.ts": 1_500,
+        "packages/dsh-plugin/test/plugin-parity.test.ts": 9_000,
+        "packages/dsh-plugin/test/plugin.test.ts": 15_000,
+    }
+    for relative, floor in sorted(menu_targets.items()):
+        path = EXPLORATEUR / "usine" / relative
+        if not path.is_file():
+            check(f"menu target exists: {relative}", False, "file missing")
+            continue
+        size = path.stat().st_size
+        check(f"menu target exists: {relative}", True, f"{size} bytes")
+        # A band, not an exact byte count: ordinary edits must not churn this
+        # config, but a file that vanished or grew 5x must fail — quoting a
+        # stale size is the failure mode the menu cannot afford.
+        check(
+            f"menu size band still honest: {relative}",
+            floor <= size <= floor * 4,
+            f"{size} bytes, expected within [{floor}, {floor * 4}]",
+        )
+
+    skills = EXPLORATEUR / "usine" / "skills"
+    count = (len([p for p in skills.iterdir() if p.is_dir()])
+             if skills.is_dir() else 0)
+    check("menu names a plausible skill count", count >= 10,
+          f"{count} skill directories")
+
+
 def main() -> int:
     tb = _load("smoke_time_budget_module", HERE / "time_budget.py")
     ru = _load("smoke_run_usine_module", HERE / "run_usine.py")
@@ -252,6 +307,7 @@ def main() -> int:
     test_deadline(tb)
     test_context_budget_gate(ru)
     test_real_usine_roles_pass(ru, tb)
+    test_curriculum_target_menu_is_honest()
 
     print(f"\nALL {PASSED} TIME/CONTEXT BUDGET CHECKS PASSED")
     return 0
