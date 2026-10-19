@@ -247,12 +247,20 @@ describe("usine_video_generation：额度红线由机制承载", () => {
     expect(ctx.approvalRequests).toHaveLength(0)
   })
 
-  it("无 approval 服务 → fail closed：asked-unavailable，未提交", async () => {
+  it("无 approval 服务 → fail closed：asked-unavailable，未提交；拒绝语点名被拒工具 + 所需 approval + 重试路径（refusal-audit 钉版）", async () => {
     const ctx = fakeCtx() // 不带 approval
     ;(await loadPlugin()).apply(ctx)
     const r = (await tool(ctx, "usine_video_generation").execute(submit(), exec({ id: "a" }))) as { status: string; message: string }
     expect(r.status).toBe("asked-unavailable")
     expect(r.message).toContain("fail closed")
+    expect(ctx.approvalRequests).toHaveLength(0)
+    // 钉版 packages/dsh-plugin/test/refusal-audit.md：approval 缺席的拒绝语必须三点全中——
+    // (a) 点名被拒工具 (b) 说清所需 approval 审批未获得 (c) 给出授予/重试路径；逐字钉，漂移即红。
+    expect(r.message).toContain("usine_video_generation")
+    expect(r.message).toContain("approval 审批未获得")
+    expect(r.message).toContain("要过这道门：在带 approval 服务的宿主里重新发起本次调用")
+    expect(r.message).toContain("审批卡会再次摆出，人工点头（allowed-once）后才提交")
+    expect(r.message).toContain("未提交")
   })
 
   it("无 agent 执行上下文 → fail closed", async () => {

@@ -492,7 +492,7 @@ export function videoGenerationTool(ctx: unknown): ToolDefinition {
       ].join('\n')
 
       if (approval === undefined) {
-        return { status: 'asked-unavailable', message: '宿主没有 approval 服务——fail closed，未提交。\n' + reason }
+        return { status: 'asked-unavailable', message: 'usine_video_generation 的 submit 已拒绝——调用所需的 approval 审批未获得（宿主没有 approval 服务）；fail closed，未提交。要过这道门：在带 approval 服务的宿主里重新发起本次调用，审批卡会再次摆出，人工点头（allowed-once）后才提交。\n' + reason }
       }
       const agent = (exec as { agent?: unknown }).agent
       if (agent === undefined) {
