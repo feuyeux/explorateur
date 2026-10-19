@@ -54,7 +54,14 @@ agent_decided_stop: true
 # room for a worst-case answer plus the work that follows it.
 max_iters: 120
 max_nudges: 25
-wall_clock_secs: 780
+# 2026-10-20: this value was 780s and it silently clamped the DRS plan's
+# 900s Actor slice back to 780s — a slice is a CEILING and never loosens a
+# seat's own declared wall, so the DRS Actor seat ran on 780s anyway (caught
+# by smoke_time_budget's "every plan slice is actually effective" check
+# before the next run, not by a 35-minute run).  950s so the DRS plan's
+# 900s slice is the binding constraint; Phase 1 is unaffected (its own slice
+# is 580s, so apply_slices clamps this seat back down to 580s).
+wall_clock_secs: 950
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""

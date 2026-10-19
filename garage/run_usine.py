@@ -846,6 +846,44 @@ def _check_lineup(configs: dict, escalation_cfg) -> dict:
             "used_models": sorted(used)}
 
 
+def _check_drs_wiring(configs: dict) -> None:
+    """Fail closed on a broken DRS verifier wiring BEFORE any token is spent.
+
+    The DRS path runs the stock SERIAL core (explore/practice_loop.py), which
+    takes the Verifier CONTROL profile in ``agentic_verifier_cfg`` — that
+    profile names the Verifier AGENT config in ``agentic_verifier_config`` and
+    carries the private-path quarantine the inspection needs.  Phase 1 passes
+    that control profile; the DRS path used to pass the Verifier AGENT
+    profile, which has no ``agentic_verifier_config`` key at all, so the core
+    refused the inspection with "Phase-1 Agentic Verifier control config is
+    missing" — AFTER the Actor had already spent its whole budget (measured
+    2026-10-20, bfs16f: 1158s spent and a candidate produced, then refused).
+
+    A wiring gap must cost a preflight, not a twenty-minute run.  Every
+    condition here is checkable without a token.
+    """
+    control = configs.get("verifier_control")
+    if control is None:
+        raise RuntimeError(
+            "--phase 2 needs the verifier CONTROL profile "
+            "(verifier_control), which is missing from the loaded roles")
+    named = str(getattr(control, "agentic_verifier_config", "") or "")
+    if not named:
+        raise RuntimeError(
+            "--phase 2 needs the verifier CONTROL profile to name the "
+            "Verifier Agent config in agentic_verifier_config; the loaded "
+            "control profile does not.  The serial core reads it from there "
+            "and refuses the inspection without it.")
+    if not Path(named).is_file():
+        raise RuntimeError(
+            f"--phase 2 verifier control names a missing Verifier Agent "
+            f"config: {named}")
+    if not str(getattr(control, "verifier_model", "") or ""):
+        raise RuntimeError(
+            "--phase 2 verifier control has no verifier_model; the serial "
+            "core would have no Verifier Agent to drive.")
+
+
 # ---------------------------------------------------------------- credentials
 
 def _context_budget_check(configs: dict) -> dict:
@@ -2013,6 +2051,19 @@ def main(argv: list | None = None) -> int:
         log.info("DRS seeded from Phase-1 memory: %d file(s)", seeded_files)
         _install_seed_memory(source_memory, run_root / "memory")
 
+        # DRS wiring, checked BEFORE any token is spent.  The serial core
+        # (explore/practice_loop.py) takes the Verifier CONTROL profile in
+        # `agentic_verifier_cfg` — the profile that names the Verifier AGENT
+        # config in `agentic_verifier_config` and carries the private-path
+        # quarantine.  Phase 1 passes that control profile; the DRS path used
+        # to pass the Verifier AGENT profile instead, which has no
+        # `agentic_verifier_config` key, so the core refused the inspection
+        # AFTER the Actor had already burned its whole budget (bfs16f,
+        # 2026-10-20: 1158s spent, candidate produced, then
+        # "Phase-1 Agentic Verifier control config is missing").  A wiring
+        # gap must cost a preflight, not a twenty-minute run.
+        _check_drs_wiring(configs)
+
         # DRS (paper 2.2): sequential deep recursion over the memory Phase 1
         # produced.  evolve_practice is the stock SERIAL core — one project at
         # a time, curriculum_review stopping, each verified experience entering
@@ -2034,7 +2085,11 @@ def main(argv: list | None = None) -> int:
                 project_budget=args.project_budget,
                 checkpoint_projects=checkpoints,
                 phase1_exploration=False,
-                agentic_verifier_cfg=configs["verifier"],
+                # The CONTROL profile, not the Verifier Agent profile: the
+                # serial core reads `agentic_verifier_config` (the name of
+                # the Agent config) and the private-path quarantine from
+                # here.  Phase 1 passes the same control profile.
+                agentic_verifier_cfg=configs["verifier_control"],
                 resume_completed_boundary=args.resume_completed_boundary)
         finally:
             desktop.close()

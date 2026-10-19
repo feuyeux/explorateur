@@ -70,25 +70,28 @@ DEFAULT_RUN_CEILING_SECS = 1500
 
 # The DRS (Phase 2) run ceiling.  Phase 1 keeps the operator's twenty-five
 # minutes; the DRS is a DIFFERENT job and does not fit in it — this is
-# arithmetic, not taste.  Measured 2026-10-20 (bfs16 phase 2):
+# arithmetic, not taste.  Measured 2026-10-20 (bfs16 phase 2 / bfs16f):
 #
 #   * curriculum review : 152s of work, but its FIRST response alone has been
 #     measured at 50.6s / 108.2s / 138.7s / 322s / >300s at the same effort
 #     on this gateway, and a stall is charged to the seat's wall clock (the
 #     bfs16d attempt lost the curriculum seat that way: 344s spent on one
 #     timed-out first response against a 170s slice).
-#   * actor              : ~670s of work (580s Phase-1 slice killed it one
-#     iteration before publishing).
-#   * verifier           : ~150s (Phase 1 measured 60s at low effort).
-#   * memory phase       : ~277s (Phase-1 measurement: distillation 73s +
+#   * actor              : 805s (bfs16f: 31 iterations, four deliverables,
+#     the handoff written, the candidate captured) — the 580s Phase-1 slice
+#     killed the first attempt one iteration before it published, and the
+#     780s DRS slice was inside the tail of a task of this size.
+#   * verifier           : ~150s (Phase 1 measured 60s at low effort; the DRS
+#     candidate is larger, so more).
+#   * memory phase       : 277s (Phase-1 measurement: distillation 73s +
 #     reconciliation 204s).
 #
-# That is ~1250s of work before a single margin, and the four seats cannot
-# share a 1400s slice budget with any room to spare: even at ZERO margin
-# they need 1427s.  So the DRS runs on its own ceiling, and the DRS slice
-# plan below carries the margins the measurements call for.  The ceiling
-# stays an explicit, auditable value in the manifest — never implicit.
-DRS_RUN_CEILING_SECS = 1800
+# That is ~1384s of work before a single margin, and the four seats cannot
+# share a 1400s slice budget with any room to spare.  So the DRS runs on its
+# own ceiling, and the DRS slice plan below carries the margins the
+# measurements call for.  The ceiling stays an explicit, auditable value in
+# the manifest — never implicit.
+DRS_RUN_CEILING_SECS = 2100
 
 # Slice plan under the ceiling.  These are UPPER BOUNDS for a single seat,
 # not targets; the engine charges only what it actually uses.
@@ -179,23 +182,21 @@ DEFAULT_SLICES = {
 # Phase 2 is the paper's deep recursion (RSIAgent 2.2) — the Curriculum
 # reviews the Phase-1 experience, the Actor drills a deeper task against the
 # memory Phase 1 produced, and the memory phase then rewrites that memory.
-# Measured 2026-10-20 (bfs16 phase 2, the first DRS attempt):
+# Measured 2026-10-20 (bfs16 phase 2, bfs16f):
 #
-#   * curriculum review : 152s  (7 iterations)
-#   * actor              : 580s  ALL SPENT, killed by the wall clock at
-#                            iteration 24 — one iteration before publishing
-#                            its report deliverable.  The code change was
-#                            done, the full gate was green (531 passed /
-#                            8 skipped) and 6 new pin tests were running.
-#   * verifier           : never reached (Phase 1 measured 60s at low effort)
+#   * curriculum review : 152s  (7 iterations; one 344s stalled first
+#                            response, survived on the 400s slice)
+#   * actor              : 805s  (bfs16f: 31 iterations, four deliverables,
+#                            the handoff written and the candidate captured)
+#   * verifier           : never reached in either attempt (Phase 1 measured
+#                            60s at low effort)
 #   * memory phase       : 277s measured in Phase 1 (distillation 73s +
 #                            reconciliation 204s)
 #
-# So the DRS actor needs ~670s, not the Phase-1 580s — and the run ceiling
-# was NOT what stopped it: the DRS died at 755s of the 1500s ceiling, with
-# 745s of the run's budget unused.  The binding constraint is the per-seat
-# wall clock, so the fix is a Phase-2 allocation, not a bigger Phase-1
-# budget.
+# The DRS actor needs ~805s, not the Phase-1 580s — and the run ceiling was
+# NOT what stopped it: the DRS died at 755s of the 1500s ceiling, with 745s
+# of the run's budget unused.  The binding constraint is the per-seat wall
+# clock, so the fix is a Phase-2 allocation, not a bigger Phase-1 budget.
 #
 # The curriculum slice carries the gateway's measured FIRST-RESPONSE tail
 # (up to 322s at the same effort, and a stalled request IS charged to the
@@ -207,13 +208,13 @@ DEFAULT_SLICES = {
 # fires.  The merge slice is kept small and present only so the plan stays
 # complete if that ever changes.
 #
-# The five slices sum to 1700s, which fits the DRS ceiling (1800s) with the
+# The five slices sum to 1920s, which fits the DRS ceiling (2100s) with the
 # same 100s overhead reserve Phase 1 uses.
 DRS_SLICES = {
     "curriculum": 400,
-    "actor": 780,
-    "verifier": 200,
-    "memory": 300,
+    "actor": 900,
+    "verifier": 280,
+    "memory": 320,
     "merge": 20,
 }
 

@@ -198,10 +198,10 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
           f"DRS actor {tb.DRS_SLICES['actor']}s vs Phase-1 "
           f"{tb.DEFAULT_SLICES['actor']}s")
 
-    # The DRS actor's measured need: the 580s Phase-1 slice killed it one
-    # iteration before it published its report deliverable (the code change
-    # was done, the full gate was green, 6 new pin tests were running).
-    drs_actor_need = 670
+    # The DRS actor's measured need: bfs16f ran 31 iterations, wrote the
+    # handoff and captured the candidate in 805s; the 580s Phase-1 slice
+    # killed the first attempt one iteration before it published.
+    drs_actor_need = 805
     check("the DRS actor slice covers the measured DRS actor need",
           tb.DRS_SLICES["actor"] >= drs_actor_need,
           f"{tb.DRS_SLICES['actor']}s >= {drs_actor_need}s measured")
@@ -219,8 +219,8 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
           f"{tb.DRS_SLICES['curriculum']}s >= 322s measured first response")
 
     # The four seats' MEASURED costs must fit the DRS seat budget, with room
-    # left over: curriculum 152s, actor 670s, verifier 150s, memory 277s.
-    measured = {"curriculum": 152, "actor": 670, "verifier": 150, "memory": 277}
+    # left over: curriculum 152s, actor 805s, verifier 150s, memory 277s.
+    measured = {"curriculum": 152, "actor": 805, "verifier": 150, "memory": 277}
     seat_budget = tb.DRS_RUN_CEILING_SECS - tb.OVERHEAD_RESERVE_SECS
     check("the DRS seat budget covers the measured seat costs",
           sum(measured.values()) <= seat_budget,
@@ -246,6 +246,51 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
           phase1_configs["memory_actor"].wall_clock_secs
           == phase1_configs["actor"].wall_clock_secs,
           str(phase1_configs["memory_actor"].wall_clock_secs))
+
+
+def test_drs_wiring_is_sound(ru) -> None:
+    """The DRS path must hand the serial core the CONTROL profile.
+
+    Measured 2026-10-20 (bfs16f): the DRS passed the Verifier AGENT profile
+    where the serial core expects the Verifier CONTROL profile, so the core
+    refused the inspection with "Phase-1 Agentic Verifier control config is
+    missing" — after 1158s of budget and a produced candidate.  The wiring
+    must be checkable without spending a token.
+    """
+    garage = HERE
+    sys.path.insert(0, str(garage))
+    theatre = [p for p in EXPLORATEUR.iterdir()
+               if p.is_dir() and p.name.startswith("th")]
+    if not theatre:
+        check("théâtre checkout present", False, "no th* directory")
+        return
+    sys.path.insert(0, str(theatre[0]))
+    from config.runtime_paths import normalize_verifier_config_paths
+    from config.settings import load
+
+    configs = {}
+    for role, name in ru.ROLE_FILES.items():
+        cfg = load(str(garage / "config" / "roles-usine" / name))
+        normalize_verifier_config_paths(cfg, garage)
+        configs[role] = cfg
+
+    try:
+        ru._check_drs_wiring(configs)
+        ok, why = True, "the committed roles satisfy the DRS wiring"
+    except Exception as exc:  # noqa: BLE001 - the check reports its own failure
+        ok, why = False, f"{type(exc).__name__}: {exc}"
+    check("the committed roles satisfy the DRS verifier wiring", ok, why)
+
+    # And the check must actually bite: the Agent profile alone (what the
+    # DRS used to pass) has no agentic_verifier_config key.
+    agent_only = {"verifier_control": configs["verifier"]}
+    try:
+        ru._check_drs_wiring(agent_only)
+        check("the DRS wiring check rejects the Agent profile", False,
+              "the Agent profile was accepted as the control profile")
+    except RuntimeError:
+        check("the DRS wiring check rejects the Agent profile", True,
+              "the Agent profile is rejected as the control profile")
 
 
 def test_deadline(tb) -> None:
@@ -441,6 +486,7 @@ def main() -> int:
     test_plan_rejects_bad_shapes(tb)
     test_apply_slices_clamps_and_preserves_tighter(tb)
     test_drs_plan_is_its_own_allocation(tb)
+    test_drs_wiring_is_sound(ru)
     test_deadline(tb)
     test_context_budget_gate(ru)
     test_real_usine_roles_pass(ru, tb)

@@ -42,7 +42,12 @@ max_nudges: 25
 # same seat the room to conclude, and the run ceiling still holds because
 # time_budget.DEFAULT_SLICES was re-balanced around it (the Actor slice lost
 # 160s that the low-effort switch no longer needs).
-wall_clock_secs: 420
+#
+# 2026-10-20: raised to 500s for the same reason as the Actor seat — a
+# slice is a CEILING and never loosens a seat's own declared wall, so a
+# declared 420s silently clamped a larger DRS verifier slice back down.
+# Phase 1 is unaffected (its own slice is 420s).
+wall_clock_secs: 500
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180
