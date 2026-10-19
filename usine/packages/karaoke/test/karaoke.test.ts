@@ -303,7 +303,10 @@ document.body.style.background = c
         locales: ['xx'], preroll: 0.6, tail: 0.2, done: 0.2,
         intro: 0.3, outro: 0.3, intro_image: 'poster.png', desk: '0xe8e2d4',
         formats: [{ name: 'mini', w: 128, h: 96, frames: 'frames',
-          output: 'out.mp4', fmt: null, poster_filter: 'scale=128:96' }],
+          // 输出放在**尚不存在的子目录**里：build 必须自建 out/，
+          // 否则 ffmpeg 最后一步炸 "No such file or directory"，
+          // 前面十几分钟的状态帧渲染全部白跑（2026-10-19 寿司·12 语种实测）。
+          output: 'out/mini.mp4', fmt: null, poster_filter: 'scale=128:96' }],
       }), 'utf8')
 
       const log: string[] = []
@@ -313,7 +316,7 @@ document.body.style.background = c
       } finally {
         spy.mockRestore()
       }
-      const out = join(d, 'out.mp4')
+      const out = join(d, 'out', 'mini.mp4')
       expect(existsSync(out)).toBe(true)
       // 状态帧齐：pre / 0 / done（状态机 URL 渲出来的真 Chrome 帧）
       for (const n of ['xx-pre.png', 'xx-0.png', 'xx-done.png']) {

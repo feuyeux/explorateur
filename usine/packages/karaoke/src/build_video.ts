@@ -19,7 +19,7 @@
 //   包可以安全地被 barrel 导入）。
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import sharp from 'sharp'
@@ -178,6 +178,10 @@ async function buildFormat(fmt: FmtCfg, cfg: Record<string, any>, here: string, 
   sh([FF, '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0',
     '-i', join(here, 'concat_a.txt'), '-c:a', 'pcm_s16le', join(here, 'audio_all.wav')])
   const out = join(here, fmt['output'])
+  // 输出目录自建：frames/ 早就 mkdir 了，out/ 却没有——项目目录里没有 out/
+  // 时 ffmpeg 在最后一步炸 "No such file or directory"，前面十几分钟的
+  // 状态帧渲染全部白跑（2026-10-19 实测：寿司·12 语种首跑就撞上）。
+  mkdirSync(dirname(out), { recursive: true })
 
   const bgm = cfg['bgm'] as Record<string, any> | undefined
   if (bgm) {
