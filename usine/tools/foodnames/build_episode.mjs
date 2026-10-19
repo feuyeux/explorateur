@@ -106,8 +106,16 @@ function wordHtml(w, { inline }) {
     case 'ko':
     case 'kr': {
       const syls = w.ko_syllables ?? []
+      // 融合音节（初声+中声笔画横接成一个连通域，矩形补丁拆不开）：
+      // 走 `.cv` 融合渐变整字降级，不生成 .k<码位> 补丁类。
+      // ⚠️ 哪些音节融合**必须实测**（measure-korean 会响亮报 LABEL FAIL），
+      //    在数据文件里用 ko_fused_syllables 显式声明，不在这里猜。
+      const fused = new Set(w.ko_fused_syllables ?? [])
       return syls
-        .map((s) => `<span class="ksyl k${s.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}">${esc(s)}</span>`)
+        .map((s) => {
+          if (fused.has(s)) return `<span class="ksyl cv">${esc(s)}</span>`
+          return `<span class="ksyl k${s.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}">${esc(s)}</span>`
+        })
         .join('')
     }
     case 'ar': {

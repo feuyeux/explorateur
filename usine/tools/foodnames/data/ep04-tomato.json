@@ -363,7 +363,10 @@
       "gender": "f",
       "voice": "ko-KR-SunHiNeural",
       "voice_short": "SunHi Neural",
-      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>"
+      "foot_html": "元音 <span class=\"v\">■</span> · 辅音 <span class=\"c\">■</span>",
+      "ko_fused_syllables": [
+        "토"
+      ]
     }
   ],
   "extra_facts": {

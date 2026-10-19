@@ -94,6 +94,15 @@ header { display: flex; align-items: flex-end; justify-content: space-between; }
   -webkit-background-clip: text; background-clip: text;
   background-repeat: no-repeat;
 }
+/* 融合音节降级：初声+中声笔画横接成一个连通域，矩形补丁拆不开
+   （measure-korean 报 LABEL FAIL）。这类音节整字走 .cv 融合渐变——
+   读作「辅音+元音合体」，与日语假名同款处理，不假装能拆开。
+   哪些音节融合必须实测（measure-korean 会响亮报），在数据文件里
+   用 ko_fused_syllables 显式声明。 */
+.ksyl.cv {
+  background: linear-gradient(135deg, var(--cons) 49.5%, var(--vowel) 50.5%);
+  background-repeat: no-repeat;
+}
 .fallback .ksyl { color: var(--ink); }
 /* measured on Food KR @200px by `feuille poster measure-korean` (this project's own
    subset) — 스 U+C2A4 = ᄉ+ᅳ, 시 U+C2DC = ᄉ+ᅵ; verify 0 wrong px each.

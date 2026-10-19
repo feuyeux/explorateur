@@ -79,7 +79,17 @@ if (!SKIP_BUILD) {
 feuille(['poster', 'fetch-fonts', join(OUT, 'fonts.json')])
 
 // ---------------------------------------------------------------- 3 韩语补丁（逐音节实测 → 注入）
-const koSyllables = (data.words.find((w) => w.locale === 'ko-KR') ?? {}).ko_syllables ?? []
+// ⚠️ **融合音节不进补丁**：初声+中声笔画横接成一个连通域时，矩形补丁拆不开
+//    （measure-korean 会报 LABEL FAIL 并退出非零）。这类音节在数据文件里用
+//    `ko_fused_syllables` 显式声明，走 `.cv` 融合渐变整字降级。
+//    「哪些音节融合」**必须实测**，不猜——所以只量非融合的那些。
+const koWord = data.words.find((w) => w.locale === 'ko-KR') ?? {}
+const koAll = koWord.ko_syllables ?? []
+const koFused = new Set(koWord.ko_fused_syllables ?? [])
+const koSyllables = koAll.filter((s) => !koFused.has(s))
+if (koFused.size > 0) {
+  console.log(`  韩语融合音节（走 .cv 渐变，不做矩形补丁）：${[...koFused].join('/')}`)
+}
 if (koSyllables.length > 0) {
   const out = feuille(
     ['poster', 'measure-korean', ...koSyllables, '--family', 'Food KR', '--css', join(OUT, 'fonts.css'), '--out', join(OUT, 'k_measure')],
@@ -87,7 +97,7 @@ if (koSyllables.length > 0) {
   )
   const blocks = [...out.matchAll(/\.k[0-9A-Fa-f]{4,6} \{[^}]*\}/g)].map((m) => m[0])
   if (blocks.length !== koSyllables.length) {
-    console.error(`✖ 韩语补丁块数 ${blocks.length} ≠ 音节数 ${koSyllables.length}——测量没出齐`)
+    console.error(`✖ 韩语补丁块数 ${blocks.length} ≠ 非融合音节数 ${koSyllables.length}——测量没出齐`)
     process.exit(1)
   }
   const css = blocks.join('\n')
