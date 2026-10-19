@@ -217,6 +217,46 @@ def _posix_host_no_browser() -> None:
 _NODE_MIN_MAJOR = 24
 _PNPM_MIN_MAJOR = 11
 _PNPM_NAMES = frozenset({"pnpm", "pnpm.exe", "pnpm.cmd", "pnpm.bat"})
+# Directory holding the winget-installed standalone pnpm.exe.  It is NOT on
+# the default Windows PATH in front of the npm shim directory
+# (AppData\Roaming\npm wins), so a bare `pnpm` keeps resolving to the 10.x
+# shim.  The guest inherits THIS process's PATH (guest_env assembles it), so
+# the host fix and the guest fix are the same fix.
+_PNPM_STANDALONE_DIRS = (
+    Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet"
+    / "Packages",
+)
+
+
+def _prepend_standalone_pnpm() -> str | None:
+    """Put a standalone pnpm.exe directory in front of the process PATH.
+
+    Returns the directory that was prepended, or None when nothing suitable
+    was found.  Idempotent: a directory already at the front is left alone.
+
+    Measured 2026-10-19: with the npm shim first, both the host gate and the
+    GUEST toolchain probe resolved pnpm 10.32.0 and failed closed
+    ("guest pnpm too old for the workspace gate: '10.32.0' (need >= 11)") —
+    three seconds in, before a single token was spent.  The same directory
+    holds pnpm 12.11.2.
+    """
+    for packages in _PNPM_STANDALONE_DIRS:
+        if not packages.is_dir():
+            continue
+        for candidate in sorted(packages.glob("pnpm.pnpm_*")):
+            binary = candidate / "pnpm.exe"
+            if not binary.is_file():
+                continue
+            directory = str(candidate)
+            current = os.environ.get("PATH", "")
+            head = current.split(os.pathsep)[0] if current else ""
+            if os.path.normcase(head) == os.path.normcase(directory):
+                return None
+            os.environ["PATH"] = os.pathsep.join(
+                [directory] + ([current] if current else []))
+            log.info("prepended standalone pnpm to PATH: %s", directory)
+            return directory
+    return None
 
 
 def _command_version(argv0: str) -> str | None:
@@ -421,6 +461,20 @@ def _install_seed_memory(source: Path, destination: Path) -> int:
             shutil.copy2(candidate, target)
             installed += 1
     return installed
+
+
+def _default_checkpoints(budget: int) -> str:
+    """Checkpoint list scaled to the project budget.
+
+    The historical default ``0,2,4,8`` assumes the paper's budget of 8
+    projects.  Asking for a SMALLER budget (a cheap first wave is exactly
+    what a new operator tries) must not crash argument parsing with
+    "checkpoints must lie between zero and the project budget" — that error
+    names the wrong problem, and it fires before the run even starts.
+    """
+    if budget <= 0:
+        return "0"
+    return ",".join(str(index) for index in (0, 2, 4, 8) if index <= budget)
 
 
 def _parse_checkpoints(value: str, budget: int) -> tuple[int, ...]:
@@ -1175,14 +1229,30 @@ def _stage_harness_link_targets(env, usine_dir) -> None:
                  "root: %d root(s)", staged_roots)
 
 
-def _harness_staging_vm_factory(inner_factory, state: dict):
+def _harness_staging_vm_factory(inner_factory, state: dict, *, seed: bool = False):
     """Wrap the VM factory: stage the harness ``link:`` anchor for EVERY
     guest, not just the seed-time one.  Later nights (Actor, Verifier,
     memory) replay the captured tree through the engine's provisioning
     stage path, which never passes through ``_seed_guest`` - but every
     guest that replays the usine tree and might run the pnpm gate needs
     the anchor at its own disk root.  Staging is idempotent and skipped
-    for non-Worktree VMs (no scratch)."""
+    for non-Worktree VMs (no scratch).
+
+    ``seed=True`` additionally pushes the git-archive seed at CREATION
+    time rather than waiting for the first fixture capture.  That wait was
+    a deadlock, measured on 2026-10-19: the Curriculum Agent authors a wave
+    by inspecting the repository it must write projects against, but on a
+    blank guest it finds nothing (``candidates: 0``) and spends whole
+    round trips rediscovering where the tree lives — each of those turns
+    is a full ``reasoning_effort: max`` generation, and two of them
+    exhausted the whole run ceiling before the wave was ever published.
+
+    Seeding at creation removes the chicken-and-egg: the Curriculum's first
+    iteration already sees the real repository.  ``_seed_guest`` is
+    idempotent (per-scratch cache, extract WITHOUT wiping), so the later
+    capture-time seed is a no-op and the capture-time toolchain probe still
+    runs exactly once per guest.
+    """
     def factory():
         pair = inner_factory()
         vm = pair[1] if isinstance(pair, tuple) else pair
@@ -1190,6 +1260,8 @@ def _harness_staging_vm_factory(inner_factory, state: dict):
         scratch = str(getattr(env, "scratch", "")) if env is not None else ""
         if scratch:
             _stage_harness_link_targets(env, state["usine_dir"])
+            if seed:
+                _seed_guest(vm, state)
         return pair
     return factory
 
@@ -1457,7 +1529,11 @@ def _parser() -> argparse.ArgumentParser:
               "ceiling.  Off by default: an unrunnable budget fails closed "
               "at preflight rather than producing a wave that cannot "
               "finish.  Use only with a larger --run-ceiling-secs."))
-    parser.add_argument("--checkpoints", default="0,2,4,8")
+    parser.add_argument(
+        "--checkpoints", default=None,
+        help=("comma-separated memory checkpoint indices; defaults to "
+              "0,2,4,8 scaled down to the project budget (a smaller budget "
+              "must not crash parsing with an out-of-range checkpoint)"))
     parser.add_argument(
         "--max-parallel", type=int, default=4,
         help=("host scheduling capacity for a Curriculum-authored wave; "
@@ -1507,11 +1583,17 @@ def main(argv: list | None = None) -> int:
         raise RuntimeError("--max-parallel must be positive")
     if not args.gate_argv:
         raise RuntimeError("--gate-argv must name the offline gate command")
-    checkpoints = _parse_checkpoints(args.checkpoints, args.project_budget)
+    checkpoints = _parse_checkpoints(
+        args.checkpoints if args.checkpoints is not None
+        else _default_checkpoints(args.project_budget),
+        args.project_budget)
 
     theatre = _install_paths()
     import time_budget
     import verifier_adapter
+    # Before any guest exists: the guest inherits THIS process's PATH, so a
+    # stale host PATH would hand every guest a pnpm that fails the gate.
+    _prepend_standalone_pnpm()
     verifier_adapter.install_verifier_adapter()
     import guest_env            # noqa: F401  (substrate; registers atexit net)
     import usine_hooks
@@ -1776,7 +1858,10 @@ def main(argv: list | None = None) -> int:
     hooks.capture_project = _seeded_capture(hooks.capture_project, seed_state)
     vm_factory = usine_hooks.publish_blacklist_vm_factory(
         guest_env.worktree_vm_factory())
-    vm_factory = _harness_staging_vm_factory(vm_factory, seed_state)
+    # Seed at VM creation (see _harness_staging_vm_factory): the Curriculum
+    # must SEE the repository it authors projects against.  Without this it
+    # spends entire max-reasoning round trips rediscovering an empty guest.
+    vm_factory = _harness_staging_vm_factory(vm_factory, seed_state, seed=True)
 
     def logger(event_type, **kwargs):
         _append_event(events_path, event_type, **kwargs)

@@ -295,7 +295,12 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
   function declaredInject(): string[] {
     const m = source.match(/export const inject\s*=\s*\[([^\]]*)\]/)
     if (!m) throw new Error("src/index.ts 找不到 `export const inject = [...]`")
-    return [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
+    const body: string = m[1] ?? ""
+    // FlatMap over the capture rather than map: with noUncheckedIndexedAccess
+    // a matchAll capture is `string | undefined`, and a bare map would
+    // produce `(string | undefined)[]` — which fails the typecheck this very
+    // suite is supposed to protect.
+    return [...body.matchAll(/['"]([^'"]+)['"]/g)].flatMap((x) => [x[1] ?? ""])
   }
 
   /**
@@ -311,17 +316,19 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     const next = rest.search(/\nexport\s/)
     const text = next > 0 ? rest.slice(0, next) : rest
     const found = new Set<string>()
+    // `?? ""` on every capture: under noUncheckedIndexedAccess a matchAll
+    // group is `string | undefined`, and Set<string> rejects that.
     // 形状 A：直接取用 —— `ctx.tools.register(...)`
-    for (const m of text.matchAll(/\bctx\.(\w+)\b/g)) found.add(m[1])
+    for (const m of text.matchAll(/\bctx\.(\w+)\b/g)) found.add(m[1] ?? "")
     // 形状 B：结构化取用后存别名 —— `const x = (ctx as unknown as {...}).x`。
     // systemPrompt 与 skills 都走这条路；其中 skills 的类型标注跨了多行，
     // 所以类型体要用 [\s\S] 而不是 [^}]。
     for (const m of text.matchAll(
       /\(\s*ctx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
-    )) found.add(m[1])
+    )) found.add(m[1] ?? "")
     // ctx.effect 是 Cordis 生命周期 API，不是 DI 服务。
     found.delete("effect")
-    return [...found].sort()
+    return [...found].filter((name) => name.length > 0).sort()
   }
 
   it("inject 是显式声明且非空", () => {
