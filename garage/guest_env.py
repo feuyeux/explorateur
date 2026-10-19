@@ -508,7 +508,17 @@ class WorktreeEnv:
         if not IS_WINDOWS:
             # The shim is resolved through PATH as an executable on POSIX.
             shim.chmod(0o755)
-            self._disable_in_guest_browser()
+        # The no-browser sentinel is set on EVERY platform, not just POSIX.
+        # 2026-10-19 (user decision): real-browser coverage is not worth a
+        # red gate.  Measured on this Windows wave host: covers.test.ts fails
+        # 4/4 rendering specs deterministically (Edge headless writes no
+        # screenshot under vitest, while a bare Edge --screenshot succeeds),
+        # so every Actor candidate would be judged FAIL at the merge gate and
+        # no wave could ever merge.  Browserless makes platform.browser()
+        # return null, which turns those specs into honest SKIPs instead.
+        # Cost, stated plainly: the render path is not exercised during a
+        # wave (SKIP is not PASS — see garage/README.md).
+        self._disable_in_guest_browser()
 
     def _disable_in_guest_browser(self) -> None:
         """POSIX only: the macOS guest gets NO browser - on purpose.
@@ -613,6 +623,12 @@ class WorktreeEnv:
                 env.get("PATH", ""),
             ]),
         })
+        # Same no-browser policy as the POSIX branch above, and for the same
+        # measured reason (deterministic Edge-render failures under vitest on
+        # this host).  FEUILLE_BROWSER is authoritative in platform.browser(),
+        # so browser-gated specs gate themselves off instead of failing.
+        env["FEUILLE_BROWSER"] = getattr(
+            self, "_browser_sentinel", "")
         return env
 
     def _build_rewrite_rules(self) -> None:

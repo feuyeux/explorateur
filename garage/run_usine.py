@@ -193,8 +193,8 @@ _DEFAULT_RUN_CEILING_SECS = 600
 
 # ---------------------------------------------------------- gate preflight
 
-def _posix_host_no_browser() -> None:
-    """POSIX only: default this orchestrator to a browserless host policy.
+def _wave_host_no_browser() -> None:
+    """Every platform: default this orchestrator to a browserless host policy.
 
     On macOS every Chromium launch writes a per-launch GUID-named keychain
     item and pops a keychain prompt on the user's screen (see
@@ -204,14 +204,18 @@ def _posix_host_no_browser() -> None:
     (wave_merge.run_gate inherits this process's environment) must not
     undo that policy by resolving the real Edge out of its candidate list.
     setdefault keeps an operator's explicit FEUILLE_BROWSER (a deliberate
-    browserful run) authoritative.  Windows is untouched: its Chromium
-    uses DPAPI, and the Windows wave host owns the real browser coverage.
+    browserful run) authoritative.
+
+    2026-10-19 (user decision): this now covers Windows too.  The Windows wave
+    host's Edge fails 4/4 rendering specs deterministically under vitest
+    (browser() resolves Edge, headless writes no screenshot, bare
+    Edge --screenshot succeeds), so every candidate would be judged FAIL at the
+    merge gate.  Browserless turns those into honest SKIPs.  Cost stated
+    plainly: the render path is NOT exercised during a wave (SKIP is not PASS).
     """
-    if sys.platform == "win32":
-        return
     os.environ.setdefault(
         "FEUILLE_BROWSER",
-        str(_HERE / ".no-browser-on-this-posix-host"))
+        str(_HERE / ".no-browser-on-this-host"))
 
 
 _NODE_MIN_MAJOR = 24
@@ -1518,10 +1522,12 @@ def _parser() -> argparse.ArgumentParser:
         "--run-ceiling-secs", type=int,
         default=_DEFAULT_RUN_CEILING_SECS,
         help=("hard wall-clock ceiling for the whole run, in seconds "
-              "(default 600 = ten minutes; a self-evolution run must stay "
-              "iterable).  The budget is split across the seats, each seat's "
-              "wall_clock_secs is tightened to its slice, and the wave loop "
-              "stops at the first COMPLETE-WAVE boundary past the ceiling. "
+              "(default 1500 = twenty-five minutes; the ceiling follows the "
+              "measured gateway latency a seat slice must cover, and a "
+              "self-evolution run must stay iterable).  The budget is split "
+              "across the seats, each seat's wall_clock_secs is tightened to "
+              "its slice, and the wave loop stops at the first COMPLETE-WAVE "
+              "boundary past the ceiling. "
               "Recorded in the manifest — the ceiling is always auditable."))
     parser.add_argument(
         "--time-budget-allow-over", action="store_true",
@@ -1599,7 +1605,7 @@ def main(argv: list | None = None) -> int:
     import usine_hooks
     import wave_merge
     _install_actor_prompt_patch()
-    _posix_host_no_browser()
+    _wave_host_no_browser()
 
     distribution_path = _resolve_input_file(
         args.distribution_file, repo_root=_HERE)

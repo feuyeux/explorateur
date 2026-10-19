@@ -284,7 +284,14 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
 // 真 Chrome + file:// 本地页，零平台流量。本机未装 playwright 时整块 SKIP
 // （镜像 Python 侧的 SKIP 行为），装上后自动补齐 mock 断言。
 // 单个 it 单次 launch——镜像 Python 侧单个 with 块的形态。
-describe.skipIf(!hasPw)('playwright 驱动本地 mock（真 Chrome + file://）', () => {
+//
+// 2026-10-19: 无浏览器主机（RSI guest / wave host 的 FEUILLE_BROWSER 哨兵）
+// 上还缺第二个条件。base.resolveChrome() 在 browser() 返回 null 时是**显式
+// 抛错**而非返回 null（本包契约：绝不静默换浏览器），所以只判 hasPw 会在
+// 无浏览器主机上把整块打成 FAIL 而不是 SKIP。与本文件上方两处
+// skipIf(pt.browserPath() === null) 同一门控形状。
+describe.skipIf(!hasPw || pt.browserPath() === null)(
+  'playwright 驱动本地 mock（真 Chrome + file://）', () => {
   it('mock-A/B/C 全链：精确按钮 / 可见性判据 / 全词成功 / 风控', async () => {
     const td = mkdtempSync(join(tmpdir(), 'feuille-publish-mock-'))
     mkdirSync(EV, { recursive: true })
@@ -356,7 +363,7 @@ describe.skipIf(!hasPw)('playwright 驱动本地 mock（真 Chrome + file://）'
       rmSync(td, { recursive: true, force: true })
     }
   })
-})
+  })
 
 // 导入冒烟兜底（collections / veriflive 不直接驱动，import 成功即断言）
 describe('导入冒烟：两个不直接驱动的子模块 import 成功即断言', () => {
