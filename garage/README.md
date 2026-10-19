@@ -138,19 +138,25 @@ outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终�
 **上限跟着测量走**：门禁修好后（见第 1 节无浏览器策略）若时延显著改善，
 应当重新量并把上限收回去——25 分钟不是新常态，是当前网关条件下的必要值。
 
-- 上限按席切片：curriculum 400s / actor 500s / verifier 200s / merge 150s，
-  加 100s 适配层开销预留 = 1350s，留 150s 余量。逐席 `wall_clock_secs` 在装配期
-  被夹紧；**已有的更紧配置不会被放松**（切片是天花板，不是地板）。
-- 超时是独立终态 `time_budget_exhausted`（**退出码 3**），与引擎的
-  `budget_exhausted`（项目预算花完）区分。收口永远落在**完整 wave 边界**，
-  不会中途丢下半合并状态。
-- `--time-budget-allow-over` 可放宽 fail-closed，但**必须同时**给更大的
-  `--run-ceiling-secs`；上限永远记进 `manifest.json`，从不明示。
-- 上下文预算门禁（`_context_budget_check`）静态自洽检查各席声明，
-  **不发请求不烧 token**：输出上限 vs 高水位、水位倒置、声明了高水位
-  却无保留策略、输出上限超网关上限。wave1r 的 `HTTP 400 context window
-  exceeds limit` 就是四个席 `ctx_high_water: 0` 长出来的。
+- 上限按席切片：curriculum 280s / actor 580s / verifier 420s / merge 120s，加 100s 适配层开销预留 = 1500s，恰好填满上限（实跑通常远低于此：bfs13 用掉 804s）。逐席 `wall_clock_secs` 在装配期被夹紧；**已有的更紧配置不会被放松**（切片是天花板，不是地板）。
+- 超时是独立终态 `time_budget_exhausted`（**退出码 3**），与引擎的 `budget_exhausted`（项目预算花完）区分。收口永远落在**完整 wave 边界**，不会中途丢下半合并状态。
+- `--time-budget-allow-over` 可放宽 fail-closed，但**必须同时**给更大的 `--run-ceiling-secs`；上限永远记进 `manifest.json`，从不明示。
+- 上下文预算门禁（`_context_budget_check`）静态自洽检查各席声明，**不发请求不烧 token**：输出上限 vs 高水位、水位倒置、声明了高水位却无保留策略、输出上限超网关上限。wave1r 的 `HTTP 400 context window exceeds limit` 就是四个席 `ctx_high_water: 0` 长出来的。
 - 离线验证：`.\.venv\Scripts\python.exe ..\garage\smoke_time_budget.py`
+
+#### 4.1 整条流水线只有一道硬闸：验证席必须「出版报告」
+
+2026-10-19 的 14 次真跑里，记忆一次都没出来过。逐轮核对后原因收敛到一处，且**与 Agent 的判断力无关**：
+
+引擎语义上，验证席没有报告 = 无判决 = **整波失败**（`explore/phase1_wave.py:418` 抛 `PracticeInfrastructureError`），记忆零提交、候选零合并。bfs13 的 `verify2.json` 里 verdict 是 `unverified`，findings 只有一句 `Verifier Agent ended at emergency/infrastructure status safety_ceiling`——不是格式错，也不是 transport 空转：**23 轮里 19 轮是真 Program 勘察**，席位把 280s 切片全烧完，在最后一步收尾核对上被 `core/loop.py` 的紧急墙钟掐掉，报告从未出版。bfs12 在第 31 轮以同样方式死亡，而它自己的探针早已报出全部测试通过。
+
+于是有三条不直观的结论：
+
+- **失败即终局的不是 FAIL，是「没有结论」。** FAIL 与 PASS 同样进记忆蒸馏（`_commit_branch_memory` 吃的是 `terminal_outcome` + `verifier_report`），只有 PASS 会进 `wave_merge` 合并到 usine（`wave_merge.py:778`）。所以「验证席判 FAIL」也能出记忆，「验证席没判」则什么都不出。
+- **charter 明说「没有规定的探针数与轮数」**，勘察可以无限延长，而唯一终点是墙钟。charter 讲了 PASS 的含义，却没讲**预算耗尽等于没有判决**——席位于是理性地继续确认，每一轮确认都记在同一只钟上。这是注记（`_VERIFIER_PUBLISH_NOTE`）要补的那一课。
+- **该按「失败的席位」而不是「跑得最久的席位」来分预算。** 连续三次真跑（bfs12/bfs13/bfs15）都死在验证席，而 Actor 席的 780s 切片是全场最宽的。修复把 200s 从 Actor 切片挪给验证席，Actor 席在 `reasoning_effort: low` 下（实测同字节快 5 倍、输出质量未降）仍保有 bfs13 实测 332s 的 1.75 倍余量。
+
+误判风险有下游兜底：wave_merge 在提交候选前会重跑真门禁 `pnpm verify`，所以**假的 PASS 进不了 usine**（只损失一次门禁时间），**假的 FAIL 只损失 merge、不损失记忆**。验证席降档的代价因此是有界的。
 
 ### 5. DRS 深度波次（`--phase 2`）
 
