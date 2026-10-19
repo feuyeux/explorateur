@@ -102,9 +102,12 @@ DEFAULT_RUN_CEILING_SECS = 1500
 #     wave width is agent-owned (wave_width_agent_owned) and the engine has
 #     no width cap, so the width is bounded HERE, in the seat prompt: one
 #     small project per wave.
-#   * curriculum measured 204s (bfs10, 6 projects) and 262s (bfs11, 1
-#     project) of seat time; 350s covers the worst recorded first response
-#     (322s) plus the authoring tail, and hands the slack to the actor.
+#   * curriculum measured 204s (bfs10, 6 projects), 262s (bfs11, 1 project)
+#     and 168s (bfs13, 1 project) of seat time; 300s covers the worst
+#     recorded first response (322s was on a different seat/day) plus the
+#     authoring tail, and hands the slack to the Verifier, which is the
+#     seat that runs out of budget (bfs12: 250s, bfs13: 250s, both cut
+#     short of a VERDICT while the gate was already green).
 #
 # bfs8 postmortem (2026-10-19 18:43): the 400s curriculum slice was spent as
 # 71s + 58s + 74s + 17s + 151s + 358s = 728s across six iterations.  The wave
@@ -124,9 +127,9 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # runs that died were all killed by a slice expiring before the model had
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
-    "curriculum": 350,
+    "curriculum": 300,
     "actor": 650,
-    "verifier": 250,
+    "verifier": 300,
     "merge": 80,
 }
 

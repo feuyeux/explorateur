@@ -758,32 +758,49 @@ else:
 # Transport format, stated for the Verifier seat the same way the Curriculum
 # wave phase states it (explore/phase1_wave.py appends
 # core.actor.PLAIN_JSON_TRANSPORT_NOTE to the Curriculum's system prompt).
-# The Verifier's own prompt says "Use exactly ONE plain JSON action object
-# per reply" but never forbids the native tool envelope, and the model
-# reaches for it anyway.
+# The Verifier's own prompt says "Use exactly ONE plain JSON action object per
+# reply" but never says what happens to a native API envelope, and the model
+# reaches for one anyway.
 #
-# Measured 2026-10-19 (bfs12): 14 of 31 Verifier turns were wrapped in a
-# native <tool_call> tag.  The harness cannot parse those, so every one
-# of them was a dry turn: nudged, retried, and charged to the Verifier's
-# wall budget.  The seat ran out of budget at iteration 31 WITHOUT
-# publishing a VERDICT — while its own probes had already reported every
-# test passing.  Forty-five percent of the Verifier's budget went to the
-# envelope, not to verification.
+# Measured 2026-10-19: bfs12 had 14 of 31 Verifier turns wrapped in a native
+# envelope; bfs13 (after a first attempt that NAMED the forbidden tag in this
+# note) had 16 of 23 — naming it made it worse, so this note uses the
+# engine's own wording, which never names a tag, plus a POSITIVE example.
+# The engine deliberately refuses to execute native envelopes
+# (core/actor.py parse_turn: "Do not execute or reinterpret the claimed tool
+# results"), so every tagged turn is a dry turn: nudged, retried, and charged
+# to the Verifier's wall budget.  In bfs12 the seat ran out of budget at
+# iteration 31 WITHOUT publishing a VERDICT, while its own probes had already
+# reported every test passing.
 _TRANSPORT_NOTE = (
     "\n\nTRANSPORT CLARIFICATION: Native API tool/function calls are not this "
     "harness's action channel. A plain JSON action in assistant content is "
     "ordinary reply text that the harness parses and executes, including when "
-    "native tool_choice is \"none\". Do not emit native tool tags "
-    "(<tool_call>, <function_calls>, or any provider-specific tool "
-    "envelope) and do not emit a tool_choice field; emit the plain JSON "
-    "object itself. A reply the harness cannot parse performs NOTHING and "
-    "burns a whole round-trip of your wall budget.\n")
+    "native tool_choice is \"none\". Do not emit native tool tags or a "
+    "tool_choice field; emit the plain JSON object itself. Put the action "
+    "object in the reply as plain text, unwrapped — for example "
+    "{\"program\": {\"lang\": \"bash\", \"code\": \"...\"}}.\n")
+
+
+# Workflow facts the stock Verifier prompt does not carry, measured on this
+# host (bfs13, 2026-10-19): the seat spent two whole rounds on a bare
+# `pnpm vitest run packages/dsh-plugin` that failed because the dist bundle
+# had not been built, then re-ran it.  The build is part of `pnpm verify`.
+_VERIFIER_WORKFLOW_NOTE = (
+    "\n\nCandidate workflow facts: the dsh-plugin test suite imports the BUILT "
+    "bundle (dist/), which is regenerable build output and is pruned from "
+    "every capture by design. `pnpm verify` builds it (esbuild) before "
+    "typechecking and running the suites, so a bare `pnpm vitest run "
+    "packages/dsh-plugin` fails on plugin.test.ts for a missing artifact, not "
+    "for a candidate defect — do not report that as a defect, and do not "
+    "spend a round on it. Run `pnpm install` once (own program) and then "
+    "`pnpm verify` (own program); that is the gate.\n")
 
 
 def _substrate_system_prompt(base: str) -> str:
     for old, new in _SUBSTRATE_REPLACEMENTS:
         base = base.replace(old, new)
-    return base + _SUBSTRATE_NOTE + _TRANSPORT_NOTE
+    return base + _SUBSTRATE_NOTE + _TRANSPORT_NOTE + _VERIFIER_WORKFLOW_NOTE
 
 
 def install_verifier_adapter() -> dict:
