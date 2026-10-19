@@ -1705,9 +1705,18 @@ def main(argv: list | None = None) -> int:
     if args.run_ceiling_secs != time_budget.DEFAULT_RUN_CEILING_SECS:
         log.info("run ceiling overridden to %ds (recorded in the manifest)",
                  args.run_ceiling_secs)
+    # Phase 1 and Phase 2 get their OWN slice plan.  The DRS is the paper's
+    # deep recursion over the memory Phase 1 produced: measured on
+    # 2026-10-20, its Actor seat needs ~670s (the Phase-1 580s slice killed
+    # it one iteration before it published), and its memory phase is a cost
+    # of its own.  One shared allocation cannot serve both jobs; the DRS
+    # plan still sums to the same 1400s, so the run ceiling is unchanged.
+    slice_plan = (time_budget.DRS_SLICES if args.phase == "2"
+                  else time_budget.DEFAULT_SLICES)
     budget_plan = time_budget.plan_budget(
         ceiling_secs=args.run_ceiling_secs,
-        projects=max(1, min(args.project_budget or 1, args.project_budget or 1)))
+        projects=max(1, min(args.project_budget or 1, args.project_budget or 1)),
+        slices=slice_plan)
     applied_seat_wall = time_budget.apply_slices(configs, budget_plan)
     ctx_budget = _context_budget_check(configs)
     if not budget_plan.fits and not args.time_budget_allow_over:

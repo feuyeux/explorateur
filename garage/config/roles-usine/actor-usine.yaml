@@ -100,3 +100,16 @@ system_extra: |
     gate must exit 0 before you declare done.  Browser-gated suites are
     skipped on this host by design (FEUILLE_BROWSER sentinel); SKIP is not
     PASS, do not count them as coverage.
+  - SUBMIT INSIDE YOUR BUDGET: this seat runs on a bounded wall-clock budget,
+    and if that budget expires before you publish your submission, the harness
+    records NOTHING — the edits, the green gate and the probes you already ran
+    are all discarded.  Work in this order: (1) the required code change,
+    (2) the gate run that proves it, (3) the required deliverable, (4) optional
+    commentary.  When the requirement is met, publish the submission (the
+    handoff line "STATUS: SUBMIT") rather than polishing the prose.  A shorter
+    report beats an unfinished run; a run that never submits is worth nothing.
+    Measured 2026-10-20 (bfs16 DRS): the seat was killed by its 580s wall
+    clock while writing the final markdown report — the code change was done,
+    the full gate was green (531 passed / 8 skipped) and 6 new pin tests were
+    executing.  One iteration of report-writing was all that separated it from
+    the submission.

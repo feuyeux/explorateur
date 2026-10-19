@@ -152,6 +152,43 @@ DEFAULT_SLICES = {
     "merge": 120,
 }
 
+# The DRS (Phase 2) slice plan.  Phase 1 and Phase 2 are NOT the same job and
+# must not share one allocation: Phase 1 authors a wave and edits the tree;
+# Phase 2 is the paper's deep recursion (RSIAgent 2.2) — the Curriculum
+# reviews the Phase-1 experience, the Actor drills a deeper task against the
+# memory Phase 1 produced, and the memory phase then rewrites that memory.
+# Measured 2026-10-20 (bfs16 phase 2, the first DRS attempt):
+#
+#   * curriculum review : 152s  (7 iterations)
+#   * actor              : 580s  ALL SPENT, killed by the wall clock at
+#                            iteration 24 — one iteration before publishing
+#                            its report deliverable.  The code change was
+#                            done, the full gate was green (531 passed /
+#                            8 skipped) and 6 new pin tests were running.
+#   * verifier           : never reached (Phase 1 measured 60s at low effort)
+#   * memory phase       : 277s measured in Phase 1 (distillation 73s +
+#                            reconciliation 204s)
+#
+# So the DRS actor needs ~670s, not the Phase-1 580s — and the run ceiling
+# was NOT what stopped it: the DRS died at 755s of the 1500s ceiling, with
+# 745s of the run's budget unused.  The binding constraint is the per-seat
+# wall clock, so the fix is a Phase-2 allocation, not a bigger ceiling.
+#
+# Phase 2 does NOT merge into the usine tree: the serial core emits
+# PROJECT_CLOSED, not PHASE1_WAVE_COMPLETED, so the wave-merge sink never
+# fires.  The merge slice is kept small and present only so the plan stays
+# complete if that ever changes.
+#
+# The five slices still sum to 1400s, so the DRS run honours the same
+# twenty-five-minute ceiling as Phase 1.
+DRS_SLICES = {
+    "curriculum": 170,
+    "actor": 720,
+    "verifier": 190,
+    "memory": 280,
+    "merge": 40,
+}
+
 # Safety margin reserved for adapter overhead the engine does not bill to a
 # seat: preflight, fixture capture, seed staging (git-archive of the real
 # repository), event fsync, the final memory install and result.json write.
@@ -226,13 +263,17 @@ def plan_budget(*, ceiling_secs: int = DEFAULT_RUN_CEILING_SECS,
             raise BudgetError(f"slice {name!r} must be positive")
     # A default plan that cannot fit would fail closed on EVERY run — the
     # budget module would be the thing that breaks the pipeline.  Assert it
-    # once, loudly, at construction rather than at wave time.
-    if slices is DEFAULT_SLICES and sum(slices.values()) + OVERHEAD_RESERVE_SECS \
-            > DEFAULT_RUN_CEILING_SECS:
-        raise BudgetError(
-            "the default slice plan does not fit the default ceiling "
-            f"({sum(slices.values())} + {OVERHEAD_RESERVE_SECS} > "
-            f"{DEFAULT_RUN_CEILING_SECS}); rebalance DEFAULT_SLICES")
+    # once, loudly, at construction rather than at wave time.  Every NAMED
+    # plan must fit the default ceiling, not just the default one: a DRS
+    # plan that does not fit would fail every DRS run at preflight.
+    for name, named in (("DEFAULT_SLICES", DEFAULT_SLICES),
+                        ("DRS_SLICES", DRS_SLICES)):
+        if slices is named and sum(slices.values()) + OVERHEAD_RESERVE_SECS \
+                > DEFAULT_RUN_CEILING_SECS:
+            raise BudgetError(
+                f"the {name} slice plan does not fit the default ceiling "
+                f"({sum(slices.values())} + {OVERHEAD_RESERVE_SECS} > "
+                f"{DEFAULT_RUN_CEILING_SECS}); rebalance {name}")
 
     # The Curriculum authors one wave per budgeted iteration, so a multi-wave
     # run pays the curriculum slice more than once.  Account for it honestly:
@@ -263,9 +304,15 @@ def apply_slices(configs: dict, plan: BudgetPlan) -> dict:
         cfg = configs.get(seat)
         if cfg is None:
             continue
-        # memory_actor shares the actor seat's budget by contract (the same
-        # Agent model must own the memory it wrote).
-        key = "actor" if seat == "memory_actor" else seat
+        if seat == "memory_actor":
+            # memory_actor shares the actor seat's budget by contract (the
+            # same Agent model must own the memory it wrote) — UNLESS the
+            # plan names the memory seat explicitly.  The DRS plan does: the
+            # memory phase is a measured cost of its own there, and leaving
+            # it on the actor's slice would let it eat the whole run.
+            key = "memory" if "memory" in plan.slices else "actor"
+        else:
+            key = seat
         ceiling = plan.slices.get(key)
         if ceiling is None:
             continue

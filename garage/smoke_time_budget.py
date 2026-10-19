@@ -171,6 +171,59 @@ def test_apply_slices_clamps_and_preserves_tighter(tb) -> None:
           f"60 stays 60, not raised to {plan.slices['actor']}")
 
 
+def test_drs_plan_is_its_own_allocation(tb) -> None:
+    """Phase 2 must not inherit Phase 1's per-seat allocation.
+
+    Measured 2026-10-20 (bfs16 phase 2, the first DRS attempt): the DRS
+    Actor seat burned its whole 580s Phase-1 slice and was killed one
+    iteration before publishing, while the RUN ceiling was nowhere near
+    exhausted (755s of 1500s).  The binding constraint is the per-seat wall
+    clock, so the DRS needs its own plan — inside the same run ceiling.
+    """
+    plan = tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS, projects=1,
+                           slices=tb.DRS_SLICES)
+    check("the DRS slice plan fits the default ceiling", plan.fits,
+          f"planned {plan.planned_total_secs}s <= {plan.ceiling_secs}s")
+    check("the DRS plan is not the Phase-1 plan",
+          tb.DRS_SLICES is not tb.DEFAULT_SLICES
+          and tb.DRS_SLICES["actor"] != tb.DEFAULT_SLICES["actor"],
+          f"DRS actor {tb.DRS_SLICES['actor']}s vs Phase-1 "
+          f"{tb.DEFAULT_SLICES['actor']}s")
+
+    # The DRS actor's measured need: the 580s Phase-1 slice killed it one
+    # iteration before it published its report deliverable (the code change
+    # was done, the full gate was green, 6 new pin tests were running).
+    drs_actor_need = 670
+    check("the DRS actor slice covers the measured DRS actor need",
+          tb.DRS_SLICES["actor"] >= drs_actor_need,
+          f"{tb.DRS_SLICES['actor']}s >= {drs_actor_need}s measured")
+    check("the DRS memory phase has its own slice",
+          "memory" in tb.DRS_SLICES
+          and tb.DRS_SLICES["memory"] > tb.DRS_SLICES["merge"],
+          str(tb.DRS_SLICES))
+
+    # A plan that names the memory seat bounds the memory phase there; a plan
+    # that does not keeps the historical contract (the memory actor shares
+    # the actor slice).
+    drs_configs = {"curriculum": _seat(86400), "actor": _seat(86400),
+                   "memory_actor": _seat(86400), "verifier": _seat(86400)}
+    tb.apply_slices(drs_configs, plan)
+    check("the DRS memory actor is bounded by the memory slice",
+          drs_configs["memory_actor"].wall_clock_secs
+          == tb.DRS_SLICES["memory"],
+          str(drs_configs["memory_actor"].wall_clock_secs))
+
+    phase1 = tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS,
+                             projects=1)
+    phase1_configs = {"curriculum": _seat(86400), "actor": _seat(86400),
+                      "memory_actor": _seat(86400), "verifier": _seat(86400)}
+    tb.apply_slices(phase1_configs, phase1)
+    check("the Phase-1 memory actor still shares the actor slice",
+          phase1_configs["memory_actor"].wall_clock_secs
+          == phase1_configs["actor"].wall_clock_secs,
+          str(phase1_configs["memory_actor"].wall_clock_secs))
+
+
 def test_deadline(tb) -> None:
     plan = tb.plan_budget(ceiling_secs=600, projects=1)
     deadline = tb.WaveDeadline(plan)
@@ -309,6 +362,7 @@ def main() -> int:
     test_plan_fits_default_ceiling(tb)
     test_plan_rejects_bad_shapes(tb)
     test_apply_slices_clamps_and_preserves_tighter(tb)
+    test_drs_plan_is_its_own_allocation(tb)
     test_deadline(tb)
     test_context_budget_gate(ru)
     test_real_usine_roles_pass(ru, tb)
