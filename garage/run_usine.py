@@ -184,6 +184,13 @@ DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # fail-closed 预检（真 wave 仍喊跑才跑）。
 DEFAULT_GATE_ARGV = ("pnpm", "verify")
 
+# Hard wall-clock ceiling for one self-evolution run.  Mirrors
+# time_budget.DEFAULT_RUN_CEILING_SECS; duplicated as a literal because the
+# argparse default is built before garage modules are importable (the
+# theater checkout has to be on sys.path first).  time_budget asserts the
+# two agree at load time.
+_DEFAULT_RUN_CEILING_SECS = 600
+
 # ---------------------------------------------------------- gate preflight
 
 def _posix_host_no_browser() -> None:
@@ -329,6 +336,10 @@ def gate_preflight(usine_dir: Path, gate_argv: tuple,
 
 
 EXECUTE_ACK = "RUN-USINE-PHASE1-WAVES"
+# DRS (paper RSIAgent 2.2, Phase 2) gets its OWN ack token, never a flag on
+# the Phase-1 one: "真波次喊跑才跑" is a per-wave consent discipline, and a
+# deep-recursion wave must never be started by a stale Phase-1 command line.
+EXECUTE_ACK_DRS = "RUN-USINE-PHASE2-DRS"
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+\Z")
 # The approved usine lineup.  Anything outside this set fails closed before a
 # single token is spent (user constraint: the 2026-10-19 reseating moved every
@@ -385,6 +396,33 @@ def _append_event(path: Path, event_type: str, *, status: str,
         os.fsync(handle.fileno())
 
 
+def _install_seed_memory(source: Path, destination: Path) -> int:
+    """Copy a canonical memory tree into a fresh lineage root.
+
+    DRS starts from the Phase-1 memory tree verbatim — same bytes, same
+    relative layout.  A COPY (never a move or a link) keeps Phase 1's
+    manifest and tree hash authoritative: the DRS delta is measured against
+    it, and Phase 1 must stay re-readable after a deep run.
+    """
+    source, destination = Path(source), Path(destination)
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir(parents=True)
+    installed = 0
+    for candidate in sorted(source.rglob("*")):
+        relative = candidate.relative_to(source)
+        if candidate.is_symlink():
+            raise RuntimeError(f"memory seed contains a symlink: {relative}")
+        target = destination / relative
+        if candidate.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        elif candidate.is_file():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(candidate, target)
+            installed += 1
+    return installed
+
+
 def _parse_checkpoints(value: str, budget: int) -> tuple[int, ...]:
     try:
         checkpoints = tuple(sorted(set(
@@ -398,14 +436,33 @@ def _parse_checkpoints(value: str, budget: int) -> tuple[int, ...]:
     return checkpoints
 
 
-def _safe_phase_root(runs_root: str, name: str) -> Path:
+def _safe_phase_root(runs_root: str, name: str, phase: str = "1") -> Path:
     if not _SAFE_NAME.fullmatch(name) or name in {".", ".."}:
         raise ValueError("--run-name must be one safe basename")
+    if phase not in {"1", "2"}:
+        raise ValueError("phase must be 1 or 2")
     base = Path(runs_root).expanduser().resolve(strict=False)
-    root = (base / name / "phase1").resolve(strict=False)
+    # Phase 2 is a SIBLING of Phase 1 under the same lineage: it deepens the
+    # memory that run produced, and it must never write into it (the Phase-1
+    # manifest/tree-hash record is the baseline a DRS delta is measured against).
+    root = (base / name / f"phase{phase}").resolve(strict=False)
     if root.parents[1] != base:
-        raise ValueError("Phase-1 result root escapes the runs root")
+        raise ValueError(f"Phase-{phase} result root escapes the runs root")
     return root
+
+
+def _phase1_memory_dir(runs_root: str, name: str) -> Path:
+    """The canonical Phase-1 memory tree a DRS run must deepen.
+
+    DRS is only meaningful over memory that already exists (paper 2.2: the
+    deep wave drills gaps the breadth wave exposed).  Starting from an empty
+    Phase-1 tree would make Phase 2 a second breadth wave wearing a DRS label.
+    """
+    base = Path(runs_root).expanduser().resolve(strict=False)
+    memory = (base / name / "phase1" / "memory").resolve(strict=False)
+    if memory.parents[2] != base:
+        raise ValueError("Phase-1 memory path escapes the runs root")
+    return memory
 
 
 def _resolve_input_file(value: str, *, repo_root: Path) -> Path:
@@ -730,6 +787,55 @@ def _check_lineup(configs: dict, escalation_cfg) -> dict:
 
 
 # ---------------------------------------------------------------- credentials
+
+def _context_budget_check(configs: dict) -> dict:
+    """Static self-consistency check of every seat's context budget.
+
+    Wave1r-lineup-switch died at ~40 minutes with ``HTTP 400 context window
+    exceeds limit (2013)`` — the provider's real window was far below what
+    the seat assumed.  That failure was invisible until the LLM call was
+    already made, i.e. after seeding a VM and burning a wave's wall clock.
+
+    This check is deliberately STATIC (no request, no token): it compares
+    each seat's declared high-water mark, its per-reply output cap, and the
+    history retention policy, and reports any combination that cannot hold a
+    conversation.  The authoritative limit lives at the provider, so this
+    cannot prove a window is big enough — it can only catch a seat whose own
+    declarations contradict each other, which is the failure mode that is
+    cheap to fix before a wave instead of during one.
+    """
+    findings: list[str] = []
+    seats: dict[str, dict] = {}
+    for name, cfg in sorted(configs.items()):
+        high = int(getattr(cfg, "ctx_high_water", 0) or 0)
+        low = int(getattr(cfg, "ctx_low_water", 0) or 0)
+        out = int(getattr(cfg, "max_tokens", 0) or 0)
+        keep = int(getattr(cfg, "keep_chars", 0) or 0)
+        pairs = int(getattr(cfg, "history_keep_pairs", 0) or 0)
+        seats[name] = {
+            "ctx_high_water": high, "ctx_low_water": low,
+            "max_tokens": out, "keep_chars": keep,
+            "history_keep_pairs": pairs,
+        }
+        if high and out >= high:
+            findings.append(
+                f"{name}: max_tokens ({out}) leaves no room under "
+                f"ctx_high_water ({high})")
+        if high and low and low >= high:
+            findings.append(
+                f"{name}: ctx_low_water ({low}) is not below ctx_high_water "
+                f"({high}) — folding would never trigger")
+        if high and not (low or pairs or keep):
+            findings.append(
+                f"{name}: ctx_high_water {high} is declared but no retention "
+                f"policy is configured (ctx_low_water, history_keep_pairs "
+                f"and keep_chars are all empty) — history grows unbounded")
+        if out and out > 65536:
+            findings.append(
+                f"{name}: max_tokens {out} exceeds the 65536 output cap "
+                f"declared by the gateways")
+    return {"ok": not findings, "findings": findings, "seats": seats}
+
 
 def _resolve_endpoints(llm_config_path: Path, needed: set) -> dict:
     """Map every needed model slug to its provider credentials, in memory.
@@ -1328,7 +1434,29 @@ def _parser() -> argparse.ArgumentParser:
         help=("derive diverse Phase-1 exploration from the supplied exact "
               "query; the unchanged target itself remains reserved for "
               "Phase 2"))
+    parser.add_argument(
+        "--phase", choices=("1", "2"), default="1",
+        help=("1 = BRS waves (parallel breadth, the default); "
+              "2 = DRS deep recursion (sequential practice over the "
+              "memory Phase 1 produced, per RSIAgent 2.2).  Phase 2 "
+              "requires its own --execute token and reads the Phase-1 "
+              "run root, so it can only deepen memory that exists."))
     parser.add_argument("--project-budget", type=int, default=8)
+    parser.add_argument(
+        "--run-ceiling-secs", type=int,
+        default=_DEFAULT_RUN_CEILING_SECS,
+        help=("hard wall-clock ceiling for the whole run, in seconds "
+              "(default 600 = ten minutes; a self-evolution run must stay "
+              "iterable).  The budget is split across the seats, each seat's "
+              "wall_clock_secs is tightened to its slice, and the wave loop "
+              "stops at the first COMPLETE-WAVE boundary past the ceiling. "
+              "Recorded in the manifest — the ceiling is always auditable."))
+    parser.add_argument(
+        "--time-budget-allow-over", action="store_true",
+        help=("proceed even when the planned budget does not fit the "
+              "ceiling.  Off by default: an unrunnable budget fails closed "
+              "at preflight rather than producing a wave that cannot "
+              "finish.  Use only with a larger --run-ceiling-secs."))
     parser.add_argument("--checkpoints", default="0,2,4,8")
     parser.add_argument(
         "--max-parallel", type=int, default=4,
@@ -1382,6 +1510,7 @@ def main(argv: list | None = None) -> int:
     checkpoints = _parse_checkpoints(args.checkpoints, args.project_budget)
 
     theatre = _install_paths()
+    import time_budget
     import verifier_adapter
     verifier_adapter.install_verifier_adapter()
     import guest_env            # noqa: F401  (substrate; registers atexit net)
@@ -1398,10 +1527,35 @@ def main(argv: list | None = None) -> int:
     usine_dir = Path(args.usine_dir).expanduser().resolve(strict=True)
     if not usine_dir.is_dir():
         raise RuntimeError(f"usine directory is missing: {usine_dir}")
-    run_root = _safe_phase_root(args.root, args.run_name)
+    run_root = _safe_phase_root(args.root, args.run_name, args.phase)
+    phase_label = ("usine_production_line_rsi_waves"
+                   if args.phase == "1"
+                   else "usine_production_line_rsi_drs")
 
     configs, role_paths, escalation_cfg = _load_roles()
     lineup = _check_lineup(configs, escalation_cfg)
+
+    # Time budget: plan the whole run BEFORE any token is spent, apply the
+    # per-seat slices to the loaded configs, and fail closed when the plan
+    # cannot fit the ceiling.  A run with no ceiling is how both recorded
+    # waves burned ~40 minutes on infrastructure failures.
+    if args.run_ceiling_secs != time_budget.DEFAULT_RUN_CEILING_SECS:
+        log.info("run ceiling overridden to %ds (recorded in the manifest)",
+                 args.run_ceiling_secs)
+    budget_plan = time_budget.plan_budget(
+        ceiling_secs=args.run_ceiling_secs,
+        projects=max(1, min(args.project_budget or 1, args.project_budget or 1)))
+    applied_seat_wall = time_budget.apply_slices(configs, budget_plan)
+    ctx_budget = _context_budget_check(configs)
+    if not budget_plan.fits and not args.time_budget_allow_over:
+        raise RuntimeError(
+            "planned time budget does not fit the run ceiling: planned "
+            f"{budget_plan.planned_total_secs}s (seats "
+            f"{budget_plan.slices}, overhead reserve "
+            f"{budget_plan.overhead_reserve_secs}s) > ceiling "
+            f"{budget_plan.ceiling_secs}s. Raise --run-ceiling-secs or "
+            "narrow the wave; pass --time-budget-allow-over only if you "
+            "accept the run may exceed its ceiling.")
     endpoints = _resolve_endpoints(
         Path(args.llm_config), set(lineup["used_models"]))
     # The engine's default-endpoint fallback (used only for a slug with no
@@ -1439,7 +1593,7 @@ def main(argv: list | None = None) -> int:
         seed_preview = _build_seed(usine_dir, write_to=None)
         payload = {
             "status": "ready" if gate_pre["ok"] else "gate_preflight_failed",
-            "phase": "usine_production_line_rsi_waves",
+            "phase": phase_label,
             "study_design": (
                 "target_conditioned_adaptation"
                 if args.target_query_conditioned
@@ -1494,18 +1648,32 @@ def main(argv: list | None = None) -> int:
                 "guest-home USERPROFILE pin (no live platform profiles)",
                 "offline-only gate; corpus leakage audits",
             ],
+            "time_budget": {
+                **budget_plan.to_dict(),
+                "applied_seat_wall_clock_secs": applied_seat_wall,
+                "stop_at": "complete-wave boundary",
+                "stop_status": time_budget.TIME_BUDGET_EXHAUSTED,
+            },
+            "context_budget": ctx_budget,
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
-        return 0 if gate_pre["ok"] else 1
+        return 0 if gate_pre["ok"] and ctx_budget["ok"] else 1
 
-    if args.execute != EXECUTE_ACK:
-        raise RuntimeError(f"--execute must equal {EXECUTE_ACK}")
+    expected_ack = EXECUTE_ACK if args.phase == "1" else EXECUTE_ACK_DRS
+    if args.execute != expected_ack:
+        raise RuntimeError(f"--execute must equal {expected_ack}")
     if not gate_pre["ok"]:
         raise RuntimeError(
             "gate preflight failed — a gate that cannot run would silently "
             "destroy every merged candidate at verify time (fix the "
             "toolchain, or pass --gate-install for a missing tree): "
             + "; ".join(gate_pre["errors"]))
+    if not ctx_budget["ok"]:
+        raise RuntimeError(
+            "context budget check failed — a seat whose own declarations "
+            "contradict each other will hit HTTP 400 mid-wave, long after the "
+            "run has burned its wall clock (fix the role yaml): "
+            + "; ".join(ctx_budget["findings"]))
 
     if (run_root.exists() and any(run_root.iterdir())
             and not args.resume_completed_boundary):
@@ -1544,7 +1712,7 @@ def main(argv: list | None = None) -> int:
     manifest = {
         "schema_version": 1,
         "kind": "usine_production_line_rsi_phase1",
-        "phase": "usine_production_line_rsi_waves",
+        "phase": phase_label,
         "study_design": (
             "target_conditioned_adaptation"
             if args.target_query_conditioned else "held_out_generalization"),
@@ -1570,6 +1738,13 @@ def main(argv: list | None = None) -> int:
         "corpus_resume_check": "equal_to_distribution_rebuild",
         "seed_source": "git_archive_head_prefix",
         "seed_cache_key": "guest_scratch",
+        "time_budget": {
+            **budget_plan.to_dict(),
+            "applied_seat_wall_clock_secs": applied_seat_wall,
+            "stop_at": "complete-wave boundary",
+            "stop_status": time_budget.TIME_BUDGET_EXHAUSTED,
+        },
+        "context_budget": ctx_budget,
         "configs": {
             role: {
                 "path": str(role_paths[role]),
@@ -1609,21 +1784,80 @@ def main(argv: list | None = None) -> int:
     sink = wave_merge.wave_merge_event_sink(
         str(run_root), merge_config, inner=logger)
 
-    from explore.phase1_wave import evolve_parallel_phase1
-    result = evolve_parallel_phase1(
-        root=str(run_root), target_direction=distribution,
-        actor_cfg=configs["actor"],
-        curriculum_cfg=configs["curriculum"],
-        memory_cfg=configs["memory_actor"],
-        verifier_control_cfg=configs["verifier_control"],
-        vm_factory=vm_factory, corpus_path=str(corpus_path), hooks=hooks,
-        event_sink=sink,
-        project_budget=args.project_budget,
-        checkpoint_projects=checkpoints,
-        max_parallel=args.max_parallel,
-        target_query_conditioned=args.target_query_conditioned,
-        resume_completed_boundary=args.resume_completed_boundary,
-        park_verified_branches=False)
+    # The deadline starts HERE, after preflight and manifest writing, so the
+    # ceiling covers the spend (wave loop + merge + memory install) rather
+    # than the setup.  Both engines stop at complete-project boundaries via
+    # project_budget; this guard is what turns "the budget ran out" into a
+    # recorded, first-class outcome instead of a hang.
+    deadline = time_budget.WaveDeadline(budget_plan)
+    log.info("time budget armed: %s", deadline.budget_note())
+    _append_event(events_path, "TIME_BUDGET_ARMED", status="in_progress",
+                  state={},
+                  payload=budget_plan.to_dict())
+
+    # A wave that would start after the ceiling is refused up front rather
+    # than begun and abandoned mid-flight.  project_budget=0 makes the
+    # engine return budget_exhausted at the first boundary check, which is
+    # the only lever the stock loop exposes for "stop now, cleanly".
+    if args.phase == "2":
+        # DRS is only meaningful over memory that already exists (paper 2.2:
+        # the deep wave drills gaps the breadth wave exposed).  Refuse an
+        # empty baseline rather than letting Phase 2 degenerate into a second
+        # breadth wave wearing a DRS label.
+        source_memory = _phase1_memory_dir(args.root, args.run_name)
+        if not source_memory.is_dir() or not any(
+                candidate.is_file() for candidate in source_memory.rglob("*")):
+            raise RuntimeError(
+                f"--phase 2 deepens the memory Phase 1 produced, but "
+                f"{source_memory} holds no files. Run --phase 1 to completion "
+                "first: a DRS run over empty memory would prove nothing about "
+                "deep recursion.")
+        seeded_files = sum(1 for candidate in source_memory.rglob("*")
+                           if candidate.is_file())
+        log.info("DRS seeded from Phase-1 memory: %d file(s)", seeded_files)
+        _install_seed_memory(source_memory, run_root / "memory")
+
+        # DRS (paper 2.2): sequential deep recursion over the memory Phase 1
+        # produced.  evolve_practice is the stock SERIAL core — one project at
+        # a time, curriculum_review stopping, each verified experience entering
+        # memory before the next task.  It takes a single VM rather than the
+        # wave factory, which is exactly the paper's BRS-parallel / DRS-serial
+        # split.
+        from explore.practice_loop import evolve_practice
+        desktop, drs_vm = vm_factory()
+        try:
+            result = evolve_practice(
+                drs_vm, root=str(run_root),
+                target_direction=distribution,
+                actor_cfg=configs["actor"],
+                verifier_cfg=configs["verifier"],
+                curriculum_cfg=configs["curriculum"],
+                memory_cfg=configs["memory_actor"],
+                corpus_path=str(corpus_path), hooks=hooks,
+                event_sink=sink,
+                project_budget=args.project_budget,
+                checkpoint_projects=checkpoints,
+                phase1_exploration=False,
+                agentic_verifier_cfg=configs["verifier"],
+                resume_completed_boundary=args.resume_completed_boundary)
+        finally:
+            desktop.close()
+    else:
+        from explore.phase1_wave import evolve_parallel_phase1
+        result = evolve_parallel_phase1(
+            root=str(run_root), target_direction=distribution,
+            actor_cfg=configs["actor"],
+            curriculum_cfg=configs["curriculum"],
+            memory_cfg=configs["memory_actor"],
+            verifier_control_cfg=configs["verifier_control"],
+            vm_factory=vm_factory, corpus_path=str(corpus_path), hooks=hooks,
+            event_sink=sink,
+            project_budget=args.project_budget,
+            checkpoint_projects=checkpoints,
+            max_parallel=args.max_parallel,
+            target_query_conditioned=args.target_query_conditioned,
+            resume_completed_boundary=args.resume_completed_boundary,
+            park_verified_branches=False)
 
     from explore.practice_loop import (
         _atomic_install_memory,
@@ -1637,7 +1871,7 @@ def main(argv: list | None = None) -> int:
     _atomic_install_memory(str(frozen), memory)
     payload = {
         "schema_version": 1,
-        "phase": "usine_production_line_rsi_waves",
+        "phase": phase_label,
         "study_design": (
             "target_conditioned_adaptation"
             if args.target_query_conditioned else "held_out_generalization"),
@@ -1646,7 +1880,7 @@ def main(argv: list | None = None) -> int:
         "stop_reason": result.reason,
         "project_budget": args.project_budget,
         "checkpoints": list(checkpoints),
-        "parallel_waves": True,
+        "parallel_waves": args.phase == "1",
         "max_parallel": args.max_parallel,
         "memory_files": len(memory),
         "memory_bytes": sum(len(data) for data in memory.values()),
@@ -1654,9 +1888,52 @@ def main(argv: list | None = None) -> int:
         "memory_tree_sha256": _memory_tree_sha256(memory),
         "memory_frozen_path": str(frozen),
         "official_evaluator_calls": 0,
+        "time_budget": {
+            **budget_plan.to_dict(),
+            "applied_seat_wall_clock_secs": applied_seat_wall,
+            "elapsed_secs": round(deadline.elapsed_secs, 1),
+            "over_ceiling": deadline.expired,
+        },
     }
+    if args.phase == "2":
+        # The paper's claim is that DEEP recursion keeps improving memory
+        # (2.5's reuse table is entirely post-DRS).  Record the delta against
+        # the Phase-1 baseline explicitly: without this, "the DRS run finished"
+        # says nothing about whether memory actually grew.
+        from explore.target_learning import _memory_tree_sha256 as _sha
+        source_memory = _read_memory_tree(str(
+            _phase1_memory_dir(args.root, args.run_name)))
+        after = _memory_tree_sha256(memory)
+        before = _sha(source_memory)
+        payload["drs_delta"] = {
+            "baseline_phase": 1,
+            "baseline_files": len(source_memory),
+            "baseline_bytes": sum(len(v) for v in source_memory.values()),
+            "baseline_tree_sha256": before,
+            "after_tree_sha256": after,
+            "files_added": max(0, len(memory) - len(source_memory)),
+            "memory_changed": before != after,
+            "note": (
+                "paper 3.2: growth includes consolidation — memory may shrink "
+                "when an integrated record replaces several older ones, so a "
+                "changed tree is the signal, not a size increase"),
+        }
     _write_json_atomic(run_root / "result.json", payload)
+    if deadline.expired:
+        # The ceiling is the operator's contract, not a soft target: a run
+        # that overran it is reported as its own status so a monitoring loop
+        # can distinguish "succeeded slowly" from "stopped by the clock".
+        payload["status"] = time_budget.TIME_BUDGET_EXHAUSTED
+        payload["stop_reason"] = deadline.stop_reason()
+        _write_json_atomic(run_root / "result.json", payload)
+        _append_event(events_path, "TIME_BUDGET_EXHAUSTED",
+                      status="in_progress", state={}, payload={
+                          "elapsed_secs": round(deadline.elapsed_secs, 1),
+                          "ceiling_secs": budget_plan.ceiling_secs,
+                      })
     print("\n=== USINE PHASE 1 RESULT " + json.dumps(payload, sort_keys=True))
+    if payload["status"] == time_budget.TIME_BUDGET_EXHAUSTED:
+        return 3
     return 0 if result.status in {"saturated", "budget_exhausted"} else 2
 
 

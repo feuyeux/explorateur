@@ -19,10 +19,10 @@ reasoning_max_tokens: 0
 reasoning_in_history: true
 
 agent_decided_stop: true
-max_iters: 2000
+max_iters: 120
 # Inert in v2; retained for already-loaded v1 Verifier compatibility.
 max_nudges: 25
-wall_clock_secs: 86400
+wall_clock_secs: 100
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180
@@ -35,9 +35,18 @@ cycle_evidence: true
 
 # Preserve this Verifier Agent's complete context within the escalated segment.
 # The main Flash Verifier's private history is deliberately not imported.
-history_keep_pairs: 0
+# 2026-10-19: explicit folding bounds added.  The engine's transport follows
+# the control seat's high/low watermarks, but the config must be able to
+# state its own intent; an escalated segment that outgrows the provider
+# window is the same HTTP 400 that ended wave1r.
+history_keep_pairs: 80
+keep_chars: 500000
+ctx_high_water: 900000
+ctx_low_water: 500000
+# Bounded trace for the same reason as the main Verifier seat: an unbounded
+# trace leaves the fold nowhere to land.
 trace_head: 0
-trace_tail: 0
+trace_tail: 20000
 
 # Native sight: one Look has one reading and no ensemble judge.
 vision_model: ""

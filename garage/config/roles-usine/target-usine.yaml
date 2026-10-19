@@ -28,12 +28,15 @@ reasoning_effort: "max"
 reasoning_max_tokens: 0
 reasoning_in_history: true
 
-# Agent-owned completion. These are undisclosed emergency watchdogs, not a
-# curriculum/project/turn budget.
+# Agent-owned completion. These are undisclosed emergency watchdogs, not
+# a curriculum/project/turn budget.
+# 2026-10-19: 500 iters / 36000s tightened toward the 600s run ceiling
+# (time_budget.DEFAULT_SLICES).  The control seat books the candidate and
+# drives verifier arbitration, so it gets a slice, not a workday.
 agent_decided_stop: true
-max_iters: 500
+max_iters: 200
 max_nudges: 25
-wall_clock_secs: 36000
+wall_clock_secs: 600
 llm_infra_retry_secs: 30
 script_timeout: 600
 controller_recovery_secs: 180

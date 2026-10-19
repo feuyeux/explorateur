@@ -23,14 +23,22 @@ temperature: 0.0
 primary_temperature: 1.0
 top_p: 1.0
 agent_decided_stop: true
-max_iters: 2000
+# Budgets are EMERGENCY WATCHDOGS, not semantic stopping criteria (paper
+# RSIAgent 2.1: the Curriculum selects what to explore, it does not decide
+# when a run is over — verification does that).  2026-10-19: these were
+# 2000 iters / 86400s, i.e. a full day per wave, which is why the two recorded
+# waves each burned ~40 minutes before an infrastructure failure surfaced.
+# Tightened to the Curriculum slice of the 600s run ceiling (see
+# time_budget.DEFAULT_SLICES and run_usine's --run-ceiling-secs): a wave must
+# be able to finish, and be cheap to rerun.
+max_iters: 60
 max_nudges: 25
-wall_clock_secs: 86400
-history_keep_pairs: 0
-keep_chars: 0
+wall_clock_secs: 80
+history_keep_pairs: 80
+keep_chars: 500000
 verifier_model: ""
-ctx_high_water: 0
-ctx_low_water: 0
+ctx_high_water: 900000
+ctx_low_water: 500000
 doubts_block_pass: true
 look_max_side: 2560
 archive_eyes: false
