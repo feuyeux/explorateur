@@ -121,6 +121,7 @@ for s in usine/skills/*/; do ln -sfn "$PWD/$s" ~/.agents/skills/"$(basename "$s"
 
 | 文件 | 内容 |
 |---|---|
+| [dsh.md](docs/dsh.md) | 智能体分层架构：dsh 地基 / 入口装配 / 插件 / 业务包 / 技能资产 + 红线双承载 + 验收面 |
 | [guide.md](docs/guide.md) | 人机交互：安装 / 凭据 / 怎么说 / 审批门 / 工具面 |
 | [reference.md](docs/reference.md) | 结构 · ①–⑬ 流程 · 工具链 · 渲染不变量 · 发布规则 |
 | [record.md](docs/record.md) | 实测数字（12 语种）· 坑位表 · 已修缺陷 · 发布判据 |
