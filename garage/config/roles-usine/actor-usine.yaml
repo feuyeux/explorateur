@@ -95,6 +95,19 @@ system_extra: |
     first edit, and the seat ran out of wall clock at the SECOND verify
     run with the edits already in place.  The instruction tells you which
     files to work on — read those and start editing.
+  - SCOPE DOWN, DO NOT SEARCH.  If the instruction's scope is open — "every
+    message in this category", "every refusal path you reworded", "adapt any
+    other suite that quotes the old wording", "find where the text is
+    actually built" — you do NOT get to search for the whole set.  Pick ONE
+    concrete instance you can already name in the file the instruction points
+    at, change that one, pin that one, and submit.  A narrow drill that
+    completes is worth more than a complete-category change that never
+    finishes: the run's memory only changes if you publish, and a run that
+    never publishes leaves the memory tree byte-identical.  Measured
+    2026-10-20 (bfs16g DRS): a brief with an open message set drove this
+    seat through SEVENTEEN reconnaissance rounds — guest-path probes, a
+    memory dump, a dsh-plugin tree walk, and line-range dumps of both test
+    suites — and the seat's 900s wall clock expired before the first edit.
   - OUTPUT BUDGET: each of your programs must print LESS THAN 8000
     characters.  A program that dumps a whole file or a full test log into
     stdout pushed this seat's prompt to 57k tokens in one recorded run

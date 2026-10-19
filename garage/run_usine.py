@@ -400,6 +400,14 @@ ROLE_FILES = {
     "verifier": "verifier-usine.yaml",
     "verifier_control": "target-usine.yaml",
     "curriculum": "curriculum-usine.yaml",
+    # The DRS (Phase 2) gets its OWN curriculum seat.  Phase 1 authors a
+    # breadth wave; the DRS hands the Actor one deep drill, and the DRS drill
+    # needs a different brief — an open-set brief ("every message in this
+    # category", a per-message report) drove the Actor through seventeen
+    # reconnaissance rounds and the run ended with an unchanged memory tree
+    # (bfs16g, 2026-10-20).  A slice can absorb variance; it cannot absorb an
+    # unbounded task, so the bound belongs in the brief.
+    "curriculum_drs": "curriculum-drs.yaml",
     "memory_actor": "actor-usine.yaml",
 }
 
@@ -731,7 +739,8 @@ def _load_roles():
         configs[role] = cfg
 
     # Stock Phase-1 practice invariants for the four agent seats.
-    for role in ("actor", "verifier", "curriculum", "memory_actor"):
+    for role in ("actor", "verifier", "curriculum", "curriculum_drs",
+                 "memory_actor"):
         cfg = configs[role]
         if (not cfg.agent_decided_stop or not cfg.practice_mode
                 or cfg.independent_verify or cfg.max_resumes != 0):
@@ -882,6 +891,50 @@ def _check_drs_wiring(configs: dict) -> None:
         raise RuntimeError(
             "--phase 2 verifier control has no verifier_model; the serial "
             "core would have no Verifier Agent to drive.")
+    # The DRS curriculum seat must actually be the one in the curriculum
+    # slot.  Running the DRS with Phase-1's breadth brief is exactly the
+    # unbounded-task failure this seat exists to prevent, and it costs a
+    # thirty-minute run to discover — so it is a preflight failure.
+    if configs.get("curriculum") is not configs.get("curriculum_drs"):
+        raise RuntimeError(
+            "--phase 2 must run the DRS curriculum seat "
+            "(curriculum-drs.yaml) in the curriculum slot; the Phase-1 "
+            "breadth brief has no drill bound and the Actor cannot finish "
+            "an open-set task inside its wall clock.")
+
+
+def _select_phase_seats(configs: dict, role_paths: dict,
+                        phase: str) -> tuple[dict, dict]:
+    """Put the seat this phase actually runs into the ``curriculum`` slot.
+
+    Phase 1 authors a breadth wave (curriculum-usine.yaml).  Phase 2 is the
+    DRS: the curriculum reviews the memory Phase 1 produced and hands the
+    Actor ONE deep drill, which needs a different brief — a drill with a
+    closed scope (one source file, one test file, at most two deliverables,
+    a table-shaped report, an existing memory record to deepen).  The
+    unbounded brief Phase 1 can afford is the one that killed five DRS runs:
+    the Actor spent its whole wall clock searching for the open set instead
+    of changing anything, and the run ended with an unchanged memory tree
+    (bfs16g, 2026-10-20).
+
+    The swap is a seat SELECTION, not a behaviour switch: both configs are
+    loaded, both are lineup-checked, and the DRS config is only promoted when
+    the phase is 2.  Nothing else in the run changes.
+    """
+    if phase != "2":
+        return configs, role_paths
+    drs_cfg = configs.get("curriculum_drs")
+    if drs_cfg is None:
+        raise RuntimeError(
+            "--phase 2 needs the DRS curriculum seat "
+            "(config/roles-usine/curriculum-drs.yaml), which is missing")
+    configs = dict(configs)
+    configs["curriculum"] = drs_cfg
+    drs_path = role_paths.get("curriculum_drs")
+    if drs_path is not None:
+        role_paths = dict(role_paths)
+        role_paths["curriculum"] = drs_path
+    return configs, role_paths
 
 
 # ---------------------------------------------------------------- credentials
@@ -1736,6 +1789,13 @@ def main(argv: list | None = None) -> int:
                    else "usine_production_line_rsi_drs")
 
     configs, role_paths, escalation_cfg = _load_roles()
+    # Phase 2 runs the DRS curriculum seat instead of the Phase-1 one.  The
+    # swap happens HERE, before the lineup check and before apply_slices, so
+    # both the lineup invariants and the slice plan are evaluated against the
+    # seat this run will actually use — a slice applied to the wrong config
+    # is a silent budget error (the bfs16/curriculum-280-vs-400 class of
+    # bug).  Phase 1 keeps curriculum-usine.yaml untouched.
+    configs, role_paths = _select_phase_seats(configs, role_paths, args.phase)
     lineup = _check_lineup(configs, escalation_cfg)
 
     # Time budget: plan the whole run BEFORE any token is spent, apply the

@@ -1,0 +1,192 @@
+# Unified-loop CURRICULUM AGENT for the DRS (Phase 2) deep-recursion pass.
+#
+# WHY THIS FILE EXISTS — it is a COPY of curriculum-usine.yaml with ONE
+# different discipline, and that difference is the whole point.
+#
+# Phase 1 (curriculum-usine.yaml) and Phase 2 (this file) are different jobs:
+# Phase 1 authors a BREADTH wave; the DRS reviews the memory Phase 1 produced
+# and hands the Actor ONE deep drill.  The DRS job is the one that kept
+# failing, and the postmortem is unambiguous (2026-10-20, bfs16g):
+#
+#   * The DRS curriculum wrote a brief with an OPEN-SET scope: "every message
+#     in this category must contain ...", "adapt any other suite that quotes
+#     the old wording", "for each message you changed, the old text, the new
+#     text, the file and function where it lives, and the names of the suite
+#     cases that pin it".
+#   * The Actor faithfully executed that brief and spent SEVENTEEN
+#     reconnaissance rounds looking for the whole set (it probed the guest
+#     filesystem, dumped the memory tree, walked packages/dsh-plugin, and
+#     dumped line ranges of both test suites) and never reached the edit.
+#   * The Actor's 900s wall clock expired -> "ACTOR phase ended at
+#     emergency/infrastructure status safety_ceiling" -> the run ended with
+#     drs_delta.memory_changed = FALSE.  The memory tree was byte-identical
+#     to the Phase-1 baseline.  Five DRS attempts in a row died this way or
+#     on the same unbounded-task shape.
+#
+# The DRS failure mode is therefore NOT "the Actor was slow" and NOT "the
+# slice was too small" — it is THAT THE BRIEF HAD NO UPPER BOUND.  A slice
+# can absorb variance; it cannot absorb an unbounded task.  The bound belongs
+# in the brief, and the DRS is the only phase that needs a different brief,
+# so the DRS gets its OWN curriculum seat.  Phase 1's seat is untouched.
+#
+# The seat contract, model lineup, reasoning effort and wall clock are
+# identical to curriculum-usine.yaml; only `system_extra` differs.
+model: fuyao-work
+provider_order: []
+provider_allow_fallbacks: true
+provider_require_parameters: false
+vision_model: fuyao-coding
+vision_rounds: 1
+look_ensemble: 1
+look_ensemble_temp: 0.8
+split_done_gate: true
+max_tokens: 65536
+# Same as the Phase-1 curriculum seat, and for the same measured reason: on
+# this gateway "max" was the FASTER arm on the recorded authoring call
+# (51s vs 108s for medium, with medium burning twice the completion tokens
+# for less text).  Do not retune this knob from intuition — re-run
+# garage/probe_curriculum_effort.py before changing it.
+#
+# The caveat that outranks the knob: first-response latency at the SAME
+# effort has been measured at 50.6s / 108.2s / 138.7s / 322s / >300s, and a
+# stalled request IS charged to the seat's wall clock.  The guard that
+# matters is the DRS run ceiling plus per-seat wall_clock_secs slices (see
+# garage/time_budget.DRS_SLICES), not this line.
+reasoning_effort: "max"
+reasoning_max_tokens: 0
+reasoning_in_history: true
+temperature: 0.0
+primary_temperature: 1.0
+top_p: 1.0
+agent_decided_stop: true
+# Emergency watchdogs, not semantic stopping criteria.  Tightened from
+# 2000 iters / 86400s (a full day per wave) to 60 iters: the DRS buys
+# exactly ONE drill, and the drill's bound is in `system_extra` below.
+#
+# 400s wall clock: the DRS curriculum's first response carries the gateway's
+# measured worst-case tail (up to 322s at the same effort) plus a short
+# authoring tail.  A slice that cannot cover one worst-case round trip is
+# not a budget, it is a guaranteed abort — the bfs16d attempt lost the
+# curriculum seat to a 344s timed-out first response against a 170s slice.
+# This value is also the DRS plan's own curriculum slice (time_budget.
+# DRS_SLICES), so the plan is the binding constraint, not this line.
+max_iters: 60
+max_nudges: 25
+wall_clock_secs: 400
+history_keep_pairs: 80
+keep_chars: 500000
+verifier_model: ""
+ctx_high_water: 250000
+ctx_low_water: 150000
+doubts_block_pass: true
+look_max_side: 2560
+archive_eyes: false
+vision_model_2: ""
+vision_max_tokens: 32736
+practice_mode: true
+independent_verify: false
+escalation_model: ""
+max_resumes: 0
+action_discipline: true
+cycle_evidence: true
+system_extra: |
+  DRS DEEP-RECURSION BRIEF (this seat reviews the memory Phase 1 produced and
+  hands the Actor exactly ONE drill).  The Phase-1 memory files are mounted
+  read-only under /home/user/.memory on your machine; read them, then drill
+  ONE gap in one of them DEEPER than Phase 1 did.
+  - THE DRILL HAS A HARD UPPER BOUND. Your handoff must describe a drill that
+    touches ONE producing source file and ONE test file, with AT MOST TWO
+    deliverables (the code change, and the test that pins it).  Never write a
+    brief whose scope is an open set — "every message in this category",
+    "every refusal path you reworded", "adapt any other suite that quotes the
+    old wording" are BANNED phrasings.  An open set is an unbounded task: the
+    Actor will spend its whole wall clock searching for the set instead of
+    changing anything, the episode will end without a submission, and the
+    memory tree will be byte-identical to the one you started from.  Measured
+    2026-10-20 (bfs16g): a brief with an open message set drove the Actor
+    through seventeen reconnaissance rounds; the run ended with
+    drs_delta.memory_changed = false.
+  - NAME THE FILE AND THE INSTANCE.  Do not ask the Actor to "find where the
+    refusal text is actually built".  Name the exact path (for example
+    packages/dsh-plugin/src/tools.ts) and the exact symbol or message family
+    to change.  The Actor gets ONE reconnaissance program; every extra read
+    round trip costs 4-90s of gateway time and burns the drill's budget.
+  - ONE MESSAGE FAMILY.  Scope the wording change to ONE refusal or approval
+    message family — the first one you can name in the file you named — not to
+    a category.
+  - THE REPORT IS A TABLE, NOT AN ESSAY.  The handoff's report requirement
+    must read: one line per changed message, at most 12 lines in total, no
+    prose commentary.  A report requirement is a delivery cost the Actor pays
+    inside its wall clock; measured 2026-10-20, a per-message report with
+    old text, new text, file, function and case names was a large part of
+    why the Actor never reached the edit.
+  - DEEPEN AN EXISTING MEMORY RECORD.  Name the memory file you are drilling
+    (one of the mounted Phase-1 records) and make the drill produce evidence
+    that belongs in THAT record.  A drill that opens a brand-new subject
+    leaves the post-episode memory phase nothing to consolidate, so the
+    memory tree comes back unchanged and the DRS reports nothing.  The
+    memory phase only rewrites what the episode makes concrete.
+  - ONE DRILL, THEN STOP.  The DRS budget buys exactly one drill and the run
+    ends after it; there is no second wave to fill.  Publish the drill.
+  - The drill must keep the repository's offline gate green: after a one-time
+    "pnpm install" from the project root, "pnpm verify" must exit 0.  Say so
+    in the handoff and ask the Actor to run it as its own final check.
+  - Live platform publishing and platform login never run in this
+    environment: the drill must ask for offline artifacts only (code, data,
+    fixtures, reports), never for a live publish or login.
+  - Improvements may target the pipeline itself or the repository's
+    AI-operator tool surface (the dsh plugin package, plus the howtos under
+    skills/ that teach it): tool naming, request shapes, refusal and approval
+    wording, discipline defaults, and the suites that pin them are all
+    ordinary tracked sources.  The drill must demand the guard rails stay
+    intact — approval-gated tools keep failing closed when approval is
+    absent, publishing stays out of reach by default, and red-line suites
+    may be extended but never relaxed.
+
+  USINE PRODUCTION-LINE CONTEXT (governs every drill you author):
+  - OUTPUT BUDGET: each of your programs must print LESS THAN 8000 characters.
+    Never cat a whole file or dump a full tree into stdout — the transcript
+    rides your context forever, and a program that prints 150k characters
+    pushed this seat's prompt to 128k tokens in one recorded run, where every
+    later call crawled. List file NAMES with sizes, then read only the one
+    file you actually need, in slices (sed -n '1,80p'). Recon is done in ONE
+    program; after it you author.
+  - AUTHOR BY ITERATION 4. Measured 2026-10-19 (bfs9): seven recon rounds
+    into tools.ts/discipline.ts/parity suites and the slice died at the
+    safety ceiling BEFORE the publish program was ever written — the seat
+    knows the tool surface from the menu already, and every extra read
+    round-trip costs 4-90s of gateway time. Your instruction text does not
+    need line-level quotes from the sources; it needs the RIGHT FILE NAMES
+    and the RIGHT INVARIANT NAMES. One recon program (round 1-2), at most
+    ONE follow-up read (round 3), then WRITE the drill. A reply with no JSON
+    action burns a whole round-trip — every non-PLAN turn must carry either
+    a program or the publish action.
+  - After you stage a drill's fixture tree, the harness extracts a
+    committed snapshot of a real multilingual video production-line
+    repository OVER your staged files, and the repository's copy wins any
+    collision: a staged copy of an existing file would be replaced by the
+    repository's own bytes. Stage only the task-specific fixtures your
+    instruction needs (sample inputs, blank workspaces); never try to
+    reconstruct the codebase - it is already on the Actor's machine.
+  - The Actor therefore starts from the real repository plus your fixtures
+    at /home/user/evolution_project. Author instructions that treat the
+    existing code as the working material.
+
+  TARGET MENU (measured sizes; read only what you name):
+  A. packages/dsh-plugin/src/tools.ts (28 KB) - the 18-tool agent surface:
+     one tool per pipeline capability. Naming, argument shapes, error text.
+  B. packages/dsh-plugin/src/index.ts (4.5 KB) + discipline.ts (2.3 KB) -
+     the red-line carriers: approval fail-closed, publish unreachable by
+     default, the system-prompt discipline section.
+  C. packages/dsh-plugin/test/plugin-parity.test.ts (12 KB) - the pinning
+     suite that keeps A and B honest. Extending it is a valid drill.
+  D. packages/dsh-plugin/test/plugin.test.ts (19 KB) - behavioural tests
+     for the built dist bundle.
+  E. skills/<name>/SKILL.md (11 skills, e.g. video-generation, publish-copy,
+     bgm-bed) - the operator howtos that teach the same surface.
+  F. packages/core/src (39 files, 456 KB) - the real pipeline. EXPENSIVE:
+     name one module (scene parsing, timeline math, audio composition,
+     manifest building) and read only that.
+  Guard rails for every target: approval-gated tools keep failing closed,
+  publish stays unreachable unless config.publish === true, red-line suites
+  may be extended but never relaxed.

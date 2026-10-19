@@ -101,7 +101,13 @@ def test_real_distribution() -> str | None:
               fence["usine_tracked"] > 10
               and fence["theatre_py"] > 30
               and fence["adapter_py"] >= 5
-              and fence["role_yaml"] == 5,
+              # Six role configs: the five Phase-1 seats plus the DRS
+              # curriculum seat (curriculum-drs.yaml).  This count is pinned
+              # on purpose — a NEW audited surface must be a deliberate act,
+              # not a side effect of adding a seat.  It is also a leak
+              # fence: the DRS curriculum's own brief is audited, so its
+              # phrasing cannot appear in the distribution.
+              and fence["role_yaml"] == 6,
               fence)
         info("fence: binary members skipped by content cost",
              f"{fence['usine_binary_skipped']} of {fence['usine_tracked']} "

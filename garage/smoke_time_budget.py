@@ -273,6 +273,8 @@ def test_drs_wiring_is_sound(ru) -> None:
         cfg = load(str(garage / "config" / "roles-usine" / name))
         normalize_verifier_config_paths(cfg, garage)
         configs[role] = cfg
+    # The DRS wiring check runs on the seat set Phase 2 actually uses.
+    configs, _ = ru._select_phase_seats(configs, {}, "2")
 
     try:
         ru._check_drs_wiring(configs)
@@ -291,6 +293,32 @@ def test_drs_wiring_is_sound(ru) -> None:
     except RuntimeError:
         check("the DRS wiring check rejects the Agent profile", True,
               "the Agent profile is rejected as the control profile")
+
+    # It must also bite on the DRS curriculum seat: running the DRS with
+    # Phase 1's breadth brief is the unbounded-task failure.
+    try:
+        ru._check_drs_wiring(
+            {**configs, "curriculum": _load_phase1_curriculum(ru, garage)})
+        check("the DRS wiring check rejects the Phase-1 breadth brief", False,
+              "the breadth brief was accepted as the DRS curriculum seat")
+    except RuntimeError:
+        check("the DRS wiring check rejects the Phase-1 breadth brief", True,
+              "the breadth brief is rejected as the DRS curriculum seat")
+
+
+def _load_phase1_curriculum(ru, garage):
+    """Load the Phase-1 breadth curriculum seat on its own."""
+    sys.path.insert(0, str(garage))
+    theatre = [p for p in EXPLORATEUR.iterdir()
+               if p.is_dir() and p.name.startswith("th")]
+    if not theatre:
+        return None
+    sys.path.insert(0, str(theatre[0]))
+    from config.runtime_paths import normalize_verifier_config_paths
+    from config.settings import load
+    cfg = load(str(garage / "config" / "roles-usine" / "curriculum-usine.yaml"))
+    normalize_verifier_config_paths(cfg, garage)
+    return cfg
 
 
 def test_deadline(tb) -> None:
@@ -398,17 +426,23 @@ def test_every_plan_slice_is_actually_effective(ru, tb) -> None:
     from config.runtime_paths import normalize_verifier_config_paths
     from config.settings import load
 
-    def load_roles() -> dict:
+    def load_roles(phase: str) -> dict:
         configs = {}
+        paths = {}
         for role, name in ru.ROLE_FILES.items():
-            cfg = load(str(garage / "config" / "roles-usine" / name))
+            path = garage / "config" / "roles-usine" / name
+            cfg = load(str(path))
             normalize_verifier_config_paths(cfg, garage)
             configs[role] = cfg
+            paths[role] = path
+        # The seat set a phase actually runs — the DRS uses its own
+        # curriculum seat, so the plan must be applied to THAT seat.
+        configs, paths = ru._select_phase_seats(configs, paths, phase)
         return configs
 
     drs = tb.plan_budget(ceiling_secs=tb.DRS_RUN_CEILING_SECS, projects=1,
                           slices=tb.DRS_SLICES)
-    drs_configs = load_roles()
+    drs_configs = load_roles("2")
     tb.apply_slices(drs_configs, drs)
     for seat, key in (("curriculum", "curriculum"), ("actor", "actor"),
                       ("verifier", "verifier"), ("memory_actor", "memory")):
@@ -420,7 +454,7 @@ def test_every_plan_slice_is_actually_effective(ru, tb) -> None:
     # Phase 1 must be untouched by the DRS plan: its own slices still bind.
     phase1 = tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS,
                              projects=1)
-    p1_configs = load_roles()
+    p1_configs = load_roles("1")
     tb.apply_slices(p1_configs, phase1)
     for seat, key in (("curriculum", "curriculum"), ("actor", "actor"),
                       ("verifier", "verifier")):
@@ -428,6 +462,92 @@ def test_every_plan_slice_is_actually_effective(ru, tb) -> None:
         check(f"Phase 1 still runs the {seat} seat on the Phase-1 slice",
               wall == tb.DEFAULT_SLICES[key],
               f"{wall}s vs planned {tb.DEFAULT_SLICES[key]}s")
+
+
+def test_drs_seat_selection_is_phase_scoped(ru) -> None:
+    """Phase 2 must run the DRS curriculum seat; Phase 1 must not.
+
+    The DRS needs a brief with a CLOSED scope — one source file, one test
+    file, at most two deliverables, a table-shaped report, an existing memory
+    record to deepen.  Phase 1's breadth brief has no such bound, and an
+    open-set brief is what killed five DRS runs (bfs16g, 2026-10-20: the
+    Actor spent seventeen rounds searching for the open set and the run
+    ended with an unchanged memory tree).
+
+    A seat-selection bug here is silent and expensive: the run would start,
+    the brief would be unbounded, and the failure would only surface after
+    the Actor's whole wall clock.  So both directions are pinned.
+    """
+    garage = HERE
+    sys.path.insert(0, str(garage))
+    theatre = [p for p in EXPLORATEUR.iterdir()
+               if p.is_dir() and p.name.startswith("th")]
+    if not theatre:
+        check("théâtre checkout present", False, "no th* directory")
+        return
+    sys.path.insert(0, str(theatre[0]))
+    from config.runtime_paths import normalize_verifier_config_paths
+    from config.settings import load
+
+    configs = {}
+    paths = {}
+    for role, name in ru.ROLE_FILES.items():
+        path = garage / "config" / "roles-usine" / name
+        cfg = load(str(path))
+        normalize_verifier_config_paths(cfg, garage)
+        configs[role] = cfg
+        paths[role] = path
+    check("the DRS curriculum seat is a declared role",
+          "curriculum_drs" in ru.ROLE_FILES)
+    check("the DRS curriculum seat file exists",
+          paths.get("curriculum_drs", Path(".")).is_file(),
+          str(paths.get("curriculum_drs")))
+
+    drs_configs, drs_paths = ru._select_phase_seats(
+        dict(configs), dict(paths), "2")
+    check("Phase 2 selects the DRS curriculum seat",
+          drs_paths["curriculum"].name == "curriculum-drs.yaml",
+          drs_paths["curriculum"].name)
+    check("Phase 2 runs the DRS seat's own brief",
+          drs_configs["curriculum"] is configs["curriculum_drs"])
+
+    p1_configs, p1_paths = ru._select_phase_seats(
+        dict(configs), dict(paths), "1")
+    check("Phase 1 keeps the breadth curriculum seat",
+          p1_paths["curriculum"].name == "curriculum-usine.yaml",
+          p1_paths["curriculum"].name)
+    check("Phase 1 runs the breadth seat's own brief",
+          p1_configs["curriculum"] is configs["curriculum"])
+
+
+def test_drs_brief_has_a_closed_scope() -> None:
+    """The DRS brief must state the bounds, and the Actor must have the
+    matching fallback.
+
+    Both are prompt-level contracts, and prompt-level contracts are exactly
+    the kind that rot silently: a later edit that drops one clause reopens
+    the unbounded-task failure without breaking a single test.  So the
+    clauses that carry the bound are pinned here, by name.
+    """
+    import yaml
+
+    drs_path = HERE / "config" / "roles-usine" / "curriculum-drs.yaml"
+    data = yaml.safe_load(drs_path.read_text(encoding="utf-8"))
+    extra = str(data.get("system_extra", ""))
+    for clause in ("DRILL HAS A HARD UPPER BOUND", "ONE MESSAGE FAMILY",
+                   "THE REPORT IS A TABLE", "DEEPEN AN EXISTING MEMORY RECORD",
+                   "NAME THE FILE AND THE INSTANCE"):
+        check(f"the DRS brief states: {clause}", clause in extra)
+    check("the DRS brief bans the open-set phrasing that killed bfs16g",
+          "every message in this category" in extra
+          and "BANNED" in extra)
+
+    actor = yaml.safe_load(
+        (HERE / "config" / "roles-usine" / "actor-usine.yaml")
+        .read_text(encoding="utf-8"))
+    actor_extra = str(actor.get("system_extra", ""))
+    check("the Actor seat has the scope-down fallback",
+          "SCOPE DOWN, DO NOT SEARCH" in actor_extra)
 
 
 def test_curriculum_target_menu_is_honest() -> None:
@@ -491,6 +611,8 @@ def main() -> int:
     test_context_budget_gate(ru)
     test_real_usine_roles_pass(ru, tb)
     test_every_plan_slice_is_actually_effective(ru, tb)
+    test_drs_seat_selection_is_phase_scoped(ru)
+    test_drs_brief_has_a_closed_scope()
     test_curriculum_target_menu_is_honest()
 
     print(f"\nALL {PASSED} TIME/CONTEXT BUDGET CHECKS PASSED")

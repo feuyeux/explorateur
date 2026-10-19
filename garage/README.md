@@ -209,6 +209,44 @@ DRS_RUN_CEILING_SECS`，当前 2100s）与自己的切片计划
   "Phase-1 Agentic Verifier control config is missing"（实测 1158s）。
   现在有 `_check_drs_wiring()` 在**开跑前** fail-closed。
 
+#### 5.2 DRS 的 brief 必须有上界，否则切片再大也救不了
+
+第五次 DRS（bfs16g，2026-10-20）把前四次"看起来像切片不够"的假象拆穿了：
+死因不是切片小，是**任务无界**。
+
+- DRS 出题席写的 brief 是开放集：「这个**类别里每一条**拒答消息都要改」、
+  「顺手适配任何引用旧措辞的测试」、「每条改过的消息都要写旧文本/新文本/
+  文件/函数/钉它的用例名」。
+- Actor 忠实地去搜那个集合：17 轮侦察（探 guest 路径、dump 记忆树、遍历
+  dsh-plugin、逐段 dump 两个测试文件），**一轮都没落到编辑**。
+- 900s 墙钟到点 → `safety_ceiling` → `drs_delta.memory_changed = false`，
+  记忆树与 Phase-1 基线**逐字节相同**。
+
+结论：**切片能吸收波动，吸收不了无界的任务**。上界必须写在 brief 里，而 DRS
+是唯一需要另一份 brief 的相位，所以 DRS 有自己的出题席
+（`config/roles-usine/curriculum-drs.yaml`），Phase-1 那份一字未动。
+
+DRS brief 的上界（`system_extra` 里逐条钉死）：
+
+- drill 只碰**一个**产出源文件 + **一个**测试文件，交付物**至多两个**；
+- 禁写开放集措辞（「每一条」「所有」「任何其他」）；
+- 点名文件与实例，**不许**让 Actor「去找到底在哪构建」；
+- 只改**一个**消息族，不是一个类别；
+- 报告是**表格**：每条一行、**至多 12 行**、不许写散文；
+- **加深一条已存在的记忆记录**（点名是哪个文件），否则记忆相位无事可写，
+  tree 原样回来，DRS 等于什么都没发生。
+
+Actor 席另加一道**兜底**（`SCOPE DOWN, DO NOT SEARCH`）：万一 brief 还是
+写宽了，Actor 只准挑**一个**具体实例改完、钉完、交作业，不准去搜全集
+——「改窄并完成」比「改全但没交」值钱，因为**只有交上去记忆才会变**。
+
+三处都被冒烟钉住（`smoke_time_budget`）：Phase-2 选 DRS 出题席、Phase-1
+仍用广度席（`test_drs_seat_selection_is_phase_scoped`）；brief 的每条上界
+都在（`test_drs_brief_has_a_closed_scope`）；DRS 接线拒绝广度席
+（`test_drs_wiring_is_sound`）。另外 `smoke_distribution_fence` 的
+`role_yaml` 期望值从 5 改成 6——**新增受审计面必须是刻意动作**，而且 DRS
+那份 brief 自己也进围栏，它的话术不能漏进 distribution。
+
 ## 二、怎么校验自进化产物
 
 三层验收，全部机械可查；**SKIP 不是 PASS，编出来的数据比没有数据更坏**。
