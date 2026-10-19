@@ -57,11 +57,18 @@ max_nudges: 25
 # recon program dumped 153k chars into history) pushing rounds 5-6 into the
 # gateway's slow tail, where two 120s SDK timeouts per call burned 480s of
 # the slice.  With ctx_high_water at 250k chars the fold fires long before
-# that regime, and the slice covers the arc with room for one timed-out
-# call.  400s >= 322s (worst first response) + 2x40s (tail rounds).
-# Measured: bfs10 published a 6-project wave in 204s of seat time; the slice
-# is sized for the worst first response, not for a wide wave.
-wall_clock_secs: 280
+# that regime.  Measured: bfs10 published a 6-project wave in 204s of seat
+# time; the slice is sized for the worst first response, not for a wide wave.
+#
+# 2026-10-20: this value was 280s and the DRS (Phase 2) could not use its
+# own 400s slice, because a slice is a CEILING and never loosens a seat's
+# own declared wall — the seat silently ran on 280s and lost the DRS
+# curriculum to a 344s timed-out first response (the gateway's tail reaches
+# 322s at the same effort, and a stalled request IS charged to the seat's
+# wall clock).  400s >= 322s (worst first response) + 2x40s (tail rounds).
+# Phase 1 is unaffected: its own slice is 280s, so apply_slices clamps this
+# seat back down to 280s for the breadth wave.
+wall_clock_secs: 400
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""

@@ -185,11 +185,12 @@ DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # fail-closed 预检（真 wave 仍喊跑才跑）。
 DEFAULT_GATE_ARGV = ("pnpm", "verify")
 
-# Hard wall-clock ceiling for one self-evolution run.  Mirrors
-# time_budget.DEFAULT_RUN_CEILING_SECS; duplicated as a literal because the
-# argparse default is built before garage modules are importable (the
-# theater checkout has to be on sys.path first).  time_budget asserts the
-# two agree at load time.
+# Hard wall-clock ceiling for one Phase-1 self-evolution run.  Mirrors
+# time_budget.DEFAULT_RUN_CEILING_SECS; kept as a literal here because the
+# theatre checkout has to be on sys.path before garage modules are importable.
+# The CLI default is resolved per phase (Phase 1 here, the DRS on
+# time_budget.DRS_RUN_CEILING_SECS) — an explicit --run-ceiling-secs always
+# wins over both.
 _DEFAULT_RUN_CEILING_SECS = 1500
 
 # ---------------------------------------------------------- gate preflight
@@ -1595,14 +1596,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-budget", type=int, default=8)
     parser.add_argument(
         "--run-ceiling-secs", type=int,
-        default=_DEFAULT_RUN_CEILING_SECS,
+        default=None,
         help=("hard wall-clock ceiling for the whole run, in seconds "
-              "(default 1500 = twenty-five minutes; the ceiling follows the "
-              "measured gateway latency a seat slice must cover, and a "
-              "self-evolution run must stay iterable).  The budget is split "
-              "across the seats, each seat's wall_clock_secs is tightened to "
-              "its slice, and the wave loop stops at the first COMPLETE-WAVE "
-              "boundary past the ceiling. "
+              "(default: 1500 = twenty-five minutes for Phase 1, 1800 = "
+              "thirty minutes for the DRS; the ceiling follows the measured "
+              "gateway latency and the measured cost of the phase's seats, "
+              "and a self-evolution run must stay iterable).  The budget is "
+              "split across the seats, each seat's wall_clock_secs is "
+              "tightened to its slice, and the wave loop stops at the first "
+              "COMPLETE-WAVE boundary past the ceiling. "
               "Recorded in the manifest — the ceiling is always auditable."))
     parser.add_argument(
         "--time-budget-allow-over", action="store_true",
@@ -1702,15 +1704,21 @@ def main(argv: list | None = None) -> int:
     # per-seat slices to the loaded configs, and fail closed when the plan
     # cannot fit the ceiling.  A run with no ceiling is how both recorded
     # waves burned ~40 minutes on infrastructure failures.
-    if args.run_ceiling_secs != time_budget.DEFAULT_RUN_CEILING_SECS:
+    if args.run_ceiling_secs is None:
+        # Phase 1 keeps the operator's twenty-five minutes.  The DRS is a
+        # different job with a measured cost of its own (see
+        # time_budget.DRS_RUN_CEILING_SECS), so it carries its own ceiling.
+        args.run_ceiling_secs = (
+            time_budget.DRS_RUN_CEILING_SECS if args.phase == "2"
+            else time_budget.DEFAULT_RUN_CEILING_SECS)
+    elif args.run_ceiling_secs != time_budget.DEFAULT_RUN_CEILING_SECS:
         log.info("run ceiling overridden to %ds (recorded in the manifest)",
                  args.run_ceiling_secs)
     # Phase 1 and Phase 2 get their OWN slice plan.  The DRS is the paper's
     # deep recursion over the memory Phase 1 produced: measured on
     # 2026-10-20, its Actor seat needs ~670s (the Phase-1 580s slice killed
     # it one iteration before it published), and its memory phase is a cost
-    # of its own.  One shared allocation cannot serve both jobs; the DRS
-    # plan still sums to the same 1400s, so the run ceiling is unchanged.
+    # of its own.  One shared allocation cannot serve both jobs.
     slice_plan = (time_budget.DRS_SLICES if args.phase == "2"
                   else time_budget.DEFAULT_SLICES)
     budget_plan = time_budget.plan_budget(

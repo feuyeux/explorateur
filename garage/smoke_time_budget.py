@@ -180,10 +180,18 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
     exhausted (755s of 1500s).  The binding constraint is the per-seat wall
     clock, so the DRS needs its own plan — inside the same run ceiling.
     """
-    plan = tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS, projects=1,
+    plan = tb.plan_budget(ceiling_secs=tb.DRS_RUN_CEILING_SECS, projects=1,
                            slices=tb.DRS_SLICES)
-    check("the DRS slice plan fits the default ceiling", plan.fits,
+    check("the DRS slice plan fits the DRS ceiling", plan.fits,
           f"planned {plan.planned_total_secs}s <= {plan.ceiling_secs}s")
+    check("the DRS ceiling is its own, not Phase 1's",
+          tb.DRS_RUN_CEILING_SECS != tb.DEFAULT_RUN_CEILING_SECS,
+          f"DRS {tb.DRS_RUN_CEILING_SECS}s vs Phase-1 "
+          f"{tb.DEFAULT_RUN_CEILING_SECS}s")
+    check("the Phase-1 plan still fits the Phase-1 ceiling",
+          tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS,
+                         projects=1).fits,
+          f"{tb.DEFAULT_RUN_CEILING_SECS}s")
     check("the DRS plan is not the Phase-1 plan",
           tb.DRS_SLICES is not tb.DEFAULT_SLICES
           and tb.DRS_SLICES["actor"] != tb.DEFAULT_SLICES["actor"],
@@ -201,6 +209,22 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
           "memory" in tb.DRS_SLICES
           and tb.DRS_SLICES["memory"] > tb.DRS_SLICES["merge"],
           str(tb.DRS_SLICES))
+
+    # The curriculum's FIRST response has been measured at 50.6s / 108.2s /
+    # 138.7s / 322s / >300s at the same effort, and a stalled request IS
+    # charged to the seat's wall clock — bfs16d lost the curriculum seat that
+    # way (344s spent on one timed-out first response against a 170s slice).
+    check("the DRS curriculum slice covers the measured gateway tail",
+          tb.DRS_SLICES["curriculum"] >= 322,
+          f"{tb.DRS_SLICES['curriculum']}s >= 322s measured first response")
+
+    # The four seats' MEASURED costs must fit the DRS seat budget, with room
+    # left over: curriculum 152s, actor 670s, verifier 150s, memory 277s.
+    measured = {"curriculum": 152, "actor": 670, "verifier": 150, "memory": 277}
+    seat_budget = tb.DRS_RUN_CEILING_SECS - tb.OVERHEAD_RESERVE_SECS
+    check("the DRS seat budget covers the measured seat costs",
+          sum(measured.values()) <= seat_budget,
+          f"{sum(measured.values())}s measured <= {seat_budget}s seat budget")
 
     # A plan that names the memory seat bounds the memory phase there; a plan
     # that does not keeps the historical contract (the memory actor shares
@@ -307,6 +331,60 @@ def test_real_usine_roles_pass(ru, tb) -> None:
               f"{seat}: {wall}s of {plan.ceiling_secs}s")
 
 
+def test_every_plan_slice_is_actually_effective(ru, tb) -> None:
+    """A slice is a CEILING, never a floor: it can only tighten a seat.
+
+    So a seat whose OWN role config declares a wall smaller than the plan's
+    slice silently runs on the smaller number, and the plan's allocation is
+    a lie.  Measured 2026-10-20: the DRS plan gave the curriculum 400s, but
+    curriculum-usine.yaml declared 280s, so the seat ran on 280s and lost
+    the DRS to a 344s timed-out first response.  The DRS plan is only real
+    if every one of its slices is the EFFECTIVE wall on the committed role
+    configs.
+    """
+    garage = HERE
+    sys.path.insert(0, str(garage))
+    theatre = [p for p in EXPLORATEUR.iterdir()
+               if p.is_dir() and p.name.startswith("th")]
+    if not theatre:
+        check("théâtre checkout present", False, "no th* directory")
+        return
+    sys.path.insert(0, str(theatre[0]))
+    from config.runtime_paths import normalize_verifier_config_paths
+    from config.settings import load
+
+    def load_roles() -> dict:
+        configs = {}
+        for role, name in ru.ROLE_FILES.items():
+            cfg = load(str(garage / "config" / "roles-usine" / name))
+            normalize_verifier_config_paths(cfg, garage)
+            configs[role] = cfg
+        return configs
+
+    drs = tb.plan_budget(ceiling_secs=tb.DRS_RUN_CEILING_SECS, projects=1,
+                          slices=tb.DRS_SLICES)
+    drs_configs = load_roles()
+    tb.apply_slices(drs_configs, drs)
+    for seat, key in (("curriculum", "curriculum"), ("actor", "actor"),
+                      ("verifier", "verifier"), ("memory_actor", "memory")):
+        wall = getattr(drs_configs[seat], "wall_clock_secs", 0)
+        check(f"the DRS {seat} seat really runs on the DRS slice",
+              wall == tb.DRS_SLICES[key],
+              f"{wall}s vs planned {tb.DRS_SLICES[key]}s")
+
+    # Phase 1 must be untouched by the DRS plan: its own slices still bind.
+    phase1 = tb.plan_budget(ceiling_secs=tb.DEFAULT_RUN_CEILING_SECS,
+                             projects=1)
+    p1_configs = load_roles()
+    tb.apply_slices(p1_configs, phase1)
+    for seat, key in (("curriculum", "curriculum"), ("actor", "actor"),
+                      ("verifier", "verifier")):
+        wall = getattr(p1_configs[seat], "wall_clock_secs", 0)
+        check(f"Phase 1 still runs the {seat} seat on the Phase-1 slice",
+              wall == tb.DEFAULT_SLICES[key],
+              f"{wall}s vs planned {tb.DEFAULT_SLICES[key]}s")
+
+
 def test_curriculum_target_menu_is_honest() -> None:
     """The Curriculum TARGET MENU must quote real files at real sizes.
 
@@ -366,6 +444,7 @@ def main() -> int:
     test_deadline(tb)
     test_context_budget_gate(ru)
     test_real_usine_roles_pass(ru, tb)
+    test_every_plan_slice_is_actually_effective(ru, tb)
     test_curriculum_target_menu_is_honest()
 
     print(f"\nALL {PASSED} TIME/CONTEXT BUDGET CHECKS PASSED")

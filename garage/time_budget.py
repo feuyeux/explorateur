@@ -68,6 +68,28 @@ from pathlib import Path
 # in the manifest, never implicit.
 DEFAULT_RUN_CEILING_SECS = 1500
 
+# The DRS (Phase 2) run ceiling.  Phase 1 keeps the operator's twenty-five
+# minutes; the DRS is a DIFFERENT job and does not fit in it — this is
+# arithmetic, not taste.  Measured 2026-10-20 (bfs16 phase 2):
+#
+#   * curriculum review : 152s of work, but its FIRST response alone has been
+#     measured at 50.6s / 108.2s / 138.7s / 322s / >300s at the same effort
+#     on this gateway, and a stall is charged to the seat's wall clock (the
+#     bfs16d attempt lost the curriculum seat that way: 344s spent on one
+#     timed-out first response against a 170s slice).
+#   * actor              : ~670s of work (580s Phase-1 slice killed it one
+#     iteration before publishing).
+#   * verifier           : ~150s (Phase 1 measured 60s at low effort).
+#   * memory phase       : ~277s (Phase-1 measurement: distillation 73s +
+#     reconciliation 204s).
+#
+# That is ~1250s of work before a single margin, and the four seats cannot
+# share a 1400s slice budget with any room to spare: even at ZERO margin
+# they need 1427s.  So the DRS runs on its own ceiling, and the DRS slice
+# plan below carries the margins the measurements call for.  The ceiling
+# stays an explicit, auditable value in the manifest — never implicit.
+DRS_RUN_CEILING_SECS = 1800
+
 # Slice plan under the ceiling.  These are UPPER BOUNDS for a single seat,
 # not targets; the engine charges only what it actually uses.
 #   curriculum : authoring one wave.  Authoring starts with one expensive
@@ -172,22 +194,36 @@ DEFAULT_SLICES = {
 # So the DRS actor needs ~670s, not the Phase-1 580s — and the run ceiling
 # was NOT what stopped it: the DRS died at 755s of the 1500s ceiling, with
 # 745s of the run's budget unused.  The binding constraint is the per-seat
-# wall clock, so the fix is a Phase-2 allocation, not a bigger ceiling.
+# wall clock, so the fix is a Phase-2 allocation, not a bigger Phase-1
+# budget.
+#
+# The curriculum slice carries the gateway's measured FIRST-RESPONSE tail
+# (up to 322s at the same effort, and a stalled request IS charged to the
+# seat's wall clock — the bfs16d attempt spent 344s on one timed-out first
+# response and lost the curriculum seat against a 170s slice).
 #
 # Phase 2 does NOT merge into the usine tree: the serial core emits
 # PROJECT_CLOSED, not PHASE1_WAVE_COMPLETED, so the wave-merge sink never
 # fires.  The merge slice is kept small and present only so the plan stays
 # complete if that ever changes.
 #
-# The five slices still sum to 1400s, so the DRS run honours the same
-# twenty-five-minute ceiling as Phase 1.
+# The five slices sum to 1700s, which fits the DRS ceiling (1800s) with the
+# same 100s overhead reserve Phase 1 uses.
 DRS_SLICES = {
-    "curriculum": 170,
-    "actor": 720,
-    "verifier": 190,
-    "memory": 280,
-    "merge": 40,
+    "curriculum": 400,
+    "actor": 780,
+    "verifier": 200,
+    "memory": 300,
+    "merge": 20,
 }
+
+# Every named slice plan, with the ceiling it must fit.  plan_budget asserts
+# each one at construction time, so a plan that cannot fit fails the budget
+# module itself instead of failing every run of that phase.
+_NAMED_PLANS = (
+    ("DEFAULT_SLICES", DEFAULT_SLICES, DEFAULT_RUN_CEILING_SECS),
+    ("DRS_SLICES", DRS_SLICES, DRS_RUN_CEILING_SECS),
+)
 
 # Safety margin reserved for adapter overhead the engine does not bill to a
 # seat: preflight, fixture capture, seed staging (git-archive of the real
@@ -261,19 +297,17 @@ def plan_budget(*, ceiling_secs: int = DEFAULT_RUN_CEILING_SECS,
     for name, value in slices.items():
         if value <= 0:
             raise BudgetError(f"slice {name!r} must be positive")
-    # A default plan that cannot fit would fail closed on EVERY run — the
-    # budget module would be the thing that breaks the pipeline.  Assert it
-    # once, loudly, at construction rather than at wave time.  Every NAMED
-    # plan must fit the default ceiling, not just the default one: a DRS
-    # plan that does not fit would fail every DRS run at preflight.
-    for name, named in (("DEFAULT_SLICES", DEFAULT_SLICES),
-                        ("DRS_SLICES", DRS_SLICES)):
+    # A named plan that cannot fit its own ceiling would fail closed on
+    # EVERY run of that phase — the budget module would be the thing that
+    # breaks the pipeline.  Assert it once, loudly, at construction rather
+    # than at wave time.
+    for name, named, ceiling in _NAMED_PLANS:
         if slices is named and sum(slices.values()) + OVERHEAD_RESERVE_SECS \
-                > DEFAULT_RUN_CEILING_SECS:
+                > ceiling:
             raise BudgetError(
-                f"the {name} slice plan does not fit the default ceiling "
+                f"the {name} slice plan does not fit its ceiling "
                 f"({sum(slices.values())} + {OVERHEAD_RESERVE_SECS} > "
-                f"{DEFAULT_RUN_CEILING_SECS}); rebalance {name}")
+                f"{ceiling}); rebalance {name}")
 
     # The Curriculum authors one wave per budgeted iteration, so a multi-wave
     # run pays the curriculum slice more than once.  Account for it honestly:
