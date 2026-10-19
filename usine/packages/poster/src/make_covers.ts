@@ -31,13 +31,34 @@ const OVERRIDES = `
 .poster.pt .translit { font-size: 28px; }
 .poster.pt .annot { font-size: 38px; }
 .poster.pt .jpat { font-size: 24px; }
+
+/* 3:4（1080×1440）——竖版平台信息流封面的**原生比例**。
+   9:16 全屏封面（.pt）被小红书/抖音的信息流按 3:4 居中裁切时，
+   顶部 12.5% 与底部 12.5% 会掉（标题在顶部 → 被切掉）。
+   所以竖版平台投 3:4 版，视频本体仍是 9:16 全屏。 */
+.poster.t34 { width: 1080px; height: 1440px; padding: 44px 48px 38px; }
+.poster.t34 .grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); margin-top: 20px; min-height: 0; }
+.poster.t34 .title-zh { font-size: 78px; }
+.poster.t34 .title-sub { font-size: 16px; margin-top: 10px; }
+.poster.t34 .legend { gap: 6px; padding-bottom: 4px; }
+.poster.t34 .legend .li { font-size: 13px; gap: 8px; }
+.poster.t34 .legend .li b { font-size: 13.5px; }
+.poster.t34 .dot { width: 13px; height: 13px; }
+.poster.t34 .lang { font-size: 15px; }
+.poster.t34 .lang small { font-size: 12px; }
+.poster.t34 .natv { font-size: 14px; }
+.poster.t34 .translit { font-size: 24px; }
+.poster.t34 .annot { font-size: 30px; }
+.poster.t34 .jpat { font-size: 20px; }
 `
 
 const BOOT = `
 <script>
-// cover variant: ?fmt=P portrait (3x4, default geometry), else landscape (4x3)
+// cover variant: ?fmt=P portrait (3x4 grid, 9:16 page) | ?fmt=T 3:4 page
+// (1080x1440 — 竖版平台信息流封面的原生比例) | else landscape (4x3)
 const FMT = new URLSearchParams(location.search).get("fmt");
-document.querySelector(".poster").classList.add(FMT === "P" ? "pt" : "lc");
+document.querySelector(".poster").classList.add(
+  FMT === "P" ? "pt" : FMT === "T" ? "t34" : "lc");
 </script>
 `
 

@@ -97,6 +97,12 @@ directories.
   child, so give it `min-height: 0` or the initial oversized words stretch
   the rows past the page bottom; verify each variant's grid with
   `feuille poster verify-colors --cols 4 --rows 3` / `--cols 3 --rows 4`.
+- **竖版平台的信息流封面是 3:4，不是 9:16**：小红书/抖音的信息流把竖版封面按
+  3:4（1080×1440）居中裁切，9:16 那张上下各掉 12.5%——标题在顶部就会被切掉。
+  `make-covers` 另备了第三个变体 `?fmt=T`（1080×1440，3×4 网格），
+  竖版平台投它；**视频本体仍是 9:16 全屏**，两者不是一回事。
+  `feuille publish check-plan` 的 `COVER_RATIO` 也是按 3/4 判的：
+  投 9:16 会留下一条「封面与平台原生差 25%，确认裁切框内文字是否在安全区」的提示。
 
 ## Workflow
 
