@@ -71,7 +71,14 @@ function parseArgs(argv: string[]): { a: Args } | { code: number } {
 function cluster(vals: number[]): number[] {
   const out: number[][] = []
   for (const v of vals) {
-    if (out.length && v - out[out.length - 1]![out.length - 1]! <= 2) out[out.length - 1]!.push(v)
+    // ⚠ 下标是「最后一个簇里的最后一个元素」——不是簇的下标。写成
+    // out[out.length-1][out.length-1] 时，只有第 0 簇能合并：第 1 簇起取到
+    // undefined，`v - undefined` = NaN，比较恒 false，于是每个像素各成一簇。
+    // 后果（2x 渲染实测）：1.5px 网格线在 2x 下占 3px → 网格线表多出 2/3 项 →
+    // 格子取样框退化成空区间 → 除首格外全部「NO red/blue/gray/ink pixels」。
+    // Python 原版是 out[-1][-1]（3eb4c82 归流时改错）。
+    const last = out[out.length - 1]!
+    if (out.length && v - last[last.length - 1]! <= 2) last.push(v)
     else out.push([v])
   }
   return out.map((c) => c.reduce((s, v) => s + v, 0) / c.length)

@@ -393,12 +393,15 @@ describe('audit_charset unescapeHtml（html.unescape 口径）', () => {
 // ============ verify_colors ============
 
 /** 合成 3×4 网格海报（300×400）：d9cdb7 网格线 + 每格红/蓝/灰/墨四色块。
- * missingBlueCell：指定格（如 'c0r0'）挖掉蓝块 → 触发 NO blue pixels。 */
-function gridSvg(missingBlueCell?: string): string {
+ * missingBlueCell：指定格（如 'c0r0'）挖掉蓝块 → 触发 NO blue pixels。
+ * lw：网格线宽（1 = 1x 渲染；3 = 2x 渲染的 1.5px 线在 2x 下占 3px）。 */
+function gridSvg(missingBlueCell?: string, lw = 1): string {
   const LINE = '#d9cdb7'
   const p: string[] = [`<rect width="300" height="400" fill="#ffffff"/>`]
-  for (const x of [0, 100, 200, 299]) p.push(`<rect x="${x}" y="0" width="1" height="400" fill="${LINE}"/>`)
-  for (const y of [0, 100, 200, 300, 399]) p.push(`<rect x="0" y="${y}" width="300" height="1" fill="${LINE}"/>`)
+  const xs = lw === 1 ? [0, 100, 200, 299] : [0, 99, 198, 297]
+  const ys = lw === 1 ? [0, 100, 200, 300, 399] : [0, 99, 198, 297, 396]
+  for (const x of xs) p.push(`<rect x="${x}" y="0" width="${lw}" height="400" fill="${LINE}"/>`)
+  for (const y of ys) p.push(`<rect x="0" y="${y}" width="300" height="${lw}" fill="${LINE}"/>`)
   const x0s = [3, 103, 203]
   const y0s = [3, 103, 203, 303]
   for (let r = 0; r < 4; r++) {
@@ -427,6 +430,25 @@ describe('verify_colors：网格探测 + 逐格四色统计', () => {
       expect(await poster.verify_colors.main([png])).toBe(0)
       const out = log.join('\n')
       expect(out).toContain('vertical lines: [0.0, 100.0, 200.0, 299.0]')
+      expect(out).toContain('all cells OK')
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+
+  it('2x 粗网格线（3px）必须并成一簇：格子取样不塌（簇下标回归门）', async () => {
+    // 反向验证：簇合并的下标写错时（out[out.length-1][out.length-1]），只有第 0 簇
+    // 能合并 —— 3px 宽的线会碎成 3 个簇 → 格子取样框退化成空区间 → 除首格外
+    // 全部报「NO … pixels」。1px 线的旧夹具永远测不到这条（每像素自成一簇）。
+    const d = makeTmp()
+    try {
+      const png = join(d, 'poster2x.png')
+      await svgPng(png, gridSvg(undefined, 3))
+      const { log } = captureLog()
+      expect(await poster.verify_colors.main([png])).toBe(0)
+      const out = log.join('\n')
+      expect(out).toContain('vertical lines: [1.0, 100.0, 199.0, 298.0]')
+      expect(out).toContain('horizontal lines: [1.0, 100.0, 199.0, 298.0, 397.0]')
       expect(out).toContain('all cells OK')
     } finally {
       rmSync(d, { recursive: true, force: true })
