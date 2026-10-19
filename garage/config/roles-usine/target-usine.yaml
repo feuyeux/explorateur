@@ -61,8 +61,8 @@ trace_head: 0
 trace_tail: 0
 history_keep_pairs: 80
 keep_chars: 500000
-ctx_high_water: 900000
-ctx_low_water: 500000
+ctx_high_water: 250000
+ctx_low_water: 150000
 fold_batch: 10
 worklog_max_chars: 500000
 

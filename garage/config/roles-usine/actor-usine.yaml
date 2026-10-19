@@ -40,8 +40,8 @@ wall_clock_secs: 500
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
-ctx_high_water: 900000
-ctx_low_water: 500000
+ctx_high_water: 250000
+ctx_low_water: 150000
 doubts_block_pass: true
 look_max_side: 2560
 archive_eyes: false

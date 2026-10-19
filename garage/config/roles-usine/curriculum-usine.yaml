@@ -51,12 +51,21 @@ agent_decided_stop: true
 # cover one worst-case round trip is not a budget, it is a guaranteed abort.
 max_iters: 60
 max_nudges: 25
-wall_clock_secs: 400
+# 500s, not less: bfs8 measured the full authoring arc — one worst-case
+# first response (71s this run; 322s on record) plus 3-5 rounds at 15-75s
+# each.  The kill vector was NOT the arc: it was 128k-token contexts (a
+# recon program dumped 153k chars into history) pushing rounds 5-6 into the
+# gateway's slow tail, where two 120s SDK timeouts per call burned 480s of
+# the slice.  With ctx_high_water at 250k chars the fold fires long before
+# that regime, and the slice covers the arc with room for one timed-out
+# call.  500s >= 322s (worst first response) + 2x60s (tail rounds) + 58s
+# (spare for one SDK retry after a timeout).
+wall_clock_secs: 500
 history_keep_pairs: 80
 keep_chars: 500000
 verifier_model: ""
-ctx_high_water: 900000
-ctx_low_water: 500000
+ctx_high_water: 250000
+ctx_low_water: 150000
 doubts_block_pass: true
 look_max_side: 2560
 archive_eyes: false
@@ -70,6 +79,13 @@ action_discipline: true
 cycle_evidence: true
 system_extra: |
   USINE PRODUCTION-LINE CONTEXT (governs every wave you author):
+  - OUTPUT BUDGET: each of your programs must print LESS THAN 8000 characters.
+    Never cat a whole file or dump a full tree into stdout — the transcript
+    rides your context forever, and a program that prints 150k characters
+    pushed this seat's prompt to 128k tokens in one recorded run, where every
+    later call crawled. List file NAMES with sizes, then read only the one
+  file you actually need, in slices (sed -n '1,80p'). Recon is done in ONE
+  program; after it you author.
   - Author from the TARGET MENU below. Do NOT sweep the repository first:
     your slice is 180s, and a full read of packages/core/src (456 KB, 39
     files) plus skills/ (589 KB, 71 files) cannot fit inside it. Measured

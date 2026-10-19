@@ -1650,6 +1650,15 @@ def main(argv: list | None = None) -> int:
     # per-slug mapping — waves map every needed slug fail-closed) must also
     # read the unified config, never théâtre/.env or any other source.
     os.environ.setdefault("RSIAGENT_ENV_FILE", str(Path(args.llm_config)))
+    # bfs8 postmortem: a 128k-token context (one recon program printed 153k
+    # characters) pushed every later round into the gateway's slow tail, where
+    # the SDK's default 120s read timeout killed LEGITIMATE in-flight
+    # responses twice per call, burning 480s of a 400s slice on retries.  180s
+    # covers the slow tail without enabling a hung-provider stall (the
+    # engine's own 4-attempt transport loop and the seat wall clock still
+    # bound the damage).  setdefault keeps an operator's explicit value
+    # authoritative.
+    os.environ.setdefault("RSIAGENT_LLM_TIMEOUT_SECS", "180")
 
     gate_argv = tuple(str(item) for item in args.gate_argv)
     merge_config = wave_merge.UsineMergeConfig(

@@ -39,8 +39,8 @@ cycle_evidence: true
 # the one that accumulates the most evidence per segment.
 history_keep_pairs: 80
 keep_chars: 500000
-ctx_high_water: 900000
-ctx_low_water: 500000
+ctx_high_water: 250000
+ctx_low_water: 150000
 # Bounded trace: the original 0/0 meant "keep the whole conversation", which
 # cannot coexist with folding above — an unbounded trace has nowhere to fold
 # TO.  The Verifier still sees its findings and verdicts (history_keep_pairs

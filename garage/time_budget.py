@@ -89,15 +89,28 @@ DEFAULT_RUN_CEILING_SECS = 1500
 # plan to 1350s — 150s of slack under the 1500s ceiling.  A default plan that
 # does not FIT would fail closed on every run, so plan_budget asserts it.
 #
+# bfs8 postmortem (2026-10-19 18:43): the 400s curriculum slice was spent as
+# 71s + 58s + 74s + 17s + 151s + 358s = 728s across six iterations.  The wave
+# was fully authored at iteration 6 — the last model answer CONTAINED the
+# publish program — but iteration 5 and 6 each burned one or two 120s SDK
+# timeouts because iteration 2's recon program had dumped 153,675 characters
+# into the history, pushing the prompt to 128k tokens and every later call
+# into the gateway's slow tail.  Two amplifiers, two fixes: fold the context
+# BEFORE it reaches that regime (ctx_high_water 900k -> 250k chars across all
+# seats) and stop killing legitimate 128k-context responses with a 120s SDK
+# timeout (RSIAGENT_LLM_TIMEOUT_SECS=180, an engine env knob, set in
+# run_usine's launcher path).  Without the timeout storm the same six calls
+# took ~370s of gateway time — inside the slice.
+#
 # Sizing is from MEASURED latency, not taste.  Every seat slice must cover at
 # least one full worst-case round trip plus the work that follows it — the
 # runs that died were all killed by a slice expiring before the model had
 # answered once, never by the work being too large.
 DEFAULT_SLICES = {
-    "curriculum": 400,
-    "actor": 500,
+    "curriculum": 500,
+    "actor": 450,
     "verifier": 200,
-    "merge": 150,
+    "merge": 100,
 }
 
 # Safety margin reserved for adapter overhead the engine does not bill to a

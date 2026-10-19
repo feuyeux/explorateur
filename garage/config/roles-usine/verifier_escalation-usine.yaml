@@ -41,8 +41,8 @@ cycle_evidence: true
 # window is the same HTTP 400 that ended wave1r.
 history_keep_pairs: 80
 keep_chars: 500000
-ctx_high_water: 900000
-ctx_low_water: 500000
+ctx_high_water: 250000
+ctx_low_water: 150000
 # Bounded trace for the same reason as the main Verifier seat: an unbounded
 # trace leaves the fold nowhere to land.
 trace_head: 0
