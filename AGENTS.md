@@ -31,6 +31,13 @@
 - **运行方式**：feuille 已全量 TS 化（P0–P8 迁移完成，P7 已把 uv/Python 工程物清场退役）——运行与门禁一律走 `pnpm`（Node ≥24）：`pnpm verify` 全量门禁、`pnpm feuille …` CLI；bgm-bed 的 Lyria 客户端（`@google/genai`）随 `@feuille/bgm` 包常装，无需另配 Python 环境。skills 资产里残留的历史 Python 示例脚本只作参考，不是运行路径。
 - **发现与引用**：运行机器 `~/.agents/skills/` 只放指向这里的**全局软链**，不存实体（见 usine/AGENTS.md「SKILL 资产」条）。当前只有部分 skill 做了软链——若会话技能列表里没有某个 skill，**直接读本仓库 `usine/skills/<name>/SKILL.md` 照常使用**，不依赖软链存在。
 
+## 内容产物落位（硬规则）
+
+- **生成出来的内容项目只允许两处**：`usine/skills/<skill>/assets/`（可复用资产——模板、示例、夹具，随 git 版本化）与 `usine/examples/<项目名>/`（内容项目产物——成片、封面、12 语种文案，**不入库**，由根 `.gitignore` 的 `examples/` 兜底）。**没有第三处。**
+- 仓库根与 `usine/` 顶层**不再长项目目录**。反例：`chess-12lang/`（12 语种国际象棋系列）曾直接堆在仓库根并被入库——222 个文件、99 个 LFS 对象共 129.5 MB。它的内容和产物都没毛病，**位置错了**。
+- 判断口径：这个项目**以后还会被别的项目复用**吗？会 → 抽成 skill 资产（进 `skills/`）；不会，只是这一轮的内容 → 进 `examples/`。拿不准按后者走，别进索引。
+- 机检：`usine/packages/gate/test/layout.test.ts` 对仓库根目录做白名单，多一个就 FAIL，失败信息直接给出这两条落位路径。
+
 ## 与全局同名能力的关系
 
 - **BGM / 配乐**：本工作区一律走 `usine/skills/bgm-bed`——底床生成（Google Lyria，免费层实测线；MiniMax 音乐 API 官方 2026-08-20 日落、两区不收新用户，Suno/Udio 无官方 API，三条死线已删**别再接回**）+ 采样率/频段自检 + 实测反推 `gain`。key 统一配在 `explorateur/config/.env`（样例见 `config/env.sample`；环境变量优先于文件，文件被根 `.gitignore` 兜底永不进仓库）。全局 `music-generation` skill（`~/.agents/skills/`，**非本仓库资产**）的封装能力**已并入 bgm-bed**：它不量频段、不反推床位、没有验收判据，在本工程里已被取代，**不要再往它路由**。

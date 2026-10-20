@@ -55,6 +55,11 @@ examples/
 # 任意内容均可由 one-page-poster / karaoke-video skill 管线一键再生，整个目录不入库
 one-cup-tea-poster/
 one-unit-money-poster/
+# 内容项目落位：只允许 usine/skills/<skill>/assets/ 与 usine/examples/<项目名>/
+# （AGENTS.md「内容产物落位」）。下面这条是已取消追踪的回归问题——
+# chess-12lang 曾堆在仓库根并入库（222 文件 / 99 个 LFS 对象 129.5 MB）；
+# 取消追踪后内容只在 git 历史与 LFS 远端，根目录若再出现同名目录不再进索引
+/chess-12lang/
 # firecrawl 抓取缓存
 .firecrawl/
 # textlayer.viewport_deficit() 写出的视口探针：workdir 缺省时落在 cwd，
