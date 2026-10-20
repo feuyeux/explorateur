@@ -1,0 +1,182 @@
+[
+ {
+  "id": "ep01-white-queen",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep02-black-queen",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep03-white-king",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep04-black-king",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep05-white-bishop",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep06-black-bishop",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep07-white-knight",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep08-black-knight",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep09-white-rook",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep10-black-rook",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep11-white-pawn",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ },
+ {
+  "id": "ep12-black-pawn",
+  "scanBlank": 0,
+  "syncs": [
+   {
+    "f": "portrait",
+    "code": 0
+   },
+   {
+    "f": "landscape",
+    "code": 0
+   }
+  ],
+  "ok": true
+ }
+]

@@ -1,0 +1,11 @@
+{
+  "name": "chess-12lang",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "国际象棋十二子 · 十二语种 —— 12 支短视频系列（feuille/usine 产线）",
+  "scripts": {
+    "fonts": "node tools/gen-episodes.mjs fonts",
+    "episodes": "node tools/gen-episodes.mjs episodes"
+  }
+}
