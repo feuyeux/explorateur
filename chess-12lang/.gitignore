@@ -23,10 +23,15 @@ episodes/*/concat_a.txt
 # 字体子集（fonts.json 是规格；fonts.css 由 fetch-fonts 联网重生成，930KB base64）
 fonts.css
 
-# 诊断脚本的临时产物
+# 诊断脚本的临时产物（.mts/.ts 都要盖住——只写 .mts 时 dbg-boundaries.ts 会漏进索引）
 tools/dbg-*.mts
+tools/dbg-*.ts
 episodes/*/probe*.png
+episodes/*/probe*.html
 episodes/*/dbg*.png
+episodes/*/dbg*.png.probe.html
+episodes/*/_vp_probe.html
+episodes/*/d[0-9].png
 episodes/*/m[0-9].png
 episodes/*/r[0-9].png
 episodes/*/x[0-9].png
