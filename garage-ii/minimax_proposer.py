@@ -456,7 +456,11 @@ class MinimaxProposer:
                         continue
                     r = Reply(
                         label=label,
-                        text=f"<notes>\n{notes or 'KEEP_BASE：证据不支持任何改动。'}\n</notes>",
+                        text=(
+                            "<notes>\nKEEP_BASE —— "
+                            + (notes.strip() or "证据不支持任何改动。")
+                            + "\n</notes>"
+                        ),
                         ok=True,
                         wall_s=round(time.time() - t0, 1),
                         attempts=attempt,

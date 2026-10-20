@@ -460,12 +460,22 @@ def _keep_base_ok() -> None:
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802
-            body = b'{"content":[{"type":"text","text":"KEEP_BASE\\n<<<NOTES\\n证据里没有可追溯的失败。\\n>>>NOTES"}]}'
+            payload = json.dumps(
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "KEEP_BASE\n<<<NOTES\n证据里没有可追溯的失败。\n>>>NOTES",
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "application/json")
-            self.send_header("content-length", str(len(body)))
+            self.send_header("content-length", str(len(payload)))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(payload)
 
         def log_message(self, *a):
             return
