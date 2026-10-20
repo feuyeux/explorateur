@@ -496,7 +496,7 @@ export function videoGenerationTool(ctx: unknown): ToolDefinition {
       }
       const agent = (exec as { agent?: unknown }).agent
       if (agent === undefined) {
-        return { status: 'asked-unavailable', message: '无 agent 执行上下文，approval 不可请求——fail closed，未提交。\n' + reason }
+        return { status: 'asked-unavailable', message: 'usine_video_generation 的 submit 已拒绝——本次调用没有 agent 执行上下文，所需的 approval 审批无法请求（审批卡需要它才能摆出）；fail closed，未提交。要过这道门：在提供 agent 执行上下文的宿主里重新发起本次调用，审批卡会再次摆出，人工点头（allowed-once）后才提交。注意：每一次消耗额度的 submit 都要单独一次人工点头，此前给过的许可（例如「你直接跑」）不会免除之后这次 approval。\n' + reason }
       }
       let outcome: string
       try {
@@ -509,7 +509,7 @@ export function videoGenerationTool(ctx: unknown): ToolDefinition {
           signal: exec.signal,
         })
       } catch (e) {
-        return { status: 'asked-unavailable', message: `审批请求失败（${e instanceof Error ? e.message : String(e)}）——fail closed，未提交。\n` + reason }
+        return { status: 'asked-unavailable', message: `审批请求失败（${e instanceof Error ? e.message : String(e)}）——usine_video_generation 的 submit 所需的 approval 审批没有拿到；fail closed，未提交。要过这道门：在 approval 服务可用、并且提供 agent 执行上下文的宿主里重新发起本次调用，审批卡会再次摆出，人工点头（allowed-once）后才提交。注意：每一次消耗额度的 submit 都要单独一次人工点头，此前给过的许可（例如「你直接跑」）不会免除之后这次 approval。\n` + reason }
       }
       if (outcome !== 'allowed-once') {
         // rejected / cancelled / unavailable 一视同仁：停在这里，不提交、不重试、不换参数试探。

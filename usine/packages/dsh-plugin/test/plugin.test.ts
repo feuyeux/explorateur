@@ -33,7 +33,7 @@ interface ApprovalReq {
 }
 
 /** 最小假 Cordis ctx：effect + tools.register + systemPrompt.section + 可选 approval。 */
-function fakeCtx(approvalOutcome?: string) {
+function fakeCtx(approvalOutcome?: string, approvalError?: string) {
   const registered: Registered[] = []
   const sections: SectionRecord[] = []
   const approvalRequests: ApprovalReq[] = []
@@ -72,7 +72,9 @@ function fakeCtx(approvalOutcome?: string) {
           approval: {
             async request(req: ApprovalReq) {
               approvalRequests.push(req)
-              return approvalOutcome
+              // 分支3 夹具：approval.request 抛错（dynamic error 必须照样被替换进拒绝语）
+              if (approvalError !== undefined) throw new Error(approvalError)
+              return approvalOutcome as string
             },
           },
         }),
@@ -263,12 +265,58 @@ describe("usine_video_generation：额度红线由机制承载", () => {
     expect(r.message).toContain("未提交")
   })
 
-  it("无 agent 执行上下文 → fail closed", async () => {
+  // 钉版 refusal-audit.md 分支2（无 agent 执行上下文）：status 沿用 asked-unavailable，
+  // 拒绝语三点全中——(a) 字面工具名 (b) 点名 approval (c) 授予/重试路径；断言全打在运行时响应对象上
+  // （esbuild 把 CJK 编成 \uXXXX，dist 里 grep 中文永远空）。
+  it("无 agent 执行上下文 → fail closed：asked-unavailable，拒绝语点名工具 + approval + 重试路径（refusal-audit 分支2 钉版）", async () => {
     const ctx = fakeCtx("allowed-once")
     ;(await loadPlugin()).apply(ctx)
-    const r = (await tool(ctx, "usine_video_generation").execute(submit(), exec(undefined))) as { status: string }
-    expect(r.status).toBe("asked-unavailable")
-    expect(ctx.approvalRequests).toHaveLength(0)
+    const r = (await withoutMcodePath(() =>
+      tool(ctx, "usine_video_generation").execute(submit(), exec(undefined)))) as { status: string; message: string }
+    expect(r.status).toBe("asked-unavailable") // 分支2 status 与改前一致
+    expect(ctx.approvalRequests).toHaveLength(0) // 没上下文就不问审批
+    // (a) 点名被拒工具
+    expect(r.message).toContain("usine_video_generation")
+    // (b) 点名缺席的 approval 审批
+    expect(r.message).toContain("approval")
+    expect(r.message).toContain("没有 agent 执行上下文")
+    // (c) 授予/重试路径
+    expect(r.message).toContain("重新发起本次调用")
+    expect(r.message).toContain("人工点头（allowed-once）")
+    // fail closed 原语 + 单次点头语义（此前许可不免除之后 approval）
+    expect(r.message).toContain("fail closed")
+    expect(r.message).toContain("未提交")
+    expect(r.message).toContain("「你直接跑」")
+    // 审批卡 reason 照旧跟随（composition 未变）
+    expect(r.message).toContain("[视频生成提交审批]")
+    // 失败形状不变：什么都没提交、没排队
+    expect(r).not.toHaveProperty("task_id")
+    expect(r).not.toHaveProperty("output")
+  })
+
+  // 钉版 refusal-audit.md 分支3（approval.request 抛错）：status 沿用 asked-unavailable，
+  // 动态错误文本必须照样替换进拒绝语；拒绝语同样三点全中。
+  it("approval.request 抛错 → fail closed：asked-unavailable，动态错误照样替换 + 拒绝语三点全中（refusal-audit 分支3 钉版）", async () => {
+    const ctx = fakeCtx("allowed-once", "approval service offline (code 503)")
+    ;(await loadPlugin()).apply(ctx)
+    const r = (await withoutMcodePath(() =>
+      tool(ctx, "usine_video_generation").execute(submit(), exec({ id: "a" })))) as { status: string; message: string }
+    expect(ctx.approvalRequests).toHaveLength(1) // 审批被请求过一次，抛错在宿主侧
+    expect(r.status).toBe("asked-unavailable") // 分支3 status 与改前一致
+    // 动态错误替换未被改写掉
+    expect(r.message).toContain("审批请求失败（approval service offline (code 503)）")
+    // (a) 工具名 (b) approval (c) 授予/重试路径
+    expect(r.message).toContain("usine_video_generation")
+    expect(r.message).toContain("approval 审批没有拿到")
+    expect(r.message).toContain("重新发起本次调用")
+    expect(r.message).toContain("人工点头（allowed-once）")
+    expect(r.message).toContain("fail closed")
+    expect(r.message).toContain("未提交")
+    expect(r.message).toContain("「你直接跑」")
+    expect(r.message).toContain("[视频生成提交审批]")
+    // 失败形状不变：未提交、未排队
+    expect(r).not.toHaveProperty("task_id")
+    expect(r).not.toHaveProperty("output")
   })
 
   it("审批卡展示清单齐：提示词/画幅/时长/分辨率/预估消耗；Hailuo 标注套餐额度不烧积分", async () => {
