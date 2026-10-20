@@ -1914,6 +1914,16 @@ def _parser() -> argparse.ArgumentParser:
               "flag the candidate goes through the same delta, drift, gate, "
               "commit and tag machinery as a breadth wave — the gate is "
               "re-run against the REAL tree before it lands there."))
+    parser.add_argument(
+        "--merge-tag-prefix", default="theatre/wave",
+        help=("tag namespace for merged candidates: the wave tag is "
+              "<prefix>-<wave_index>.  Wave indexes are PER LINEAGE (a "
+              "fresh run starts at 1), so a second lineage collides with "
+              "the first at theatre/wave-1 — the existing tag wins and "
+              "the new commit is left untagged, which is exactly the "
+              "'nobody can tell which change came from where' failure.  "
+              "Give each lineage its own prefix when running more than "
+              "once (e.g. --merge-tag-prefix theatre/bfs17)."))
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument(
         "--preflight", action="store_true",
@@ -1955,6 +1965,11 @@ def main(argv: list | None = None) -> int:
                 f"--memory-seed holds no files: {memory_seed}")
     memory_seed_info = (_inspect_memory_seed(memory_seed)
                         if memory_seed is not None else None)
+    tag_prefix = (args.merge_tag_prefix or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9/_-]*", tag_prefix):
+        raise RuntimeError(
+            f"--merge-tag-prefix must be a nonempty tag path of "
+            f"[A-Za-z0-9/_-], got {args.merge_tag_prefix!r}")
     checkpoints = _parse_checkpoints(
         args.checkpoints if args.checkpoints is not None
         else _default_checkpoints(args.project_budget),
@@ -2055,7 +2070,8 @@ def main(argv: list | None = None) -> int:
     gate_argv = tuple(str(item) for item in args.gate_argv)
     merge_config = wave_merge.UsineMergeConfig(
         usine_dir=str(usine_dir), gate_argv=gate_argv,
-        gate_timeout=float(args.gate_timeout))
+        gate_timeout=float(args.gate_timeout),
+        tag_prefix=tag_prefix)
     # Fail closed on a dirty/foreign usine repository before anything else.
     # Phase 1 MERGES into that repository, so it takes the strict merge-safety
     # gate.  Phase 2 (the DRS) never merges — its serial core emits
