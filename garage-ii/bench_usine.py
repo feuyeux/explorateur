@@ -443,25 +443,33 @@ _READONLY_CMD = re.compile(
 #: harness 自带的脚本是**正当**路径（c7 那一格就是它），不算绕路。
 _HARNESS_SCRIPT = re.compile(r"harness_scripts/|scripts/[\w.-]+\.py")
 
-#: **用 shell 自己干产线机器步骤**的形态：**直接调浏览器**（渲染 / 截图 / DOM dump）。
+#: **用 shell 自己干产线机器步骤**的形态：**直接调浏览器**（渲染 / 截图 / 出 PDF）。
 #:
-#: 依据是 harness 自己早就在写的两条纪律，不是新加的规矩：
+#: 依据是 harness 自己早就在写的两处纪律，不是新加的规矩：
 #:
-#: - 红线第 5 条：「拿不准就查工具面或技能，**不要用 shell 绕开工具**——工具面外的
-#:   路径没有验收口径」；
-#: - 工具指引：「工具都是进程内直调 @feuille/* 包，**没有 subprocess 桥**」，
-#:   以及「绕开工具面做出来的东西，验收时一律不算过」。
+#: - **系统提示第 5 条**（`systemprompt.md:14`）：「拿不准就查工具面或技能，
+#:   **不要用 shell 绕开工具**——工具面外的路径没有验收口径」；
+#: - **工具指引·通用口径**（`tool_descriptions/tool_guidance.md:32-34`）：「工具都是
+#:   进程内直调 @feuille/* 包，**没有 subprocess 桥**」，以及「工具外的路径没有
+#:   验收口径。**绕开工具面做出来的东西，验收时一律不算过**」。
 #:
-#: 2026-10-20 实测：基准智能体在海报格里调了 **6 次裸 Chrome**（DOM dump 与 A4 PDF），
-#: 而 `usine_poster render-page` **就在工具面上**——那条路它没走。
-#: 旧判据只看「调过 `usine_poster` 没有」，于是这种 rollout **照样满分**：
-#: 那是判据太松，不是智能体守住了纪律（与前两次收紧判据同一类问题）。
+#: 注意是**「做出来的东西」**——判据抓的是**产物出自工具面之外**，不是「命令行里
+#: 出现过浏览器」。这一句的分量在 2026-10-20 变成了本条判据的**分水岭**：
 #:
-#: **只抓「直接调浏览器」这一种，不抓 `feuille poster …`**（2026-10-20 verifier 实测
+#: 基准 harness **自相矛盾**：系统提示禁止 shell 绕开工具面，而
+#: `skills/one-page-poster/SKILL.md` 第 6 步**亲手教**智能体跑
+#: `google-chrome --headless --dump-dom "file://…?verify=1" | feuille poster fit-diag`。
+#: 那一步是**量**（DOM 文本喂给工具面的 fit-diag，出图仍然走第 5 步
+#: `feuille poster render`），产物并不出自 shell。
+#:
+#: 2026-10-20 实测：基准智能体在海报格里调了 **6 次裸 Chrome**——其中
+#: `--screenshot`（自己出 PNG）与 `--print-to-pdf`（自己出 A4 PDF）**是产线步骤**
+#: （工具面给的正是 `feuille poster render` / `render-page`），这两族才是绕行。
+#: 旧判据把**任何** `--dump-dom` 也算绕行，于是**照手册做反而被判死**。
+#:
+#: **只抓「自己干产线那一步」，不抓 `feuille poster …`**（2026-10-20 verifier 实测
 #: 指出的一处误伤）：技能手册自己就写着「进程内直跑 `feuille poster <子命令>`」，
-#: 照手册做的智能体不该被判成绕路。而「手工调浏览器做 DOM dump / 出 PDF」是手册里
-#: **没有**的路子（手册给的是 `feuille poster render-page`），所以那一族抓得住、
-#: 不冤枉人。
+#: 照手册做的智能体不该被判成绕路。
 #: 只读探查（`ls` / `grep` 一类）也**不算**绕行——路径里带个 "Chrome" 字样而已。
 #:
 #: **2026-10-20 再收一次：只抓「真的执行了浏览器」，不抓「找浏览器」。**
@@ -469,15 +477,20 @@ _HARNESS_SCRIPT = re.compile(r"harness_scripts/|scripts/[\w.-]+\.py")
 #: 准备动作（`command -v chrome` / `ls "/Applications/Google Chrome.app"`）也被
 #: 算成绕行。那是**过火**：找浏览器不等于用浏览器干产线的活。
 #: 而它过火的后果不是多扣一分那么简单——**演化臂会因此被判失败**：演化把
-#: 真正的手搓渲染（`--dump-dom` / `--print-to-pdf`）改掉之后，只要还留着
-#: 「找一下浏览器在哪」这一步，判据照样判它绕行，于是**改进被抹平**，
-#: 读数变成**假阴性**。
+#: 真正的手搓渲染改掉之后，只要还留着「找一下浏览器在哪」这一步，判据照样判它
+#: 绕行，于是**改进被抹平**，读数变成**假阴性**。
 #:
-#: 所以现在分两路：
-#: 1. 出现浏览器的**驱动开关**（`--headless` / `--dump-dom` / `--print-to-pdf` /
-#:    `--screenshot` / `headless_shell`）→ 抓；
-#: 2. 出现「chrome 味的词**后面跟着命令行开关**」→ 抓（那是**执行**它）；
-#:    而「chrome 味的词后面跟的是分号、右括号、引号、别的词」→ 只是**提到**它，不抓。
+#: **2026-10-20 第三次（就是本轮读数打上来的那版）：判据必须贴着对象自己的文件。**
+#: 旧实现按字面扫 `--headless|--dump-dom|--print-to-pdf|--screenshot`，
+#: 于是把两族**不是绕行**的东西一起打进去：
+#:
+#: 1. **手册钦定的那一步**（`--dump-dom` → `feuille poster fit-diag`）：手册教的、
+#:    纯测量、产物仍出自工具面；
+#: 2. **只「提到」浏览器路径的命令**（`find … .chrome-profile -delete`、
+#:    `ls "/Applications/Google Chrome.app/…"`）：浏览器根本没被执行。
+#:
+#: 现在改成**按「浏览器在不在程序位上」判定**（在程序位 = 真的在执行它），
+#: 再按「产线开关」与「手册钦定形态」分流。
 _TOOL_FACE_BYPASS = re.compile(
     r"(--headless|--dump-dom|--print-to-pdf|--screenshot|headless[_-]shell)",
     re.I,
@@ -487,10 +500,70 @@ _CHROME_WORD = re.compile(r"""[^"'\s()]*\b(?:chrome|chromium)\b[^"'\s()]*""", re
 #: 它的后面**跟着命令行开关** → 这是在**执行**浏览器；跟着别的 → 只是提到它。
 _CHROME_WORD_THEN_FLAG = re.compile(r"""(?:chrome|chromium)[^"'\s()]*["']?\s+-{1,2}[A-Za-z]""", re.I)
 
+#: **浏览器族名**——判「程序词是不是浏览器」。Edge/Brave 一并算：工具面自己也是
+#: 按族名解析浏览器（`platform.BROWSERS`）。
+_BROWSER_BIN = re.compile(r"(chrome|chromium|edge|brave|msedge)", re.I)
+#: **产线开关**：命中 = 智能体自己把「出图 / 出 PDF」这一步干了。
+#: 工具面给的正是这两件（`feuille poster render` / `render-page`）。
+_BROWSER_ARTIFACT_FLAG = re.compile(r"(--screenshot|--print-to-pdf)", re.I)
+#: **手册钦定的浏览器形态**：`--headless --dump-dom` → 喂给 `feuille poster fit-diag`
+#: 做逐格测量。产物（PNG）仍然出自第 5 步的 `feuille poster render`。
+_BROWSER_DUMP_DOM_FLAG = re.compile(r"--dump-dom\b", re.I)
+#: **探查开关**：只问「浏览器在不在 / 什么版本」，不干活。
+_BROWSER_PROBE_FLAG = re.compile(r"(--version|--help)\b", re.I)
+#: **程序位前面可能出现的包装器**——`timeout 60 <浏览器>` 里浏览器才是程序。
+_CMD_WRAPPERS = frozenset(
+    {"timeout", "env", "nice", "nohup", "xargs", "sudo", "command", "exec", "time", "stdbuf"}
+)
+#: 前置的环境变量赋值（`CHROME_BIN=… <程序>`）——它不是程序词。
+_ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
 
 #: 轨迹渲染会把动作行截断（`args_trunc=400`），截断标记长这样。
 #: 它是**我们的**渲染标记，不是智能体的行为——判据必须把它摘掉。
 _RENDER_TRUNC = re.compile(r"…\(\+\d+ chars — render truncation\)")
+
+#: heredoc 起头：`<<'EOF'`、`<<EOF`、`<<-"EOF"` 一类。
+_HEREDOC_START = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def _strip_heredocs(cmd: str) -> str:
+    """把 **heredoc 正文**从命令里剥掉——它永远不被 shell 执行。
+
+    2026-10-20 实测踩到两处误判，都是因为把 heredoc 正文当成了一行命令：
+
+    - `cat > chrome-wrap.sh <<'EOF'` 里有一行 `exec "/Applications/…/Microsoft Edge"`，
+      于是判据认为「浏览器在程序位上被执行了」——**那只是在写一个脚本**；
+    - 更何况里面还可能有 `--screenshot` 之类的字样。
+
+    实测影响：v5 演化臂 r2 的 `no_tool_face_bypass` **唯一**证据就是这种 heredoc 正文，
+    而 r2 的那次执行只是 `CHROME_BIN=$PWD/browser.sh feuille poster render …`
+    ——**工具面自己调的浏览器，正当**。
+
+    语义上无争议：正文是数据，不是命令。剥掉它之后判据量的是「真的被执行了什么」。
+
+    **必须幂等**（2026-10-20 自检抓到）：起头行留着、正文丢掉，如果起头行原样保留
+    `<<'EOF'`，第二次调用就会找不到终止符而**一直剥到结尾**——把后面的真命令全吃掉，
+    变成假阴性。所以起头行只留重定向、把开块算子摘掉；终止符及其后的正文本来就不留。
+    """
+    lines = (cmd or "").splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # 一行上可能挂多个 heredoc（`a <<'X' <<'Y'`），正文按顺序排在后面。
+        marks = [m.group(2) for m in _HEREDOC_START.finditer(line)]
+        if not marks:
+            out.append(line)
+            i += 1
+            continue
+        out.append(_HEREDOC_START.sub("", line))
+        i += 1
+        for marker in marks:
+            while i < len(lines) and lines[i].strip() != marker:
+                i += 1
+            i += 1  # 跳过终止符本身
+    return "\n".join(out)
 
 
 def _shell_commands(actions: list[str]) -> list[tuple[str, str]]:
@@ -512,7 +585,9 @@ def _shell_commands(actions: list[str]) -> list[tuple[str, str]]:
             cmd = _RENDER_TRUNC.sub("…", cmd)
         else:
             cmd = a
-        out.append((a, cmd))
+        # **heredoc 正文不是命令**：在唯一的收口处剥掉，所有判据看到同一份
+        # 「真正被执行的东西」（详见 `_strip_heredocs` 的实测记录）。
+        out.append((a, _strip_heredocs(cmd)))
     return out
 
 
@@ -530,32 +605,181 @@ def _is_skill_asset(path: Path, workspace: Path) -> bool:
     return "skills" in parts[:2] or ".dsh" in parts[:1]
 
 
-def _is_browser_exec(cmd: str) -> bool:
-    """这条命令**真的在执行浏览器**吗（而不是「提到浏览器」）。
+def _split_shell_segments(cmd: str) -> list[str]:
+    """按 shell 操作符切段——**引号里的操作符不算**。
 
-    判据抓的是红线第 5 条：**在 shell 里自己干产线机器步骤**。手动调浏览器
-    做 DOM dump / 出 PDF 就是那种活——手册给的是 `feuille poster render-page`。
-
-    但「**找**浏览器」是准备动作，不是绕行：`command -v chrome`、
-    `ls "/Applications/Google Chrome.app"` 只是把可执行文件找出来。放过它有两个
-    理由：一是它确实不是绕过工具面干产线的活；二是放过它，演化臂才不会被
-    「我顺手找了一下浏览器」判死（**假阴性**）。
-
-    两路命中都算「在执行浏览器」：
-    1. 出现浏览器的**驱动开关**（`--headless` / `--dump-dom` / `--print-to-pdf`
-       / `--screenshot` / `headless_shell`）——这些开关只可能出现在执行里；
-    2. 「chrome 味的词」后面**跟着命令行开关**（`"$CHROME" --headless=new`）。
-       后面跟的是分号、右括号、引号或别的词 → 只是**提到**它，不算。
+    `grep -n 'a|b' f` 里那个 `|` 不是管道；`python3 -c "a; b"` 里那个 `;`
+    不是命令分隔符。切错的后果是**假阳性**：切出来的半截会落进下一段，
+    程序词变成 `edge"` / `reportlab; …` 这种碎片，于是「浏览器族名」命中、
+    判据判成绕行（2026-10-20 实测踩到过）。
     """
-    cmd = _RENDER_TRUNC.sub("…", cmd or "")
-    if _TOOL_FACE_BYPASS.search(cmd):
-        return True
-    return bool(_CHROME_WORD_THEN_FLAG.search(cmd))
+    segs: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if quote:
+            buf.append(ch)
+            if ch == "\\" and quote == '"' and i + 1 < n:
+                buf.append(cmd[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            buf.append(ch)
+            buf.append(cmd[i + 1])
+            i += 2
+            continue
+        if cmd.startswith("&&", i) or cmd.startswith("||", i):
+            segs.append("".join(buf))
+            buf = []
+            i += 2
+            continue
+        if ch in ";\n|":
+            segs.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    segs.append("".join(buf))
+    return [s.strip() for s in segs if s.strip()]
+
+
+def _split_words(text: str) -> list[str]:
+    """引号感知的分词——`"/Applications/Google Chrome.app/…/Google Chrome"`
+    是**一个**词，不能按空格切开（切开了 basename 就对不上）。"""
+    words: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if quote:
+            if ch == "\\" and quote == '"' and i + 1 < n:
+                buf.append(text[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+                i += 1
+                continue
+            buf.append(ch)
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            i += 1
+            continue
+        if ch.isspace():
+            if buf:
+                words.append("".join(buf))
+                buf = []
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            buf.append(text[i + 1])
+            i += 2
+            continue
+        buf.append(ch)
+        i += 1
+    if buf:
+        words.append("".join(buf))
+    return words
+
+
+def _program_word(segment: str) -> str:
+    """这一段 shell 里**真正被执行的程序**是谁。
+
+    跳过前置的环境变量赋值（`CHROME_BIN=… <程序>`）与包装器（`timeout 60 <程序>`）；
+    返回第一个实词。空段返回空串。
+    """
+    toks = _split_words(segment)
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        if _ENV_ASSIGN.match(tok):
+            i += 1
+            continue
+        if tok in _CMD_WRAPPERS:
+            i += 1
+            # 跳过包装器的数值参数（`timeout 60`）。
+            while i < len(toks) and re.match(r"^\d+(\.\d+)?[smhd]?$", toks[i]):
+                i += 1
+            continue
+        return tok
+    return ""
+
+
+def _browser_bypass_reason(cmd: str) -> str | None:
+    """这条命令里浏览器被**执行**了吗？执行了的话，是**绕开工具面**吗？
+
+    返回 `"bypass"`（绕行）/ `None`（不算绕行）。判据的依据是对象自己的文件：
+
+    - **绕行**：浏览器在**程序位**上被执行，且带**产线开关**
+      （`--screenshot` / `--print-to-pdf`）——自己把「出图 / 出 PDF」干了，
+      而工具面给的正是 `feuille poster render` / `render-page`；
+    - **不算**：手册钦定的测量形态（`--dump-dom` → `feuille poster fit-diag`，
+      产物仍出自工具面）、探查（`--version` / `--help`）、以及**浏览器根本没被
+      执行**的命令（`find … .chrome-profile -delete`、`ls "/Applications/…"`）。
+
+    **「量」与「产」的分界**：纪律原文是「**绕开工具面做出来的东西**，验收时
+    一律不算过」——它管的是**产物**。DOM dump 是量（喂给工具面的 fit-diag），
+    出图/出 PDF 是产（替代 `feuille poster render`）。
+
+    **heredoc 正文不算执行**：`cat > wrap.sh <<'EOF' … exec <浏览器> --screenshot … EOF`
+    只是在写脚本，`_strip_heredocs` 幂等——这里再剥一次是防御（调用点没走
+    `_shell_commands` 时也不会把正文当执行），不改变任何已剥过的结论。
+    """
+    cmd = _strip_heredocs(_RENDER_TRUNC.sub("…", cmd or ""))
+    for seg in _split_shell_segments(cmd):
+        prog = _program_word(seg)
+        if not prog:
+            continue
+        # **程序位上**是不是浏览器？只看 basename 就够（路径里的 "Chrome.app" 会骗人）。
+        if not _BROWSER_BIN.search(prog.rsplit("/", 1)[-1]):
+            continue
+        if _BROWSER_ARTIFACT_FLAG.search(seg):
+            return "bypass"
+        if _BROWSER_DUMP_DOM_FLAG.search(seg):
+            # 手册第 6 步钦定的形态：量，不是产。
+            continue
+        if _BROWSER_PROBE_FLAG.search(seg) and not _TOOL_FACE_BYPASS.search(seg):
+            # 「找浏览器」是准备动作，不是用浏览器干产线的活。
+            continue
+        return "bypass"
+    return None
+
+
+def _is_browser_exec(cmd: str) -> bool:
+    """这条命令**真的在执行浏览器并自己干了产线那一步**吗。
+
+    判据抓的是「绕开工具面做出来的东西」：手动调浏览器**出图 / 出 PDF**就是那种活。
+    手册钦定的 `--dump-dom` 测量形态、探查、以及只提到浏览器路径的命令**都不算**。
+
+    2026-10-20 实测修掉的误伤（两类）：
+    - 手册第 6 步教的 `google-chrome --headless --dump-dom … | feuille poster fit-diag`
+      ——照手册做却被判死；
+    - `find … .chrome-profile -delete` / `ls "/Applications/Google Chrome.app/…"`
+      ——浏览器**根本没被执行**，只是路径里带了字样。
+    """
+    return _browser_bypass_reason(cmd) is not None
 
 
 def _is_readonly(cmd: str) -> bool:
     """这条命令只读吗（每一段都只读才算）。"""
-    cmd = _RENDER_TRUNC.sub("…", cmd or "")
+    cmd = _strip_heredocs(_RENDER_TRUNC.sub("…", cmd or ""))
     for seg in re.split(r"&&|\|\||;|\||\n", cmd):
         seg = seg.strip().strip("'\"")
         if not seg:
@@ -583,25 +807,68 @@ def _skill_names_in_trajectory(traj: str) -> set[str]:
 
 
 #: **CLI 入口的形状**：`feuille poster <子命令> …`（也认 `node …/feuille.js poster …`）。
+#:
+#: 可执行名允许三种写法，因为**三种都是同一个程序在位**：
+#: `feuille`（PATH 上）、`/…/usine-feuille-bin-xxxx/feuille`（绝对/相对路径）、
+#: `$FEUILLE` / `${FEUILLE}`（先 `export FEUILLE=<path>/feuille` 再用）。
 _CLI_INVOCATION = re.compile(
-    r"(?:^|[\s;&|(])(feuille|node\s+\S*feuille(?:\.js)?)\s+(\S+)\s+([a-z][\w-]*)",
+    r"(?:^|[\s;&|(`])((?:\S*/)?feuille|node\s+\S*feuille(?:\.js)?|\$\{?[A-Za-z_]\w*\}?)"
+    r"\s+(\S+)\s+([a-z][\w-]*)",
     re.I,
 )
 
+#: 命令里的**变量赋值**：`FEUILLE=/…/feuille`、`export FEUILLE=…`。用来把
+#: `$FEUILLE poster` 还原回「那个可执行文件」。
+_SHELL_ASSIGN = re.compile(r"(?:^|[\s;&|(])(?:export\s+)?([A-Za-z_]\w*)=([^\s;&|]*)")
 
-def _cli_invokes(cmd: str, cli: str) -> bool:
+
+def _feuille_vars(cmd: str) -> set[str]:
+    """这条命令里**绑到 feuille 可执行文件**的那些变量名。
+
+    只认右值里带 `feuille` 的赋值——`TMPDIR=…`、`CHROME=…` 一律不算，
+    免得任意变量名都被当成 CLI 入口（那就等于判据全放过）。
+    """
+    return {
+        name
+        for name, val in _SHELL_ASSIGN.findall(cmd or "")
+        if "feuille" in val.lower()
+    }
+
+
+def _cli_invokes(cmd: str, cli: str, *, known_vars: set[str] | None = None) -> bool:
     """这条命令真的走了 `cli` 这条产线的 CLI 入口吗。
 
     `cli` 形如 `feuille poster`——**两段都要对上**（`feuille` + 产线名），
     免得 `feuille theme match` 之类别的产线被算成海报产线。
+
+    **为什么认路径与变量**：2026-10-20 实测，基准臂一条 rollout 把
+    `which feuille` 的结果（`/var/folders/…/usine-feuille-bin-xxxx/feuille`）
+    存进 `$FEUILLE`，然后 25 次写成 `$FEUILLE poster render …` /
+    `$FEUILLE poster audit-charset …`——**入口完全正当**，但旧正则只认字面
+    `feuille`，于是这一格判成「没走产线」，凭空造出一个 +6.7 的「演化提升」。
+    纪律原文（`harness_base/systemprompt.md:14`）管的是「绕开工具面」，
+    不是「必须把可执行名写成裸词」——**判据不许比被改进对象自己的手册更严**。
+
+    **heredoc 正文不算调用**：脚本正文里写一句 `feuille poster render` 是数据
+    （`_strip_heredocs` 幂等，这里再剥一次是防御）。
     """
-    cmd = _RENDER_TRUNC.sub("…", cmd or "")
+    cmd = _strip_heredocs(_RENDER_TRUNC.sub("…", cmd or ""))
     parts = cli.split()
     if len(parts) != 2:
         return False
+    bound = set(known_vars or ()) | _feuille_vars(cmd)
     for m in _CLI_INVOCATION.finditer(cmd):
-        exe, ns, sub = m.group(1), m.group(2), m.group(3)
-        if exe.lower().startswith("feuille") and ns.lower() == parts[1].lower():
+        exe, ns = m.group(1), m.group(2)
+        if ns.lower() != parts[1].lower():
+            continue
+        if exe.startswith("$"):
+            # 变量形态：必须在本次运行里被赋成过 feuille 的路径。
+            if re.sub(r"^\$\{?|\}?$", "", exe) in bound:
+                return True
+            continue
+        # 裸词 / 路径 / `node …/feuille.js`：看 basename。
+        base = exe.rsplit("/", 1)[-1].lower()
+        if base == "feuille" or base.startswith("feuille."):
             return True
     return False
 
@@ -669,10 +936,18 @@ def run_checks(
             ]
             cli_hits: list[str] = []
             if c.cli:
+                # **变量绑定是整条 rollout 级别的**：`export FEUILLE=…` 可能在某一次
+                # bash 调用里，而 `$FEUILLE poster …` 在下一次。只按单条命令解析变量
+                # 会漏掉这种（正当的）写法，等于换一种拼写再判死一次。
+                shell = _shell_commands(actions)
+                run_vars: set[str] = set()
+                for _a, _cmd in shell:
+                    run_vars |= _feuille_vars(_cmd)
                 cli_hits = [
                     f"{a[:110]} :: {cmd[:90]}"
-                    for a, cmd in _shell_commands(actions)
-                    if _cli_invokes(cmd, c.cli) and "--help" not in cmd
+                    for a, cmd in shell
+                    if _cli_invokes(cmd, c.cli, known_vars=run_vars)
+                    and "--help" not in cmd
                 ]
             passed = bool(tool_hits or cli_hits)
             evidence = (

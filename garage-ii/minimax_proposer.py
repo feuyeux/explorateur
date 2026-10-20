@@ -44,8 +44,11 @@ from harness2.core.spec import ChannelSpec
 #: 证据内联的上限（字符）。太大模型会稀释注意力，太小会丢关键行为。
 MAX_TASK_CHARS = 4_000
 MAX_HARNESS_CHARS = 60_000
-MAX_ROLLOUT_CHARS = 20_000
-MAX_TOTAL_ROLLOUT_CHARS = 120_000
+#: **单条 rollout 的内联上限**——2026-10-20 从 20,000 提到 60,000：
+#: 20,000 时头部是技能手册全文（14.5KB），**真正的动作全被切在门外**，
+#: 提案者明说「内联证据没有展示后续生成、验证或交付动作」→ KEEP_BASE。
+MAX_ROLLOUT_CHARS = 110_000
+MAX_TOTAL_ROLLOUT_CHARS = 300_000
 MAX_DECISIONS_CHARS = 20_000
 MAX_POOL_CHARS = 80_000
 MAX_LIBRARY_CHARS = 40_000
@@ -57,8 +60,28 @@ MAX_CANDIDATES_CHARS = 80_000
 MAX_OUTPUT_CHARS = 200_000
 
 _FILE_BLOCK = re.compile(
-    r"<<<FILE\s+([^\s>]+)\s*\n(.*?)\n>>>FILE", re.S
+    r"<<<FILE\s+([^\s<>]+)>?\s*\n(.*?)\n>>>FILE", re.S
 )
+
+#: 行首的 `<<<FILE …` 表头（用来发现**没被 `_FILE_BLOCK` 认下**的块）。
+#:
+#: 为什么需要它（2026-10-20 实测）：协议写的是 `<<<FILE context/harness/<相对路径>`
+#: （不带 `>`），而 `dom1` 的提案把第一个块写成 `<<<FILE context/harness/systemprompt.md>`
+#: ——多了一个 `>`。旧正则 `[^\s>]+\s*\n` 因此**整块不匹配**，`parse_edits` 静静跳过它，
+#: 那一轮仍然记成 `ok: true`：**一条本来要改的纪律就这么没了，审计里看不出来。**
+#: 现在两件事都做了：表头容许尾随 `>`；漏掉的块要数出来报警。
+_HEADER_LINE = re.compile(r"(?m)^<<<FILE\b[^\n]*$")
+
+
+def unparsed_headers(text: str) -> list[str]:
+    """返回**看着像文件块表头、却没被解析成块**的那些行。"""
+    losers: list[str] = []
+    keep: list[tuple[int, int]] = [(m.start(), m.end()) for m in _FILE_BLOCK.finditer(text)]
+    for m in _HEADER_LINE.finditer(text):
+        if any(a <= m.start() < b for a, b in keep):
+            continue
+        losers.append(m.group(0).strip())
+    return losers
 
 
 @dataclass
@@ -99,6 +122,29 @@ PROTOCOL = """# 你的输出格式（严格遵守，否则这一轮作废）
    「你想改什么、为什么改不动」。**这同样是正当的答案**：交回原树就算完成，这一轮
    不作废。宁可如实说「改不动」，也不要硬改一个面外的东西——硬改会被校验挡掉，
    而更糟的是它会把一个本来没问题的 harness 改坏。
+4c. **长文件请用紧凑形式回报，不要回写全文**（2026-10-20 实测：回写 5KB 的
+   `tool_descriptions/tool_guidance.md` 时，回复**在 5830 字节处被网关截断**，
+   文件块没闭合 → 解析失败 → 那一轮白跑）。紧凑形式有三种：
+
+    <<<FILE context/harness/<相对路径>
+    @@APPEND
+    <追加到文件末尾的内容>
+    >>>FILE
+
+    <<<FILE context/harness/<相对路径>
+    @@PREPEND
+    <插到文件开头的内容>
+    >>>FILE
+
+    <<<FILE context/harness/<相对路径>
+    @@REPLACE
+    <原文里**逐字存在**的那一段>
+    ---8<---
+    <替换成的新内容>
+    >>>FILE
+
+   `@@REPLACE` 的原文段必须在文件里**逐字**存在（否则这一轮作废）；拿不准就用
+   `@@APPEND`/`@@PREPEND`。**短文件（几百字以内）照旧回写全文也完全可以。**
 5. 不要回报 `<notes>`、解释或寒暄。改完之后，在最后另起一段写：
    <<<NOTES
    一段话：这次改了什么、依据轨迹里的哪一刻
@@ -120,6 +166,20 @@ PROTOCOL_HEAD = """# 你要做什么（一句话）
 
     <<<FILE context/harness/<相对路径>
     <这个文件的完整新内容>
+    >>>FILE
+
+**长文件不要回写全文**（回写途中回复可能被截断），改用紧凑形式：
+
+    <<<FILE context/harness/<相对路径>
+    @@APPEND
+    <追加到文件末尾的内容>
+    >>>FILE
+
+    <<<FILE context/harness/<相对路径>
+    @@REPLACE
+    <原文里逐字存在的那一段>
+    ---8<---
+    <替换成的新内容>
     >>>FILE
 
 只回报你**真的改了**的文件；一个都不改就回 `KEEP_BASE`（这是**正当的答案**，
@@ -158,6 +218,39 @@ def _job_of(mission: str) -> str:
 #: 又让「你可以改这些文件」这句话变成假的。按文件截断，模型看到的是骨架，
 #: 而它真正要改的是那四个 always-on 文件。
 MAX_HARNESS_FILE_CHARS = 3_000
+#: **always-on 文件**（模型真正要改的那几个）给足——它们本来就短。
+MAX_ALWAYSON_FILE_CHARS = 12_000
+#: 冻结技能的**工序行摘要**留多少字符。
+#:
+#: 为什么要有：冻结技能的前 3,000 字符里**没有工序**（海报格的手册 14,514
+#: 字符，第 6 步「`google-chrome --headless --dump-dom` 喂 `fit-diag`」在
+#: 第 7,430 字符处）。而「手册教了什么」正是判断「该不该改手册/该不该加新技能」
+#: 的依据——看不见它，提案者就只能说「冻结技能已包含所需知识」。
+MAX_FROZEN_DIGEST_CHARS = 2_600
+#: 工序行 = 含**反引号命令**的行。
+_COMMAND_LINE = re.compile(r"`[^`\n]{6,}`")
+
+
+def _procedure_digest(text: str, budget: int) -> str:
+    """冻结技能的**工序行摘要**：含命令的那些行（带行号）。
+
+    它替不掉全文，但能让提案者看见「这份手册让智能体去跑哪些命令」——
+    这正是判断「智能体是不是被手册教着绕开工具面」的依据。
+    """
+    picked: list[str] = []
+    used = 0
+    for n, line in enumerate(text.splitlines(), 1):
+        s = line.strip()
+        if not s or not _COMMAND_LINE.search(s):
+            continue
+        piece = f"  {n}: {s[:220]}"
+        if used + len(piece) > budget:
+            break
+        picked.append(piece)
+        used += len(piece)
+    if not picked:
+        return ""
+    return "（工序行：手册让智能体跑的命令/口径）\n" + "\n".join(picked)
 
 
 def _harness_block(harness_dir: Path) -> str:
@@ -167,11 +260,19 @@ def _harness_block(harness_dir: Path) -> str:
         if not p.is_file() or "__pycache__" in p.parts:
             continue
         rel = p.relative_to(harness_dir).as_posix()
-        body = _read(p, MAX_HARNESS_FILE_CHARS)
+        raw = p.read_text(encoding="utf-8", errors="replace")
+        frozen = rel.startswith("skills/") and "/SKILL.md" in rel
+        if frozen:
+            body = _read(p, MAX_HARNESS_FILE_CHARS)
+            digest = _procedure_digest(raw, MAX_FROZEN_DIGEST_CHARS)
+            if digest:
+                body = body.rstrip() + "\n" + digest
+            tag = "（冻结：改写同名技能会被拒，要改就换新名字）"
+        else:
+            body = _read(p, MAX_ALWAYSON_FILE_CHARS)
+            tag = ""
         if not body:
             continue
-        frozen = rel.startswith("skills/") and "/SKILL.md" in rel
-        tag = "（冻结：改写同名技能会被拒，要改就换新名字）" if frozen else ""
         block = f"--- FILE: context/harness/{rel}{tag} ---\n{body}\n"
         parts.append(block)
         budget -= len(block)
@@ -179,6 +280,76 @@ def _harness_block(harness_dir: Path) -> str:
             parts.append("…(harness 文件已截断)\n")
             break
     return "".join(parts)
+
+
+#: **轨迹摘要里各类块保留多少字符**。
+#:
+#: 为什么要有摘要：轨迹的**头部是技能手册全文**（海报格 14,514 字符），而内联
+#: 上限是 20,000——于是**真正的动作全被切在门外**。2026-10-20 实测：提案者
+#: 明确说「内联证据没有展示后续生成、验证或交付动作」，于是判「没有可追溯的失败」
+#: → KEEP_BASE。**它量的是证据被截断，不是 harness 有没有问题。**
+#:
+#: 实测一条海报轨迹的构成（200,034 字符）：手册/文件正文 57%、动作 24%（48KB）、
+#: 观察 10%、推理 4%。**动作才是行为**，所以摘要保全部动作与推理，观察只留头。
+#:
+#: - 推理（`[ASSISTANT]`）：全留——它是「智能体为什么这么做」的证据；
+#: - 动作（`[ACTION]`）：留前 N 字符——命令的前缀已经能看出「跑了什么」；
+#: - 观察（`[OBSERVATION]`）：留前 N 字符；**长文档**（技能手册、文件全文）留更多，
+#:   因为「手册教了什么」正是判断「该不该改手册」的依据；
+#: - 最终回答（`[FINAL]`）：全留。
+_DIGEST_KEEP = {"[ASSISTANT]": 4000, "[ACTION]": 420, "[OBSERVATION]": 120, "[FINAL]": 8000}
+#: 长文档型观察保留更多（技能手册正文在它里面）。
+_DIGEST_LONG_OBS = 2400
+#: 摘要的头部原样保留多少字符（任务 + 最初几步 + 技能加载）。
+_DIGEST_HEAD = 1500
+
+
+#: 轨迹里的块标签（`[ACTION]` / `[OBSERVATION]` / …）。
+_BLOCK_TAG = re.compile(r"^\[([A-Z][A-Z ]*)\]")
+
+
+def _split_blocks(text: str) -> list[tuple[str, str]]:
+    """把轨迹拆成「块」：一行 `[TAG] …` 加它后面的续行。"""
+    blocks: list[tuple[str, str]] = []
+    tag = ""
+    buf: list[str] = []
+    for line in text.splitlines():
+        m = _BLOCK_TAG.match(line)
+        if m:
+            if tag:
+                blocks.append((tag, "\n".join(buf)))
+            tag, buf = f"[{m.group(1)}]", [line]
+        else:
+            buf.append(line)
+    if tag:
+        blocks.append((tag, "\n".join(buf)))
+    return blocks
+
+
+def _digest_rollout(text: str, budget: int) -> str:
+    """把一条轨迹压成**行为摘要**（见 `_DIGEST_KEEP` 的说明）。"""
+    if len(text) <= budget:
+        return text
+    out: list[str] = [
+        text[:_DIGEST_HEAD].rstrip(),
+        "…(以下为行为摘要：全部推理与动作，观察只留头部；被省略的是观察的正文)…",
+    ]
+    used = len(out[0]) + len(out[1])
+    for tag, block in _split_blocks(text):
+        keep = _DIGEST_KEEP.get(tag)
+        if keep is None:
+            continue
+        if tag == "[OBSERVATION]" and len(block) > _DIGEST_LONG_OBS:
+            keep = _DIGEST_LONG_OBS
+        piece = block[:keep]
+        if len(block) > keep:
+            piece += f" …(+{len(block) - keep} chars)"
+        used += len(piece) + 1
+        if used > budget:
+            out.append(f"…(摘要到此，上限 {budget} 字符)")
+            break
+        out.append(piece)
+    return "\n".join(out)
 
 
 def _rollout_block(context_dir: Path) -> str:
@@ -191,8 +362,10 @@ def _rollout_block(context_dir: Path) -> str:
         if total >= MAX_TOTAL_ROLLOUT_CHARS:
             parts.append("…(更多 rollout 已省略)\n")
             break
-        body = _read(p, MAX_ROLLOUT_CHARS)
-        parts.append(f"--- ROLLOUT: context/rollouts/{p.name} ---\n{body}\n")
+        body = _digest_rollout(
+            p.read_text(encoding="utf-8", errors="replace"), MAX_ROLLOUT_CHARS
+        )
+        parts.append(f"--- ROLLOUT: context/rollouts/{p.name}（行为摘要）---\n{body}\n")
         total += len(body)
     return "".join(parts)
 
@@ -443,6 +616,51 @@ def parse_edits(text: str) -> tuple[dict[str, str], str]:
     return edits, notes
 
 
+#: 紧凑形式的指令头（`@@APPEND` / `@@PREPEND` / `@@REPLACE`）。
+_DIRECTIVE_RE = re.compile(r"^@@(APPEND|PREPEND|REPLACE)\s*\n(.*)$", re.S)
+
+
+def _resolve_body(rel: str, body: str, harness: Path) -> str:
+    """把紧凑形式回报还原成**完整文件内容**；不是紧凑形式就原样返回。
+
+    为什么要有紧凑形式（2026-10-20 实测）：协议要求「回报文件全文」，而
+    `tool_descriptions/tool_guidance.md` 有 5KB——回写它时回复**在 5830 字节处被
+    网关截断**，文件块没闭合 → 解析失败 → INV 维度的提案两次都白跑。
+    紧凑形式让模型只回「要改的那几行」，长文件不再被截断。
+
+    还原失败一律抛 `ValueError`（调用方当格式错误重试）：宁可这一轮作废，
+    也不能把半截内容写进 harness。
+    """
+    m = _DIRECTIVE_RE.match(body)
+    if not m:
+        return body
+    kind, rest = m.group(1), m.group(2)
+    src = Path(harness) / rel
+    if not src.is_file():
+        raise ValueError(f"紧凑形式指向的文件不存在：{rel}")
+    base = src.read_text(encoding="utf-8")
+    if kind == "APPEND":
+        add = rest.strip("\n")
+        if not add.strip():
+            raise ValueError(f"@@APPEND 后面没有内容：{rel}")
+        return base.rstrip("\n") + "\n" + add + "\n"
+    if kind == "PREPEND":
+        add = rest.strip("\n")
+        if not add.strip():
+            raise ValueError(f"@@PREPEND 后面没有内容：{rel}")
+        return add + "\n\n" + base
+    # @@REPLACE：原文段必须逐字存在
+    if "\n---8<---\n" not in rest:
+        raise ValueError(f"@@REPLACE 缺少分隔行 `---8<---`：{rel}")
+    old, new = rest.split("\n---8<---\n", 1)
+    old = old.strip("\n")
+    if not old:
+        raise ValueError(f"@@REPLACE 的原文段是空的：{rel}")
+    if old not in base:
+        raise ValueError(f"@@REPLACE 的原文段在 {rel} 里不逐字存在")
+    return base.replace(old, new.strip("\n"), 1)
+
+
 def _says_keep_base(text: str) -> bool:
     """模型是不是明说「不用改」。
 
@@ -468,6 +686,51 @@ def _is_out_of_scope(text: str) -> bool:
     return bool(re.search(r"\bOUT_OF_SCOPE\b", text or ""))
 
 
+def _parse_sse_chat(text: str) -> tuple[str, int]:
+    """把 OpenAI 风格的 SSE 流拼回 `(完整文本, 输出 token 数)`。
+
+    判据是**流有没有正常收尾**：收到 `[DONE]`、或某一 chunk 带了非空
+    `finish_reason`，都算收齐了。两样都没有 → 抛 `ProposerError("truncated")`，
+    交给 `call()` 的重试，而不是把半截文本当成模型答案去解析。
+
+    为什么要这条：2026-10-20 的 `inv1` 回复在 **5830 字节处静默截断**，
+    半截 `<<<FILE` 块解析出来是「格式错误」，账面上像模型没按协议写，
+    实际是链路断了。**静默截断是最贵的一种失败——它把链路的错记在模型头上。**
+    """
+    parts: list[str] = []
+    tokens = 0
+    done = False
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        chunk = line[5:].strip()
+        if chunk == "[DONE]":
+            done = True
+            break
+        try:
+            payload = json.loads(chunk)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get("error"):
+            raise ProposerError(f"upstream error: {str(payload['error'])[:300]}")
+        usage = (payload or {}).get("usage") or {}
+        if usage.get("completion_tokens"):
+            tokens = int(usage["completion_tokens"])
+        for choice in (payload or {}).get("choices") or []:
+            delta = choice.get("delta") or {}
+            piece = delta.get("content")
+            if isinstance(piece, str) and piece:
+                parts.append(piece)
+            if choice.get("finish_reason"):
+                done = True
+    if not done:
+        raise ProposerError(
+            f"truncated stream: {len(''.join(parts))} chars, no finish_reason/[DONE]"
+        )
+    return "".join(parts), tokens
+
+
 @dataclass
 class MinimaxProposer:
     """直接调模型改 harness 树的 proposer 通道。
@@ -479,6 +742,9 @@ class MinimaxProposer:
     model: str
     timeout: int = 600
     max_tokens: int = 32_000
+    # `anthropic-messages` | `openai-completions`。**必须与执行器同一个值**：
+    # 两边走不同协议时，提案那一路会留在慢且会断的 `/messages` 上（见 `_post`）。
+    api: str = "anthropic-messages"
     calls: list[Reply] = field(default_factory=list)
 
     # ── 引擎接口（`core/schedule.py::_selector_for` 读这几个属性）─────────────
@@ -498,6 +764,21 @@ class MinimaxProposer:
         self.spec = ChannelSpec("claude_cli", self.model, timeout=self.timeout)
 
     def _post(self, prompt: str) -> tuple[str, int]:
+        """一次提案调用。`api` 决定走哪种线上协议（2026-10-20 实测后加的）。
+
+        两条路打的是**同一个网关、同一个模型**，差的只是协议：
+        - `anthropic-messages`（旧的唯一路径）：`/v1/messages`，每次都吐
+          1.1 万–2.6 万字符的 reasoning 块；
+        - `openai-completions`：`/v1/chat/completions`，默认不推理，墙钟约 1/3。
+
+        两个真实的失败都发生在旧那一路（2026-10-20 19:5x 的 sweep）：
+        `inv1` 的回复**在 5830 字节处截断**（传输层，重试两次都一样），
+        `agg1` 的 183k 字符 prompt **HTTP 502**。所以提案通道必须跟着
+        执行器换到同一个协议上——**执行器走 openai 而提案者走 anthropic，
+        等于让最贵的那一步留在慢/断的那条路上**。
+        """
+        if self.api == "openai-completions":
+            return self._post_openai(prompt)
         body = json.dumps(
             {
                 "model": self.model,
@@ -519,6 +800,49 @@ class MinimaxProposer:
         ]
         usage = payload.get("usage") or {}
         return "".join(parts), int(usage.get("output_tokens") or 0)
+
+    def _post_openai(self, prompt: str) -> tuple[str, int]:
+        """OpenAI 风格的一次调用（SSE 流，整段读完再拼）。
+
+        为什么显式 `stream: true`：网关这一路**只在流式下才是常规表现**——
+        执行器（dsh）走的就是流式，实测 36–47s；非流式那条没测过，不能假设
+        它等价。所以这里跟着流式走，再把 SSE 增量拼回完整文本。
+
+        截断检测：流里既没有 `finish_reason` 也没有 `[DONE]` 就当**传输层截断**
+        抛出去，交给 `call()` 的重试。旧那一路的 `inv1` 正是**静默截断**——
+        回了半截文件块，解析出来是「格式错误」，看起来像模型的错，其实是链路。
+        """
+        body = json.dumps(
+            {
+                "model": self.model,
+                "max_tokens": self.max_tokens,
+                "stream": True,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self.relay.base_url()}/v1/chat/completions",
+            data=body,
+            headers={
+                "content-type": "application/json",
+                "accept": "text/event-stream",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:  # noqa: S310
+            ctype = (r.headers.get("content-type") or "").lower()
+            raw = r.read()
+        text = raw.decode("utf-8", "replace")
+        if "text/event-stream" in ctype or text.lstrip().startswith("data:"):
+            return _parse_sse_chat(text)
+        payload = json.loads(text)
+        if isinstance(payload, dict) and payload.get("error"):
+            raise ProposerError(f"upstream error: {str(payload['error'])[:300]}")
+        choices = (payload or {}).get("choices") or []
+        if not choices:
+            raise ProposerError(f"no choices in reply: {text[:300]}")
+        msg = choices[0].get("message") or {}
+        usage = payload.get("usage") or {}
+        return str(msg.get("content") or ""), int(usage.get("completion_tokens") or 0)
 
     def _audit_paths(self, label: str) -> dict[str, Path] | None:
         if not self.audit_dir:
@@ -579,10 +903,11 @@ class MinimaxProposer:
         tries = max(1, int(max_attempts or self.attempts))
         last = ""
         last_text = ""
+        repair = ""
         t0 = time.time()
         for attempt in range(1, tries + 1):
             try:
-                text, _out_tokens = self._post(prompt)
+                text, _out_tokens = self._post(prompt + repair)
             except urllib.error.HTTPError as exc:
                 last = f"HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:200]}"
                 continue
@@ -615,6 +940,22 @@ class MinimaxProposer:
                 return r
 
             edits, notes = parse_edits(text)
+            # **漏掉的块不许静静丢掉**（2026-10-20 实测）：`dom1` 把第一个表头写成
+            # `<<<FILE …/systemprompt.md>`（多一个 `>`），整块没被认下，而这一轮
+            # 仍然 `ok: true`、第二个块照常生效 —— 于是「要改的那条纪律」凭空消失，
+            # 引擎随后用自动触发句把空档糊上（那一句还是坏的 `- 当>时`）。
+            # 宁可多问一轮，也不接受「一部分改动没落地而且没人知道」。
+            losers = unparsed_headers(text)
+            if losers:
+                last = (
+                    f"有 {len(losers)} 个文件块没被解析（表头不合法）：{losers[:2]}"
+                )
+                repair = (
+                    "\n\n# 上一轮有文件块的表头不合法，那一块被整块丢弃了。\n"
+                    "表头必须**逐字**是 `<<<FILE context/harness/<相对路径>`，"
+                    "行尾**不要多写 `>`**，下一行直接是内容；块尾是 `>>>FILE`。\n"
+                )
+                continue
             if not edits:
                 # **「没有文件块」有三种含义，不能一律当错误**：
                 #
@@ -668,13 +1009,47 @@ class MinimaxProposer:
                     "回复里没有可解析的文件块（`<<<FILE … >>>FILE`）——"
                     "这一轮没有改动，等于白跑"
                 )
+                # **被截断的回复要区别对待**：有 `<<<FILE` 开头却没有闭合，说明
+                # 这次输出**没写完**（2026-10-20 实测：回写 5KB 的
+                # `tool_descriptions/tool_guidance.md` 时，回复在 5830 字节处被网关
+                # 截断）。这时**重发同一份提示只会再截一次**——下一轮必须带上
+                # 「用紧凑形式」的修复指令。
+                if "<<<FILE" in text and ">>>FILE" not in text:
+                    last = (
+                        "回复被截断（有 `<<<FILE` 开头但没有闭合的 `>>>FILE`）——"
+                        "输出没写完，这一轮等于白跑"
+                    )
+                    repair = (
+                        "\n\n# 上一轮你的回复被截断了（没有写完 `>>>FILE`）。\n"
+                        "**这一轮请用紧凑形式回报**（`@@APPEND` / `@@PREPEND` / "
+                        "`@@REPLACE`），不要回写整份长文件；短文件照旧回写全文。\n"
+                        "回复要短：只写要改的那几行 + 一段 `<<<NOTES … >>>NOTES`。\n"
+                    )
                 continue
             if sum(len(v) for v in edits.values()) > MAX_OUTPUT_CHARS:
                 last = "回报的内容太大，疑似整树重写"
                 continue
             harness = ctx / "harness"
             harness.mkdir(parents=True, exist_ok=True)
+            # **紧凑形式要先还原成完整内容再落盘**（`@@APPEND` / `@@PREPEND` /
+            # `@@REPLACE`）。还原失败（原文段不逐字存在、文件不存在）算格式错误，
+            # 重试——不能把半截内容写进 harness。
+            resolved: dict[str, str] = {}
             for rel, body in edits.items():
+                try:
+                    resolved[rel] = _resolve_body(rel, body, harness)
+                except ValueError as exc:
+                    last = f"紧凑形式还原失败：{exc}"
+                    repair = (
+                        "\n\n# 上一轮的紧凑形式还原失败（见上一轮回复）。\n"
+                        "`@@REPLACE` 的原文段必须在文件里**逐字存在**；"
+                        "拿不准就用 `@@APPEND` / `@@PREPEND`。\n"
+                    )
+                    resolved = {}
+                    break
+            if not resolved:
+                continue
+            for rel, body in resolved.items():
                 p = harness / rel
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(body, encoding="utf-8")

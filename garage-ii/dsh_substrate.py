@@ -81,7 +81,14 @@ DSH_SURFACE = SurfaceSpec(
         '例如「当要做 <这个技能负责的事> 时，加载 `{name}` 技能。」'
     ),
     autotrigger_file="systemprompt.md",
-    trigger_line="- 当{desc}时，加载 `{name}` 技能。\n",
+    # 自动触发句的兜底模板。**刻意不引用 `{desc}`**（2026-10-20 实测）：引擎的
+    # `autotrigger()` 用 `^description:\s*(.+)$` 抓技能描述的第一行，而 YAML 折叠块
+    # 写作 `description: >` 时，抓到的就是那个 `>` —— 于是兜底句变成
+    # 「- 当>时，加载 `poster-print-delivery` 技能。」：一句读不通的话被写进
+    # 每步都进上下文的 always-on 文本，且**没有任何判据会红**（v5 的 dom1/agg1 树
+    # 逐字如此）。引擎层零补丁，所以在这里避开 `{desc}`：宁可写一句通用但通顺的，
+    # 也不写一句「看起来带条件」的坏话。
+    trigger_line="- 要做 `{name}` 管的那件事时，加载 `{name}` 技能。\n",
     subagent_requires_mode=True,
     plugin_dir=None,
     hooks_file=None,
@@ -111,6 +118,15 @@ _SECTION_TITLES = {
 
 # dsh 的技能根（rank 100：project-dsh）。它比插件自带的 custom 根（rank 300）优先，
 # 所以基准树里改写的同名技能会**盖掉**插件里那份，而不是与之并存。
+#: 渲染整条轨迹时的**总长上限**。
+#:
+#: 引擎的证据契约明写「`context/rollouts/<label>.md` 是完整轨迹，不做
+#: prompt 预算截断」（`theatre-ii/harness2/core/context.py`）。本层原来在
+#: adapter 里硬砍 200k 字符，于是提案者只看到 24 条 ACTION（真实约 180 条），
+#: 判据只看到 18 条（真实 108 条）——**判据的假信号**。
+#: 观测正文的长度由 `obs_trunc` 单独管；整条轨迹的总长不设上限。
+TRAJECTORY_MAX_CHARS = 50_000_000
+
 DSH_SKILL_SUBDIR = Path(".dsh") / "skills"
 DSH_SCRIPTS_SUBDIR = Path("harness_scripts")
 

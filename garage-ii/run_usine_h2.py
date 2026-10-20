@@ -45,7 +45,14 @@ from harness2.core import report as R  # noqa: E402
 from harness2.core import schedule as SCHED  # noqa: E402
 from harness2.core.proposer import Proposer  # noqa: E402
 
-from dsh_provider import MINIMAX_MODEL  # noqa: E402
+from dsh_provider import (  # noqa: E402
+    ENV_CONTEXT_WINDOW,
+    ENV_MAX_TOKENS,
+    LLM_CONFIG,
+    MINIMAX_MODEL,
+    Relay,
+    resolve_llm_endpoint,
+)
 from preflight import run_all  # noqa: E402
 from usine_adapter import UsineAdapter  # noqa: E402
 
@@ -110,10 +117,71 @@ def _release_run_root_lock(lock: Path) -> None:
         pass
 
 
+def _make_relay(choice: dict):
+    """按 LLM 选择造中继：走统一配置时用 `llm_relay.mjs` + slug。"""
+    if choice.get("script") is None:
+        return Relay()
+    return Relay(script=choice["script"], extra_args=choice["extra"])
+
+
+def _llm_choice(args) -> dict:
+    """这次跑批用哪个模型、哪个中继、窗口多大。
+
+    两条路：
+    - **默认**：MiniMax 运行时（OAuth token + `~/.minimax/config.yaml` 的端点）；
+    - **`--llm <slug>`**：统一配置（`config/.env`）里的网关（`fuyao-coding` 等），
+      端点与凭据按 slug 解析，**凭据只活在中继进程内存里**。
+
+    给了 `--llm` 就**以它为准**（`--model` 只是默认的 MiniMax 型号）。
+    """
+    if not getattr(args, "llm", "").strip():
+        return {
+            "model": args.model,
+            "script": None,
+            "extra": [],
+            "context_window": 0,
+            "max_tokens": 0,
+            "api": "anthropic-messages",
+        }
+    slug = args.llm.strip()
+    cfg = Path(args.llm_config) if getattr(args, "llm_config", "") else LLM_CONFIG
+    # **fail-closed**：端点对缺了就当场报错，不静默退回 MiniMax。
+    resolve_llm_endpoint(slug, cfg)
+    return {
+        "model": slug,
+        "script": HERE / "llm_relay.mjs",
+        "extra": ["--slug", slug, "--config", str(cfg)],
+        "context_window": ENV_CONTEXT_WINDOW,
+        "max_tokens": ENV_MAX_TOKENS,
+        # 网关这一路走 **OpenAI 风格的线上协议**：同一个网关、同一个模型，
+        # `/chat/completions` 默认**不推理**，`/messages` 默认推理 1.1 万–2.6 万字符
+        # （实测 36–47s vs 56–116s，整条 rollout 的墙钟大头就砸在那个块上）。
+        "api": (getattr(args, "llm_api", "") or "openai-completions").strip(),
+    }
+
+
 def _adapter(args) -> UsineAdapter:
     only = [t.strip() for t in args.only_tasks.split(",") if t.strip()] if args.only_tasks else None
+    choice = _llm_choice(args)
+    relay = None
+    if choice["script"] is not None:
+        relay = Relay(script=choice["script"], extra_args=choice["extra"])
+    # **provider 名字跟着协议走**：pi-ai 会按 provider id 猜这个端点的默认行为
+    # （`catalog.ts`：私有网关的 URL 说明不了自己，只能靠 provider id 推断）。
+    # 协议是 OpenAI 风格却挂个叫 `anthropic` 的 provider id，等于让它拿
+    # Anthropic 的默认去发 OpenAI 的请求——compat 开关我们虽然显式钉了几个，
+    # 但没钉的那些仍可能按 id 猜错。
+    provider = "openai" if choice.get("api") == "openai-completions" else "anthropic"
     return UsineAdapter(
-        runs_root=args.root, timeout=args.timeout, model=args.model, only_tasks=only
+        runs_root=args.root,
+        timeout=args.timeout,
+        model=choice["model"],
+        provider=provider,
+        only_tasks=only,
+        relay=relay,
+        context_window=choice["context_window"],
+        max_tokens=choice["max_tokens"],
+        api=choice.get("api", "anthropic-messages"),
     )
 
 
@@ -150,6 +218,29 @@ def _parser() -> argparse.ArgumentParser:
         help=f"solver 与 proposer 用的模型（{MINIMAX_MODEL}）",
     )
     ap.add_argument(
+        "--llm",
+        default="",
+        help=(
+            "走**统一配置**的模型 slug（如 fuyao-coding）：端点与凭据从 "
+            "`config/.env` 按 slug 解析（最长前缀优先，组级兜底），"
+            "凭据只活在中继进程内存里。给了它，--model 就由 slug 决定。"
+        ),
+    )
+    ap.add_argument(
+        "--llm-config",
+        default="",
+        help="统一配置路径（默认 `config/.env`）",
+    )
+    ap.add_argument(
+        "--llm-api",
+        default="",
+        help=(
+            "线上协议（默认 `openai-completions`）：同一个网关、同一个模型，"
+            "`/chat/completions` 默认不推理，`/messages` 默认推理 1 万+ 字符"
+            "（实测墙钟 36–47s vs 56–116s）"
+        ),
+    )
+    ap.add_argument(
         "--proposer-timeout", type=int, default=600, help="单次改 harness 会话的墙钟上限（秒）"
     )
     ap.add_argument(
@@ -167,6 +258,15 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     ap.add_argument("--repeats", type=int, default=3, help="repeat 阶段每题跑几次（默认 3）")
+    ap.add_argument(
+        "--arm-workers",
+        type=int,
+        default=0,
+        help=(
+            "一条臂里同时跑几次 rollout（0=自动，取 min(n,4)）。"
+            "瓶颈在模型往返不在机器，并行后一条臂的墙钟≈一次 rollout 的时长"
+        ),
+    )
     ap.add_argument(
         "--append",
         action="store_true",
@@ -229,10 +329,10 @@ def _phase_sweep(args) -> int:
 
     # 执行器就绪闸：轨迹走的是 **SDK 客户端的规范事件流**（`dsh_run.mjs`），
     # 不是 `--json` 投影——所以这里查的是「桥能不能跑」，不是「dsh 有没有 --json」。
-    from dsh_provider import ProviderError, Relay
+    from dsh_provider import ProviderError
 
     try:
-        probe = Relay()
+        probe = _make_relay(_llm_choice(args))
         probe.start()
         probe.close()
     except (ProviderError, OSError) as exc:
@@ -271,12 +371,17 @@ def _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns) -> int
     from dsh_provider import Relay
     from minimax_proposer import MinimaxProposer
 
-    relay = Relay()
+    relay = _make_relay(_llm_choice(args))
     relay.start()
     try:
         adapter._relay = relay
         adapter._relay_started = True
-        prop = MinimaxProposer(relay=relay, model=args.model, timeout=args.proposer_timeout)
+        prop = MinimaxProposer(
+            relay=relay,
+            model=_llm_choice(args)['model'],
+            timeout=args.proposer_timeout,
+            api=_llm_choice(args).get('api', 'anthropic-messages'),
+        )
         # 审计目录：改 harness 的每一笔都要能事后翻账（任务、回复、耗时）。
         prop.audit_dir = runs_root / "_audit" / summary_ns
         print(
@@ -495,6 +600,7 @@ def _phase_repeat(args) -> int:
                 out_dir=out_dir,
                 timeout=args.timeout,
                 append=args.append,
+                workers=args.arm_workers,
             )
     finally:
         _release_run_root_lock(lock)
@@ -632,12 +738,17 @@ def _phase_reselect(args) -> int:
     # 锁跟 sweep 锁**同一个**目录（`runs_root/adapt`）——否则两个进程能在同一个
     # 命名空间里各写各的，静默覆盖。
     lock = _acquire_run_root_lock(adapter.spec.runs_root / "adapt")
-    relay = Relay()
+    relay = _make_relay(_llm_choice(args))
     relay.start()
     try:
         adapter._relay = relay
         adapter._relay_started = True
-        prop = MinimaxProposer(relay=relay, model=args.model, timeout=args.proposer_timeout)
+        prop = MinimaxProposer(
+            relay=relay,
+            model=_llm_choice(args)['model'],
+            timeout=args.proposer_timeout,
+            api=_llm_choice(args).get('api', 'anthropic-messages'),
+        )
         prop.audit_dir = adapter.spec.runs_root / "adapt" / "_audit" / ns
         bad = 0
         for task_id in tasks:

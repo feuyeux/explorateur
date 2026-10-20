@@ -13,8 +13,11 @@
 | `rsi` | 一份冻结的 Markdown 记忆语料（挂成 AGENTS.md 的一节） | RSIAgent / théâtre+garage |
 
 **这一版测的是「通道」，不是「沉淀物质量」。** RSIAgent 那一臂的记忆语料要由
-`garage/`（RSIAgent 引擎那侧）真的跑出来才有意义——按 `plan/rsi-gap-to-paper-2026-10.md`
-的记录，那边的波次**至今没有跑完过一次**，所以冻结记忆还不存在。本脚本因此：
+`garage/`（RSIAgent 引擎那侧）真的跑出来才有意义。那边**已经跑出过产物**
+（`garage/README.md` §5.5–5.8：三条合并提交 + DRS 的 `memory_changed: true`），
+**但那份记忆树只活在仓库外的 run root 里，没有入库、也没有导出成可挂载的语料目录**——
+本机已经找不到了。所以今天 rsi 臂仍然拿不到语料，原因是「没保留」，不是「没产出」。
+本脚本因此：
 
 - `--arm rsi --memory <dir>` 接受一份外部记忆语料（引擎那侧产出后喂进来）；
 - 没给 `--memory` 时，rsi 臂**照跑**，但报告里那一栏标成「记忆语料缺席」——
@@ -73,35 +76,56 @@ class ArmResult:
 
 
 def _h2_harness_dir(runs_root: Path, k: int, seed: int | None) -> Path | None:
-    """从 harness2 的 sweep 产物里找**被选中**的 harness 树。
+    """从 harness2 的产物里找**被选中**的 harness 树。
 
-    harness2 选完之后把选中的树写在 summary.json 的选择记录里（chosen_harness_dir 之类），
-    这里不去猜它的字段名——直接把该任务目录下的 harness 树按修改时间取最新的那份，
-    并在报告里写清「取的是哪一份」。取不到就返回 None，h2 臂退化成基线并在报告里标出来。
+    两种布局都要认（2026-10-20 修：原来只认 `adapt/`，而实跑用的是 `sweep`）：
+
+    - `--phase adapt`：`<root>/<ns>/<task>/summary.json` 里记着 `chosen_harness_dir`；
+    - `--phase sweep`：`<root>/trees/<label>/<task>/`——引擎把被选中的树整棵抽出来落盘。
+
+    只认第一种时，h2 臂会**静默退化成基线**，报告上看起来「h2 与 base 一样」——
+    那测的是「没找到树」，不是「演化没用」。所以找不到也返回 None，但调用方必须
+    在报告里写明取的是哪一份（`_report` 已经会写）。
     """
     from harness2.core import schedule as SCHED
 
-    ns = SCHED.ns("usine-dsh", "dsh", "agg", k, seed=seed)
-    ns_dir = runs_root / "adapt" / ns
-    if not ns_dir.is_dir():
-        return None
     cands: list[Path] = []
-    for summary_path in sorted(ns_dir.glob("*/summary.json")):
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        for mode_sel in (summary.get("selections") or {}).values():
-            if not isinstance(mode_sel, dict):
+
+    # (a) sweep 布局：trees/<label>/<task>/（树的根是带 systemprompt.md 的那层）
+    trees_root = Path(runs_root) / "trees"
+    if trees_root.is_dir():
+        for tree_root in sorted(trees_root.iterdir()):
+            if not tree_root.is_dir():
                 continue
-            for key in ("chosen_harness_dir", "harness_dir", "chosen_dir"):
-                val = mode_sel.get(key)
-                if val:
-                    p = Path(val)
-                    if not p.is_absolute():
-                        p = ns_dir / p
-                    if p.is_dir():
-                        cands.append(p)
+            for task_dir in sorted(tree_root.iterdir()):
+                if task_dir.is_dir() and (task_dir / "systemprompt.md").is_file():
+                    cands.append(task_dir)
+                elif task_dir.is_dir():
+                    for sub in sorted(task_dir.iterdir()):
+                        if sub.is_dir() and (sub / "systemprompt.md").is_file():
+                            cands.append(sub)
+
+    # (b) adapt 布局：summary.json 的选择记录
+    ns = SCHED.ns("usine-dsh", "dsh", "agg", k, seed=seed)
+    ns_dir = Path(runs_root) / "adapt" / ns
+    if ns_dir.is_dir():
+        for summary_path in sorted(ns_dir.glob("*/summary.json")):
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            for mode_sel in (summary.get("selections") or {}).values():
+                if not isinstance(mode_sel, dict):
+                    continue
+                for key in ("chosen_harness_dir", "harness_dir", "chosen_dir"):
+                    val = mode_sel.get(key)
+                    if val:
+                        p = Path(val)
+                        if not p.is_absolute():
+                            p = ns_dir / p
+                        if p.is_dir():
+                            cands.append(p)
+
     if not cands:
         return None
     return max(cands, key=lambda p: p.stat().st_mtime)
@@ -235,9 +259,12 @@ def _report(results: list[ArmResult], args, h2_dir: Path | None, memory_dir: Pat
     if memory_dir is None:
         lines.append(
             "> **读这张表之前必须知道**：rsi 臂没有记忆语料。RSIAgent 引擎那侧（`garage/`）"
-            "的波次按 `plan/rsi-gap-to-paper-2026-10.md` 的记录**至今没跑完过一次**，"
-            "冻结记忆还不存在。所以 rsi 这一栏测的是「记忆缺席」，"
+            "**已经跑出过产物**（`garage/README.md` §5.5–5.8：三条合并提交、DRS 的 "
+            "`memory_changed: true`），但那份记忆树只在仓库外的 run root 里，没入库、"
+            "也没导出成可挂载的语料目录——本机已找不到。所以 rsi 这一栏测的是「记忆缺席」，"
             "**不能**据此说 RSIAgent 对 dsh 智能体没用——它测的是另一个东西。"
+            "要补这一栏：下一次 DRS 用 `--memory-seed <dir>` 把记忆树导出来，再 "
+            "`--memory <dir>` 喂进来。"
         )
         lines.append("")
 
@@ -264,6 +291,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ack", default="")
     ap.add_argument("--arms", default=",".join(ARMS), help=f"要跑哪些臂（{','.join(ARMS)}）")
     ap.add_argument("--memory", type=Path, default=None, help="RSIAgent 冻结记忆语料目录")
+    ap.add_argument(
+        "--h2-tree",
+        type=Path,
+        default=None,
+        help="直接指定 h2 臂的 harness 树（例如 sweep 的 trees/evo/<task>）；不给就去 --root 里找",
+    )
     ap.add_argument("--k", type=int, default=1, help="h2 臂取哪个 k 的被选中 harness")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--timeout", type=int, default=900)
@@ -277,7 +310,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     base = HERE / "harness_base"
-    h2_dir = _h2_harness_dir(args.root, args.k, args.seed)
+    h2_dir = args.h2_tree if args.h2_tree else _h2_harness_dir(args.root, args.k, args.seed)
+    if h2_dir is not None and not (Path(h2_dir) / "systemprompt.md").is_file():
+        print(f"--h2-tree 不是一棵 harness 树（缺 systemprompt.md）：{h2_dir}", file=sys.stderr)
+        return 1
     memory_dir = args.memory
 
     if args.dry_run:

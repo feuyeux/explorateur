@@ -47,6 +47,7 @@ import random
 import re
 import shutil
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
@@ -160,6 +161,9 @@ class Arm:
     #: 两套判据的分数会被拼成**一条**分布——那不是「多跑几次」，是「换个尺子量
     #: 半截旧数据、半截新数据」。戳不一样就该拒绝追加。
     criteria: str = ""
+    #: **重判时去掉的重复 rollout**（同一条 run_id 落了两次）。留痕用：
+    #: 去重**不许悄悄做**——n 从多少变成多少，得看得见。
+    dropped_duplicates: list[str] = field(default_factory=list)
 
     # ── 分布 ──
 
@@ -230,6 +234,8 @@ class Arm:
             "criteria": self.criteria,
             "n": self.n,
             "scores": self.scores,
+            # 去重留痕：n 从多少变成多少，得看得见。
+            "dropped_duplicates": list(self.dropped_duplicates),
             "mean": round(self.mean, 4),
             "spread": round(self.spread, 4),
             "stdev": round(self.stdev, 4),
@@ -258,6 +264,7 @@ class Arm:
             tree_label=d.get("tree_label", ""),
             tree_signature=d.get("tree_signature", ""),
             criteria=d.get("criteria", ""),
+            dropped_duplicates=list(d.get("dropped_duplicates", [])),
             rolls=[
                 Roll(
                     run_id=r.get("run_id", ""),
@@ -305,6 +312,7 @@ def run_arm(
     execute: Executor | None = None,
     append: bool = False,
     log=print,
+    workers: int | None = None,
 ) -> list[Arm]:
     """跑一个臂：每棵任务树各 n 次 rollout，各自判分，落盘。
 
@@ -314,6 +322,13 @@ def run_arm(
     `append=True` 时**接着已有臂往下加**（第 4、5、6…次），而不是覆盖：
     把 n=3 的零分布扩到 n=10 时，已跑的那 3 次不能重跑（浪费钱）也不能丢
     （它们是分布的一部分）。新 rollout 的编号从已有条数往后接，run id 不撞车。
+
+    **n 次 rollout 默认并行跑**（`workers`，默认 `min(n, 4)`）。串行时一条臂的
+    墙钟是 n 次 rollout 的**和**——实测单次 rollout 12–42 分钟，n=4 串行就是
+    50 分钟到 3 小时。瓶颈在模型往返，不在机器（`usine_adapter` 的
+    `_rollout_guard` 早就写明「别的格子各自独占工作区，并发跑是安全的」），
+    所以一条臂的时间成本应该是**一次** rollout 的时长，不是 n 倍。
+    落盘顺序仍按 run 序号（第 i 次就是 r{i}），与串行时一致。
     """
     ex = execute or (lambda t, tree, rid: adapter.execute(t, tree, rid, timeout=timeout))
     out_dir = Path(out_dir)
@@ -335,6 +350,7 @@ def run_arm(
             criteria=_criteria_stamp(adapter, task_id),
         )
         start = 1
+        prefix: list[Roll] = []   # `--append` 时已跑过的那几条（最终记录要带上）
         saved = out_dir / f"{task_id}.json"
         if append and saved.is_file():
             try:
@@ -344,6 +360,10 @@ def run_arm(
             if old is not None:
                 arm.rolls = list(old.rolls)
                 start = len(old.rolls) + 1
+                # **追加的那几条必须留在最终记录里**：并行化时最终记录是
+                # 「按 run 序号整份赋值」，不把前缀带上就会把已跑的那几条丢掉
+                # （2026-10-20 实测：smoke 抓到「追加到 5 次」只剩 4 条）。
+                prefix = list(old.rolls)
                 if old.tree_fingerprint and old.tree_fingerprint != arm.tree_fingerprint:
                     log(
                         f"  [{task_id}] **树的指纹变了**（{old.tree_fingerprint[:12]} → "
@@ -359,50 +379,83 @@ def run_arm(
                         "先跑 `arms.py rescore` 把整条臂重判一遍，再追加"
                     )
                     continue
-        for i in range(start, start + n):
-            run_id = f"repeat-{tag}-{task_id}-r{i}"
+        def one_roll(run_id: str) -> Roll:
+            """跑一条 rollout 并判分，返回一条 Roll（**失败不是零分**）。"""
             try:
                 try:
                     run_dir = ex(task_id, tree, run_id)
                 except Exception as exc:  # noqa: BLE001
-                    arm.rolls.append(
-                        Roll(run_id=run_id, score=None, error=f"{type(exc).__name__}: {exc}")
-                    )
                     log(f"  [{task_id}] {run_id} 跑挂了：{type(exc).__name__}: {exc}")
-                    continue
+                    return Roll(run_id=run_id, score=None, error=f"{type(exc).__name__}: {exc}")
                 bad = _integrity_reason(adapter, Path(run_dir))
                 if bad:
-                    arm.rolls.append(_void_roll(run_id, bad))
                     log(f"  [{task_id}] {run_id} **作废**（不是零分）：{bad}")
-                    continue
+                    return _void_roll(run_id, bad)
                 scored = adapter.score(Path(run_dir), task_id)
                 if scored is None:
-                    arm.rolls.append(
-                        Roll(run_id=run_id, score=None, error="判据跑不成（不是零分）")
-                    )
                     log(f"  [{task_id}] {run_id} 判据跑不成（不记零分）")
-                    continue
-                arm.rolls.append(
-                    Roll(
-                        run_id=run_id,
-                        score=scored["score"],
-                        n_passed=scored["n_passed"],
-                        n_criteria=scored["n_criteria"],
-                        checks=scored["checks"],
-                        final_text=scored.get("final_text", ""),
-                    )
-                )
+                    return Roll(run_id=run_id, score=None, error="判据跑不成（不是零分）")
                 log(
                     f"  [{task_id}] {run_id} {scored['score']*100:.2f}%"
                     f" ({scored['n_passed']}/{scored['n_criteria']})"
                 )
-            finally:
-                # **每跑一条就落盘一次**：一条臂是 n 次 rollout，可能跑一两个小时。
-                # 中途被杀就把已跑的证据全丢了，等于白花钱——增量落盘保证「跑到
-                # 哪算哪」，被杀之后 `--append` 还能接着往下加。
-                (out_dir / f"{task_id}.json").write_text(
-                    json.dumps(arm.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8"
+                return Roll(
+                    run_id=run_id,
+                    score=scored["score"],
+                    n_passed=scored["n_passed"],
+                    n_criteria=scored["n_criteria"],
+                    checks=scored["checks"],
+                    final_text=scored.get("final_text", ""),
                 )
+            except Exception as exc:  # noqa: BLE001
+                return Roll(run_id=run_id, score=None, error=f"{type(exc).__name__}: {exc}")
+
+        jobs = [(i, f"repeat-{tag}-{task_id}-r{i}") for i in range(start, start + n)]
+        n_workers = max(1, min(int(workers if workers else len(jobs)), len(jobs)))
+        results: dict[int, Roll] = {}
+
+        def dump() -> None:
+            """把**已跑完**的那几条按 run 序号落盘（并行时也必须增量落盘）。
+
+            **写的是快照，不改 `arm.rolls`**：臂的最终记录由下面那次统一赋值
+            写出。若这里也往 `arm.rolls` 里塞，最终就会**重复计数**
+            （2026-10-20 实测：smoke 抓到「先跑出 3 次」变成 6 条）。
+            """
+            snapshot = Arm(
+                tag=arm.tag,
+                task_id=arm.task_id,
+                tree_fingerprint=arm.tree_fingerprint,
+                tree_label=arm.tree_label,
+                tree_signature=arm.tree_signature,
+                criteria=arm.criteria,
+            )
+            snapshot.rolls = prefix + [results[i] for i, _run_id in jobs if i in results]
+            (out_dir / f"{task_id}.json").write_text(
+                json.dumps(snapshot.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+
+        if n_workers <= 1:
+            for i, run_id in jobs:
+                results[i] = one_roll(run_id)
+                dump()
+        else:
+            log(f"  [{task_id}] {len(jobs)} 次 rollout 并行跑（{n_workers} 路）")
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                futures = {pool.submit(one_roll, run_id): i for i, run_id in jobs}
+                for fut in as_completed(futures):
+                    results[futures[fut]] = fut.result()
+                    # **每跑完一条就落盘一次**（并行时也必须）：一条臂是 n 次
+                    # rollout，可能跑一两个小时；中途被杀就把已跑的证据全丢了，
+                    # 等于白花钱。并行化最容易犯的错就是把落盘挪到「全部跑完」——
+                    # 那时被杀就是**零证据**。落盘按 run 序号排序，与串行一致。
+                    dump()
+        arm.rolls = prefix + [
+            results.get(i) or Roll(run_id=run_id, score=None, error="没跑起来")
+            for i, run_id in jobs
+        ]
+        (out_dir / f"{task_id}.json").write_text(
+            json.dumps(arm.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8"
+        )
         arms.append(arm)
         (out_dir / f"{task_id}.json").write_text(
             json.dumps(arm.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8"
@@ -567,7 +620,13 @@ def compare_arms(base: Arm, evolved: Arm) -> dict:
         }
     significant = p <= 0.1
     separation = (min(evolved.scores) - max(base.scores)) if (base.scores and evolved.scores) else 0.0
-    reliable = bool(base.scores and evolved.scores and min(evolved.scores) >= base.mean)
+    # 「演化臂最差的一次也不低于基准均值」——**按容差判**，不用裸 `>=`。
+    # 均值是浮点和相除出来的：`[0.8,0.8,0.8]` 的 mean 可能是 `0.8000000000000001`，
+    # 于是 `0.8 >= 0.8000000000000001` 为假，两臂**逐条相同**却记成「分得不干净」。
+    # 2026-10-20 实测踩到（v5 两臂都是 [0.8,0.8,0.8]，reliable 却是 False）。
+    reliable = bool(
+        base.scores and evolved.scores and min(evolved.scores) >= base.mean - 1e-9
+    )
 
     # 「再跑多少遍才够」：对每一条**基准臂失分过**的判据，假设演化修好了它，算所需 n。
     need: dict[str, dict] = {}
@@ -576,15 +635,20 @@ def compare_arms(base: Arm, evolved: Arm) -> dict:
             continue
         need[name] = required_n(base, name)
 
-    if delta > 0 and significant:
+    # 「方向」按**容差**判零，不用 `delta == 0`。均值是浮点和相除出来的
+    # （`0.8×4/4` 与 `0.8×3/3` 的尾数可能差 1e-16），用精确相等判零时，
+    # 一个**零效应**会掉进「方向为正」那一支，报告上就变成
+    # 「方向为正但不显著」——**把没有方向说成有方向**。2026-10-20 实测踩过：
+    # `routing-poster` 两臂都是 0.800…，而 verdict 写的是「方向为正」。
+    _ZERO = 1e-9
+    if abs(delta) < _ZERO:
+        verdict = "两臂均值相同——这一格看不出演化的作用"
+    elif delta > 0 and significant:
         verdict = "有信号：演化臂显著优于同树零分布"
     elif delta > 0:
         verdict = "方向为正但不显著（n 太小或分离不干净）——**仍可能是噪声**"
-    elif delta == 0:
-        verdict = "两臂均值相同——这一格看不出演化的作用"
     else:
         verdict = "演化臂**更差**"
-
     # **没数据不是「更差」**。`Arm.mean` 在空样本上返回 0.0，于是演化臂
     # 一条都没判成功时 delta = −基准均值，判决会写成「演化臂更差」——
     # 那是把**没测到**说成**测坏了**。空样本一律走单独的判决。
@@ -970,7 +1034,18 @@ def rescore_arm(adapter, arm: Arm, runs_root: Path) -> Arm:
         # 判据改过之后重判，戳还是旧的，于是「这套分数是哪套判据打的」无从判断）。
         criteria=_criteria_stamp(adapter, arm.task_id),
     )
+    seen: set[str] = set()
+    dropped_dupes: list[str] = []
     for roll in arm.rolls:
+        # **同一条 rollout 只算一次**。臂的增量落盘曾经把「已跑过的前缀」和
+        # 「这一轮新跑的」拼在一起，于是同一条 run_id 出现两次——分布里就多出
+        # 一份一模一样的样本，n 虚高、置换检验的分母跟着虚高。
+        # 2026-10-20 实测踩到：`dom1` 臂落盘 n=6，其实只有 3 条 rollout。
+        # 去重**要留痕**（`dropped_duplicates` 记在臂上），不许悄悄吞掉。
+        if roll.run_id in seen:
+            dropped_dupes.append(roll.run_id)
+            continue
+        seen.add(roll.run_id)
         run_dir = runs_root / arm.task_id / roll.run_id
         bad = _integrity_reason(adapter, run_dir)
         if bad:
@@ -994,6 +1069,8 @@ def rescore_arm(adapter, arm: Arm, runs_root: Path) -> Arm:
                 final_text=scored.get("final_text", ""),
             )
         )
+    # 去重留痕落盘：n 从多少变成多少，得看得见。
+    out.dropped_duplicates = dropped_dupes
     return out
 
 
@@ -1109,7 +1186,11 @@ def _main(argv: list[str] | None = None) -> int:
     # 所有的臂间比较都不可信**。
     if args.cmd == "crosscheck":
         from bench_usine import run_checks, task_by_id
-        from dsh_substrate import DSH_SURFACE, render_canonical_events
+        from dsh_substrate import (
+            DSH_SURFACE,
+            TRAJECTORY_MAX_CHARS,
+            render_canonical_events,
+        )
 
         loaded = load_arms(args.arms_root)
         if args.tag not in loaded:
@@ -1125,7 +1206,9 @@ def _main(argv: list[str] | None = None) -> int:
             ev = d / "events.jsonl"
             if not ev.is_file():
                 continue
-            traj = render_canonical_events(ev, obs_trunc=50_000, max_chars=200_000)
+            traj = render_canonical_events(
+                ev, obs_trunc=50_000, max_chars=TRAJECTORY_MAX_CHARS
+            )
             fin = (d / "final.txt").read_text(encoding="utf-8") if (d / "final.txt").is_file() else ""
             try:
                 # **run_dir 要传进去**：「产物存在」那类判据要真的去看磁盘，

@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -279,9 +280,9 @@ def _checks_ok() -> None:
             [
                 '[ACTION] skill({"name": "one-page-poster"})',
                 '[ACTION] usine_poster({"action": "render"})',
-                '[ACTION] bash({"description": "dump", "command": '
+                '[ACTION] bash({"description": "print", "command": '
                 '"export CHROME_BIN=\\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\\" '
-                '&& \\"$CHROME_BIN\\" --headless=new --dump-dom index.html"})',
+                '&& \\"$CHROME_BIN\\" --headless=new --print-to-pdf=poster.pdf index.html"})',
                 "[FINAL] 海报已渲染，1240x1754。",
             ]
         )
@@ -289,7 +290,7 @@ def _checks_ok() -> None:
             task_by_id("routing-poster"), bypass_traj, "海报已渲染，1240x1754。", run_dir=run_dir
         )
         check(
-            "shell 里调浏览器 → 判成绕开工具面",
+            "shell 里自己出 PDF（替代工具面的 render）→ 判成绕开工具面",
             any(o.name == "no_tool_face_bypass" and not o.passed for o in outs5),
             str([(o.name, o.passed) for o in outs5]),
         )
@@ -370,9 +371,71 @@ def _checks_ok() -> None:
             task_by_id("routing-poster"), exec_traj, "海报已渲染，1240x1754。", run_dir=run_dir
         )
         check(
-            "真的执行浏览器（--dump-dom）→ 判绕开工具面",
-            any(o.name == "no_tool_face_bypass" and not o.passed for o in outs9),
+            "手册钦定的 DOM dump 形态（--dump-dom）→ **不**判绕开工具面",
+            any(o.name == "no_tool_face_bypass" and o.passed for o in outs9),
             str([(o.name, o.passed) for o in outs9]),
+        )
+        # 2026-10-20 第五次：判据必须贴着**对象自己的文件**。
+        #
+        # 基准 harness **自相矛盾**：`systemprompt.md:14` 说「不要用 shell 绕开工具面，
+        # 工具面外的路径没有验收口径」，而 `skills/one-page-poster/SKILL.md` 第 6 步
+        # **亲手教**智能体跑 `google-chrome --headless --dump-dom … | feuille poster
+        # fit-diag`。纪律原文管的是「**做出来的东西**」——DOM dump 是**量**（产物
+        # 仍出自 `feuille poster render`），出图/出 PDF 才是**产**。
+        # 所以：`--dump-dom` 不算绕行；`--screenshot` / `--print-to-pdf` 算。
+        manual_dump_traj = "\n".join(
+            [
+                '[ACTION] skill({"name": "one-page-poster"})',
+                '[ACTION] bash({"description": "fit-diag", "command": '
+                '"google-chrome --headless --dump-dom \\"file://$PWD/index.html?verify=1\\" '
+                '| feuille poster fit-diag"})',
+                "[FINAL] 海报已渲染，1240x1754。",
+            ]
+        )
+        s10, outs10 = run_checks(
+            task_by_id("routing-poster"), manual_dump_traj, "海报已渲染，1240x1754。", run_dir=run_dir
+        )
+        check(
+            "手册第 6 步钦定的 `google-chrome --dump-dom | fit-diag` → **不**判绕行",
+            any(o.name == "no_tool_face_bypass" and o.passed for o in outs10),
+            str([(o.name, o.passed) for o in outs10]),
+        )
+        shot_traj = "\n".join(
+            [
+                '[ACTION] skill({"name": "one-page-poster"})',
+                '[ACTION] bash({"description": "shot", "command": '
+                '"\\"$CHROME_BIN\\" --headless=new --screenshot=\\"$PWD/poster.png\\" '
+                '--window-size=1240,1754 \\"file://$PWD/index.html\\""})',
+                "[FINAL] 海报已渲染，1240x1754。",
+            ]
+        )
+        s11, outs11 = run_checks(
+            task_by_id("routing-poster"), shot_traj, "海报已渲染，1240x1754。", run_dir=run_dir
+        )
+        check(
+            "自己出图（--screenshot，替代工具面的 render）→ 判成绕开工具面",
+            any(o.name == "no_tool_face_bypass" and not o.passed for o in outs11),
+            str([(o.name, o.passed) for o in outs11]),
+        )
+        # 2026-10-20 第五次同批修掉的第二类误伤：**浏览器根本没被执行**，
+        # 只是路径里带了字样（清理 profile / 看一眼浏览器在哪）。
+        mention_only_traj = "\n".join(
+            [
+                '[ACTION] skill({"name": "one-page-poster"})',
+                '[ACTION] bash({"description": "clean", "command": '
+                '"find .print -type f -delete; find .chrome-profile -depth -type d -exec rmdir {} +"})',
+                '[ACTION] bash({"description": "probe", "command": '
+                '"\\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\\" --version"})',
+                "[FINAL] 海报已渲染，1240x1754。",
+            ]
+        )
+        s12, outs12 = run_checks(
+            task_by_id("routing-poster"), mention_only_traj, "海报已渲染，1240x1754。", run_dir=run_dir
+        )
+        check(
+            "只提到浏览器路径 / 只探版本 → **不**判绕开工具面",
+            any(o.name == "no_tool_face_bypass" and o.passed for o in outs12),
+            str([(o.name, o.passed) for o in outs12]),
         )
         # 没有 run 目录 → 判失败（没法验证的声明不算通过）
         s5, outs5 = run_checks(task_by_id("routing-poster"), good_traj, good_final)
@@ -723,6 +786,53 @@ def _keep_base_ok() -> None:
         dblock[:200],
     )
 
+    # **行为摘要**：轨迹的头部是技能手册全文，朴素截头会把**真正的动作**切在
+    # 门外——2026-10-20 实测，提案者明说「内联证据没有展示后续生成、验证或交付
+    # 动作」→ KEEP_BASE。摘要必须把**尾部的动作**也保住。
+    from minimax_proposer import _digest_rollout, _procedure_digest
+
+    long_doc = "[OBSERVATION] " + ("skill body line\n" * 2000)
+    traj = "\n".join(
+        [
+            "[ASSISTANT] 我先加载技能。",
+            "[ACTION] skill({\"name\": \"one-page-poster\"})",
+            long_doc,
+            "[ACTION] bash({\"description\": \"dump\", \"command\": \"\\\"$CHROME\\\" "
+            "--headless=new --dump-dom file://index.html\"})",
+            "[FINAL] 海报已渲染。",
+        ]
+    )
+    dig = _digest_rollout(traj, 20_000)
+    check(
+        "摘要保住了尾部的动作（朴素截头会切掉它）",
+        "--headless=new --dump-dom" in dig,
+        dig[-300:],
+    )
+    check("摘要保住了最终回答", "[FINAL] 海报已渲染。" in dig, dig[-120:])
+    check("摘要守住了预算", len(dig) <= 20_000 + 2000, str(len(dig)))
+    # 冻结技能的工序行摘要：手册第 6 步那种「教智能体跑哪条命令」的行必须露出来。
+    manual = "\n".join(
+        [
+            "# One Page Poster",
+            "前置输入契约：缺哪条先问哪条。",
+            "6. Verify:",
+            '- `google-chrome --headless --dump-dom "file://...index.html?verify=1"`',
+            "  piped to `feuille poster fit-diag` — per-cell font size, overflow;",
+            "结束。",
+        ]
+    )
+    pd = _procedure_digest(manual, 2_600)
+    check(
+        "冻结技能的工序行摘要露出手册教的命令",
+        "google-chrome --headless --dump-dom" in pd,
+        pd,
+    )
+    check(
+        "工序行摘要不收普通段落",
+        "前置输入契约" not in pd,
+        pd,
+    )
+
     # 端到端：假 relay 回一个 KEEP_BASE，proposer 必须**成功**返回（不是报错），
     # 并且交回**没改过**的树。
     import http.server
@@ -855,6 +965,369 @@ def _enable_needle_ok() -> None:
         check(f"不该拦的放过了：{s[:24]}…", not rx.search(s), s[:80])
 
 
+def _proposer_sse_ok() -> None:
+    print("[12a] 提案通道的 openai-completions 路：SSE 拼接 + 截断检测（不联网）")
+    import io
+
+    import minimax_proposer as MP
+
+    ok = (
+        'data: {"choices":[{"delta":{"content":"A"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"B"},"finish_reason":"stop"}]}\n\n'
+        "data: [DONE]\n"
+    )
+    text, _tokens = MP._parse_sse_chat(ok)
+    check("SSE 增量拼回完整文本", text == "AB", text)
+
+    done_only = 'data: {"choices":[{"delta":{"content":"X"},"finish_reason":"length"}]}\n'
+    text2, _ = MP._parse_sse_chat(done_only)
+    check("finish_reason 也算收尾（不必等 [DONE]）", text2 == "X", text2)
+
+    # 没有 finish_reason、也没有 [DONE] = **静默截断**。旧那一路的 inv1 就是这样
+    # 交出半截 `<<<FILE` 块，账面上记成「格式错误」，实际是链路断了。
+    try:
+        MP._parse_sse_chat('data: {"choices":[{"delta":{"content":"A"}}]}\n')
+    except MP.ProposerError as exc:
+        check("静默截断被认出来（不是当格式错）", "truncated" in str(exc), str(exc))
+    else:
+        check("静默截断被认出来（不是当格式错）", False, "没抛异常")
+
+    try:
+        MP._parse_sse_chat('data: {"error":{"message":"boom"}}\n')
+    except MP.ProposerError as exc:
+        check("上游 error 块抛出来（不吞成空回复）", "boom" in str(exc), str(exc))
+    else:
+        check("上游 error 块抛出来（不吞成空回复）", False, "没抛异常")
+
+    # 网关若回非流式 JSON，也必须能读——`_post_openai` 按 content-type 分流。
+    class _Resp(io.BytesIO):
+        headers = {"content-type": "application/json"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    real = MP.urllib.request.urlopen
+
+    def fake(*_a, **_k):
+        return _Resp(
+            json.dumps(
+                {
+                    "choices": [{"message": {"content": "非流式也读得出来"}}],
+                    "usage": {"completion_tokens": 7},
+                }
+            ).encode()
+        )
+
+    MP.urllib.request.urlopen = fake
+    try:
+        class _Relay:
+            @staticmethod
+            def base_url() -> str:
+                return "http://127.0.0.1:1"
+
+        p = MP.MinimaxProposer(relay=_Relay(), model="x", api="openai-completions")
+        got, toks = p._post("hi")
+        check("非流式 JSON 回复也读得出来", got == "非流式也读得出来", got)
+        check("输出 token 读得出来", toks == 7, str(toks))
+    finally:
+        MP.urllib.request.urlopen = real
+
+
+def _file_blocks_ok() -> None:
+    print("[12b] 文件块：表头容错 + 漏块不许静静丢掉 + 自动触发句不能靠 description 首行")
+    import minimax_proposer as MP
+
+    good = (
+        "<<<FILE context/harness/systemprompt.md\n"
+        "@@APPEND\n"
+        "- 新的一条纪律\n"
+        ">>>FILE\n"
+    )
+    edits, _notes = MP.parse_edits(good)
+    check("正常表头能解析", list(edits) == ["systemprompt.md"], str(list(edits)))
+    check("表头前缀被剥掉", "context/harness" not in "".join(edits), str(list(edits)))
+    check("正常表头不算漏块", MP.unparsed_headers(good) == [], str(MP.unparsed_headers(good)))
+
+    # 2026-10-20 实测：dom1 的表头多写了一个 `>`，整块被丢，而这一轮仍记 ok。
+    stray = good.replace("systemprompt.md\n", "systemprompt.md>\n")
+    edits2, _ = MP.parse_edits(stray)
+    check("表头尾随 `>` 仍能解析（旧代码必挂）", list(edits2) == ["systemprompt.md"], str(list(edits2)))
+    check("尾随 `>` 也不该算漏块", MP.unparsed_headers(stray) == [], str(MP.unparsed_headers(stray)))
+
+    # 真正的坏表头：**必须被数出来**，不许静默。
+    broken = "<<<FILE context harness/systemprompt.md\n内容\n>>>FILE\n"
+    check("坏表头被数成漏块", len(MP.unparsed_headers(broken)) == 1, str(MP.unparsed_headers(broken)))
+    mixed = good + "\n<<<FILE context harness/guardrails.md\n内容\n>>>FILE\n"
+    check(
+        "好块 + 坏表头：好块照解析、坏表头照报警（不许只报一半）",
+        list(MP.parse_edits(mixed)[0]) == ["systemprompt.md"] and len(MP.unparsed_headers(mixed)) == 1,
+        f"{list(MP.parse_edits(mixed)[0])} / {MP.unparsed_headers(mixed)}",
+    )
+    # 块**内部**出现 `<<<FILE` 字样（技能里贴协议示例）不算漏块。
+    inside = (
+        "<<<FILE context/harness/skills/x/SKILL.md\n"
+        "示例：\n<<<FILE context/harness/foo.md\n>>>FILE\n"
+        ">>>FILE\n"
+    )
+    check(
+        "块内的 `<<<FILE` 示例不被误判成漏块",
+        MP.unparsed_headers(inside) == [],
+        str(MP.unparsed_headers(inside)),
+    )
+
+    # 自动触发句：YAML 折叠块 `description: >` 时，旧模板会写出「- 当>时，加载 …」。
+    from harness2.core import tree as HT
+    from dsh_substrate import DSH_SURFACE
+
+    tree: HT.Tree = {
+        "skills/y/SKILL.md": "---\nname: y\ndescription: >\n  一段折叠块描述\n  第二行\n---\n正文\n"
+    }
+    fixed = HT.autotrigger(DSH_SURFACE, tree)
+    line = [l for l in tree.get("systemprompt.md", "").splitlines() if "`y`" in l]
+    check("自动触发句被写进 systemprompt.md", bool(fixed) and bool(line), f"{fixed} / {line}")
+    check(
+        "折叠块描述不再把 `>` 拼进句子里（旧模板必挂）",
+        all("当>时" not in l for l in line),
+        str(line),
+    )
+    check("自动触发句点到了技能名", any("`y`" in l for l in line), str(line))
+
+
+def _cli_entry_ok() -> None:
+    """[12c] CLI 入口的形状：路径与变量都算「同一个程序在位」。
+
+    2026-10-20 实测的假阴性：基准臂一条 rollout 把 `which feuille` 的结果存进
+    `$FEUILLE`，25 次写成 `$FEUILLE poster render …`，旧正则只认字面 `feuille`，
+    于是判成「没走产线」——凭空造出一个 +6.7 的「演化提升」。
+    """
+    print("[12c] 判据认不认「路径 / 变量」形态的 CLI 入口")
+    import bench_usine as BU
+
+    sanity = [
+        # (说明, 命令, 期望, 是否给 known_vars)
+        ("裸词", "feuille poster render a.html b.png 1240 1754 2", True, False),
+        (
+            "绝对路径",
+            "/var/folders/tr/x/T/usine-feuille-bin-abc/feuille poster render a b 1 2 3",
+            True,
+            False,
+        ),
+        (
+            "同命令变量",
+            'export FEUILLE=/v/t/usine-feuille-bin-abc/feuille; $FEUILLE poster audit-charset a b',
+            True,
+            False,
+        ),
+        ("跨命令变量", "$FEUILLE poster fit-diag", True, True),
+        ("花括号变量", "${FEUILLE} poster assemble a.html b.html", True, True),
+        ("node 形态", "node /srv/feuille.js poster render a b 1 2 3", True, False),
+        ("其它产线不算", "feuille theme match --topic x", False, False),
+        ("变量没绑 feuille 不算", "$CHROME poster render a b", False, False),
+        (
+            "路径带 Chrome 不算",
+            'CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; '
+            '"$CHROME" --headless --dump-dom x',
+            False,
+            False,
+        ),
+    ]
+    for label, cmd, want, use_known in sanity:
+        got = BU._cli_invokes(
+            cmd, "feuille poster", known_vars={"FEUILLE"} if use_known else set()
+        )
+        check(f"CLI 入口：{label}", got == want, f"got={got} want={want} :: {cmd[:60]}")
+
+    # **真实轨迹复证**：基准臂那条 rollout 现在应当被认下。
+    run = Path(
+        os.path.expanduser(
+            "~/.cache/usine-h2-v2/arm-poster-fuyao-v5-base/routing-poster/"
+            "repeat-base-routing-poster-r1/events.jsonl"
+        )
+    )
+    if not run.is_file():
+        print("  skip 真实轨迹不在本机（v5 基准臂 r1），只跑上面 9 条")
+        return
+    cmds: list[str] = []
+    for line in run.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("type") != "tool/call":
+            continue
+        d = e.get("data") or {}
+        if d.get("name") != "bash":
+            continue
+        try:
+            cmds.append(json.loads(d.get("arguments") or "{}").get("command") or "")
+        except ValueError:
+            continue
+    run_vars: set[str] = set()
+    for c in cmds:
+        run_vars |= BU._feuille_vars(c)
+    hits = [c for c in cmds if BU._cli_invokes(c, "feuille poster", known_vars=run_vars)]
+    check(
+        "真实轨迹：$FEUILLE 形态被认下（旧代码必挂）",
+        bool(hits),
+        f"{len(cmds)} 条 bash 里一条都没认下",
+    )
+    # **反向**：不能因为放宽而把「只是提到」也算上。
+    check(
+        "真实轨迹：`grep` 里提到不算调用",
+        not BU._cli_invokes("grep -rn 'feuille poster' docs/", "feuille poster"),
+        "把只读探查里的字样算成了调用",
+    )
+
+
+def _criteria_stamp_ok() -> None:
+    """[12d] 判据戳必须跟着**匹配实现**变，且不因注释变。
+
+    2026-10-20 实测：改了 `_cli_invokes` 但判据的 name/kind/needle/weight 没动，
+    戳不变 ⇒ 两把尺子量出来的分数共用一个戳，`--append` 会把它们拼成一条分布。
+    """
+    print("[12d] 判据戳随匹配实现变化（注释不算）")
+    import usine_adapter as UA
+
+    d0 = UA._matcher_impl_digest()
+    check("摘要非空且是 12 位", bool(d0) and len(d0) == 12, f"got={d0!r}")
+    check(
+        "同样的代码算两次一致",
+        UA._matcher_impl_digest() == d0,
+        "两次结果不同——摘要不稳定，戳就失去意义",
+    )
+    # 覆盖的关键函数都在
+    import bench_usine as BU
+
+    missing = [n for n in UA._MATCHER_FUNCS if not hasattr(BU, n)]
+    check("要哈希的匹配函数都在", not missing, f"缺：{missing}")
+
+
+def _heredoc_ok() -> None:
+    """[12e] heredoc 正文是**数据**，不是被执行过的命令。
+
+    2026-10-20 实测踩到两处反向误判，都出自同一根因（把正文当命令）：
+
+    - **过判**：演化臂 r2 的 `no_tool_face_bypass` **唯一**证据是
+      `cat > chrome-wrap.sh <<'EOF'` 正文里的一行 `exec "/Applications/…/Edge"`——
+      那只是在**写脚本**，而且该 rollout 从头到尾没直接执行过这个脚本，只把路径经
+      `CHROME_BIN=` 交给工具面（**工具面自己调浏览器，正当**）；
+    - **同样会过判 CLI**：正文里写一句 `feuille poster render …` 会被算成调用过。
+
+    语义上无争议：shell 不执行 heredoc 正文。剥掉它，判据量的是「真的跑过什么」。
+    """
+    print("[12e] heredoc 正文不算「执行过」（写脚本 ≠ 跑脚本）")
+    import bench_usine as BU
+
+    # (a) 正文里的浏览器路径 / 出产物开关：写脚本，不是执行。
+    wrap = (
+        "cat > chrome-wrap.sh <<'EOF'\n"
+        "#!/bin/sh\n"
+        'exec "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \\\n'
+        '  --headless --screenshot=/tmp/a.png "$@"\n'
+        "EOF\n"
+    )
+    check(
+        "写浏览器包装脚本（正文含 --screenshot）不算绕行",
+        not BU._is_browser_exec(wrap),
+        "把 heredoc 正文当成了执行——这正是 evo r2 被误判的那一形状",
+    )
+    check(
+        "同一段里 `cat` 仍是程序位（重定向是正当写入）",
+        BU._program_word("cat > chrome-wrap.sh <<'EOF'") == "cat",
+        BU._program_word("cat > chrome-wrap.sh <<'EOF'"),
+    )
+
+    # (b) 正文里的 CLI 调用同样不算调用。
+    script = (
+        "cat > run.sh <<'EOF'\n"
+        "feuille poster render --out a4.pdf\n"
+        "EOF\n"
+    )
+    check(
+        "正文里的 `feuille poster render` 不算调用",
+        not BU._cli_invokes(script, "feuille poster"),
+        "把 heredoc 正文算成了调用",
+    )
+
+    # (c) **不许矫枉过正**：正文之后的真命令必须照样看得见。
+    both = (
+        "cat > run.sh <<'EOF'\nfeuille poster render --out a4.pdf\nEOF\n"
+        "feuille poster render --out real.pdf\n"
+    )
+    check(
+        "正文之后的真调用仍被认出",
+        BU._cli_invokes(both, "feuille poster"),
+        "剥 heredoc 把正文后面的真命令一起吃掉了",
+    )
+    trailing = "cat > w.sh <<'EOF'\n--screenshot\nEOF\n\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --screenshot=/tmp/b.png"
+    check(
+        "正文之后直接执行浏览器 --screenshot 仍算绕行",
+        BU._is_browser_exec(trailing),
+        "剥 heredoc 把正文后面的真执行也吃掉了",
+    )
+
+    # (d) 手册钦定的形态与探查形态，剥不剥都一个结论。
+    check(
+        "直接 `--dump-dom` 仍是量、不算绕行",
+        not BU._is_browser_exec(
+            '"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --dump-dom file:///x.html'
+        ),
+    )
+    check(
+        "直接 `--screenshot` 仍算绕行",
+        BU._is_browser_exec(
+            '"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --screenshot=/tmp/c.png file:///x.html'
+        ),
+    )
+
+    # (e) `<<` 只在**起头行**才开正文：正文里的 `<<` 不再递归开块。
+    nested = "cat > x.sh <<'OUTER'\necho hi <<'INNER'\n--screenshot\nOUTER\nfeuille poster artifact-check\n"
+    check(
+        "正文里的 `<<` 不递归开块（正文到 OUTER 才结束）",
+        BU._cli_invokes(nested, "feuille poster"),
+        "递归剥块把正文后面的真命令也吃掉了",
+    )
+
+    # (f) 截断的 heredoc（没有终止符）：只剩被截断的正文，不许凭空多出执行证据。
+    truncated = "cat > x.sh <<'EOF'\n\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --screenshot=…"
+    check(
+        "截断的 heredoc 不产出绕行证据",
+        not BU._is_browser_exec(truncated),
+        "把被截断的正文当成了执行",
+    )
+
+    # (g) **必须幂等**：剥过的串再剥一次不能变形。起头行若原样留着 `<<'EOF'`，
+    # 第二次就找不到终止符、一路剥到结尾，把后面的真命令全吃掉（假阴性）。
+    # 所以剥两次必须等于剥一次——这是「同一份东西被两个收口各剥一次」的前提。
+    multi = (
+        "cat > a.sh <<'EOF'\nfeuille poster render --out fake.pdf\nEOF\n"
+        "cat > b.sh <<'X'\n--screenshot\nX\n"
+        "feuille poster render --out real.pdf\n"
+    )
+    once = BU._strip_heredocs(multi)
+    check(
+        "剥 heredoc 幂等（剥两次 == 剥一次）",
+        BU._strip_heredocs(once) == once,
+        f"once={once!r} twice={BU._strip_heredocs(once)!r}",
+    )
+    check(
+        "两个 heredoc 之后的真调用仍被认出",
+        BU._cli_invokes(multi, "feuille poster"),
+        "多个 heredoc 连写时剥块跑偏了",
+    )
+    check(
+        "同一段里 `feuille … --out fake.pdf` 那份正文不算调用",
+        "fake.pdf" not in once,
+        once,
+    )
+
+
 def _arms_ok() -> None:
     print("[12] 臂：同树零分布 + 配对比较（假执行器，不调模型）")
     import arms as ARMS
@@ -914,6 +1387,24 @@ def _arms_ok() -> None:
     same = ARMS.compare_arms(mk("base", [1.0, 1.0, 1.0]), mk("evo", [1.0, 1.0, 1.0]))
     check("两臂一样 → 判不出演化作用", "看不出" in same["verdict"], same["verdict"])
     check("两臂一样 → p 值 = 1", same["p_value"] == 1.0, str(same["p_value"]))
+
+    # **浮点尾巴不许冒充方向**：0.8 不是二进制精确值，`0.8×4/4` 与 `0.8×3/3`
+    # 的均值可能差 1e-16，而 `delta == 0` 判零会把它分到「方向为正」那一支，
+    # 报告就写成「方向为正但不显著」——把**没有方向**说成**有方向**。
+    # 2026-10-20 实测在 routing-poster 上真的发生了（两臂都是 0.8，verdict 却说为正）。
+    tie = ARMS.compare_arms(mk("base", [0.8] * 4), mk("evo", [0.8] * 3))
+    check(
+        "0.8 两臂（浮点尾巴）→ 仍判均值相同",
+        "看不出" in tie["verdict"],
+        f"delta={tie['delta_mean']!r} verdict={tie['verdict']}",
+    )
+    # `reliable` 也按容差判：两臂逐条相同（0.8 vs 0.8）不是「分得不干净」。
+    # 2026-10-20 实测：`(0.8+0.8+0.8)/3 == 0.8000000000000001`，裸 `>=` 判成 False。
+    check(
+        "两臂逐条相同 → reliable 为真（浮点尾巴不算分不干净）",
+        tie["reliable"] is True,
+        f"reliable={tie['reliable']!r} base_mean={tie['base_mean']!r}",
+    )
 
     up = ARMS.compare_arms(mk("base", [0.8, 0.8, 0.8]), mk("evo", [1.0, 1.0, 1.0]))
     check("演化臂更高 → 效应为正", up["delta_mean"] > 0, str(up["delta_mean"]))
@@ -1054,6 +1545,29 @@ def _arms_ok() -> None:
                 "健康的 run 目录 → 证据自洽",
                 fa.rollout_integrity(run_dir) == "",
                 fa.rollout_integrity(run_dir),
+            )
+            # (b2e) **同一条 rollout 落盘两次 → 只算一次**。
+            # 臂的增量落盘曾经把「已跑过的前缀」和「这一轮新跑的」拼在一起，
+            # 同一条 run_id 出现两次 ⇒ n 虚高、置换检验的分母跟着虚高。
+            # 2026-10-20 实测：`dom1` 臂落盘 n=6，其实只有 3 条 rollout。
+            # 去重要**留痕**（不许悄悄吞掉）。
+            dup_arm = ARMS.Arm(
+                tag=arm1.tag,
+                task_id=arm1.task_id,
+                tree_fingerprint=arm1.tree_fingerprint,
+                tree_label=arm1.tree_label,
+                rolls=[arm1.rolls[0], arm1.rolls[0]],
+            )
+            deduped = ARMS.rescore_arm(fa, dup_arm, fa.runs_root)
+            check(
+                "同一条 rollout 落盘两次 → 只算一次（n 不虚高）",
+                deduped.n == 1,
+                f"n={deduped.n}",
+            )
+            check(
+                "去重要留痕（dropped_duplicates 记在臂上）",
+                deduped.dropped_duplicates == [arm1.rolls[0].run_id],
+                str(deduped.dropped_duplicates),
             )
             # 模拟「rollout 之后 run 目录被重建」：任务文件比收尾还新。
             import os as _os
@@ -1223,7 +1737,12 @@ def main() -> int:
         _keep_base_ok,
         _unreachable_ok,
         _enable_needle_ok,
+        _proposer_sse_ok,
+        _file_blocks_ok,
         _arms_ok,
+        _cli_entry_ok,
+        _criteria_stamp_ok,
+        _heredoc_ok,
     ):
         fn()
     print()

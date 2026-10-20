@@ -17,7 +17,7 @@
 //
 // 退出码：0=会话正常收尾；1=装配或运行失败（诊断在 stderr 与 out/diagnostics.json）。
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, createWriteStream } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -61,6 +61,11 @@ const { DeepSeekHarness } = await import(SDK_ENTRY)
 const events = []
 const notifications = []
 let harness
+// 事件流**边跑边落盘**：跑批的 rollout 可能跑十几分钟，一旦超时被杀，
+// 「跑完才写」就等于零证据（2026-10-20 实测：一次 900s 超时的 smoke 只剩 exit 124，
+// 连轨迹都没有）。改成 append 之后，超时也留得住已经发生的事。
+const eventsPath = join(out, 'events.jsonl')
+const eventsStream = createWriteStream(eventsPath, { flags: 'w' })
 try {
   harness = new DeepSeekHarness({
     cwd,
@@ -74,11 +79,14 @@ try {
       notifications.push(n)
       if (n.method !== 'session.event') return
       const ev = n.params?.event ?? n.params
-      if (ev) events.push(ev)
+      if (ev) {
+        events.push(ev)
+        eventsStream.write(JSON.stringify(ev) + '\n')
+      }
     },
   })
+  await new Promise((resolve) => eventsStream.end(resolve))
 
-  writeFileSync(join(out, 'events.jsonl'), events.map((e) => JSON.stringify(e)).join('\n') + '\n')
   writeFileSync(join(out, 'final.txt'), result.finalResponse ?? '')
   writeFileSync(
     join(out, 'run-meta.json'),
@@ -126,7 +134,9 @@ try {
     model,
   }
   writeFileSync(join(out, 'diagnostics.json'), JSON.stringify(diag, null, 2))
-  writeFileSync(join(out, 'events.jsonl'), events.map((e) => JSON.stringify(e)).join('\n') + '\n')
+  // 事件流已经在跑的过程中增量落盘了——这里只把流关掉，**不重写**（重写会丢掉
+  // 失败时刻之前已经发生的事，那正是超时/崩溃场景里最值钱的证据）。
+  await new Promise((resolve) => eventsStream.end(resolve))
   console.error(`[dsh_run] 失败：${diag.error}`)
   process.exitCode = 1
 } finally {
@@ -134,6 +144,11 @@ try {
     await harness?.close()
   } catch {
     /* 关不掉也要把证据落盘 */
+  }
+  try {
+    eventsStream.destroy()
+  } catch {
+    /* 已经关了 */
   }
   rmSync(manifestPath, { force: true })
   delete process.env.FEUILLE_DSH_MANIFEST

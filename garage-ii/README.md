@@ -119,6 +119,10 @@ python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 \
 
 臂的含义、判据的失效方向、报告怎么读：[BENCHMARK.md](BENCHMARK.md)。
 
+**rsi 臂今天仍然跑不出有意义的一栏**：`garage/` 侧**已经产出过**产物（三条合并提交 + `memory_changed: true`），但那份记忆树只在仓库外的 run root 里，没入库、也没导出成可挂载的语料。要补这一栏，下一次 DRS 用 `--memory-seed <dir>` 把记忆树导出来，再 `--memory <dir>` 喂进来。
+
+两条路径**已经产出的东西**逐条对照（含墙钟、含各自踩的坑）：[EVOLUTION-PATHS.md](EVOLUTION-PATHS.md)。
+
 ---
 
 ## 三、文件地图
@@ -133,12 +137,16 @@ python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 \
 | `preflight.py` | 自检（七条硬检查 + 软警告） |
 | `run_usine_h2.py` | 运行手册入口：preflight / sweep / repeat / compare / reselect / judge / report |
 | `arms.py` | 测量层：臂（同树零分布）、配对比较（精确置换检验）、重判、失败语料、树的抽取 |
+| `tree_discipline.py` | 树级**纪律留存**检查：比对候选树与基准树的 `systemprompt.md` 工作方式条目 + `guardrails.md` 红线（丢失 / 改写 / 新增）。**不参与置换检验**，只作旁证——产物判据看不见「纪律被删了」 |
 | `compare_rsiagent.py` | 三臂对照驱动与报告 |
+| `EVOLUTION-PATHS.md` | **两条路径的产物对照**：RSIAgent（改记忆，产物是 git 提交）vs harness2（改 harness，产物是一棵树），含各自墙钟与「今天不能说什么」 |
 | `smoke_dsh_bridge.py` | 离线自检（**不调任何模型**，12 段） |
 | `BENCHMARK.md` | 对照协议：任务、判据、公平性保障、读数纪律 |
 | `dsh_run.mjs` | 执行器桥：SDK 客户端跑一次 rollout，把事件流 / 终局答案 / 装配清单落盘 |
 | `dsh_provider.py` | provider 装配：凭据从哪来（运行时凭据店，**只在内存**）、patch 怎么生成、中继句柄 |
 | `minimax_relay.mjs` | 本机中继：摘掉 `x-api-key`、换上 `Authorization`；遇 401 重读 token 重试 |
+| `llm_relay.mjs` | 统一凭据中继：按 slug 从 `config/.env` 解析端点对（最长前缀优先、组级兜底、fail-closed），`/v1/messages` → 上游 `/messages`；**凭据只在内存、不打印** |
+| `browser_shim.py` | 跑批专用浏览器垫片：每次启动都包上 `--use-mock-keychain --password-store=basic`（headless 渲染不碰用户钥匙串），`$CHROME_BIN` 与 PATH 裸名都指向它；**工具面的浏览器不变、被测行为不变、用户钥匙串不碰** |
 | `minimax_proposer.py` | 自建 proposer 通道：直连模型改 harness 树（内联证据 + `<<<FILE … >>>FILE` 协议） |
 | `dsh_surface.py` | 给引擎**注册** dsh 的提示面（运行时扩展，上游文件零改动） |
 
@@ -252,6 +260,8 @@ harness2 的 `core/prompts.py` 有一张按 **surface 名**索引的提示表（
 17. **「没测到」不许说成「零分」「全过」「更差」**。2026-10-20 实测：演化臂 6 条全 `score=None`，逐判据表却显示「演化臂失分 0.0%、Δ=−100、← 变了」——`None` 在分布层面守住了，一到渲染层就被 `get(name, 0.0)` 变回零分。**空样本格单列**（「比不了」），失分率用 `None` 承载「未知」，渲染打「—」。
 18. **证据不许被后来的进程改写而不留痕**。2026-10-20 实测：同一个 `run_id` 被重跑一次时，旧那次留下的 `exit_code` / `final.txt` 还在，工作区却被重建成空的——判据拿「最终回答说交付了」和「工作区里没有产物」对着看，量出来的是**进程管理**不是智能体（基准臂 2 条因此被记成 0.6，方向还是**对演化有利**的假阳性）。三处修法：`_launch_one` **整目录清盘**、`rollout_integrity()` 认「任务文件必须写在 rollout 结束之前」、**作废 ≠ 工具故障**（作废的 rollout 从 n 里剔出去并记理由；工具故障仍然报错退出、不写回）。
 19. **提案者也要看得见纪律**。2026-10-20 实测：海报格 5/5 条轨迹都手搓了浏览器（always-on 明文写着「不要用 shell 绕开工具」），九个提案会话里六个 `KEEP_BASE`——因为引擎的两个维度分工是「DOM 管领域知识 / INV 管工序」，**没人被问「这条纪律守住了吗」**。提案提示里现在有一段**纪律自查**：清单是 harness 自己的 always-on 文字（冻结技能里的句子不进清单），要求模型拿轨迹里**实际执行的动作**去核，并把结论写进 notes。**判据名、评分、grader 一律不许进那段文字**（评测隔离）。
+20. **跑批不许在跑批机器的主人身上留外部副作用**。2026-10-20 实测：冻结手册第 6 步教的 `google-chrome --headless --dump-dom` **没有**本仓自己的 mock-keychain 旗标（`usine/packages/core/src/platform.ts` 明写「headless 渲染绝不碰用户钥匙串」），于是每轮 rollout 都多一次「摸用户钥匙串」的机会（**用户当时报的那个弹窗，取证结论是本助手运行时自带的 puppeteer CfT 拉起来的，不是跑批——但跑批这个隐患是真的**）。**隔离要掐副作用，但不许顺手改掉被测行为**——垫片（`garage-ii/browser_shim.py`）把每次浏览器启动包上 `--use-mock-keychain --password-store=basic`，`$CHROME_BIN` 与 PATH 裸名都指向它；**工具面用的浏览器不许变**（垫片照抄 `platform.BROWSERS` 的顺序解析出同一个二进制，换浏览器就是换像素基线），**智能体照样手搓、照样绕开工具面**（判据照样命中），**用户的钥匙串一律不碰**（不改 ACL、不删项、不动 `security list-keychains`）。机检在 `browser_shim.selfcheck()`：垫片起一次 headless 浏览器 + 全新 profile，断言 **`SecurityAgent` 没被拉起**（它出现 = 弹窗出现）。踩过的死路也留档：**沙箱 HOME 不解药**（弹窗照旧 + 退出码 2），**sandbox-exec 拦不住**。
+21. **被杀/超时也要留下已经发生的事**。2026-10-20 实测：一次 900s 超时的 smoke 只剩 `exit_code=124`，**连轨迹都没有**——`dsh_run.mjs` 原来跑完才写 `events.jsonl`。现在**边跑边 append**。这与第 18 条同源：**证据在关键处消失，而读数看着像「没做」**。
 
     ---
 
@@ -261,6 +271,7 @@ harness2 的 `core/prompts.py` 有一张按 **surface 名**索引的提示表（
 python3 garage-ii/smoke_dsh_bridge.py     # 离线自检，不调任何模型
 python3 garage-ii/build_base_harness.py --check   # 基准树漂移闸
 python3 garage-ii/preflight.py            # 开跑前自检
+python3 garage-ii/browser_shim.py         # 浏览器垫片自检（起一次 headless + 全新 profile，断言不拉起 SecurityAgent）
 ```
 
 `smoke_dsh_bridge.py` 走一遍桥接的每一段接缝（12 段）：基准树过校验 → 装配出 dsh 原生形状 → AGENTS.md 四节保序 → dsh 事件流渲染成共享文法 → 机械判据在造出来的轨迹上判对判错 → run root 闸拦下仓库内路径 → 端到端（**假执行器**，装配 → 会话 → 事件落盘 → 轨迹 → 判据）→ 引擎的提示面认得 dsh → 「不用改」（KEEP_BASE）与「改不动」（KEEP_BASE OUT_OF_SCOPE）都是正当答案 → 「做不成」是领域事实、不是失败（yardstick 带着这条）→ 「不要建议用户开启」这条针不误伤（拿 2 份真违规 + 7 份合规样本守着）→ 臂：同树零分布 + 配对比较（假执行器）。

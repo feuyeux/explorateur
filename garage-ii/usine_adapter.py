@@ -36,9 +36,11 @@ from harness2.core.spec import BenchmarkAdapter, RunView
 from harness2.substrate.base import Install, RunRequest
 
 from bench_usine import TASKS, Task, task_by_id
-from dsh_provider import MINIMAX_MODEL, Relay, make_patch
+from browser_shim import BrowserShim
+from dsh_provider import MINIMAX_CONTEXT_WINDOW, MINIMAX_MAX_TOKENS, MINIMAX_MODEL, Relay, make_patch
 from dsh_substrate import (
     DSH_SURFACE,
+    TRAJECTORY_MAX_CHARS,
     DshSubstrate,
     dsh_skill_names,
     render_canonical_events,
@@ -111,6 +113,61 @@ def _feuille_shim_dir() -> Path:
 #: dsh 的技能名必须是 kebab-case（dsh 的 skill-filesystem 明确要求，违反会被丢弃）。
 _KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
+#: **决定「过/不过」的那些函数**——判据戳要把它们的源码一起哈希。
+#:
+#: 只列「匹配器」，不列题面、不列整个模块：改注释不该作废一批读数。
+_MATCHER_FUNCS = (
+    "_cli_invokes",
+    "_feuille_vars",
+    "_browser_bypass_reason",
+    "_is_browser_exec",
+    "_is_readonly",
+    "_real_tool_actions",
+    "_shell_commands",
+    "_split_shell_segments",
+    "_strip_heredocs",
+    "_program_word",
+    "_is_skill_asset",
+    "_skill_names_in_trajectory",
+    "_trajectory_text",
+)
+
+
+def _matcher_impl_digest() -> str:
+    """判据**匹配实现**的摘要——判据戳必须含它。
+
+    没有它就会出现这种账面：判据的 name/kind/needle/weight 一动不动、匹配逻辑
+    改了，戳照旧，于是两批用不同尺子量出来的分数被当成同一条分布。2026-10-20
+    实测踩到（`_cli_invokes` 修好前/后的 v5 读数共用一个戳）。
+
+    函数被改名/删掉也应当让戳变——所以取不到源码时喂函数名本身。
+    """
+    import inspect
+
+    import bench_usine
+
+    h = hashlib.sha1()
+    for name in _MATCHER_FUNCS:
+        h.update(name.encode("utf-8"))
+        h.update(b"\0")
+        fn = getattr(bench_usine, name, None)
+        if fn is None:
+            h.update(b"<missing>")
+        else:
+            try:
+                src = inspect.getsource(fn)
+            except (OSError, TypeError):
+                src = f"<no-source:{id(fn)}>"
+            # 去掉行尾空白与注释行，免得「只改注释」也作废读数。
+            body = "\n".join(
+                line.rstrip()
+                for line in src.splitlines()
+                if not line.lstrip().startswith("#")
+            )
+            h.update(body.encode("utf-8"))
+        h.update(b"\0")
+    return h.hexdigest()[:12]
+
 
 class UsineAdapter:
     """usine 产线在 dsh 上的 benchmark 适配器。"""
@@ -124,11 +181,17 @@ class UsineAdapter:
         provider: str = "anthropic",
         relay=None,
         only_tasks: list[str] | None = None,
+        context_window: int = 0,
+        max_tokens: int = 0,
+        api: str = "anthropic-messages",
     ):
         self.runs_root = Path(runs_root)
         self.timeout = int(timeout)
         self.model = model or MINIMAX_MODEL
         self.provider = provider
+        #: 线上协议（`anthropic-messages` / `openai-completions`）。同一个网关、
+        #: 同一个模型，两种协议下**墙钟差一倍多**——见 `make_patch` 的实测表。
+        self.api = api
         self.only_tasks = list(only_tasks) if only_tasks else None
         # rollout 串行锁。harness2 的 agg 模式会并行跑 2 个候选 rollout，而
         # `usine_verify` 跑的是 **usine 仓里的全量门禁**（typecheck + vitest）——
@@ -141,9 +204,14 @@ class UsineAdapter:
         # 锁到「该串行的那一格」上，剩下的格子并发跑，墙钟从 2.6 小时降到 ~1 小时。
         self._rollout_lock = threading.Lock()
         self._serial_tasks = _serial_tasks_needed()
+        #: 中继只该起一个：并行 rollout 会同时调 `_ensure_relay`。
+        self._relay_lock = threading.Lock()
         # 中继：把 dsh 的 anthropic 请求转成 MiniMax 运行时认的那一路（摘 x-api-key、
         # 换 Authorization: Bearer）。**token 只活在中继的内存里**，不进磁盘。
         self._relay = relay if relay is not None else Relay()
+        #: 写进 dsh patch 的窗口/输出上限（不同网关不一样；0 = 用 provider 默认）。
+        self.context_window = int(context_window) or MINIMAX_CONTEXT_WINDOW
+        self.max_tokens = int(max_tokens) or MINIMAX_MAX_TOKENS
         self._relay_started = False
         # 只有**自己起的中继**才归自己关。注入进来的中继是整个 sweep 共享的——
         # adapter 被回收时把它关掉，会把还在跑的中继杀掉（症状是别的阶段
@@ -152,12 +220,22 @@ class UsineAdapter:
         self._substrate = DshSubstrate(launcher=self._launch)
         #: `feuille` 垫片目录（PATH 用）。第一次跑 rollout 时才造。
         self._shim_dir: Path | None = None
+        #: 浏览器垫片（mock keychain）。第一次跑 rollout 时才造——它让 headless
+        #: 渲染不碰用户钥匙串（否则每轮 rollout 都在弹窗，2026-10-20 实测）。
+        self._browser_shim: BrowserShim | None = None
 
     def _ensure_relay(self) -> None:
-        if not self._relay_started:
-            self._relay.start()
-            self._relay_started = True
-            self._owns_relay = True
+        """起中继（**线程安全**：并行 rollout 会同时调到这里）。
+
+        没有锁的话，两个线程可能各起一个中继——端口不同，两个进程各拿一份
+        凭据在内存里（不落盘，所以不泄密），但**收尾时只关一个**，
+        另一个变孤儿，端口还占着。
+        """
+        with self._relay_lock:
+            if not self._relay_started:
+                self._relay.start()
+                self._relay_started = True
+                self._owns_relay = True
 
     def close(self) -> None:
         if self._relay_started and self._owns_relay:
@@ -166,6 +244,9 @@ class UsineAdapter:
         if self._shim_dir is not None:
             shutil.rmtree(self._shim_dir, ignore_errors=True)
             self._shim_dir = None
+        if self._browser_shim is not None:
+            self._browser_shim.close()
+            self._browser_shim = None
 
     def __enter__(self) -> "UsineAdapter":
         return self
@@ -247,6 +328,15 @@ class UsineAdapter:
 
         判据一改，同一格的分就不能和旧的混着看。臂的 `--append` 会拿它当闸：
         戳不一样就拒绝追加（那是「用新尺子量旧数据」，拼出来的不是同一条分布）。
+
+        **必须连匹配实现一起哈希**，不能只哈希判据的声明。2026-10-20 实测：
+        我改了 `_cli_invokes`（让 `$FEUILLE poster …` 与绝对路径也认），判据的
+        name/kind/needle/weight 一个字没动，于是戳**不变**——旧读数（v4、以及
+        v5 修好前那批）和新读数共用一个戳，`--append` 会把两把尺子量出来的
+        分数拼成一条分布，而账面完全看不出来。
+
+        **只哈希「决定过/不过」的那些函数**，不哈希整个模块：注释和文档改动
+        不该让一批读数作废（那会逼着人为了「不丢数据」而不写注释）。
         """
         from bench_usine import task_by_id
 
@@ -261,6 +351,7 @@ class UsineAdapter:
             h.update(b"\0")
             h.update(str(c.weight).encode("utf-8"))
             h.update(b"\0")
+        h.update(_matcher_impl_digest().encode("utf-8"))
         return h.hexdigest()[:12]
 
     def execute(
@@ -376,6 +467,9 @@ class UsineAdapter:
             provider=self.provider,
             model=self.model,
             base_url=self._relay.base_url(),
+            context_window=self.context_window,
+            max_tokens=self.max_tokens,
+            api=self.api,
         )
 
         argv = [
@@ -396,11 +490,30 @@ class UsineAdapter:
         ]
         env = dict(os.environ)
         env.setdefault("ANTHROPIC_API_KEY", "relay-placeholder")
+        # openai-completions 那一路的占位 key（真凭据只在中继进程内存里）。
+        env.setdefault("OPENAI_API_KEY", "relay-placeholder")
         # `feuille` 必须在 PATH 上：技能手册通篇写 `feuille poster …`，
         # `which feuille` 落空会让智能体判定「工具面没有包」而停手（2026-10-20 实测）。
         if self._shim_dir is None:
             self._shim_dir = _feuille_shim_dir()
         env["PATH"] = f"{self._shim_dir}{os.pathsep}{env.get('PATH', '')}"
+        # 浏览器垫片：headless 渲染**不碰用户钥匙串**。
+        # 基准智能体会手搓浏览器（冻结手册第 6 步就教 `google-chrome --headless
+        # --dump-dom`），而那条命令行里没有 `--use-mock-keychain`——于是它给
+        # Chrome 换新 profile 时，macOS 每轮 rollout 都弹一次钥匙串授权框
+        # （2026-10-20 实测：弹窗 + 有时退出码 2）。垫片把每一次浏览器启动都包上
+        # 那对旗标，并让「智能体找浏览器」先撞到垫片。
+        # **它不改工具面的浏览器**（垫片指向 platform.browserPath() 解析出的同一个
+        # 二进制），也不改被测行为——智能体照样手搓、照样绕开工具面，判据照样命中。
+        if self._browser_shim is None:
+            self._browser_shim = BrowserShim()
+        env["PATH"] = f"{self._browser_shim.path_prefix()}{os.pathsep}{env['PATH']}"
+        env.update(self._browser_shim.env_patch())
+        # 证据：垫片解析出哪个二进制、加了哪些旗标（不含任何凭据）。
+        (run_dir / "browser-shim.json").write_text(
+            json.dumps(self._browser_shim.manifest(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         try:
             proc = subprocess.run(  # noqa: S603
@@ -433,11 +546,25 @@ class UsineAdapter:
 
         规范流来自 SDK 的 `session.event` 通知（`dsh_run.mjs` 落盘），
         **不是** `--json` 投影——后者是后加的，PATH 上的 dsh 0.1.5-rc.3 就没有。
+
+        **整条轨迹不许截断**（`max_chars` 给到很大）：引擎的证据契约明写
+        「`context/rollouts/<label>.md` 是**完整**轨迹，不做 prompt 预算截断」
+        （`theatre-ii/harness2/core/context.py`）。本层原来在这里硬砍 200k 字符，
+        后果是**两个都错**（2026-10-20 实测，新协议下更明显）：
+
+        - 提案者看到的证据只剩 227KB / **24 条 ACTION**（真实约 180 条）——
+          它在拿一副骨架做判断；
+        - 判据看到的轨迹只剩 **18 条 ACTION**（真实 108 条），于是
+          `tool_called:usine_poster` 被判成 **100% 失分**——**判据的假信号**
+          （实际有 3 次 MCP 调用 + 22 次 CLI 调用）。
+
+        观测正文的长度由 `obs_trunc` 单独管（每条观测的上限），那是引擎的
+        `spec.obs_trunc` 语义；**整条轨迹的总长没有上限**。
         """
         p = self._events_path(run_dir)
         if not p.is_file():
             return "(no events file)"
-        return render_canonical_events(p, obs_trunc=obs_trunc, max_chars=200_000)
+        return render_canonical_events(p, obs_trunc=obs_trunc, max_chars=TRAJECTORY_MAX_CHARS)
 
     def final_text(self, run_dir: Path) -> str:
         """终局答案：`dsh_run.mjs` 落的 `final.txt`（SDK 的 finalResponse）。"""
