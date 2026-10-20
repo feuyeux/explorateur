@@ -287,6 +287,29 @@ describe("usine_video_generation：额度红线由机制承载", () => {
     expect(r.status).toBe("asked-rejected")
     expect(r.message).toContain("未提交")
   })
+  it("审批被拒（rejected）→ 未获批准卡：plain 结论+效果+下一步，status 沿用 asked-rejected，不提交", async () => {
+    const ctx = fakeCtx("rejected")
+    ;(await loadPlugin()).apply(ctx)
+    const r = (await withoutMcodePath(() =>
+      tool(ctx, "usine_video_generation").execute(submit(), exec({ id: "a" })))) as { status: string; message: string }
+    expect(ctx.approvalRequests).toHaveLength(1) // 审批恰问一次（原有 submit 路径可观测）
+    expect(r.status).toBe("asked-rejected") // 分支4 status 沿用源码 asked-<outcome>，一字未改
+    expect(r.message).toContain("这条视频生成请求没有得到批准：操作员在宿主的审批界面拒绝了它。没有提交任何任务，没有排队中的任务，也没有视频在生成。请把这个结果转告给提出请求的人；只有在确实还需要这个视频、且操作员会在宿主审批界面批准时，才重新发起请求。（审批结果：rejected——未提交。）") // 精确匹配新卡全文（静态部分逐字）
+    expect(r.message).toContain("[视频生成提交审批]") // reason 卡跟随，与兄弟分支同形
+    expect(r).not.toHaveProperty("task_id") // 无下游提交：未拿到 task_id
+  })
+
+  it("审批取消（cancelled）→ 同张未获批准卡，status 沿用 asked-cancelled，不提交", async () => {
+    const ctx = fakeCtx("cancelled")
+    ;(await loadPlugin()).apply(ctx)
+    const r = (await withoutMcodePath(() =>
+      tool(ctx, "usine_video_generation").execute(submit(), exec({ id: "a" })))) as { status: string; message: string }
+    expect(ctx.approvalRequests).toHaveLength(1)
+    expect(r.status).toBe("asked-cancelled")
+    expect(r.message).toContain("这条视频生成请求没有得到批准：操作员在宿主的审批界面拒绝了它。没有提交任何任务，没有排队中的任务，也没有视频在生成。请把这个结果转告给提出请求的人；只有在确实还需要这个视频、且操作员会在宿主审批界面批准时，才重新发起请求。（审批结果：cancelled——未提交。）")
+    expect(r).not.toHaveProperty("task_id")
+  })
+
 
   it("H3 768P 6s 预估 426 积分（≈¥2.98）——积分速查表进审批卡", async () => {
     const ctx = fakeCtx("rejected")

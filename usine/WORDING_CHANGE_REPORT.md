@@ -1,0 +1,1 @@
+packages/dsh-plugin/src/tools.ts|usine_video_generation submit 审批被拒/取消分支（第四分支，status asked-<outcome>）|审批结果：${outcome}——未提交。\n${reason}|这条视频生成请求没有得到批准：操作员在宿主的审批界面拒绝了它。没有提交任何任务，没有排队中的任务，也没有视频在生成。请把这个结果转告给提出请求的人；只有在确实还需要这个视频、且操作员会在宿主审批界面批准时，才重新发起请求。（审批结果：${outcome}——未提交。）\n${reason}

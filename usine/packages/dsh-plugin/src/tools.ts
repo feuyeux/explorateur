@@ -513,7 +513,7 @@ export function videoGenerationTool(ctx: unknown): ToolDefinition {
       }
       if (outcome !== 'allowed-once') {
         // rejected / cancelled / unavailable 一视同仁：停在这里，不提交、不重试、不换参数试探。
-        return { status: `asked-${outcome}` as 'asked-rejected', message: `审批结果：${outcome}——未提交。\n${reason}` }
+        return { status: `asked-${outcome}` as 'asked-rejected', message: `这条视频生成请求没有得到批准：操作员在宿主的审批界面拒绝了它。没有提交任何任务，没有排队中的任务，也没有视频在生成。请把这个结果转告给提出请求的人；只有在确实还需要这个视频、且操作员会在宿主审批界面批准时，才重新发起请求。（审批结果：${outcome}——未提交。）\n${reason}` }
       }
 
       const payload: Record<string, unknown> = { model, prompt: a.prompt, duration: a.duration, resolution: a.resolution }
