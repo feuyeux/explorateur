@@ -24,7 +24,7 @@
 // 浏览器一律经 `platform` 解析，绝不写死路径（跨平台约定 1）。
 import { execFileSync } from "node:child_process"
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
-import { basename, join } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import sharp from "sharp"
@@ -135,6 +135,22 @@ async function cropTo(png: string, w: number, h: number): Promise<void> {
   renameSync(tmp, png)
 }
 
+/** 浏览器 `--screenshot` 的输出目标：**必须绝对路径，且父目录必须已存在**。
+ *
+ * 两条都是「进程退出 0、文件不产出、也不报错」的静默失败（实测：相对路径 → 文件
+ * 不落盘，报错一路拖到下游 sharp 才以 `Input file is missing: xxx.png` 露头，看着
+ * 像「文件丢了」；目录不存在同样静默，与绝对/相对无关）。所以这两件事由机制在
+ * 一处保证：调用方给什么路径都行，交给浏览器的永远是绝对路径。
+ *
+ * 为什么不一并在 `shotArgs` 里做：那样只是把相对路径蒙对，父目录仍然可能不存在，
+ * 而且测试只能验「实参长什么样」、验不了「目录被建了」。
+ */
+export function shotTarget(outPng: string): string {
+  const abs = resolve(outPng)
+  mkdirSync(dirname(abs), { recursive: true })
+  return abs
+}
+
 /** 不透明整图**单次**截图（封面等用这个；透明叠加层用 shootMatte）。
  * 视口亏空自动补偿 + 裁齐到 canvasH（坑⑩ + 残留尾巴一次处理完）。 */
 export async function edgeScreenshot(
@@ -143,19 +159,20 @@ export async function edgeScreenshot(
   opts: { width: number; canvasH: number; browser?: string | null; workdir?: string; budgetMs?: number },
 ): Promise<string> {
   const browser = opts.browser ?? requireBrowser()
-  const workdir = opts.workdir ?? process.cwd()
+  const out = shotTarget(outPng)
+  const workdir = resolve(opts.workdir ?? process.cwd())
   mkdirSync(workdir, { recursive: true })
   const [, winH] = viewportDeficit(opts.canvasH, { browser, workdir })
-  const hPath = join(workdir, `${basename(outPng).replace(/\.png$/, "")}.html`)
+  const hPath = join(workdir, `${basename(out).replace(/\.png$/, "")}.html`)
   writeFileSync(hPath, html, "utf8")
-  rmSync(outPng, { force: true })
+  rmSync(out, { force: true })
   execFileSync(
     browser,
-    shotArgs(browser, opts.width, winH, outPng, hPath, opts.budgetMs ?? 1600),
+    shotArgs(browser, opts.width, winH, out, hPath, opts.budgetMs ?? 1600),
     { timeout: 180_000, stdio: ["ignore", "pipe", "pipe"] },
   )
-  await cropTo(outPng, opts.width, opts.canvasH)
-  return outPng
+  await cropTo(out, opts.width, opts.canvasH)
+  return out
 }
 
 /** 透明文字层：同一 HTML 在白底 / 黑底各截一次 → matteCombine 出精确 alpha。
@@ -168,10 +185,11 @@ export async function shootMatte(
   opts: { width: number; canvasH: number; browser?: string | null; workdir?: string; budgetMs?: number },
 ): Promise<string> {
   const browser = opts.browser ?? requireBrowser()
-  const workdir = opts.workdir ?? process.cwd()
+  const out = shotTarget(outPng)
+  const workdir = resolve(opts.workdir ?? process.cwd())
   mkdirSync(workdir, { recursive: true })
   const [, winH] = viewportDeficit(opts.canvasH, { browser, workdir })
-  const stem = basename(outPng).replace(/\.png$/, "")
+  const stem = basename(out).replace(/\.png$/, "")
   const shots: string[] = []
   for (const [tag, bg] of [["_w", "#FFFFFF"], ["_b", "#000000"]] as const) {
     const hPath = join(workdir, `${stem}${tag}.html`)
@@ -186,7 +204,7 @@ export async function shootMatte(
     await cropTo(png, opts.width, opts.canvasH)
     shots.push(png)
   }
-  const out = await matteCombineBuffer(shots[0]!, shots[1]!)
-  writeFileSync(outPng, out)
-  return outPng
+  const combined = await matteCombineBuffer(shots[0]!, shots[1]!)
+  writeFileSync(out, combined)
+  return out
 }
