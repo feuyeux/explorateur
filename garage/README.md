@@ -179,8 +179,9 @@ BRS 是并行广度，DRS 是串行深度（论文 RSIAgent §2.2）。DRS **必
   论文 §3.2 指出增长包含收缩（整合记录会替换多条旧记录），所以判据是
   **tree 变化**，不是体积增长。
 - DRS **不合并进 usine**：串行核发的是 `PROJECT_CLOSED` 而不是
-  `PHASE1_WAVE_COMPLETED`，wave-merge 的事件入口不触发。DRS 的产出是记忆，
-  不是代码。
+  `PHASE1_WAVE_COMPLETED`，wave-merge 的事件入口不触发。DRS 的默认产出是记忆，
+  不是代码——但候选也可以显式合进仓库，见 §5.6。
+- 下一波要站在**加深后**的记忆上：见 §5.8（`--memory-seed`）。
 
 #### 5.1 DRS 有自己的运行上限，而且它的切片必须真的生效
 
@@ -343,6 +344,37 @@ SKIP」翻成 fail——实测 `pnpm verify` 变 11 failed / 522 passed，报错
 2. guest 必须真的拿到仓库（§5.3）——种子被 reset 抹掉、capture key 不匹配，
    Actor 满墙钟找代码；
 3. DRS 不该被 merge 门拦住（§5.4）——它不合并。
+
+#### 5.6 DRS 的改进要看得见：`--merge-drs` 与 `merge_drs.py`
+
+DRS 的**记忆**产出已经进仓库，DRS 的**候选**（那一轮真改出来的代码）却没有：它过了验证席的 PASS、过了 guest 里的门禁，却因为串行核发的是 `PROJECT_CLOSED` 而不是 `PHASE1_WAVE_COMPLETED`，永远不会被 wave-merge 的事件入口捞走。于是"DRS 改进了 usine"这句话没有任何产物能证明——仓库里看不出任何变化。
+
+- `run_usine.py --merge-drs`（**Phase-2 专有**，与 Phase-1 互斥，误用 fail-closed）：跑完 DRS 顺手把候选合进仓库。合并走的是**广度波次同一套机器**——delta、漂移闸、真树门禁、commit、tag，所以一条 DRS 改进进仓库的规矩和其余所有改动一样。合不进去不吞：结果载荷写 `drs_merge.ok=false` + 原因，进程退出码 **4**（"跑成了但没合进去"和"跑成了并合进去了"是两个不同的claim，不能混成一句"DRS 成功"）。
+- `garage/merge_drs.py --run-root <phase2 目录>`：给**已经跑完**的 DRS 补合（当时门禁红了、事后才想看、想重做一次）。`--plan` 是只读预览：报 delta 和**合并会得出的判定**（fresh / already_merged / drift），不碰仓库、不跑门禁、不建 commit 与 tag——"会落什么"应该在付门禁时间之前就是事实。
+- 引擎自己的 `episodes/<ep>/outcome.json` **一个字节都不改**：它没有 `wave_index` / `project_id`（那是 Phase-1 波次的形状，DRS 是串行的一个 project）。合并另写一个兄弟文件 `merge_outcome.json` 补上这两个字段，wave 读取器读它。
+- **命名不撒谎**：tag 是 `theatre/drs-1`（不是 `theatre/wave-1`），commit scope 是 `theatre-drs(drs-1)`，trailer 是 `X-Theatre-Drs: 1`——没有任何一处把 DRS 说成 wave。合并记录的 `source` 字段写 `drs_phase2_episode`，一眼能看出这条改动来自哪。
+
+#### 5.7 行尾不是内容变化：漂移闸必须比 git 宽一点
+
+合并前有一道漂移闸：工作树里每个被改动的路径，必须**要么**等于基线（还没合）**要么**等于候选（已经合了），否则判 `drift`、**整条候选**跳过。
+
+只比原始字节时，这道闸会在本机**误杀**。仓库的规范形式是 LF blob（`core.autocrlf=input`：入库时折叠 CRLF，签出时不展开），所以工作树里的文件可以带着 CRLF，而 **git 仍然认为它是干净的**（index 条目缓存的是工作树文件的 stat，blob 折叠成 LF）。
+
+实测（2026-10-20，bfs16i 的 DRS 候选）：`packages/dsh-plugin/src/tools.ts` 工作树 28831B / 558 处 CRLF，基线 blob 28273B——原始字节不等、**折叠后逐字节相等**。只比原始字节 → 判 `drift` → 一条过了验证席、过了门禁的改进被**静默跳过**，报告里只留一句"工作树既不匹配基线也不匹配候选"。bfs16 当初能合，纯粹是因为合并器刚把 LF 写进过工作树；并发会话一次 checkout/stash 就把它还原成 CRLF。
+
+修法：漂移闸同时比**原始**和**折叠 CRLF→LF** 两个 sha（`_normalized_sha`），原始相同**或**折叠后相同都算匹配。折叠只原谅行尾，不原谅内容——工作树真的既不匹配基线也不匹配候选时，仍然判 `drift`、仍然跳过。
+
+踩坑记录也留在这里：**复现这个现象时，`core.autocrlf` 必须在提交那一刻就设对**。git 把"入库时的转换过滤器"缓存进 index 条目，事后改 config 不生效——所以"先提交再改 config 再改行尾"会得到一个 ` M` 的脏树，而真实仓库（提交时就是 `input`）是干净的。冒烟照真实情形复现（带 CRLF 写入 → `git add` 刷新 index stat → 树读起来是干净的），见 `smoke_wave_merge` 的 `crlf:` 组。
+
+#### 5.8 下一波要站在加深后的记忆上：`--memory-seed`
+
+「再跑一遍会不会更好」的前提是**第二遍看到的是第一遍学到的东西**，而不是从零重来。引擎本来就既读又写 `lineage/memory`（出题席读它、Actor 拿着它干活、分支蒸馏后回灌），所以预置这棵树**不需要改引擎**：把记录拷进 run root 的 `memory/` 就行。
+
+- `--memory-seed <目录>`：这次波次从这棵记忆树起步。Phase-1 默认从空树起步；给了种子就是"在上一波的收获上再跑"。
+- Phase-2 默认以 `phase1/memory/` 为基线；给了 `--memory-seed` 就**换基线**——这就是"第二次 DRS 加深的是第一次 DRS 加深过的那棵树"。`drs_delta` 的基线也跟着换（`baseline_dir` 写进载荷），所以"长了多少"仍然答得上来。
+- 种子是**拷贝**，不是链接也不是搬移：Phase-1 的 manifest 与 tree hash 必须保持权威、可重复读。
+- 种子目录必须存在且非空，否则 fail-closed（空记忆上的深度波次证明不了任何事）。
+- 预置在**引擎跑之前**完成，引擎自己那个 `mkdir(exist_ok=True)` 不会动已放好的记录。
 
 ## 二、怎么校验自进化产物
 
