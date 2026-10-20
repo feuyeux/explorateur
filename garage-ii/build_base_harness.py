@@ -142,6 +142,107 @@ def skill_names() -> list[str]:
     return sorted(p.parent.name for p in SKILLS_DIR.glob("*/SKILL.md"))
 
 
+#: 技能手册里引用的资源目录。手册写着「copy `assets/template/poster_src.html`」，
+#: 那一行只有在文件**真的在盘上**时才可执行。
+_SKILL_ASSET_REF = re.compile(
+    r"(?<![\w./-])(?:assets|references)/"
+    r"(?:[A-Za-z0-9_.\-]+/)*"          # 目录部分
+    r"[A-Za-z0-9_.\-]+"                # 文件名部分
+    r"(?:\.[A-Za-z0-9]+)?/?(?![A-Za-z0-9_])"  # 扩展名与结尾边界
+)
+
+#: markdown 链接。**链接文本不等于路径**——`[references/x.md](../bgm-bed/references/x.md)`
+#: 的真实目标是跨技能的那个；只看文本会把它误判成本技能的资源。
+#: 目标里可以有空格（`[a](assets/with space.html)`），所以不排除空白，
+#: 但要允许 `)` 出现在文件名里——用**最后一个** `)` 收尾。
+_MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\n]+)\)")
+
+
+def _md_link_targets(body: str) -> list[str]:
+    """markdown 链接的目标（去空白、去可选的 <> 包裹）。"""
+    out: list[str] = []
+    for raw in _MD_LINK.findall(body):
+        t = raw.strip()
+        if t.startswith("<") and t.endswith(">"):
+            t = t[1:-1].strip()
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
+def skill_asset_refs(name: str) -> list[str]:
+    """这份手册引用了哪些资源路径（相对技能目录解析）。
+
+    两种来源：markdown 链接的**目标**，以及正文里裸写的路径。
+    链接文本会被替换成目标再扫，避免把「显示用文本」当成路径。
+    """
+    body = (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+    out: list[str] = []
+    for target in _md_link_targets(body):
+        if "://" in target or target.startswith("#"):
+            continue
+        if target not in out:
+            out.append(target)
+    stripped = _MD_LINK.sub(lambda m: m.group(1), body)
+    for m in _SKILL_ASSET_REF.finditer(stripped):
+        rel = m.group(0).rstrip(".")
+        if rel not in out:
+            out.append(rel)
+    return out
+
+
+def _nested_md_link_refs(skill_dir: Path) -> list[tuple[Path, str]]:
+    """技能目录里**其它** markdown 文件的链接目标。
+
+    只看链接目标，**不看裸写的路径**：技能自己的 README 里常写「与
+    `one-page-poster` skill 的 `assets/example/poster_src.html` 同源」——
+    那是**别的技能**的资产，按本技能解析就会误报（2026-10-20 verifier 实测）。
+    """
+    out: list[tuple[Path, str]] = []
+    for md in sorted(skill_dir.rglob("*.md")):
+        if md.name == "SKILL.md":
+            continue
+        body = md.read_text(encoding="utf-8", errors="replace")
+        for target in _md_link_targets(body):
+            if "://" in target or target.startswith("#"):
+                continue
+            if not re.match(r"(?:\.\./|\./)?(?:assets|references)/", target):
+                continue
+            out.append((md, target))
+    return out
+
+
+def check_skill_assets() -> list[str]:
+    """**技能手册引用的资源必须真的在盘上**——否则工序第一步就断了。
+
+    2026-10-20 实测踩过：基准树只搬了 `SKILL.md`，`assets/` 与 `references/` 全丢，
+    工作区里的技能手册指向不存在的模板。智能体于是（正确地）判定「工具面之外没有
+    验收口径」而停手——测出来的不是 harness 的好坏，是工作区完整与否。
+    """
+    errs: list[str] = []
+    for name in skill_names():
+        skill_dir = SKILLS_DIR / name
+        for rel in skill_asset_refs(name):
+            if "://" in rel or rel.startswith("#"):
+                continue
+            target = (skill_dir / rel).resolve()
+            if target.is_dir() or target.is_file():
+                continue
+            errs.append(
+                f"技能 `{name}` 的手册引用了 `{rel}`，但它不在 "
+                f"{skill_dir.relative_to(REPO)}/ 里——装进工作区后这一步就跑不通"
+            )
+        for md, rel in _nested_md_link_refs(skill_dir):
+            target = (skill_dir / rel).resolve()
+            if target.is_dir() or target.is_file():
+                continue
+            errs.append(
+                f"技能 `{name}` 的 {md.relative_to(skill_dir)} 链接了 `{rel}`，"
+                f"但它不在 {skill_dir.relative_to(REPO)}/ 里"
+            )
+    return errs
+
+
 def build() -> dict[str, str]:
     """返回 rel -> content 的完整基准树。"""
     tree: dict[str, str] = {}
@@ -178,7 +279,7 @@ def main() -> int:
     args = ap.parse_args()
 
     tree = build()
-    errs = check(tree)
+    errs = check(tree) + check_skill_assets()
     if errs:
         for e in errs:
             print(f"DRIFT: {e}", file=sys.stderr)

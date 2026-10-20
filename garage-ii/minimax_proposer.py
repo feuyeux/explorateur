@@ -49,6 +49,9 @@ MAX_TOTAL_ROLLOUT_CHARS = 120_000
 MAX_DECISIONS_CHARS = 20_000
 MAX_POOL_CHARS = 80_000
 MAX_LIBRARY_CHARS = 40_000
+#: 选择型任务内联候选时的上限（每个候选 / 全部候选）。
+MAX_CANDIDATE_CHARS = 20_000
+MAX_CANDIDATES_CHARS = 80_000
 
 #: 改完的 harness 树允许的最大字节数（护栏：一个「改」不是一次重写）。
 MAX_OUTPUT_CHARS = 200_000
@@ -91,6 +94,11 @@ PROTOCOL = """# 你的输出格式（严格遵守，否则这一轮作废）
    **这是一个正当的答案，不是失败**——「证据不支持」是一个需要如实说出来的结论。
    证据里没有可追溯到某个时刻的失败时，**不要编一个**：你编出来的改动会被下一道
    校验挡掉，而更糟的是它会把一个本来没问题的 harness 改坏。
+4b. **如果你想改的东西不在可编辑面**（被冻结的技能、插件自带的东西、证据里根本不
+   存在的路径），**同样一个文件都不回报**，notes 里写 `KEEP_BASE OUT_OF_SCOPE`，并写清
+   「你想改什么、为什么改不动」。**这同样是正当的答案**：交回原树就算完成，这一轮
+   不作废。宁可如实说「改不动」，也不要硬改一个面外的东西——硬改会被校验挡掉，
+   而更糟的是它会把一个本来没问题的 harness 改坏。
 5. 不要回报 `<notes>`、解释或寒暄。改完之后，在最后另起一段写：
    <<<NOTES
    一段话：这次改了什么、依据轨迹里的哪一刻
@@ -116,6 +124,8 @@ PROTOCOL_HEAD = """# 你要做什么（一句话）
 
 只回报你**真的改了**的文件；一个都不改就回 `KEEP_BASE`（这是**正当的答案**，
 不是失败——证据不支持改动时如实说出来，比编一个改动有用得多）。
+想改的东西不在可编辑面时（冻结的技能、插件自带的东西），也是不回报文件，
+回 `KEEP_BASE OUT_OF_SCOPE` 并写清为什么改不动——**这同样不作废**。
 改完在最后写一段 `<<<NOTES … >>>NOTES` 说明依据。**不要写分析、解释或寒暄**——
 你的输出就是文件本身。完整格式在最后。
 """
@@ -244,10 +254,139 @@ def _decisions_block(context_dir: Path) -> str:
     return "".join(parts)[:MAX_DECISIONS_CHARS]
 
 
-def build_prompt(mission: str, context_dir: Path) -> str:
-    """把「指针式 mission」改写成「内联式证据 + 输出契约」。"""
+def _contract_of(mission: str, label: str) -> str:
+    """这个 mission 要的**输出契约**是什么。
+
+    引擎的这条通道被用在**两种性质完全不同**的任务上：
+
+    - `edit` —— 改 harness（INV / DOM / AGG 三个提案阶段）。输出契约是
+      `<<<FILE … >>>FILE` 文件块 + `<<<NOTES … >>>NOTES`。
+    - `choice` —— 选一个输出（k≥2 的盲选会话）。输出契约是引擎自己的
+      `<why>…</why>` + ` ```choice ` 块（`core/selection.py` 的 `_CHOICE`/`_WHY`）。
+    - `experience` —— 蒸馏经验。输出契约是 `<experience>…</experience>` 块。
+
+    **2026-10-20 实测踩过这个坑**：通道不分任务，一律把「改文件的协议」盖在最前面，
+    于是选择任务的模型被告知「一个都不改就回 KEEP_BASE」→ 它回了 KEEP_BASE →
+    通道去交回原树 → **选择上下文里根本没有 `harness/` 目录** → 报错 → 引擎回退。
+    **结果是：k=3 的盲选从来没真正跑过**（`selection.json` 里 `fallback: true`）。
+    """
+    if label.startswith("select.") or "```choice" in mission:
+        return "choice"
+    if label.startswith("experience.") or "<experience>" in mission:
+        return "experience"
+    return "edit"
+
+
+def _candidates_block(context_dir: Path) -> str:
+    """把候选文件内联进来（选择任务说「打开每个候选再选」，本通道没有文件工具）。"""
+    d = Path(context_dir) / "candidates"
+    if not d.is_dir():
+        return ""
+    parts = []
+    for p in sorted(d.glob("*.md")):
+        parts.append(f"--- CANDIDATE {p.stem} ---\n{_read(p, MAX_CANDIDATE_CHARS)}\n")
+    return "".join(parts)[:MAX_CANDIDATES_CHARS]
+
+
+#: **always-on 文本里的纪律行**——这是 proposer 做「纪律自查」时唯一该看的清单。
+#:
+#: 为什么要在提示里单列：引擎的两个维度分工是「DOM 管领域知识 / INV 管怎么干活」，
+#: 而 INV 的目录里明明有一条 **IGNORED INVARIANT**——「只有反复无视同一条纪律的证据
+#: 才能推出防御性 helper」。2026-10-20 实测：海报格 5/5 条轨迹都手搓了浏览器，
+#: 而 always-on 文本**明文写着**「不要用 shell 绕开工具」——纪律被反复跳过了，
+#: 但两个维度都没把它当成失败：
+#:
+#: - DOM 维度被 mission 明令「Do not diagnose commands… A parallel candidate owns
+#:   procedure」，不许碰工序；
+#: - INV 维度读到的却是「always-on 已经写明不要绕工具，规则已存在 ⇒ 不用改」。
+#:
+#: 也就是说：**规则在、轨迹违反它、这件事没人把它摆到提案者面前**。把「always-on
+#: 的纪律行」和「轨迹里实际执行的动作」摆在一起，让模型自己判「守没守」，是这一层
+#: 能补的最诚实的一块——**清单是 harness 自己的文字，不是评分口径**。
+_PROHIBITION_MARKERS = re.compile(
+    r"(不要|禁止|别|不得|必须|务必|不许|never|must not|should not|don't)", re.I
+)
+
+
+def _discipline_lines(harness_dir: Path) -> list[str]:
+    """从 always-on 文本里摘出**纪律行**（原文，一行一条）。
+
+    只取 always-on 那些**始终加载**的文件（`systemprompt.md` / `guardrails.md` /
+    `LongTermMEMORY.md` / `tool_descriptions/tool_guidance.md`）——它们才是每条轨迹
+    都在的纪律来源。冻结技能里的句子**不算**：技能是按需加载的，而且改不动。
+    """
+    out: list[str] = []
+    for rel in (
+        "systemprompt.md",
+        "guardrails.md",
+        "LongTermMEMORY.md",
+        "tool_descriptions/tool_guidance.md",
+    ):
+        p = Path(harness_dir) / rel
+        if not p.is_file():
+            continue
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            if _PROHIBITION_MARKERS.search(s):
+                out.append(f"{rel}: {s}")
+    return out
+
+
+def _discipline_block(harness_dir: Path) -> str:
+    """纪律自查段——**只含 harness 自己的文字**。"""
+    lines = _discipline_lines(harness_dir)
+    if not lines:
+        return ""
+    body = "\n".join(f"- {l}" for l in lines)
+    return (
+        "# 先做一次纪律自查（然后再决定改不改）\n\n"
+        "下面这些是 **always-on 文本里的纪律**（逐条原文；always-on 每条轨迹都在）。\n"
+        "对每一条，去轨迹里**智能体实际执行的动作**（不是它说的话）里找：\n"
+        "守住了吗？没守住的话，是哪一步没守住？\n\n"
+        f"{body}\n\n"
+        "**反复违反同一条纪律**（比如三条以上轨迹都违反了同一句）意味着：光有文字纪律\n"
+        "不够。按 IGNORED INVARIANT 那一路走——用 `scripts/<name>.py` 做一道**闸**，\n"
+        "让智能体在汇报交付物之前自己跑一遍；闸不能挡住正当的完成。\n\n"
+        "**自查结论要写进 notes**：守住了就写守住了，没守住就写清楚是哪一条、哪一步。\n"
+        "纪律已经写在 always-on 里、而且智能体确实照做了的，**不要**再抄一遍——那不是改动。"
+    )
+
+
+def build_prompt(mission: str, context_dir: Path, contract: str = "edit") -> str:
+    """把「指针式 mission」改写成「内联式证据 + 输出契约」。
+
+    `contract="edit"` 时用本通道自己的文件块协议；其余契约（选择 / 经验）**原样保留
+    引擎的输出契约**——只把证据内联进去，**不覆盖它要什么格式**。
+    """
     context_dir = Path(context_dir)
     task = _read(context_dir / "task.md", MAX_TASK_CHARS)
+
+    if contract != "edit":
+        # 选择/经验型任务：证据内联，但**输出契约一个字都不改**。
+        parts = [
+            mission,
+            "",
+            "# 证据（已内联在下面）",
+            "",
+            "你没有文件工具，所以证据不是「在磁盘上」——它就在这条消息里。",
+            "",
+            "## 任务（智能体收到的原话）",
+            "",
+            task,
+        ]
+        cands = _candidates_block(context_dir)
+        if cands:
+            parts += ["", "## 候选（每个候选的实际产出）", "", cands]
+        rollouts = _rollout_block(context_dir)
+        if rollouts:
+            parts += ["", "## 轨迹（行为证据）", "", rollouts]
+        library = _library_block(context_dir)
+        if library:
+            parts += ["", "## 经验库", "", library]
+        return "\n".join(parts)
+
     parts = [
         PROTOCOL_HEAD,
         "",
@@ -269,6 +408,9 @@ def build_prompt(mission: str, context_dir: Path) -> str:
         "",
         _rollout_block(context_dir),
     ]
+    discipline = _discipline_block(context_dir / "harness")
+    if discipline:
+        parts += ["", discipline]
     pool = _pool_block(context_dir)
     if pool:
         parts += ["", "## 候选（别的改法，以及它们各自跑出来的行为）", "", pool]
@@ -308,6 +450,22 @@ def _says_keep_base(text: str) -> bool:
     该重试而不是当成正当答案。
     """
     return bool(re.search(r"\bKEEP_BASE\b", text or ""))
+
+
+def _is_out_of_scope(text: str) -> bool:
+    """模型是不是明说「想改，但改不动（不在可编辑面）」。
+
+    这是与 KEEP_BASE 并列的**第二种**正当「不改动」答案：证据支持一个改动，
+    但那个东西不在可编辑面里。两种答案都交回原树，区别只在 notes 里写清的是
+    「没有证据」还是「改不动」——读数时要分得开这两者，因为前者说明这一格饱和，
+    后者说明这一格碰到的障碍在 harness 之外。
+
+    2026-10-20 实测：poster 维度的提案想改**冻结的** `one-page-poster` 技能，
+    模型自己认出越界并拒绝动手——但当时协议里只有「证据不支持」这一种正当答案，
+    它只能解释一句就交白卷，引擎判成格式错误 → 阶段回退 → judge 退出码 1。
+    补上这个标记后，同样的情况会走 KEEP_BASE 路径：交回原树，如实记账。
+    """
+    return bool(re.search(r"\bOUT_OF_SCOPE\b", text or ""))
 
 
 @dataclass
@@ -416,7 +574,8 @@ class MinimaxProposer:
         if context_dir is None or not Path(context_dir).is_dir():
             raise ProposerError(f"[{label}] 没有证据目录：{context_dir}")
         ctx = Path(context_dir)
-        prompt = build_prompt(mission, ctx)
+        contract = _contract_of(mission, label)
+        prompt = build_prompt(mission, ctx, contract)
         tries = max(1, int(max_attempts or self.attempts))
         last = ""
         last_text = ""
@@ -436,29 +595,64 @@ class MinimaxProposer:
             # 失败也要留原文：不然「没输出文件块」这种失败**没法诊断**
             # （0 字节的审计文件等于什么都没说）。
             last_text = text
+
+            # **选择 / 经验型任务：原样把模型回复交回给引擎**，由引擎按它自己的
+            # 契约解析（` ```choice ` 块 / `<experience>` 块）。**这里一个字都不加工**——
+            # 加工就是 bug（2026-10-20 实测：把「改文件」的协议盖在选择任务上，
+            # 模型回了 KEEP_BASE，通道去交回原树，而选择上下文里没有 harness/
+            # → 报错 → 引擎回退 → k=3 的盲选从来没真跑过）。
+            if contract != "edit":
+                r = Reply(
+                    label=label,
+                    text=text,
+                    ok=True,
+                    wall_s=round(time.time() - t0, 1),
+                    attempts=attempt,
+                    channel="minimax",
+                )
+                self.calls.append(r)
+                self._write_audit(label, mission, prompt, r)
+                return r
+
             edits, notes = parse_edits(text)
             if not edits:
-                # **「没有文件块」有两种含义，不能一律当错误**：
+                # **「没有文件块」有三种含义，不能一律当错误**：
                 #
                 # (a) 模型明说 KEEP_BASE —— 证据不支持任何改动，这是**正当的答案**；
                 #     上游的 proposer 改的就是磁盘上的文件，不改 = 交回原树，
                 #     引擎会把它记成 kept_base。
+                # (a') 模型明说 KEEP_BASE OUT_OF_SCOPE —— 想改，但那个东西不在可
+                #      可编辑面（冻结的技能、插件自带的东西）。**同样交回原树**，
+                #      同样算正当答案，只是 notes 要写得出来「改不动」这件事。
                 # (b) 模型没按协议输出（先写一长段分析就断了）—— 这才是**格式错误**，
                 #     该重试。
                 #
-                # 2026-10-20 实测：分不清这两者时，模型在**饱和任务**上会去**编造**
-                # 一个失败（它凭空描述了一���轨迹里没发生过的动作），
+                # 2026-10-20 实测：分不清 (a) 和 (b) 时，模型在**饱和任务**上会去
+                # **编造**一个失败（它凭空描述了一条轨迹里没发生过的动作），
                 # 而「不改动」这个选项当时在协议里**根本不存在**。
                 if _says_keep_base(text):
                     harness = ctx / "harness"
                     if not harness.is_dir():
                         last = "证据目录里没有 harness/，无法回报「不改动」"
                         continue
+                    oos = _is_out_of_scope(text)
                     r = Reply(
                         label=label,
                         text=(
-                            "<notes>\nKEEP_BASE —— "
-                            + (notes.strip() or "证据不支持任何改动。")
+                            "<notes>\n"
+                            + (
+                                "KEEP_BASE OUT_OF_SCOPE —— "
+                                if oos
+                                else "KEEP_BASE —— "
+                            )
+                            + (
+                                notes.strip()
+                                or (
+                                    "想改的东西不在可编辑面。"
+                                    if oos
+                                    else "证据不支持任何改动。"
+                                )
+                            )
                             + "\n</notes>"
                         ),
                         ok=True,

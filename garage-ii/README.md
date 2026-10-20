@@ -83,6 +83,31 @@ python3 garage-ii/run_usine_h2.py --phase report
 
 **纪律与 `../garage/` 对齐**：自检先行；执行需 ack token；**发布永不自动**（本层不碰发布，`usine_publish` 默认不注册，工具面上根本没有）；真波次用户喊跑才跑。
 
+### 3.1 测量：同树零分布、演化臂、并排读数（`arms.py`）
+
+```sh
+# 基准臂：同一棵树，每题 n 次 rollout → 这一棵树自己的零分布
+python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
+    --tree base --repeats 6 --tag base
+
+# 抽出某次跑批**被采纳**的树（k≥2 时是引擎盲选的结果，不是固定 agg1）
+python3 garage-ii/arms.py extract --sweep-root ~/.cache/usine-h2-k3 \
+    --ns usine-dsh-dsh-agg3 --out ~/.cache/usine-h2-arms/trees/evo-k3
+
+# 演化臂：同一棵采纳树，每题 n 次 rollout
+python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
+    --tree ~/.cache/usine-h2-arms/trees/evo-k3 --repeats 6 --tag evo-k3
+
+# 并排读：精确置换检验 + 逐条判据失分率 + 要多大 n
+python3 garage-ii/run_usine_h2.py --phase compare --root ~/.cache/usine-h2-arms \
+    --base-arm base --evolved-arm evo-k3
+
+# 只重跑「选择」这一步（不重跑任何 rollout）——k≥2 的盲选通道修好之后用
+python3 garage-ii/run_usine_h2.py --phase reselect --root ~/.cache/usine-h2-k3 --k 3
+```
+
+**为什么要有这些**：单次得分说明不了任何事——同一棵树上跑 3 次，方差就能盖过任何效应。**先有同树零分布，才谈「演化变好了」**。细节见 [BENCHMARK.md](BENCHMARK.md) 第 10–13 节。
+
 ### 4. 三臂对照（harness2 vs RSIAgent 记忆）
 
 ```sh
@@ -102,13 +127,14 @@ python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 \
 |---|---|
 | `dsh_substrate.py` | dsh 那一面：可编辑面（`DSH_SURFACE`）、装配（c1..c8 → dsh 原生文件）、轨迹渲染（dsh 事件流 → 共享文法）、dsh 命令解析与能力探测 |
 | `usine_adapter.py` | usine 那一格：任务、执行（起 dsh）、读回、dsh 侧树不变量、机械判据的投影 |
-| `bench_usine.py` | 任务集（6 个）、提示剖面、机械判据的执行 |
-| `build_base_harness.py` | 从真实 dsh 插件**派生**基准 harness 树，带漂移闸 |
+| `bench_usine.py` | 任务集（7 个）、提示剖面、机械判据的执行 |
+| `build_base_harness.py` | 从真实 dsh 插件**派生**基准 harness 树，带漂移闸（工具表 + 纪律文本 + **技能资源引用**） |
 | `harness_base/` | 派生出来的基准 harness 树（c1 系统提示 / c2 护栏 / c3 记忆 / c4 工具指引 / c6 十份技能） |
-| `preflight.py` | 自检（五条硬检查 + 软警告） |
-| `run_usine_h2.py` | 运行手册入口：preflight / sweep / judge / report |
+| `preflight.py` | 自检（七条硬检查 + 软警告） |
+| `run_usine_h2.py` | 运行手册入口：preflight / sweep / repeat / compare / reselect / judge / report |
+| `arms.py` | 测量层：臂（同树零分布）、配对比较（精确置换检验）、重判、失败语料、树的抽取 |
 | `compare_rsiagent.py` | 三臂对照驱动与报告 |
-| `smoke_dsh_bridge.py` | 离线自检（**不调任何模型**，8 段） |
+| `smoke_dsh_bridge.py` | 离线自检（**不调任何模型**，12 段） |
 | `BENCHMARK.md` | 对照协议：任务、判据、公平性保障、读数纪律 |
 | `dsh_run.mjs` | 执行器桥：SDK 客户端跑一次 rollout，把事件流 / 终局答案 / 装配清单落盘 |
 | `dsh_provider.py` | provider 装配：凭据从哪来（运行时凭据店，**只在内存**）、patch 怎么生成、中继句柄 |
@@ -137,6 +163,24 @@ harness2 的可编辑面由 `SurfaceSpec` 声明。上游两个 substrate（open
 
 **拼装的代价**：c1..c4 在方法层是四个独立可编辑组件，在安装层才合成一个 `AGENTS.md`。一个文件坏了，全盘坏。所以 `compose_agents_md` 保序、给每节留锚点，**空节留占位**（模型知道这里本该有护栏，比护栏变成空白更危险）。
 
+### 装配：技能**资源**必须一起装，CLI 必须在 PATH 上
+
+2026-10-20 踩到本层最贵的一个坑：**基准工作区本身是坏的**，于是那一格量的是「工作区完整与否」，不是 harness 的好坏。
+
+两处根因：
+
+1. **技能只装了 `SKILL.md`**。真实插件注册技能的写法是 `customSkillDirs: [resolve(usineRoot(), 'skills')]`——**整个 `usine/skills/` 目录连同 `assets/` 与 `references/` 一起注册**。只搬手册，等于把真实环境删掉一半：手册里「copy `assets/template/poster_src.html`」这一步不可执行，智能体于是（**正确地**）判定「工具面之外没有验收口径」而停手。
+2. **PATH 上没有 `feuille`**。工作区是仓库外的裸目录，而真实产线里它在 PATH 上（pnpm workspace）。智能体 `which feuille` 落空，就推断「工具面没有包」——哪怕 `usine_poster` **确实注册在工具面上**。
+
+修法：
+
+- `dsh_substrate._install_skill_assets()` 把真实资产源 `usine/skills/` 装进 `.dsh/skills/`（以及工作区里的 `skills/`），SKILL.md 由 harness 树覆盖——**资产是源，手册是被改进对象**（树里那份可能已被演化改过）。
+  **为什么资产不进 harness 树**：树是**可编辑面**，引擎 `core/tree.py` 按正则定义只认 `SKILL.md` 与 `scripts/`；把 347KB 资产塞进去会撑爆每一次提案提示。
+- `usine_adapter._feuille_shim_dir()` 造一个只含 `feuille` 的小 bin 目录（垫片是一行 `exec node <真实 cli> "$@"`——**不复制、不改写 CLI**）。
+- 两条闸：`build_base_harness.py --check` 的 `check_skill_assets()`（手册引用的每个资源路径都必须在盘上）与 `preflight.py` 的 `check_workspace_assets()`（**装配一次**——只装配、不跑模型、不花钱——逐个核对资源真落进了工作区）。源在不在与装得对不对，是两回事。
+
+完整记录见 [BENCHMARK.md](BENCHMARK.md) 第 12 节。
+
 ### 执行器：SDK 客户端，不是 `dsh --profile headless`
 
 实测下来 PATH 上的 dsh（0.1.5-rc.3）当执行器有两条硬伤：
@@ -144,7 +188,7 @@ harness2 的可编辑面由 `SurfaceSpec` 声明。上游两个 substrate（open
 1. **工具面是空的**——headless 剖面只装 `dsh-base` + `dsh-headless`，**没有** feuille-usine 插件。智能体会对着零工具面发 shell（2026-10-18 真宿主首测实录），而流程一路绿。
 2. **没有 `--json`**——事件流是后加的，stdout 里什么都没有，轨迹是空的。
 
-所以本层的执行器是 **SDK 客户端**（`dsh_run.mjs` → `@deepseek-ai/dsh-sdk-client`，版本随插件走）：
+   所以本层的执行器是 **SDK 客户端**（`dsh_run.mjs` → `@deepseek-ai/dsh-sdk-client`，版本随插件走）：
 
 - 插件面用 `patches:` 显式声明（`dsh_provider.make_patch` 生成的 patch 覆盖），工具面逐字对得上 `tools.ts`（17 个）；
 - 轨迹来自 SDK 的 **`session.event` 通知**（规范 SessionEvent 流：`tool/call` / `tool/result` / `assistant/message`），**所有版本都有**，比 `--json` 投影更全；
@@ -160,7 +204,7 @@ PATH 上的 dsh 默认走 fuyao 网关，而那把 key **余额已尽**（实测
 - pi-ai 的 anthropic 适配器**只**在 key 形如 `sk-ant-oat*` 时走 Bearer，否则一律当 apiKey 发成 `x-api-key`；
 - 两样都带能过鉴权，但平台**按 `x-api-key` 的有无选路** → 503 `direct_route_not_configured`。
 
-**解法 = 本机中继摘掉 `x-api-key`、换上 `Authorization`**。顺带解决凭据纪律：token 只活在中继进程的**内存**里，落盘的 patch 里只有一个本地 URL 与一个占位 key——凭据不进磁盘。
+  **解法 = 本机中继摘掉 `x-api-key`、换上 `Authorization`**。顺带解决凭据纪律：token 只活在中继进程的**内存**里，落盘的 patch 里只有一个本地 URL 与一个占位 key——凭据不进磁盘。
 
 ### 引擎的提示面：dsh 要有自己的一条
 
@@ -174,10 +218,16 @@ harness2 的 `core/prompts.py` 有一张按 **surface 名**索引的提示表（
 
 - 上游 proposer 是**能读文件的 agent**，mission 是「证据在磁盘上 `context/`，去读」的**指针**；本通道没有文件工具，所以把证据**内联**进提示（`task.md` / harness 树 / rollout / 候选池 / 经验库 / 既往决策）；
 - 编辑契约：**omitted-is-inherited**——只回报自己改了哪些文件，格式是 `<<<FILE … >>>FILE`；
+- **「不用改」是正当答案**：证据不支持任何改动时，模型回 `KEEP_BASE` 且不回报任何文件，
+  通道**成功**返回并交回**没改过**的树（引擎记成 `kept_base`）。这不是「白跑」——上游的 proposer 改的就是磁盘上的文件，不改 = 交回原树。**少了这一条，模型在饱和任务上会去编一个不存在的失败**（2026-10-20 实测：它凭空描述了一次轨迹里没发生过的工具调用）；
+- **「改不动」也是正当答案**：想改的东西不在可编辑面（冻结的技能、插件自带的东西）时，
+  回 `KEEP_BASE OUT_OF_SCOPE` + 说明为什么改不动，同样交回原树、同样不作废。**为什么单开一个标记**：读数时要分得开「没有证据」（这一格饱和）和「改不动」（这一格碰到的障碍在 harness 之外）。混成一个词，报告里就分不出「引擎保守」和「引擎够不着」；
+- **提示面告诉它「做不成」是正确行为**：`BenchPrompts.yardstick` 里写明**有些活天生就是做不成的**
+  （工具按设计没挂载、流程要求人工审批、前置材料没给全），那时说清不可达、给替代路径、如实报状态**就是做对了**。这是**产线纪律里本来就有的领域事实**（`guardrails.md` /`tool_guidance.md` 里逐条写着），不是判据——不含任何 measurement 词汇，过得了引擎`BenchPrompts.__post_init__` 的硬校验。少了这一条，proposer 会把「智能体守住了红线」读成「智能体失败了」，然后去改那条红线（2026-10-20 实测：它把红线改成了「磁盘上的 skill 是可执行入口，应该真去发抖音/小红书」）；
 - 引擎从 `reply.text` 里用 `<notes>…</notes>` 抠决策说明，所以 `text` 必须带这个标记；
 - 每次会话的 mission / 回复 / 耗时落成审计文件（`adapt/_audit/<ns>/`）。
 
-**本通道没有文件工具**这件事必须写进给 proposer 的提示里——上游那句「Open the files, change them in place with your normal tools」在本通道是假的，会让模型去找一个不存在的工具。`dsh_surface.py` 的 "HOW TO MAKE A CHANGE" 一节改成了「报告你改了哪些文件」。
+  **本通道没有文件工具**这件事必须写进给 proposer 的提示里——上游那句「Open the files, change them in place with your normal tools」在本通道是假的，会让模型去找一个不存在的工具。`dsh_surface.py` 的 "HOW TO MAKE A CHANGE" 一节改成了「报告你改了哪些文件」。
 
 ---
 
@@ -194,8 +244,16 @@ harness2 的 `core/prompts.py` 有一张按 **surface 名**索引的提示表（
 9. **一个 run root 同时只许一个 sweep**。两个 sweep 共用一个 root 会**互相覆盖**产物，而且**不报错**——分数有、报告有、退出码 0，数字是错的。run root 上有锁（`adapt/.sweep.lock`），第二个 sweep 会被挡下。
 10. **阶段回退要说出口**。提案阶段失败时引擎会退回基准树继续跑，这一轮「看起来跑完了」，而最终被采纳的其实是**没改过的基准**。sweep / judge 都会把回退打出来并以**退出码 1** 结束——**分数量的是基准还是演化后的，看这一行就知道**。
 11. **token 只在中继的内存里**。落盘的 patch 里只有环境变量名与占位 key；token 不进仓库、不进 run 目录、不进日志。
+12. **臂间比较必须先有同树零分布**。同一棵 harness 树、同一道题、同一模型，重复 rollout 的分数会在一个宽度里动（2026-10-20 实测：四棵臂树逐字相同，分数 80%/100%/100%/100%）。**没有零分布就没有「提升」这个说法**——`arms.py` + `--phase repeat/compare` 就是这把尺子（详见 [BENCHMARK.md §10](BENCHMARK.md)）。
+13. **基准环境必须与真实产线一样健全**。2026-10-20 实测：基准工作区漏装了技能自带的 `assets/` 与 `references/`、PATH 上也没有 `feuille`，于是智能体（正确地）判定「工具面之外没有验收口径」而停手——那一格量的是**工作区完整与否**。闸在 `preflight.py` 的 `check_workspace_assets()` 与 `build_base_harness.py --check` 的 `check_skill_assets()`。
+14. **异常必须留下证据，链必须在失败处停下**。2026-10-20 实测两件事：① 改错一行代码，adapter 的异常被引擎收成一句「no base rollout produced anything」，run 目录里**连 traceback 都没有**——现在 `_launch_one` 一定写 `error.txt`；② 跑批的脚本链在第一步失败后**继续往下跑**，最后给出一份「演化什么都没做」的正常报告——链必须在任一步退出非零时停下。
+15. **自检必须走真实路径**。只测内存里的对象，等于没测：2026-10-20 实测，一个新字段没进 `to_dict`，于是**零格规则在 CLI 路径上从来没生效过**。落盘 → 读回 → 判定、CLI 路径、错误参数路径，三条都要有例。
+16. **判据不许比 harness 自己的文件更严**。2026-10-20 实测两处误伤：① `tool_called:usine_poster` 只认 MCP 工具入口，而技能手册的 Requirements 写着「进程内直跑 `feuille poster <子命令>`」——基准臂一半走 MCP、一半走 CLI，**用的都是手册钦定的那套子命令**，判据却按入口方式把它们劈成 0.8 和 0.6；② `no_tool_face_bypass` 把「定位浏览器二进制」这种准备动作也算绕行。收紧与放宽都**必须拿 harness 自己的文件作依据**（`SKILL.md` / `systemprompt.md` / `tool_guidance.md`），不是「我觉得更合理」——而且**放宽的方向往往更严**：把基准抬高，演化要追的差距更小。
+17. **「没测到」不许说成「零分」「全过」「更差」**。2026-10-20 实测：演化臂 6 条全 `score=None`，逐判据表却显示「演化臂失分 0.0%、Δ=−100、← 变了」——`None` 在分布层面守住了，一到渲染层就被 `get(name, 0.0)` 变回零分。**空样本格单列**（「比不了」），失分率用 `None` 承载「未知」，渲染打「—」。
+18. **证据不许被后来的进程改写而不留痕**。2026-10-20 实测：同一个 `run_id` 被重跑一次时，旧那次留下的 `exit_code` / `final.txt` 还在，工作区却被重建成空的——判据拿「最终回答说交付了」和「工作区里没有产物」对着看，量出来的是**进程管理**不是智能体（基准臂 2 条因此被记成 0.6，方向还是**对演化有利**的假阳性）。三处修法：`_launch_one` **整目录清盘**、`rollout_integrity()` 认「任务文件必须写在 rollout 结束之前」、**作废 ≠ 工具故障**（作废的 rollout 从 n 里剔出去并记理由；工具故障仍然报错退出、不写回）。
+19. **提案者也要看得见纪律**。2026-10-20 实测：海报格 5/5 条轨迹都手搓了浏览器（always-on 明文写着「不要用 shell 绕开工具」），九个提案会话里六个 `KEEP_BASE`——因为引擎的两个维度分工是「DOM 管领域知识 / INV 管工序」，**没人被问「这条纪律守住了吗」**。提案提示里现在有一段**纪律自查**：清单是 harness 自己的 always-on 文字（冻结技能里的句子不进清单），要求模型拿轨迹里**实际执行的动作**去核，并把结论写进 notes。**判据名、评分、grader 一律不许进那段文字**（评测隔离）。
 
----
+    ---
 
 ## 六、怎么校验本层
 
@@ -205,11 +263,17 @@ python3 garage-ii/build_base_harness.py --check   # 基准树漂移闸
 python3 garage-ii/preflight.py            # 开跑前自检
 ```
 
-`smoke_dsh_bridge.py` 走一遍桥接的每一段接缝：基准树过校验 → 装配出 dsh 原生形状 → AGENTS.md 四节保序 → dsh 事件流渲染成共享文法 → 机械判据在造出来的轨迹上判对判错 → run root 闸拦下仓库内路径。
+`smoke_dsh_bridge.py` 走一遍桥接的每一段接缝（12 段）：基准树过校验 → 装配出 dsh 原生形状 → AGENTS.md 四节保序 → dsh 事件流渲染成共享文法 → 机械判据在造出来的轨迹上判对判错 → run root 闸拦下仓库内路径 → 端到端（**假执行器**，装配 → 会话 → 事件落盘 → 轨迹 → 判据）→ 引擎的提示面认得 dsh → 「不用改」（KEEP_BASE）与「改不动」（KEEP_BASE OUT_OF_SCOPE）都是正当答案 → 「做不成」是领域事实、不是失败（yardstick 带着这条）→ 「不要建议用户开启」这条针不误伤（拿 2 份真违规 + 7 份合规样本守着）→ 臂：同树零分布 + 配对比较（假执行器）。
 
 **它不调模型**，所以可以随时跑，也应该随时跑。
 
----
+**「跑一次」之前的三件事**（顺序不能反）：
+
+1. `build_base_harness.py --check` 绿——基准漂了，数字没有意义；
+2. `smoke_dsh_bridge.py` 绿——桥接的每一段接缝都通；
+3. `run_usine_h2.py --phase sweep --dry-run` 看一眼要跑什么（**不花钱、不要 ack**）。
+
+   ---
 
 ## 七、文档地图
 
@@ -219,6 +283,11 @@ python3 garage-ii/preflight.py            # 开跑前自检
 | harness2 与 RSIAgent 的引擎层对照 | `../theatre-ii/COMPARISON.md` |
 | harness2 的来源、vendor 范围、零补丁声明、能力缺口 | `../theatre-ii/PROVENANCE.md` |
 | 对照协议、任务集、判据、公平性保障、读数纪律 | [BENCHMARK.md](BENCHMARK.md) |
+| **第一批真跑实测到了什么**（管线通 / 基准饱和 / 判据噪声 / 方差盖过效应 / proposer 会编造失败 / 阶段回退会骗人） | [BENCHMARK.md §9 实测记录](BENCHMARK.md) |
+| **怎么量「有没有用」**（同树零分布、配对比较、精确置换检验、失败语料） | [BENCHMARK.md §10 怎么量](BENCHMARK.md) |
+| **基准臂的零分布长什么样**（各格的方差；要多大 n 才测得出来） | [BENCHMARK.md §11 零分布](BENCHMARK.md) |
+| **基准工作区曾经是坏的**（技能资源没装、CLI 不在 PATH；旧读数为何作废） | [BENCHMARK.md §12 工作区缺陷](BENCHMARK.md) |
+| **修好环境之后重跑的判决**（零格、判据第三次收紧、独立复查抓到的缺陷） | [BENCHMARK.md §13 v2/v3 重跑](BENCHMARK.md) |
 | dsh 侧的事实（事件 schema、技能发现与 rank、AGENTS.md 发现） | <https://github.com/deepseek-ai/deepseek-harness> |
 | RSIAgent 那一侧的现状与欠账 | `../plan/rsi-gap-to-paper-2026-10.md`、`../plan/rsiagent-memory.md` |
 | `usine` 产线的红线与工具面 | `../usine/packages/dsh-plugin/src/discipline.ts`、`tools.ts` |

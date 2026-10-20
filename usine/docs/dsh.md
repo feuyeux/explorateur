@@ -2,6 +2,7 @@
 title: "feuille × dsh 智能体分层架构"
 updated: { by: zcode/fuyao-work, at: 2026-10-20 }
 related:
+  - "dsh-architecture/index.html —— 同内容的可视化页（组件级：每层组件 / 功能 / 挂在 dsh 哪个机制上）"
   - "guide.md —— 人机交互手册（安装 / 怎么说 / 审批门 / 工具面 / 故障排查）"
   - "reference.md —— ①–⑬ 工作流、工具链与渲染不变量"
   - "record.md —— 实测数字与已修缺陷"
@@ -10,6 +11,8 @@ related:
 
 # feuille × dsh 智能体分层架构
 
+> **可视化版**：[dsh-architecture/index.html](dsh-architecture/index.html)（浏览器直接打开）——组件级架构图：每层的具体组件、每个组件的功能、分别挂在 dsh 的哪个机制上 + 挂载图 + 一次调用的完整时序。
+>
 > 智能体 = **dsh harness（第三方地基，npm 钉版 0.2.1-rc.2）+ `@feuille/dsh-plugin`（唯一集成层）+ `@feuille/*` 业务包 + `skills/` 知识资产**，四层各管一件事，边界由接缝钉死。
 > 本文自上而下拆每层的职责、接缝与红线承载——想看「装好后怎么用」读 [guide.md](guide.md)，想看产线判据读 [reference.md](reference.md)；本文只回答「这个智能体是怎么搭起来的、哪层管什么、改东西动哪层」。
 >
@@ -39,7 +42,7 @@ flowchart TB
     P4["技能自动注册（usine/skills/ → 默认资产，宿主无 skills 服务则跳过）"]
   end
   PLG --> BIZ
-  subgraph BIZ["L4 业务层 @feuille/* 十包"]
+  subgraph BIZ["L4 业务层 @feuille/* 八个产线包"]
     B1["与 CLI 同一套 main，退出码 0/1/2 同口径"]
   end
   BIZ --> EXT["外部进程与工具：pnpm verify · mmx · mcode-tools · ffmpeg / 浏览器（resolver 解析）"]
@@ -71,7 +74,8 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 
 - **钉版接入**：`@deepseek-ai/*` 全部按 [packages/dsh-plugin/package.json](../packages/dsh-plugin/package.json) 的 npm 发布版解析（本轮钉 **0.2.1-rc.2**），换 dsh 版本只改这一处定义，升级单独裁定。`preflight` 会机检「宿主实际跑的 dsh runtime 版本 == 钉版」。
 - **结构化最小面**：接缝走本地声明的结构化类型（`ApprovalLike` 那一类手写镜像已随审批门迁移删除；现在只余 `SystemPromptLike` / `SkillsLike`），**不 link harness 类型链**——developer preview 的类型链易碎，插件不因上游类型重构而碎。
-- **可选服务用 `ctx.get` / `ctx.inject`，不进 `inject`**：cordis 的 `inject` 是**硬激活门槛**——声明了但宿主没提供的服务会让 fiber 永远 pending，插件**永不生效**、工具面全空且宿主毫无感知（2026-10-18 首测与 2026-10-20 评审各踩过一次，方向相反）。所以 `inject` 只留 `tools` + `systemPrompt` 两个硬依赖；审批服务由 dsh-tools 在门内用 `ctx.get('approval')` 取（上游自己的写法，无服务即降级为 deny），技能服务由 `ctx.inject(['skills'], …)` 等到再注册。
+- **可选服务用 `ctx.get` / `ctx.inject`，不进 `inject`**：cordis 的 `inject` 是**硬激活门槛**——声明了但宿主没提供的服务会让 fiber 永远 pending，插件**永不生效**、工具面全空且宿主毫无感知（2026-10-18 首测、2026-10-20 评审、2026-10-20 复查各踩一次，方向有正有反）。所以 `inject` 只留 `tools` **一个**硬依赖：审批服务由 dsh-tools 在门内用 `ctx.get('approval')` 取（上游自己的写法，无服务即降级为 deny），技能服务由 `ctx.inject(['skills'], …)` 等到再注册，**纪律文本节**由 `ctx.inject(['systemPrompt'], …)` 等到再挂。
+  - **`systemPrompt` 为什么也不算硬依赖**：它承载的只是纪律文本（红线的「知道」层），17 个工具一个都不依赖它。真 cordis 实测：只 `provide('tools')` 不 `provide('systemPrompt')` 时，**改前**（它在 inject 里）注册工具数 = **0**、插件永不生效且不报错；**改后**（移到 `ctx.inject`）注册工具数 = **17**，纪律文本节安静跳过。这条对比现在是 `plugin.test.ts` 里的常驻断言（真 cordis context，不是假 ctx）。
 - **宿主无 TS 变换钩子**：dsh 进程吃不了 TS 源直跑，插件经 esbuild 打成单文件 `dist/index.mjs`；`sharp` / `@napi-rs/canvas` / `ws` 三个原生或重依赖保持 external，从 dsh-plugin 自己的 `node_modules` 解析。**产物自足**：esbuild banner 注入模块作用域 `require`（`createRequire(import.meta.url)`），纯 node 下可直接 import，**不再需要 `globalThis.require` 垫片**（2026-10-20 退休，见 §3）。
 
 ## 3 L2：入口与装配层
@@ -96,7 +100,7 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 
 `apply(ctx, config)` 按固定顺序做六件事：
 
-1. **纪律 systemPrompt 节**：`feuille:discipline`（order 10150，插在 WEB_SURFACE 与 DEPLOYMENT_PERSONA_SUFFIX 之间），7 条红线文本进 system prompt——**文本管「知道」，机制管「做到」，两层缺一不可**。
+1. **纪律 systemPrompt 节**：`feuille:discipline`（order 10150，插在 WEB_SURFACE 与 DEPLOYMENT_PERSONA_SUFFIX 之间），7 条红线文本进 system prompt——**文本管「知道」，机制管「做到」，两层缺一不可**。走 `ctx.inject(['systemPrompt'], …)`：宿主没这个服务就安静跳过（少一段文本，**工具面照常**）。
 2. **注册 13 个 argv 家族工具 + `usine_version` + `usine_verify` / `usine_quota` / `usine_video_generation`**：每个产线家族一个工具，覆盖面与 CLI 路由表一一对应。
 3. **自检工具面**：实际注册名单必须与 [src/toolnames.ts](../packages/dsh-plugin/src/toolnames.ts) 的 17 个字面名字逐字相同，不一致**当场抛**（装配失败当场红，而不是等一次真实对话才发现工具全没了）。
 4. **装派发层额度门**：`ctx.on('tools/pre-execute', …)`（见 [src/gate.ts](../packages/dsh-plugin/src/gate.ts)）。门只对 `usine_video_generation` 的 `submit` 动作摆卡；**不合规的提交不占用一次人工审批**（门放行，工具体回 `invalid`）。
@@ -146,9 +150,11 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 
 门与工具体共用 [video.ts](../packages/dsh-plugin/src/video.ts) 这一个判定源（纪律 7：属性一律派生，不手抄）——两处各算一份就会漂。
 
-## 5 L4：业务层 `@feuille/*` 十包
+## 5 L4：业务层 `@feuille/*` 八个产线包
 
 产线动词在业务包里只有一份实现：每个命令的 `main(argv)` 沿 CLI 口径把人类可读输出打到 console、把退出码当返回值。**CLI 与工具面是同一份 main 的两个消费者**——智能体没有自己的「第二套产线」。三层归属（library / infrastructure / skill 专属）与模块全表见 [README.md](../README.md)，归属唯一事实源是 [ownership.json](../ownership.json)，由 `@feuille/gate` 三方对账。
+
+八个产线包：`core`（基础层 + 音画内核 + 数据与人物场景）、`copy`（发布词自检）、`bgm`（BGM 床生成）、`karaoke`（TTS / 成片组装 / AV 同步）、`poetry`（实拍母版诊断）、`poster`（排版产线）、`publish`（平台发布）、`storyteller`（评书成片）。另有三个**非产线**包：`cli`（统一入口）、`dsh-plugin`（本集成层）、`gate` + `eval`（门禁与离线健康分工具链）——它们不属于 L4。
 
 ## 6 L5：技能资产层 `usine/skills/`
 
@@ -177,7 +183,7 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 | `host-run`（真宿主实跑） | 真宿主 + 真 LLM | 装配链与红线的**最终证据**：插件挂上（17 个工具逐字相符）、会话日志里有 `approval/asked` + `approval/decided`（原生审计，不是插件自述）、视频 submit 在工具体执行之前被拦、全程无 task_id、拒绝是 dsh 原生语义。产物写 `docs/dsh-host-evidence.ndjson` + `docs/dsh-host-summary.json` |
 | 真宿主实录（历史） | dsh web + patch | 早期 P1 骨架阶段的启动实录（原文在 `usine/migration/README.md`，该文件已于 2026-10-19 随 Python 金样本一并删除，结论已并入本文与 `docs/record.md`） |
 
-**分工**：vitest 结构上**测不到宿主**（fakeCtx 不做服务解析，inject 语义、approval 服务、审计事件全都看不见）——所以「宿主里到底挂上没有」归 preflight 与 host-run 管，不归 vitest 管。
+**分工**：vitest 的**假 ctx**（fakeCtx）结构上**测不到宿主的服务解析**——inject 语义、approval 服务、审计事件全都看不见。所以「宿主里到底挂上没有」归 preflight 与 host-run 管，不归 vitest 管。唯一的例外是 inject 的 AND 语义：`plugin.test.ts` 里为此单开了一条**真 cordis context**（`new Context()` + `provide`）的用例，因为那一条在假 ctx 上永远测不出来。
 
 ### 8.1 2026-10-20 真宿主实跑结果（5/5 通过）
 
@@ -214,7 +220,7 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 | # | 改前 | 改后 | 为什么 |
 |---|---|---|---|
 | 1 | 审批在**工具体内**（工具体自己 `ctx.approval.request()`，拒绝时工具「跑完了」返回 `asked-*` status） | 审批在**派发层**（`tools/pre-execute` 门返回 `{kind:'ask'}`，由 dsh-tools 走 approval 服务） | 工具体内审批 = 工具已执行过；红线在派发层不成立，宿主也没法按工具名否决，审计断在工具体里 |
-| 2 | `inject = [tools, systemPrompt, approval, skills]` | `inject = [tools, systemPrompt]`；可选服务走 `ctx.get` / `ctx.inject` | cordis 的 inject 是硬激活门槛：宿主一缺服务，插件永不生效、工具面全空且不报错（同一个坑，方向相反） |
+| 2 | `inject = [tools, systemPrompt, approval, skills]` | `inject = [tools]`；其余（approval / skills / systemPrompt）走 `ctx.get` / `ctx.inject` | cordis 的 inject 是硬激活门槛：宿主一缺服务，插件永不生效、工具面全空且不报错（同一个坑，方向相反） |
 | 3 | 两套结果契约（家族工具 `exit_code` / 视频工具 `status`） | 一套 `{ok, status, output, detail}`，dsh 按 schema 机检 | 纪律文本只覆盖了其中一套，对另一套是错的；模型要学两套协议 |
 | 4 | 输出捕获按**时间窗**猴补全局 stdout + 串行锁 | 按**异步上下文**捕获（AsyncLocalStorage），锁删掉 | 宿主噪声会串进工具输出；JSON-RPC 帧被吞会挂死 SDK 客户端 |
 | 5 | 产物靠 `entry-loader.mjs` 挂 `globalThis.require` 才能加载 | esbuild banner 注入模块作用域 require，垫片退休 | 全局污染（宿主里所有插件共用一个 globalThis）；产物应当自足 |
@@ -223,3 +229,4 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 | 8 | 真宿主记录在 `usine/migration/README.md`（已删） | 真宿主证据走 `host-run` + `docs/dsh-host-summary.json`；历史结论并入本文与 `docs/record.md` | 悬空引用会让「证据在哪」变成传闻 |
 | 9 | 入口 provider 走 fuyao 网关（`fuyao-ai-gateway.xiaopeng.link`） | 默认切 **minimax 直连**（overlay 增 `minimax` 条目，baseURL 随 region 走，`MINIMAX_API_KEY` 经 `credentials.mjs` 注入进程环境）；fuyao 条目保留 | 2026-10-20 fuyao 网关当日连接超时（curl 25s 超时，非鉴权问题），真宿主实跑与门禁取证都改走 MiniMax |
 | 10 | 业务包里有 5 处注释/文档指向已删的 `usine/migration/`（Python 金样本） | 改成陈述当前真事实（行为由现测试钉住），不再指向不存在的文件 | 悬空引用让人以为还有一份金样本可以对拍 |
+| 11 | `inject = [tools, systemPrompt]`（改完第 2 条后仍留着 systemPrompt） | `inject = [tools]`；纪律文本节改走 `ctx.inject(['systemPrompt'], …)` | 复查时发现 systemPrompt 是同一个坑的**第三个实例**：它只承载纪律文本，17 个工具一个都不依赖它；宿主一缺它，工具面掉到 **0** 且不报错（真 cordis 实测） |

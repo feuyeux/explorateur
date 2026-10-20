@@ -302,12 +302,15 @@ describe("积分速查 ↔ 审批卡算账", () => {
 // D. inject 声明 ↔ apply 实际取用的 ctx 服务
 // ---------------------------------------------------------------------------
 //
-// 这条断言来自两次真实事故的合并：
+// 这条断言来自三次真实事故的合并：
 //  · 2026-10-18 首测：inject 漏了 'approval'，而工具体在 apply 期就取 ctx.approval
 //    ——真 cordis 抛 "cannot get property ... without inject"，整个插件加载失败、
 //    17 个工具面全丢，而宿主**毫无感知**（dsh 静默吞 apply 抛错，boot 照样成功）。
 //  · 2026-10-20 评审：inject 多了 'approval' / 'skills'——声明了但宿主没提供的
 //    服务会让 fiber 永远 pending，插件**同样永不生效**，症状一模一样。
+//  · 2026-10-20 复查：inject 里的 'systemPrompt' 是同一个坑的第三个实例——它承载的
+//    只是纪律文本，17 个工具一个都不依赖它；宿主一缺它，工具面掉到 0 且不报错
+//    （真 cordis 实测：只 provide tools 时注册工具数 0 → 移出 inject 后 17）。
 // 所以规则是两条：装配期取用的服务必须被声明（inject 或 ctx.inject 的 deps），
 // 而**可选服务不许进 inject**（进了就变成硬依赖）。
 //
@@ -351,7 +354,7 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
       /\(\s*ctx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
     )) found.add(m[1] ?? "")
     for (const m of text.matchAll(
-      /\(\s*skillCtx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
+      /\(\s*\w*Ctx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
     )) found.add(m[1] ?? "")
     found.delete("effect")
     found.delete("inject")
@@ -377,22 +380,28 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     ).toEqual([])
   })
 
-  it("可选服务（approval / skills）不进 inject——多声明等于把可选能力变成硬依赖", () => {
+  it("可选服务（approval / skills / systemPrompt）不进 inject——多声明等于把可选能力变成硬依赖", () => {
     const declared = new Set(declaredInject())
-    for (const optional of ["approval", "skills"]) {
+    for (const optional of ["approval", "skills", "systemPrompt"]) {
       expect(declared.has(optional), `inject 不该包含 ${optional}：宿主一缺它，插件永不生效`).toBe(false)
     }
-    // 硬依赖必须在：工具注册与 systemPrompt 分节是插件的立身之本。
-    for (const hard of ["tools", "systemPrompt"]) {
+    // 硬依赖只有一个：工具注册。纪律文本节（systemPrompt）挂不上只是少一段文本，
+    // 工具面必须照常——所以它**不是**硬依赖（真 cordis 实测：只 provide tools 时
+    // 改前注册工具数 = 0，改后 = 17）。
+    for (const hard of ["tools"]) {
       expect(declared.has(hard), `inject 必须包含 ${hard}`).toBe(true)
     }
+  })
+
+  it("systemPrompt 走 ctx.inject 的可选通道（宿主没装 systemPrompt 服务就整段跳过，工具面不受影响）", () => {
+    expect(optionalInject()).toContain("systemPrompt")
   })
 
   it("skills 走 ctx.inject 的可选通道（宿主没装 skills 服务就整段跳过，工具面不受影响）", () => {
     expect(optionalInject()).toContain("skills")
   })
 
-  it("门禁能复现两次事故：inject 漏声明时报红、inject 多声明可选服务时报红", () => {
+  it("门禁能复现三次事故：inject 漏声明时报红、inject 多声明可选服务时报红", () => {
     // 负控制 1：少声明（2026-10-18 事故）——用到的服务不在声明里 → 必须报红。
     const used = applyTimeServices()
     const withoutApproval = declaredInject().filter((s) => s !== "approval")
@@ -400,11 +409,16 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     const missing = gated.filter((s) => !withoutApproval.includes(s))
     expect(missing, "inject 漏声明时门禁必须报红").toContain("approval")
     // 负控制 2：多声明（2026-10-20 评审）——把 approval 写回 inject → 必须报红。
-    const withApproval = [...declaredInject(), "approval"]
-    expect(
-      withApproval.filter((s) => ["approval", "skills"].includes(s)),
-      "inject 含可选服务时门禁必须报红",
-    ).toEqual(["approval"])
+    // systemPrompt 是同一个坑的第三个实例（真 cordis 实测：只 provide tools 时
+    // 它在 inject 里会让注册工具数掉到 0），一并钉住。
+    const OPTIONALS = ["approval", "skills", "systemPrompt"]
+    for (const optional of OPTIONALS) {
+      const polluted = [...declaredInject(), optional]
+      expect(
+        polluted.filter((s) => OPTIONALS.includes(s)),
+        `inject 含可选服务 ${optional} 时门禁必须报红`,
+      ).toEqual([optional])
+    }
   })
 
   it("apply 期取用的服务集合确实非平凡（防止解析器静默失效）", () => {

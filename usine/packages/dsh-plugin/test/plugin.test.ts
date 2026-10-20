@@ -14,6 +14,7 @@
 // 被 tools/pre-execute 门拦下（返回 ask），合规清单上墙；不合规的提交不占用
 // 一次人工审批；publish 默认连工具都不存在。
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { Context } from "@deepseek-ai/cordis"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -204,13 +205,14 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     expect(names(ctx)).not.toContain("usine_publish")
   })
 
-  it("inject 只声明 tools + systemPrompt——可选服务（approval / skills）不进 inject", async () => {
+  it("inject 只声明 tools——可选服务（approval / skills / systemPrompt）一律不进 inject", async () => {
     const plugin = await loadPlugin()
     expect(plugin.name).toBe("feuille-usine")
     // 钉住这条：声明了但宿主没提供的服务会让 fiber 永远 pending，插件永不生效、
     // 工具面全空且不报错（2026-10-20 架构评审发现 approval / skills 曾被写进
-    // inject，正是这个坑）。可选服务一律走 ctx.get / ctx.inject。
-    expect(plugin.inject).toEqual(["tools", "systemPrompt"])
+    // inject，正是这个坑；本轮复查发现 systemPrompt 是同一个坑的第三个实例）。
+    // 可选服务一律走 ctx.get / ctx.inject。
+    expect(plugin.inject).toEqual(["tools"])
   })
 
   it("工具面契约（toolNames）与实际注册逐字相同——少一个就红", async () => {
@@ -219,6 +221,52 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     plugin.apply(ctx)
     expect([...(plugin.toolNames ?? [])].sort()).toEqual(names(ctx))
     expect(plugin.toolNames?.length).toBe(17)
+  })
+
+  // 这条用**真 cordis context**（不是 fakeCtx）：fakeCtx 不做服务解析，
+  // 看不见 inject 的 AND 语义——「宿主缺某个 inject 服务 → 整个插件不生效」
+  // 这一类病在假 ctx 上永远测不出来（详见 dsh.md §8「分工」）。
+  it("真 cordis：宿主缺 systemPrompt 服务时，工具面照常全（inject 只声明 tools）", async () => {
+    const plugin = await loadPlugin()
+
+    /** 装一个只提供 tools（可选按需）的真 cordis 宿主。 */
+    const boot = async (withSystemPrompt: boolean) => {
+      const registered: string[] = []
+      const sections: string[] = []
+      const ctx = new Context()
+      ctx.provide("tools", {
+        register(def: { name: string }) {
+          registered.push(def.name)
+          return () => {}
+        },
+      })
+      if (withSystemPrompt) {
+        ctx.provide("systemPrompt", {
+          section(s: { name: string }) {
+            sections.push(s.name)
+            return () => {}
+          },
+        })
+      }
+      await ctx.plugin(plugin)
+      await new Promise((r) => setTimeout(r, 200))
+      return { registered, sections }
+    }
+
+    // 对照组：宿主有 systemPrompt → 工具面全 + 纪律文本节挂上。
+    const full = await boot(true)
+    expect(full.registered.length).toBe(17)
+    expect(full.sections).toEqual(["feuille:discipline"])
+
+    // 实验组：宿主没有 systemPrompt → 纪律文本节挂不上（可选服务缺席），
+    // 但**工具面必须照常全**——这正是「systemPrompt 不进 inject」的意义。
+    // 改前（systemPrompt 在 inject 里）：注册工具数 = 0，插件永不生效且不报错。
+    const bare = await boot(false)
+    expect(bare.sections).toEqual([])
+    expect(
+      bare.registered.length,
+      "宿主缺 systemPrompt 时插件仍应注册全部工具（inject 只声明 tools）",
+    ).toBe(17)
   })
 
   it("config.publish === true 才注册 usine_publish；fiber 先销毁则异步注册放弃", async () => {

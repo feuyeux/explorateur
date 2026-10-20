@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>feuille × dsh 组件级架构图</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f5f0;--card:#fff;--ink:#14171e;--body:#3a4256;--muted:#7c7a72;
+    --line:#e9e3d6;--line-soft:#f0ebe0;
+    --accent:#2f6f5e;--accent-08:rgba(47,111,94,.08);--accent-14:rgba(47,111,94,.16);
+    --accent-30:rgba(47,111,94,.30);
+    --foreign:#6b7280;--fg-08:rgba(107,114,128,.07);--fg-line:rgba(107,114,128,.22);
+    --serif:'DM Serif Display',Georgia,serif;
+    --sans:'Outfit',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--paper);color:var(--body);
+    font-family:var(--sans);font-size:14.5px;line-height:1.62;font-weight:400;
+    background-image:
+      radial-gradient(900px 480px at 6% -6%, rgba(47,111,94,.06), transparent 60%),
+      radial-gradient(760px 420px at 98% 1%, rgba(176,99,103,.05), transparent 62%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:48px 22px 84px}
+  @media(min-width:768px){.wrap{padding:60px 30px 100px}}
+
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--accent);opacity:.55}
+  h1{font-family:var(--serif);font-weight:400;font-size:33px;line-height:1.18;color:var(--ink);
+    letter-spacing:-.005em;margin:0 0 13px}
+  @media(min-width:768px){h1{font-size:42px}}
+  .lede{font-size:16px;max-width:72ch;margin:0 0 6px;color:var(--body)}
+  .lede b{color:var(--ink);font-weight:600}
+  .meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:7px}
+  .meta span{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 11px}
+
+  .stats{margin:30px 0 0;display:grid;grid-template-columns:repeat(2,1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  @media(min-width:768px){.stats{grid-template-columns:repeat(6,1fr)}}
+  .stat{background:var(--card);padding:14px 16px}
+  .stat .n{font-family:var(--mono);font-size:21px;color:var(--ink);line-height:1.15}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+  section{margin-top:50px}
+  @media(min-width:768px){section{margin-top:58px}}
+  .sec-head{display:flex;align-items:flex-start;gap:11px;margin-bottom:7px}
+  .sec-head svg{flex:0 0 auto;margin-top:4px;color:var(--accent)}
+  h2{font-family:var(--serif);font-weight:400;font-size:24px;color:var(--ink);margin:0;
+    letter-spacing:-.004em;line-height:1.24}
+  @media(min-width:768px){h2{font-size:27px}}
+  .sec-sub{color:var(--muted);margin:7px 0 22px;max-width:78ch}
+  code{font-family:var(--mono);font-size:11.5px;background:var(--accent-08);color:var(--accent);
+    padding:1px 6px;border-radius:5px}
+  .mono{font-family:var(--mono);font-size:12px}
+
+  /* ---- 总装图 ---- */
+  .stack{display:grid;grid-template-columns:1fr;gap:0;background:var(--card);
+    border:1px solid var(--line);border-radius:18px;padding:20px 18px;
+    box-shadow:0 4px 16px -2px rgba(0,0,0,.05)}
+  @media(min-width:1000px){.stack{grid-template-columns:1fr 214px;gap:0 18px;padding:24px 22px}
+    .stack-main{grid-column:1}.stack-side{grid-column:2;grid-row:1/span 9;align-self:start}}
+  .band{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fcfbf8}
+  .band.own{background:var(--accent-08);border-color:var(--accent-14)}
+  .band.you{display:flex;align-items:center;gap:9px;justify-content:center;font-size:13.5px;
+    color:var(--ink);font-weight:500;padding:10px 14px}
+  .btop{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .lv{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.06em;padding:2px 7px;
+    border-radius:5px;background:var(--fg-08);color:var(--foreign);border:1px solid var(--fg-line)}
+  .band.own .lv{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .bname{font-size:14px;font-weight:600;color:var(--ink)}
+  .btag{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .bdesc{font-size:12.5px;color:var(--body);margin-top:5px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{font-family:var(--mono);font-size:10.5px;color:var(--body);background:var(--card);
+    border:1px solid var(--line);border-radius:6px;padding:3px 7px;line-height:1.35}
+  .band.own .chip{border-color:var(--accent-14)}
+  .chip b{color:var(--accent);font-weight:500}
+  .seam{display:flex;align-items:center;justify-content:center;gap:9px;padding:9px 0;flex-wrap:wrap}
+  .seam-pill{font-family:var(--mono);font-size:10.5px;color:var(--accent);background:var(--accent-08);
+    border:1px solid var(--accent-14);border-radius:999px;padding:4px 11px}
+  .seam-note{font-size:11.5px;color:var(--muted)}
+  .stack-side{margin-top:16px;border:1px dashed var(--accent-14);border-radius:12px;
+    background:var(--accent-08);padding:13px}
+  @media(min-width:1000px){.stack-side{margin-top:0}}
+  .stack-side .bname{font-size:13px}
+  .stack-side .bdesc{font-size:12px}
+  .stack-side .note{font-size:11.5px;color:var(--accent);margin-top:12px;padding-top:11px;
+    border-top:1px dashed var(--accent-14);display:flex;gap:6px;align-items:flex-start}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .legend .own-sw{background:rgba(47,111,94,.20);border:1px solid rgba(47,111,94,.55)}
+  .legend .fg-sw{background:#fcfbf8;border:1px solid #d8d1c1}
+
+  /* ---- 挂载图 ---- */
+  .mount{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 4px 16px -2px rgba(0,0,0,.05)}
+  .mhead{display:grid;grid-template-columns:1fr 62px 1fr;background:#fbfaf7;
+    border-bottom:1px solid var(--line)}
+  .mhead div{padding:10px 16px;font-size:11px;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted)}
+  .mhead .mid{text-align:center;padding:10px 0}
+  .mrow{display:grid;grid-template-columns:1fr 62px 1fr;border-bottom:1px solid var(--line-soft)}
+  .mrow:last-child{border-bottom:0}
+  .mleft{padding:12px 16px 12px 0;text-align:right}
+  .mright{padding:12px 0 12px 16px}
+  .mleft .k{font-family:var(--mono);font-size:11.5px;color:var(--foreign)}
+  .mleft .d{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+  .mright .k{font-family:var(--mono);font-size:11.5px;color:var(--accent);font-weight:500}
+  .mright .d{font-size:12.5px;color:var(--body);margin-top:3px;line-height:1.5}
+  .mmid{position:relative}
+  .mmid::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;
+    background:var(--accent-14);transform:translateX(-50%)}
+  .mmid::after{content:"";position:absolute;left:50%;top:50%;width:20px;height:1px;
+    background:var(--accent-30);transform:translateX(-50%)}
+  .mmid span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;
+    font-family:var(--mono);font-size:9.5px;color:var(--accent);background:var(--card);
+    padding:1px 3px;line-height:1}
+  @media(max-width:720px){
+    .mhead{display:none}
+    .mrow{grid-template-columns:1fr;padding:2px 0}
+    .mleft,.mright{text-align:left;padding:8px 14px}
+    .mmid{height:18px}
+    .mmid::before{left:16px;top:0;bottom:0}
+    .mmid::after{display:none}
+    .mmid span{left:16px}
+  }
+
+  /* ---- 表格 ---- */
+  .tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden}
+  .tbl th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--muted);padding:11px 14px;border-bottom:1px solid var(--line);background:#fbfaf7;
+    white-space:nowrap}
+  .tbl td{padding:10px 14px;border-bottom:1px solid var(--line-soft);font-size:12.5px;vertical-align:top}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tr.pkg td{background:var(--accent-08);font-weight:600;color:var(--ink);font-size:12.5px;
+    padding:9px 14px}
+  .tbl tr.pkg td .mono{color:var(--accent)}
+  .tbl .c1{font-family:var(--mono);font-size:11px;color:var(--ink);white-space:nowrap}
+  .tbl .c2{font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap}
+  .tbl .muted{color:var(--muted)}
+  .tbl-wrap{overflow-x:auto;border-radius:14px}
+
+  /* ---- 卡片 ---- */
+  .cards{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .cd{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;
+    box-shadow:0 2px 8px rgba(0,0,0,.035);transition:transform .2s,box-shadow .2s}
+  .cd:hover{transform:translateY(-2px);box-shadow:0 6px 18px -4px rgba(0,0,0,.09)}
+  .cd-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .cd-h .nm{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:500}
+  .cd-h .rl{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .cd p{margin:0 0 7px;font-size:12.5px;line-height:1.6}
+  .cd .hook{font-family:var(--mono);font-size:10.5px;color:var(--muted);border-top:1px dashed var(--line);
+    padding-top:8px;margin-top:9px}
+  .cd .hook b{color:var(--foreign);font-weight:500}
+
+  /* ---- 时序 ---- */
+  .diagram{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 16px;
+    box-shadow:0 4px 16px -2px rgba(0,0,0,.05);overflow-x:auto}
+  #seq{display:flex;justify-content:center;min-height:120px}
+  #seq svg{max-width:100%;height:auto}
+  .figcap{font-size:12px;color:var(--muted);margin-top:11px;display:flex;gap:8px;align-items:flex-start}
+  .figcap svg{flex:0 0 auto;margin-top:2px;color:var(--accent)}
+
+  /* ---- 速查 ---- */
+  .facts{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:900px){.facts{grid-template-columns:repeat(2,1fr)}}
+  .fact{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+  .fact h3{margin:0 0 7px;font-size:13.5px;font-weight:600;color:var(--ink);
+    display:flex;align-items:center;gap:8px}
+  .fact h3 .no{font-family:var(--mono);font-size:10.5px;color:var(--accent);background:var(--accent-08);
+    border-radius:5px;padding:2px 6px}
+  .fact p{margin:0 0 8px;font-size:12.5px;line-height:1.6}
+  .fact p:last-child{margin-bottom:0}
+  .fact .kv{display:grid;grid-template-columns:112px 1fr;row-gap:5px;column-gap:12px;margin:0;
+    font-size:12px}
+  .fact .kv dt{color:var(--muted);font-family:var(--mono);font-size:10.5px}
+  .fact .kv dd{margin:0;font-family:var(--mono);font-size:10.5px;color:var(--ink)}
+
+  .foot{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;
+    color:var(--muted);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">DeepSeek Harness · npm 钉版 0.2.1-rc.2</div>
+    <h1>feuille × dsh<br>组件级架构图</h1>
+    <p class="lede">
+      每一层有哪些<b>具体组件</b>、每个组件<b>干什么</b>、以及它们分别挂在 dsh 的<b>哪个机制</b>上。
+      dsh 提供地基与拒绝权，feuille 提供产线与判据，边界由四个接缝钉死。
+    </p>
+    <div class="meta">
+      <span>cordis@4.0.5 · dsh-tools / sdk-client / skill / llm-pi-ai / user-approval</span>
+      <span>provider minimax · MiniMax-M3.1-Flash</span>
+      <span>真宿主取证 5/5 · 门禁 43 文件 / 565 测试</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">5</div><div class="l">层</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">dsh 第三方机制包</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">L2 入口组件</div></div>
+      <div class="stat"><div class="n">8</div><div class="l">L3 插件模块</div></div>
+      <div class="stat"><div class="n">39</div><div class="l">L4 CLI 命令 = 组件</div></div>
+      <div class="stat"><div class="n">10</div><div class="l">L5 技能资产</div></div>
+    </div>
+  </header>
+
+  <!-- ================= §1 总装 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
+      <h2>一、总装：五层与四个接缝</h2>
+    </div>
+    <p class="sec-sub">
+      绿色是我们写的，灰色是复用的第三方。层与层之间只通过<b>四个 dsh 原生接缝</b>相连——所有跨层调用都从这几个 API 走，没有私造通道。
+    </p>
+
+    <div class="stack">
+      <div class="stack-main">
+
+        <div class="band you">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          你（终端逐行输入 / 单发一句）
+        </div>
+
+        <div class="seam">
+          <span class="seam-pill">ask.mjs → new DeepSeekHarness({patches})</span>
+          <span class="seam-note">overlay 叠在 dsh sdk 剖面上，不动 ~/.dsh</span>
+        </div>
+
+        <div class="band own">
+          <div class="btop">
+            <span class="lv">L2</span><span class="bname">入口与装配</span>
+            <span class="btag">6 个组件 · 只做装配，不含产线逻辑</span>
+          </div>
+          <div class="bdesc">起宿主、叠剖面、解析凭据、跑预检与取证。</div>
+          <div class="chips">
+            <span class="chip"><b>ask.mjs</b> 三挡入口</span><span class="chip"><b>ask.cordis.yml</b> overlay</span>
+            <span class="chip"><b>feuille-usine.cordis.yml</b> 插件-only overlay</span>
+            <span class="chip"><b>credentials.mjs</b> MiniMax 凭据</span>
+            <span class="chip"><b>host-run.mjs</b> 真宿主取证</span><span class="chip"><b>preflight</b> 四道机械检查</span>
+          </div>
+        </div>
+
+        <div class="seam">
+          <span class="seam-pill">harness.start() → 插件树装配</span>
+          <span class="seam-note">JSON-RPC initialize 握手 + cordis fiber 激活</span>
+        </div>
+
+        <div class="band">
+          <div class="btop">
+            <span class="lv">L1</span><span class="bname">dsh 地基（第三方）</span>
+            <span class="btag">6 个包 · 全部复用，不重造 harness</span>
+          </div>
+          <div class="bdesc">服务容器、工具运行时、派发瀑布、审批通道、会话协议、技能目录、模型路由。</div>
+          <div class="chips">
+            <span class="chip">cordis</span><span class="chip">dsh-tools</span><span class="chip">dsh-sdk-client</span>
+            <span class="chip">dsh-skill(-filesystem)</span><span class="chip">dsh-user-approval</span><span class="chip">dsh-llm-pi-ai</span>
+          </div>
+        </div>
+
+        <div class="seam">
+          <span class="seam-pill">ctx.tools.register · ctx.on(tools/pre-execute) · ctx.systemPrompt.section · ctx.skills.registerProvider</span>
+          <span class="seam-note">四个接缝，全是 dsh 原生 API</span>
+        </div>
+
+        <div class="band own">
+          <div class="btop">
+            <span class="lv">L3</span><span class="bname">插件层 @feuille/dsh-plugin</span>
+            <span class="btag">8 个模块 · 唯一集成层</span>
+          </div>
+          <div class="bdesc">feuille → dsh 的全部对接都在这一层；业务层与 dsh 之间<b>不隔任何其他层</b>。</div>
+          <div class="chips">
+            <span class="chip"><b>index.ts</b> 装配</span><span class="chip"><b>tools.ts</b> 17 工具</span>
+            <span class="chip"><b>gate.ts</b> 派发门</span><span class="chip"><b>video.ts</b> 判定源</span>
+            <span class="chip"><b>result.ts</b> 契约</span><span class="chip"><b>capture.ts</b> 上下文捕获</span>
+            <span class="chip"><b>discipline.ts</b> 7 条</span><span class="chip"><b>toolnames.ts</b> 17 字面量</span>
+          </div>
+        </div>
+
+        <div class="seam">
+          <span class="seam-pill">进程内直调 main(argv)</span>
+          <span class="seam-note">无 subprocess 桥 · CLI 与工具面是同一份 main 的两个消费者</span>
+        </div>
+
+        <div class="band own">
+          <div class="btop">
+            <span class="lv">L4</span><span class="bname">业务层 @feuille/* 产线包</span>
+            <span class="btag">8 个包 · 39 个组件（= 39 条 CLI 命令）</span>
+          </div>
+          <div class="bdesc">每个组件只干一件事，判据与退出码口径都在包里，插件层不自带第二份。</div>
+          <div class="chips">
+            <span class="chip">core 15</span><span class="chip">poster 10</span><span class="chip">publish 5</span>
+            <span class="chip">scene 4</span><span class="chip">karaoke 4</span><span class="chip">lesson 2</span>
+            <span class="chip">framehash 2</span><span class="chip">cover 2</span><span class="chip">poetry 2</span>
+            <span class="chip">storyteller 2</span><span class="chip">persona 1</span><span class="chip">ledger 1</span>
+            <span class="chip">theme 1</span><span class="chip">copy 1</span><span class="chip">bgm 1</span>
+          </div>
+        </div>
+
+        <div class="seam">
+          <span class="seam-pill">spawn / fetch（不开 shell）</span>
+          <span class="seam-note">argv 含模型可控内容的通道 fail-closed</span>
+        </div>
+
+        <div class="band">
+          <div class="btop">
+            <span class="lv">EXT</span><span class="bname">外部程序与平台</span>
+          </div>
+          <div class="bdesc">pnpm verify · mmx 额度 · mcode-tools 视频线 · ffmpeg / 浏览器（resolver 解析）· 各平台发布位。</div>
+        </div>
+
+      </div>
+
+      <aside class="stack-side">
+        <div class="btop"><span class="lv">L5</span><span class="bname">技能资产</span></div>
+        <div class="bdesc" style="margin-top:5px">
+          <code>usine/skills/</code> 的 10 个 SKILL.md，随宿主启动自动注册为默认资产。
+        </div>
+        <div class="chips" style="margin-top:8px">
+          <span class="chip">lesson-scene</span><span class="chip">character-rig</span>
+          <span class="chip">one-page-poster</span><span class="chip">karaoke-video</span>
+          <span class="chip">storyteller-video</span><span class="chip">video-generation</span>
+          <span class="chip">multilingual-video-poetry</span><span class="chip">bgm-bed</span>
+          <span class="chip">publish-copy</span><span class="chip">multilingual-video-publishing</span>
+        </div>
+        <div class="note">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>它是<b>说明书</b>，不是被 import 的代码：路由靠 description 里的排除语句，不靠猜。</span>
+        </div>
+      </aside>
+    </div>
+
+    <div class="legend">
+      <span><i class="own-sw"></i>feuille 自己写的层</span>
+      <span><i class="fg-sw"></i>复用的第三方 / 外部程序</span>
+    </div>
+  </section>
+
+  <!-- ================= §2 挂载图 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg>
+      <h2>二、挂载图：dsh 机制 → 我们的组件</h2>
+    </div>
+    <p class="sec-sub">
+      这张图是全篇的骨架——<b>左边是 dsh 白给的机制，右边是我们写的组件</b>。每个接缝都是一条有名字的线，断哪条、接错哪条，症状都是「工具面全空且宿主不报错」。
+    </p>
+
+    <div class="mount">
+      <div class="mhead">
+        <div style="text-align:right">dsh 机制（第三方）</div>
+        <div class="mid">接缝</div>
+        <div>feuille 组件</div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ToolRuntime.register(def)</div>
+          <div class="d">工具注册表：收下 ToolDefinition，返回注销函数；按 scope 隔离</div>
+        </div>
+        <div class="mmid"><span>tools</span></div>
+        <div class="mright">
+          <div class="k">tools.ts</div>
+          <div class="d">17 个 ToolDefinition（13 家族 + version + verify + quota + video_generation）</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ctx.waterfall('tools/pre-execute')</div>
+          <div class="d">派发前有序瀑布：返回 allow / deny / cancel / ask；ask 带 reason + displayReason</div>
+        </div>
+        <div class="mmid"><span>gate</span></div>
+        <div class="mright">
+          <div class="k">gate.ts</div>
+          <div class="d">videoApprovalGate()：只门视频 submit，合规才返回 {kind:'ask'}</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ctx.get('approval') → request()</div>
+          <div class="d">审批服务：4 种结局 allowed-once / rejected / cancelled / unavailable</div>
+        </div>
+        <div class="mmid"><span>上游</span></div>
+        <div class="mright">
+          <div class="k">dsh-tools 的 serviceAsk</div>
+          <div class="d">我们<b>不直接调</b>——门只返回 ask，由上游接审批（审计事件也归上游）</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ctx.systemPrompt.section()</div>
+          <div class="d">分节注入 system prompt：按 order 定位在既有节之间</div>
+        </div>
+        <div class="mmid"><span>text</span></div>
+        <div class="mright">
+          <div class="k">discipline.ts</div>
+          <div class="d">DISCIPLINE_TEXT：7 条红线文本，order 10150（WEB_SURFACE 与 DEPLOYMENT 之间）</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ctx.skills.registerProvider()</div>
+          <div class="d">技能目录注册：create 拿 SkillProviderControl{signal, invalidate}</div>
+        </div>
+        <div class="mmid"><span>skills</span></div>
+        <div class="mright">
+          <div class="k">index.ts · FileSystemSkillProvider</div>
+          <div class="d">customSkillDirs=[usineRoot()/skills]，includeDefaultRoots:false，watch:false</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ctx.effect(fn) / ctx.inject(deps, cb)</div>
+          <div class="d">生命周期：effect 随 fiber 销毁自动注销；inject 等服务到齐才跑</div>
+        </div>
+        <div class="mmid"><span>lifecycle</span></div>
+        <div class="mright">
+          <div class="k">index.ts</div>
+          <div class="d">工具注册、派发门监听、技能与纪律节挂载——全部绑在 fiber 生命周期上</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">ToolDefinition.output.schema</div>
+          <div class="d">返回值 schema 强制执行：additionalProperties / enum / required 运行时校验</div>
+        </div>
+        <div class="mmid"><span>schema</span></div>
+        <div class="mright">
+          <div class="k">result.ts</div>
+          <div class="d">RESULT_SCHEMA：17 个工具同一套 {ok, status, output, detail}</div>
+        </div>
+      </div>
+
+      <div class="mrow">
+        <div class="mleft">
+          <div class="k">fiber.inject（AND 语义）</div>
+          <div class="d">声明了但宿主没提供的服务 → fiber 永不生效、插件整体不挂载</div>
+        </div>
+        <div class="mmid"><span>陷阱</span></div>
+        <div class="mright">
+          <div class="k">index.ts · export const inject</div>
+          <div class="d">只留 ['tools'] 一个硬依赖；approval / skills / systemPrompt 走 ctx.inject 等可选服务</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= §3 L1 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+      <h2>三、L1 地基：六个第三方包，各提供什么</h2>
+    </div>
+    <p class="sec-sub">
+      每个包只列<b>我们真用到的机制</b>；最后一列写「我们不用的部分」——知道边界在哪，才知道将来上游加了能力时该往哪接。
+    </p>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th style="width:15%">包</th><th style="width:30%">提供的机制</th><th style="width:33%">我们怎么用</th><th>我们不用的</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="c1">@deepseek-ai/cordis</td>
+            <td>服务容器 Context：provide / get / inject / effect / on / waterfall / plugin 树</td>
+            <td>插件形状 <code>name + inject + apply</code>；effect 绑生命周期；inject 区分硬/可选依赖</td>
+            <td class="muted">HMR（inertia）、accessor、mixin 等桌面端特性</td>
+          </tr>
+          <tr>
+            <td class="c1">dsh-tools</td>
+            <td>ToolRuntime（register/get/schemas/execute）、pre-execute 瀑布、serviceAsk、post-execute、tools.restrict</td>
+            <td>注册 17 个工具；在 pre-execute 上挂额度门；用 output.schema 让 dsh 机检返回值</td>
+            <td class="muted">post-execute（结果再加工）、tools.restrict（工具黑白名单）、PTC 呈现层</td>
+          </tr>
+          <tr>
+            <td class="c1">dsh-sdk-client</td>
+            <td>DeepSeekHarness（start / session / run / close）、JSON-RPC 协议、profile patches</td>
+            <td>ask.mjs 起宿主跑会话；host-run 用 run() 拿 events + notifications</td>
+            <td class="muted">resumeSession（我们每次新会话）、低层 HarnessClient</td>
+          </tr>
+          <tr>
+            <td class="c1">dsh-user-approval</td>
+            <td>ApprovalService.request() → 四种结局；approval/asked + approval/decided 审计事件</td>
+            <td>不直接调。门只返回 ask，由 dsh-tools 的 serviceAsk 走它（审计也归它）</td>
+            <td class="muted">审批 UI（宿主侧）、自定义审批通道</td>
+          </tr>
+          <tr>
+            <td class="c1">dsh-skill<br>dsh-skill-filesystem</td>
+            <td>SkillRegistry.registerProvider；FileSystemSkillProvider（目录扫描 + watch）</td>
+            <td>把 usine/skills/ 注册为默认技能资产，随宿主启动自动加载</td>
+            <td class="muted">watch 增量监听（watch:false，静态目录不需）</td>
+          </tr>
+          <tr>
+            <td class="c1">dsh-llm-pi-ai</td>
+            <td>provider 目录：api 协议（openai-completions 等）、baseURL、apiKeyEnv、模型规格</td>
+            <td>overlay 里加 minimax / fuyao 两条 provider；MiniMax 走 openai-completions 兼容协议</td>
+            <td class="muted">catalog 自动探测、思考块互转</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= §4 L2 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4zM9 9h6v6H9z"/></svg>
+      <h2>四、L2 入口与装配：六个组件</h2>
+    </div>
+    <p class="sec-sub">这一层只做两件事：<b>把宿主起起来</b>、<b>把插件装上去</b>。任何产线逻辑都不在这层。</p>
+    <div class="cards">
+      <div class="cd">
+        <div class="cd-h"><span class="nm">ask.mjs</span><span class="rl">宿主对话框</span></div>
+        <p>三挡入口共用一个 <code>makeHarness()</code>：<b>preflight</b>（零 LLM 四道检查）、<b>ask</b>（交互，逐行 readline）、<b>ask 自检</b>（单发一句即退）。</p>
+        <div class="hook">挂载：<b>new DeepSeekHarness({cwd, provider, model, patches})</b> → start() / session() / run() / close()</div>
+      </div>
+      <div class="cd">
+        <div class="cd-h"><span class="nm">ask.cordis.yml</span><span class="rl">本入口的 overlay</span></div>
+        <p>叠在 dsh <code>sdk</code> 剖面上、不动 <code>~/.dsh</code>：① 补 provider 条目 ② insert 插件 ③ approval policy。</p>
+        <div class="hook">挂载：<b>profile patch</b> —— ① minimax / fuyao provider ② insert feuille-usine → dist/index.mjs ③ approval policy=never（入口零额度）</div>
+      </div>
+      <div class="cd">
+        <div class="cd-h"><span class="nm">feuille-usine.cordis.yml</span><span class="rl">插件-only overlay</span></div>
+        <p>给 dsh 自家宿主用（如 <code>npx @deepseek-ai/dsh web</code>）：只插插件，不带 provider 与 approval 配置。</p>
+        <div class="hook">挂载：<b>profile patch</b> —— insert feuille-usine（产物自足，不再需要 require 垫片）</div>
+      </div>
+      <div class="cd">
+        <div class="cd-h"><span class="nm">credentials.mjs</span><span class="rl">凭据解析</span></div>
+        <p>MiniMax key 解析顺序与 dsh 凭据语义对齐：<b>环境变量 → mmx 凭据店 ~/.mmx/config.json</b>，按 region 选端点（cn 区 api.minimaxi.com / global 区 api.minimax.io），最后注入<b>进程环境</b>。</p>
+        <div class="hook">挂载：<b>dsh 凭据服务</b>（凭据店 → 进程环境 → .env）—— key 全程不打印、不进仓库、不进 overlay</div>
+      </div>
+      <div class="cd">
+        <div class="cd-h"><span class="nm">host-run.mjs</span><span class="rl">真宿主取证</span></div>
+        <p>真宿主 + 真 LLM 跑一轮，把审批审计从<b>会话日志</b>里逐帧 zstd 解出来（多帧拼接，单帧解法只解第一帧），再判 5 项。</p>
+        <div class="hook">挂载：<b>会话日志</b> ~/.dsh/sessions/*/session.v4.jsonl.zstd —— 审批审计是 log-only，不进通知流</div>
+      </div>
+      <div class="cd">
+        <div class="cd-h"><span class="nm">preflight</span><span class="rl">零 LLM 机械检查</span></div>
+        <p>四道：① 产物自足加载 ② dsh 钉版一致（runtime == package.json 钉版）③ 宿主起得来 ④ <b>插件真挂上</b>（装配清单新鲜 + 17 工具逐字相符）。</p>
+        <div class="hook">挂载：<b>harness.start() + ctx.tools.schemas()</b> —— 旧的「start 一下就 close」在插件全灭时照样绿</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= §5 L3 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+      <h2>五、L3 插件层：八个模块（唯一集成层）</h2>
+    </div>
+    <p class="sec-sub">
+      这是 feuille 与 dsh 之间<b>唯一</b>的代码面。八行看完，就知道每个模块挂在 dsh 的哪个机制上、承担哪条纪律。
+    </p>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th style="width:13%">模块</th><th style="width:22%">主组件</th><th style="width:30%">功能</th><th>挂载的 dsh 机制</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="c1">index.ts</td><td class="c1">apply(ctx, config)</td>
+            <td>装配七件事：纪律节 / 17 工具 / 工具面自检 / 派发门 / 技能资产 / publish 条件注册 / 装配清单</td>
+            <td><code>ctx.effect</code> <code>ctx.inject</code> <code>ctx.on</code> <code>ctx.tools.register</code></td>
+          </tr>
+          <tr>
+            <td class="c1">tools.ts</td><td class="c1">familyTools()<br>verifyTool() quotaTool() videoGenerationTool()</td>
+            <td>17 个 ToolDefinition；argv 家族进程内直调、verify/quota 走子进程、download 走 fetch；win32 shim 解析与注入红线</td>
+            <td><code>ToolDefinition{parameters, output.schema, execute}</code></td>
+          </tr>
+          <tr>
+            <td class="c1">gate.ts</td><td class="c1">videoApprovalGate()</td>
+            <td>额度红线的机制承载：只门视频 submit；不合规的提交<b>放行</b>（不占用人工审批），由工具体回 invalid</td>
+            <td><code>ctx.on('tools/pre-execute', …, {global:true})</code> → <code>PreToolDecision{kind:'ask', reason, displayReason}</code></td>
+          </tr>
+          <tr>
+            <td class="c1">video.ts</td><td class="c1">parseSubmit() submitCost() submitReason()</td>
+            <td>视频线机械契约的<b>唯一判定源</b>：模型/分辨率/时长/画幅/prompt 上限 + 积分速查算账 + 中文审批卡</td>
+            <td class="muted">无 dsh 依赖（纯函数）——门与工具体共用它，两处各算一份就会漂</td>
+          </tr>
+          <tr>
+            <td class="c1">result.ts</td><td class="c1">RESULT_SCHEMA ok() invalid() failed() fromExitCode()</td>
+            <td>统一结果契约 {ok, status, output, detail}；status 三档与 CLI 退出码 0/1/2 同口径</td>
+            <td><code>ToolOutputDefinition.schema</code>（dsh 运行时强制校验）+ <code>render</code> 投影</td>
+          </tr>
+          <tr>
+            <td class="c1">capture.ts</td><td class="c1">runMain(fn, argv)</td>
+            <td>把「人类可读输出 + 退出码」收成结构化结果；<b>按异步上下文</b>捕获（ALS），并发不交错、宿主噪声不串窗</td>
+            <td class="muted">无 dsh 依赖（node:async_hooks）——但它替代了「猴补全局 stdout + 串行锁」</td>
+          </tr>
+          <tr>
+            <td class="c1">discipline.ts</td><td class="c1">DISCIPLINE_TEXT</td>
+            <td>7 条红线文本进 system prompt：额度 / 发布 / 额度自查 / 母版 / 验收诚实 / 交付位置 / 本地依赖</td>
+            <td><code>ctx.systemPrompt.section({name:'feuille:discipline', order:10150, text})</code></td>
+          </tr>
+          <tr>
+            <td class="c1">toolnames.ts</td><td class="c1">TOOL_NAMES[17]</td>
+            <td>工具面的<b>外部契约</b>：17 个字面量名字，注册后当场逐字对账，不一致直接抛</td>
+            <td class="muted">无 dsh 依赖——但它被 preflight 与 parity 测试拿来对账</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= §6 L4 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      <h2>六、L4 业务层：39 个组件怎么挂上工具面</h2>
+    </div>
+    <p class="sec-sub">
+      CLI 路由表是唯一事实源（表驱动，<code>load: () =&gt; import(leaf)</code>）。工具面 = 14 组进（13 家族 + version），publish 5 条<b>默认不注册</b>（<code>config.publish === true</code> 才挂）。插件层不自带第二份实现。
+    </p>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th style="width:20%">组件（= CLI 命令）</th><th style="width:16%">工具 / action</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/core</span> · 15 个组件 · 底层能力：数据、音画内核、人物场景</td></tr>
+          <tr><td class="c1">version</td><td class="c2">usine_version</td><td>打印版本（只读自检）</td></tr>
+          <tr><td class="c1">ledger/status</td><td class="c2">usine_ledger / status</td><td>缓存账本：谁过期了、因为什么（有过期 → 退出码 1）</td></tr>
+          <tr><td class="c1">framehash/save</td><td class="c2">usine_framehash / save</td><td>逐帧像素基线：采集（build/ 全量发现 → 分桶落盘 → 回读自证）</td></tr>
+          <tr><td class="c1">framehash/check</td><td class="c2">usine_framehash / check</td><td>逐帧像素基线：零漂移门禁（diff/gone → 退出码 1）</td></tr>
+          <tr><td class="c1">cover/make</td><td class="c2">usine_cover / make</td><td>封面：整页 HTML → 平台规格整图截图（尺寸/裁齐由 SPECS 保证）</td></tr>
+          <tr><td class="c1">cover/check</td><td class="c2">usine_cover / check</td><td>封面：尺寸 + 外圈众数底色检查（有问题 → 退出码 1）</td></tr>
+          <tr><td class="c1">persona/validate</td><td class="c2">usine_persona / validate</td><td>人设契约体检：逐人 validatePersona + 班底不变量</td></tr>
+          <tr><td class="c1">scene/parse</td><td class="c2">usine_scene / parse</td><td>场景解析：scene.md → scene.json（解析 + 前置校验 + token 自检）</td></tr>
+          <tr><td class="c1">scene/validate</td><td class="c2">usine_scene / validate</td><td>场景数据前置校验：scene.json × 注册表 + 选角/班底</td></tr>
+          <tr><td class="c1">scene/draft</td><td class="c2">usine_scene / draft</td><td>教学创意 → scene.md 结构草稿（只填结构留 TODO；--gaps 查欠账）</td></tr>
+          <tr><td class="c1">scene/tts</td><td class="c2">usine_scene / tts</td><td>场景课 TTS：scene.json × 班底声线 → timeline.json + 逐行 mp3</td></tr>
+          <tr><td class="c1">lesson/new</td><td class="c2">usine_lesson / new</td><td>新课开坑：brief.json（注册表现取 + 选角当场验 + 空跑草稿自证）</td></tr>
+          <tr><td class="c1">lesson/doctor</td><td class="c2">usine_lesson / doctor</td><td>课件就绪度体检：①创意…⑦验收，每条未完成带下一条命令</td></tr>
+          <tr><td class="c1">theme/match</td><td class="c2">usine_theme / match</td><td>主题自动匹配：话题/语种 → 5 套垂域主题推荐</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/poster</span> · 10 个组件 · 排版产线（画面由渲染生成）</td></tr>
+          <tr><td class="c1">poster/fetch-fonts</td><td class="c2">usine_poster / fetch-fonts</td><td>字体子集抓取：fonts.json → 内嵌 fonts.css（Google Fonts css2 子集）</td></tr>
+          <tr><td class="c1">poster/assemble</td><td class="c2">usine_poster / assemble</td><td>海报组装：poster_src.html + fonts.css → index.html</td></tr>
+          <tr><td class="c1">poster/render</td><td class="c2">usine_poster / render</td><td>整页截图：Edge/Chrome headless 按画幅出图</td></tr>
+          <tr><td class="c1">poster/render-page</td><td class="c2">usine_poster / render-page</td><td>DOM/截图双模式：dump 吐渲染后 DOM，render 按 query 出图</td></tr>
+          <tr><td class="c1">poster/audit-charset</td><td class="c2">usine_poster / audit-charset</td><td>字符子集门（tofu 防线）+ .ksyl 补丁规则绑定门</td></tr>
+          <tr><td class="c1">poster/fit-diag</td><td class="c2">usine_poster / fit-diag</td><td>fit 诊断：从 DOM 里捞 DIAG 行对照限值（溢出 → 退出码 1）</td></tr>
+          <tr><td class="c1">poster/verify-colors</td><td class="c2">usine_poster / verify-colors</td><td>四色抽样验收：红/蓝/灰/墨逐格对表（色差超限 → 退出码 1）</td></tr>
+          <tr><td class="c1">poster/check-overlay</td><td class="c2">usine_poster / check-overlay</td><td>叠印对齐验收：lay 层 vs top 层逐位移求最优对齐</td></tr>
+          <tr><td class="c1">poster/make-covers</td><td class="c2">usine_poster / make-covers</td><td>全屏封面变体：注入 overlay CSS + 生成 index 母版</td></tr>
+          <tr><td class="c1">poster/measure-korean</td><td class="c2">usine_poster / measure-korean</td><td>韩文逐字素几何测量：测墨 → 元/辅音分类 → 生成补丁规则 + 自验</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/karaoke</span> · 4 个组件 · 词级卡拉 OK 成片线</td></tr>
+          <tr><td class="c1">karaoke/tts</td><td class="c2">usine_karaoke / tts</td><td>词级 TTS：voices.json → 逐语种 mp3 + 词边界/token 时间 json</td></tr>
+          <tr><td class="c1">karaoke/build</td><td class="c2">usine_karaoke / build</td><td>状态帧渲染 + 音轨组装成片（30fps 网格精确帧数编码）</td></tr>
+          <tr><td class="c1">karaoke/verify-sync</td><td class="c2">usine_karaoke / verify-sync</td><td>AV 同步验收：抓帧 vs 状态帧像素差（失配 → 退出码 1）</td></tr>
+          <tr><td class="c1">karaoke/scan-blank</td><td class="c2">usine_karaoke / scan-blank</td><td>全片白页扫描（唯一独立于状态帧的检查）</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/storyteller</span> · 2 个组件 · 多幕评书成片（复用 karaoke 的时间轴与合片机制）</td></tr>
+          <tr><td class="c1">storyteller/render-frames</td><td class="c2">usine_storyteller / render-frames</td><td>评书幕帧渲染：舞台 + 人物 + 卷面卡拉 OK 字卡</td></tr>
+          <tr><td class="c1">storyteller/assemble</td><td class="c2">usine_storyteller / assemble</td><td>评书成片组装：幕帧 → 叠化转场 → 醒木混音（单画幅 mp4）</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/poetry</span> · 2 个组件 · 实拍母版诊断线</td></tr>
+          <tr><td class="c1">poetry/audio-profile</td><td class="c2">usine_poetry / audio-profile</td><td>音频拆轨对比：人声段 vs 空档段 LUFS（差 &lt; 8 dB = 人声被盖住）</td></tr>
+          <tr><td class="c1">poetry/color-contrast</td><td class="c2">usine_poetry / color-contrast</td><td>文字压实拍量化：背景亮度分布 + 逐季 --gate 二值判据</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/copy</span> · 1 个组件 · 发布词自检（零平台流量）</td></tr>
+          <tr><td class="c1">copy/check</td><td class="c2">usine_copy / check</td><td>三平台 H2 段落/标题字数/尾随空格/钩短语/置顶话术/no-hard-wrap/AI 指纹 + --facts 数字溯源</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/bgm</span> · 1 个组件 · BGM 底床生成</td></tr>
+          <tr><td class="c1">bgm/gen</td><td class="c2">usine_bgm / gen</td><td>纯器乐 BGM 床生成（Google Lyria realtime）+ 实测判据（拍速反查/频段分布/床长）</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">@feuille/publish</span> · 5 个组件 · <span style="color:var(--warn)">默认不注册</span>（config.publish === true 才挂）</td></tr>
+          <tr><td class="c1">publish/login</td><td class="c2 muted">usine_publish（未注册）</td><td>平台扫码登录：登录态存盘到持久 profile（扫码永远人工）</td></tr>
+          <tr><td class="c1">publish/check-plan</td><td class="c2 muted">usine_publish</td><td>发布前清单自检：素材/标题字数/横竖配对/封面比例</td></tr>
+          <tr><td class="c1">publish/douyin</td><td class="c2 muted">usine_publish</td><td>抖音批量发布（manifest.json 驱动；封面先发后补）</td></tr>
+          <tr><td class="c1">publish/xhs</td><td class="c2 muted">usine_publish</td><td>小红书批量发布（manifest.json 驱动；3:4 封面回退）</td></tr>
+          <tr><td class="c1">publish/bilibili</td><td class="c2 muted">usine_publish</td><td>B 站批量投稿（分区/声明/封面硬闸门 + .txt 字幕）</td></tr>
+
+          <tr class="pkg"><td colspan="3"><span class="mono">插件自带（不在业务包）</span> · 3 个工具</td></tr>
+          <tr><td class="c1">usine_verify</td><td class="c2">usine_verify</td><td>全量门禁子进程：pnpm typecheck → vitest（≈1 分钟）</td></tr>
+          <tr><td class="c1">usine_quota</td><td class="c2">usine_quota</td><td>MiniMax 套餐额度查询（mmx quota，只读不烧额度）</td></tr>
+          <tr><td class="c1">usine_video_generation</td><td class="c2">usine_video_generation</td><td>视频线三条动作 submit / query / download；<b>submit 在派发层被门拦</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= §7 L5 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
+      <h2>七、L5 技能资产：10 个 SKILL.md 的三层路由</h2>
+    </div>
+    <p class="sec-sub">
+      技能不是被 import 的代码，是<b>随宿主启动自动加载的说明书</b>。路由靠每个 skill description 自带的排除语句（Not for …），不靠猜。三层分水岭：<b>有没有实拍母版</b>。
+    </p>
+    <div class="facts">
+      <div class="fact">
+        <h3><span class="no">层 1</span>课件与绘制层（不出成片）</h3>
+        <p>内容生产与校验，产出的是「可开工的料」，不是成片。</p>
+        <dl class="kv">
+          <dt>lesson-scene</dt><dd>scene.md ⇄ scene.json + 七层校验</dd>
+          <dt>character-rig</dt><dd>人物 rig / 背景场景 / 人设契约校验</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">层 2</span>成品层 · Cluster A（画面由渲染生成）</h3>
+        <p>只有海报/卡片时走这条：单卡片逐词高亮 → 多幕评书（复用 karaoke 的时间轴与合片机制，只加导演层）。</p>
+        <dl class="kv">
+          <dt>one-page-poster</dt><dd>一页纸海报 / 12 语种 / 逐字着色</dd>
+          <dt>karaoke-video</dt><dd>单卡片词级高亮成片</dd>
+          <dt>storyteller-video</dt><dd>多幕评书（每幕一景一镜一转场）</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">层 2</span>成品层 · Cluster B（画面是实拍）</h3>
+        <p>有实拍母版时走这条：母版由 video-generation 出（选线、提交前确认额度、取回后冻结），诊断线在其后。</p>
+        <dl class="kv">
+          <dt>video-generation</dt><dd>出母版：选线 / 提交前确认 / 取回冻结</dd>
+          <dt>multilingual-video-poetry</dt><dd>实拍母版诊断：人声 LUFS / 文字压实拍</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">层 3</span>音频层与收尾层</h3>
+        <p>音频不分线——各成片线读同一条床，只是压法不同（线性 / 侧链）。收尾是发布词与发布本身。</p>
+        <dl class="kv">
+          <dt>bgm-bed</dt><dd>底床生成（Lyria）+ 床位定标</dd>
+          <dt>publish-copy</dt><dd>写发布词（各线共用）</dd>
+          <dt>multilingual-video-publishing</dt><dd>发平台 + 建合集 + 核验</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= §8 时序 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h12M3 18h18"/><circle cx="19" cy="12" r="2"/></svg>
+      <h2>八、一次调用在 dsh 里怎么走</h2>
+    </div>
+    <p class="sec-sub">
+      关键在 <code>alt / else</code> 那一支：<b>红线在派发层就分叉了</b>。被拒的那条路径里，工具体从头到尾没有执行——不是执行完才告诉你不行。
+    </p>
+    <div class="diagram"><div id="seq"></div></div>
+    <p class="figcap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 auto;margin-top:2px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>门返回 <code>ask</code> 后由 dsh-tools 的 <code>serviceAsk</code> 接审批：无 approval 服务 → deny；无 agent → deny；四种结局 allowed-once / rejected / cancelled / unavailable 各自映射成可区分的拒绝理由。<b>pre-execute 之后还有一道单调 guard</b>——任何 guard 可以否决，但没有 guard 能强行放行另一个 guard 已否决的调用。</span>
+    </p>
+  </section>
+
+  <!-- ================= §9 机制速查 ================= -->
+  <section>
+    <div class="sec-head">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+      <h2>九、四个必须记住的 dsh 行为</h2>
+    </div>
+    <p class="sec-sub">这四条都是「读源码读出来的、文档里没直说」的机制——踩过的坑都在这。</p>
+    <div class="facts">
+      <div class="fact">
+        <h3><span class="no">01</span>inject 是 AND 语义，不是「可选声明」</h3>
+        <p>fiber 的 <code>_refresh()</code> 遍历 <code>inject</code>，任一服务拿不到就置 <code>epoch=INACTIVE</code>——fiber 永不生效，插件整体不挂载。</p>
+        <dl class="kv">
+          <dt>症状</dt><dd>工具面全空，宿主毫无报错</dd>
+          <dt>本项目</dt><dd>inject = ['tools']（只留真硬依赖）</dd>
+          <dt>实测</dt><dd>缺 systemPrompt：0 → 17 个工具</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">02</span>ctx.inject 等服务，ctx.get 直接读</h3>
+        <p><code>ctx.inject(deps, cb)</code> 是子 fiber：等 deps 到齐才跑 cb，等不到就<b>静默不跑</b>；<code>ctx.get(name)</code> 读当前可用服务，读不到返回 undefined。</p>
+        <dl class="kv">
+          <dt>approval</dt><dd>上游 ctx.get（无服务即降级 deny）</dd>
+          <dt>skills</dt><dd>ctx.inject(['skills'], …)</dd>
+          <dt>systemPrompt</dt><dd>ctx.inject(['systemPrompt'], …)</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">03</span>审批是「派发层」的事，不是工具的事</h3>
+        <p>工具自己问审批 = 工具已经执行过。宿主唯一能按工具名否决的接缝就是 pre-execute；审计事件也只在派发层产生。</p>
+        <dl class="kv">
+          <dt>结局</dt><dd>allowed-once / rejected / cancelled / unavailable</dd>
+          <dt>审计</dt><dd>approval/asked + approval/decided（log-only）</dd>
+          <dt>本项目</dt><dd>门只门视频 submit；不合规的放行给工具体回 invalid</dd>
+        </dl>
+      </div>
+      <div class="fact">
+        <h3><span class="no">04</span>返回值由 dsh 按 schema 机检</h3>
+        <p><code>output.schema</code> 在运行时强制执行（additionalProperties / enum / required）。契约写在代码里就是可执行的——模型看得见、门禁拦得住、跑不偏。</p>
+        <dl class="kv">
+          <dt>契约</dt><dd>{ok, status, output, detail}</dd>
+          <dt>status</dt><dd>ok / invalid / failed（= CLI 退出码 0 / 2 / 1）</dd>
+          <dt>render</dt><dd>把结构化值摊平成模型可读文本</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>feuille × dsh · 组件级架构图 · 2026-10-20</span>
+    <span>源文档：<code>usine/docs/dsh.md</code> · <code>usine/docs/guide.md</code> · <code>usine/docs/record.md</code></span>
+  </div>
+
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+
+  const diagram = `
+sequenceDiagram
+    autonumber
+    participant U as 你
+    participant H as dsh 宿主
+    participant G as 派发门 gate.ts
+    participant A as approval 服务
+    participant T as 工具体 tools.ts
+    participant B as 业务包 main
+    U->>H: 一句话
+    H->>G: tool/call 到达派发层
+    alt 普通工具（无红线）
+        G-->>T: 放行
+        T->>B: 进程内直调 main(argv)
+        B-->>T: stdout + 退出码
+        T-->>H: ok / status / output / detail
+        H->>H: 按 output.schema 机检
+        H-->>U: 结果回模型
+    else 视频生成 submit（额度红线）
+        G->>G: parseSubmit 校验 + 算账
+        G->>A: kind=ask + 中文审批卡
+        A-->>G: rejected
+        G-->>H: deny —— 工具体一行不执行
+        H-->>U: dsh 原生工具错误
+    end
+`;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: "'Outfit','PingFang SC','Microsoft YaHei',sans-serif",
+      fontSize: '13px',
+      primaryColor: 'rgba(47,111,94,.08)',
+      primaryBorderColor: 'rgba(47,111,94,.32)',
+      primaryTextColor: '#14171e',
+      secondaryColor: 'rgba(107,114,128,.07)',
+      tertiaryColor: '#fcfbf8',
+      lineColor: '#b8b2a4',
+      actorBkg: '#ffffff',
+      actorBorder: '#e9e3d6',
+      actorTextColor: '#14171e',
+      signalColor: '#3a4256',
+      signalTextColor: '#3a4256',
+      labelBoxBkgColor: '#fcfbf8',
+      labelBoxBorderColor: '#e9e3d6',
+      labelTextColor: '#3a4256',
+      noteBkgColor: 'rgba(47,111,94,.08)',
+      noteBorderColor: 'rgba(47,111,94,.28)',
+      noteTextColor: '#14171e',
+      activationBkgColor: 'rgba(47,111,94,.05)',
+      activationBorderColor: 'rgba(47,111,94,.28)',
+    },
+  });
+
+  const { svg } = await mermaid.render('seqdiagram', diagram);
+  document.getElementById('seq').innerHTML = svg;
+</script>
+</body>
+</html>

@@ -114,6 +114,54 @@ _SECTION_TITLES = {
 DSH_SKILL_SUBDIR = Path(".dsh") / "skills"
 DSH_SCRIPTS_SUBDIR = Path("harness_scripts")
 
+#: 技能资产的**真实来源**：`usine/skills/` 正是插件注册给 dsh 的那个目录
+#: （`usine/packages/dsh-plugin/src/index.ts`：
+#: `customSkillDirs: [resolve(usineRoot(), 'skills')]`）。
+#: 手册引用的 `assets/template/poster_src.html`、`references/script-coloring.md`
+#: **只在这里**——工作区里没有它们，工序第一步就断了。
+SKILL_ASSET_DIR = REPO / "usine" / "skills"
+
+#: 装技能时跳过的：构建产物与系统垃圾，不是资产。
+_SKILL_JUNK = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", "SKILL.md")
+
+
+def _install_skill_assets(dst_root: Path, names: list[str] | None = None) -> list[str]:
+    """把真实资产源里的技能**资源**装到某个技能根（不含 SKILL.md）。
+
+    装的是**整个目录**（含 `assets/`、`references/`），不是只有 SKILL.md。
+    SKILL.md 由调用方从 harness 树覆盖——资产是源，手册是被改进对象。
+
+    装两处，因为智能体两条路都可能走：`skill` 工具读 `.dsh/skills/`，
+    而手册里「copy `assets/…`」这种相对路径通常是相对工作区里的技能目录。
+
+    `names` 给定时**只装这些技能**——**树说了算**：演化删掉一个技能，工作区里
+    就该没有它（否则「树与工作区不一致」，改动成了运行时空操作，
+    却还会被当成「演化动了这一格」）。
+    """
+    installed: list[str] = []
+    if not SKILL_ASSET_DIR.is_dir():
+        return installed
+    dst_root = Path(dst_root)
+    dst_root.mkdir(parents=True, exist_ok=True)
+    wanted = set(names) if names is not None else None
+    for item in sorted(SKILL_ASSET_DIR.iterdir()):
+        if item.name.startswith("."):
+            continue
+        if item.is_dir():
+            if not (item / "SKILL.md").is_file():
+                continue  # 不是技能目录（例如 __pycache__）
+            if wanted is not None and item.name not in wanted:
+                continue
+            shutil.copytree(item, dst_root / item.name, dirs_exist_ok=True, ignore=_SKILL_JUNK)
+            installed.append(item.name)
+        else:
+            # 技能根上的共享资产（`theme-tokens.css` / `typography-base.css`）——
+            # **不受 `names` 限制**：它们不是技能，是技能们引用的共享文件
+            # （手册写着「`theme-tokens.css` (in `skills/`)」）。
+            shutil.copy2(item, dst_root / item.name)
+            installed.append(item.name)
+    return installed
+
 
 def compose_agents_md(staged: Path) -> str:
     """把 always_on 的四个文件拼成 dsh 原生的 AGENTS.md。
@@ -260,11 +308,35 @@ class DshSubstrate:
             shutil.copytree(tree_dir, staged, dirs_exist_ok=True)
 
             # 技能 → dsh 的 project-dsh 根
+            #
+            # **技能自带的资源必须一起装。** 手册里写着「copy `assets/template/poster_src.html`」，
+            # 这一行只有在 `assets/` 真的在盘上时才可执行；少了它，工序第一步就断了，
+            # 智能体会（**正确地**）判定「工具面之外没有验收口径」而停手——那测的就不是
+            # harness 的好坏，而是工作区完整与否。
+            #
+            # 2026-10-20 实测踩过：只装 SKILL.md 时，`routing-poster` 的基准臂在 50% 与 100%
+            # 之间跳，跳的是「要不要放弃」；而 k=3 候选树里那条「资源缺失先如实报告」的规则
+            # 正是被这个缺陷**逼出来的**——拿它去量演化，等于拿一个假信号当真信号。
+            #
+            # 资源从**真实资产源**（`usine/skills/`，也就是插件注册给 dsh 的那个目录）搬，
+            # 不塞进 harness 树：树是**可编辑面**（引擎 `core/tree.py` 按正则定义，只认
+            # `SKILL.md` 与 `scripts/`），把 347KB 资产放进去会撑爆每一次提案提示。
+            # 技能自带的资源必须一起装。
+            # （理由见 `_install_skill_assets` 的 docstring；「装哪些技能」由**树**决定。）
+            tree_skills = [
+                p.parent.name for p in sorted(tree_dir.glob(f"{DSH_SURFACE.skill_dir}/*/SKILL.md"))
+            ]
+            _install_skill_assets(staged / DSH_SKILL_SUBDIR, tree_skills)
+            _install_skill_assets(staged / DSH_SURFACE.skill_dir, tree_skills)
+
+            # 树里的 SKILL.md 覆盖同名那份——**树里那份可能已被演化改过**，
+            # 资产是源，SKILL.md 是被改进对象。
             for rel in sorted(tree_dir.glob(f"{DSH_SURFACE.skill_dir}/*/SKILL.md")):
                 name = rel.parent.name
-                dst = staged / DSH_SKILL_SUBDIR / name / "SKILL.md"
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(rel, dst)
+                for root in (staged / DSH_SKILL_SUBDIR, staged / DSH_SURFACE.skill_dir):
+                    dst = root / name / "SKILL.md"
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(rel, dst)
 
             # 脚本 → 工作区帮手目录
             for rel in sorted(tree_dir.glob(f"{DSH_SURFACE.skill_dir}/*/scripts/*")):

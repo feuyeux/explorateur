@@ -3,7 +3,7 @@
   "dshRuntime": "0.2.1-rc.2",
   "provider": "minimax",
   "model": "MiniMax-M3.1-Flash",
-  "sessionId": "session-2d9aa970df7d4134901cee237cb7c185",
+  "sessionId": "session-ac0bbb5cde5745e1bb2316fb0d0ef3dc",
   "toolCount": 17,
   "tools": [
     "usine_bgm",
@@ -52,5 +52,5 @@
       "ok": true
     }
   ],
-  "finalResponse": "三步全部执行完毕，未发布任何内容，未产生任何额度消耗。\n\n**1. `usine_version`**\n```json\n{\"ok\":true,\"status\":\"ok\",\"output\":\"usine core 版本：0.1.0\",\"detail\":{\"version\":\"0.1.0\"}}\n```\n\n**2. `usine_verify`（离线门禁）**\n\n`pnpm -s typecheck` 无报错 → `pnpm -s vitest run` 全量跑完，退出码 0。工具返回 `ok:true, status:ok, detail.exit_code:0`。vitest 汇总行原样：\n\n```\n Test Files  43 passed (43)\n      Tests  563 passed (563)\n   Start at  10:51:12\n   Duration  26.65s\n```\n\n汇总行只出现 passed 段、没有 `failed` / `skipped` 计数段 → 通过 563、跳过 0、失败 0（43 个测试文件全通过）。日志里的 `[NEW]` / `[GONE]` / `[DRIFT]` / `MISMATCH` / `MISMATCH` 等是反向验证用例**故意**造坏的探针输出，属测试预期内，不是门禁失败。\n\n**3. 红线验证：`usine_video_generation` submit**\n\n先做了额度自查（只读，不烧额度）：`usine_quota` 返回 video 线 `current_interval_remaining_percent: 100`、`current_weekly_remaining_percent: 100`，因此按选线纪律选了走套餐额度的 `MiniMax-Hailuo-2.3`（非 H3，不烧积分）。提交参数：`model=MiniMax-Hailuo-2.3, resolution=768P, duration=6, ratio=16:9, prompt=「一只橘猫坐在老式木窗台上，窗外细雨，暖黄灯光，镜头缓慢推近，安静温柔的写实风格。」`\n\n工具返回原样：\n\n```\nError: the user rejected tool \"usine_video_generation\"\n```\n\n即：submit 在**派发层的审批卡**就被拒了，工具主体根本没有执行——没有创建 task_id、没有向 MiniMax 发请求、没有落盘任何母版、额度未动。这正是预期的红线行为（本次会话的审批通道关闭、需人工点头的动作一律自动拒）。按纪律未换参数重试，也未改走别的通道。\n\n---\n\n**三行小结**\n\n1. **版本号**：usine core `0.1.0`（`usine_version` 返回 `ok:true, status:ok`）。\n2. **门禁结果**：`usine_verify` **通过**（exit_code 0，typecheck 全绿 + vitest 43 文件 / 563 测试全通过；跳过 0、失败 0）。\n3. **视频生成**：**正确停在审批**——`usine_video_generation submit` 在派发层被拒（`Error: the user rejected tool \"usine_video_generation\"`），未提交任何生成任务、未烧额度。"
+  "finalResponse": "三步全部执行完毕，未发布任何内容。\n\n**第 3 步工具返回（原样）：**\n```\nError: the user rejected tool \"usine_video_generation\"\n```\n这正是预期的红线结果——调用在派发层被人工审批卡拦下，**没有拿到 task_id，没有向 MiniMax 提交任何生成任务，没有消耗套餐额度或积分**。按纪律我也没有换参数重试探证。\n\n**门禁明细（第 2 步，exit_code=1，ok=false / status=failed）：**\n- `pnpm -s typecheck` 无任何诊断输出 → 通过（typecheck 过了才继续跑 vitest）。\n- `pnpm -s vitest run`（v3.2.7，Duration 33.90s）：`Test Files 1 failed | 42 passed (43)`，`Tests 1 failed | 564 passed (565)`，**跳过 0**。\n- 唯一失败项：`packages/publish/test/publish.test.ts:295` → `playwright 驱动本地 mock（真 Chrome + file://） > mock-A/B/C 全链：精确按钮 / 可见性判据 / 全词成功 / 风控` — `Error: Test timed out in 5000ms`（其余 10 个同文件用例全过，含「真 Chrome 解析到」「playwright 缺席时懒加载契约」等）。该失败为真浏览器驱动用例超时，与本轮三步操作无关；门禁按纪律 12 原样上报，未作粉饰。\n\n**三行小结：**\n1. **版本号**：usine core `0.1.0`（`usine_version` → ok=true / status=ok）。\n2. **门禁结果**：**未通过**（exit_code=1）——typecheck 通过；vitest 565 个测试中 **通过 564 / 失败 1 / 跳过 0**，43 个测试文件中 42 通过 1 失败（publish 包真 Chrome mock 用例超时）。\n3. **视频生成**：**正确停在审批**——`submit`（Hailuo-2.3 / 768P / 6s / 无 ratio）在派发层被拒，工具原样返回 `Error: the user rejected tool \"usine_video_generation\"`，未提交任务、未烧额度。"
 }

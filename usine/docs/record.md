@@ -238,7 +238,8 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 
 | # | 现象 | 根因 | 修法 |
 |---|---|---|---|
-| 30 | 声明了 `inject` 但宿主没那个服务 → 插件**永不生效**、工具面全空、宿主毫无报错 | cordis 的 `inject` 是**硬激活门槛**（拿不到服务则 fiber 永远 pending），不是「可选声明」 | `inject` 只留硬依赖（`tools` + `systemPrompt`）；可选服务走 `ctx.get`（读）/ `ctx.inject`（等）——同一个坑的反方向也踩过（2026-10-18 首测是「少声明导致服务没到」） |
+| 30 | 声明了 `inject` 但宿主没那个服务 → 插件**永不生效**、工具面全空、宿主毫无报错 | cordis 的 `inject` 是**硬激活门槛**（拿不到服务则 fiber 永远 pending），不是「可选声明」 | `inject` 只留硬依赖（`tools`）；可选服务走 `ctx.get`（读）/ `ctx.inject`（等）——同一个坑的反方向也踩过（2026-10-18 首测是「少声明导致服务没到」） |
 | 31 | 审批写在工具体内 → 工具**已经跑过**才说「等审批」，宿主也没法按工具名否决，审计断在工具体里 | 审批服务本来在派发层（`tools/pre-execute` → dsh-tools `serviceAsk`），插件自己又手写了一遍镜像 | 门从工具体内迁到 `ctx.on('tools/pre-execute')`，返回 `{kind:'ask'}`；删掉 120 行手写审批与 `ApprovalLike` 镜像 |
 | 32 | 工具输出里混进宿主自己的日志 / JSON-RPC 帧 | 猴补 `process.stdout.write` 的**时间窗**捕获把窗口内的所有写都收走，宿主写与工具写不分 | 改用 `AsyncLocalStorage` 按**异步上下文**捕获，串行锁删掉；console 与 stdout/stderr 两个出口都盖（vitest 下 console 被测试框架接管，只盖 stdout 会漏） |
 | 33 | 会话日志只解出第一帧，后面的事件全丢 | 日志是多段 zstd 帧拼接，Node 的 `zstdDecompressSync` 只解第一帧 | 取证脚本逐帧解码；审批审计是 log-only（不进通知流），只能从会话日志拿 |
+| 34 | 改完 inject 纪律后**复查发现 systemPrompt 还在 inject 里**——宿主一缺它，17 个工具掉到 **0** 且不报错 | 同一个坑的第三个实例：只清了 `approval` / `skills`，没看清 `systemPrompt` 承载的只是纪律文本，17 个工具一个都不依赖它 | `inject` 只留 `tools`；纪律文本节改走 `ctx.inject(['systemPrompt'], …)`。真 cordis 实测：只 `provide('tools')` 时注册工具数 **0 → 17**，纪律节安静跳过；该对比进了 `plugin.test.ts` 的常驻断言（真 `new Context()`，不是假 ctx） |

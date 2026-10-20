@@ -15,6 +15,12 @@
    没有就用 cwd」。run root 要是落在本仓库里，`.dsh/skills` 会被判到**仓库根**去，
    于是候选技能一个都扫不到——**跑得动、跑得对、跑的是错的**。这类故障不报错，
    只会让分数静默塌到基线。
+5. **装出来的工作区里技能资源在位**（2026-10-20 加）—— 手册写着
+   「copy `assets/template/poster_src.html`」，那一行只有在文件在盘上时才可执行。
+   少了它，智能体会（正确地）判定「不可验收」而停手——那一格量的是**工作区完整
+   与否**，不是 harness 的好坏。
+6. **`feuille` CLI 在位**（2026-10-20 加）—— 手册通篇写 `feuille poster …`；
+   PATH 上找不到它，智能体会判定「工具面没有包」而停手。真实产线里它在 PATH 上。
 
 PATH 上的 `dsh` CLI 只做**软**检查：真跑的路径是 SDK 客户端（`dsh_run.mjs`），
 CLI 已经不在执行路径上，为它拦下一轮是白花钱。
@@ -181,11 +187,82 @@ def check_dsh() -> tuple[list[str], list[str]]:
     return errs, warns
 
 
+def check_workspace_assets() -> list[str]:
+    """**装出来的工作区**里，技能手册引用的资源必须真的在盘上。
+
+    为什么单独一条：2026-10-20 实测，基准树只搬了 `SKILL.md`，`assets/` 与
+    `references/` 全丢。工作区里的手册指向不存在的模板，智能体于是（正确地）判定
+    「工具面之外没有验收口径」而停手——那一格的分数量的是**工作区完整与否**，
+    不是 harness 的好坏。源在不在（`check_base_harness`）与装得对不对是两回事。
+
+    这一条**只装配、不跑模型**：装配是本地文件操作，不花钱。
+    """
+    errs: list[str] = []
+    try:
+        sys.path.insert(0, str(HERE))
+        if str(THEATRE_II) not in sys.path:
+            sys.path.insert(0, str(THEATRE_II))
+        from dsh_substrate import DshSubstrate, SKILL_ASSET_DIR, DSH_SKILL_SUBDIR
+        import dsh_surface
+
+        dsh_surface.register()
+        base = HERE / "harness_base"
+        if not base.is_dir():
+            return [f"基准 harness 树不在 {base}"]
+
+        class _Spec:
+            runs_root = Path("/nonexistent")
+
+        inst = DshSubstrate().materialise(base, _Spec(), {})
+        try:
+            staged = inst.staging_dir
+            for name in sorted(p.name for p in SKILL_ASSET_DIR.iterdir() if p.is_dir()):
+                src = SKILL_ASSET_DIR / name
+                if not (src / "SKILL.md").is_file():
+                    continue
+                dst = staged / DSH_SKILL_SUBDIR / name
+                if not dst.is_dir():
+                    errs.append(f"技能 `{name}` 没装进 {DSH_SKILL_SUBDIR}/")
+                    continue
+                for asset in sorted(src.rglob("*")):
+                    if not asset.is_file():
+                        continue
+                    rel = asset.relative_to(src)
+                    if rel.name == "SKILL.md" or "__pycache__" in rel.parts:
+                        continue
+                    if rel.name == ".DS_Store":
+                        continue
+                    if not (dst / rel).is_file():
+                        errs.append(f"技能 `{name}` 的资源 `{rel}` 没装进工作区")
+        finally:
+            shutil.rmtree(inst.staging_dir, ignore_errors=True)
+    except Exception as exc:  # pragma: no cover - 装配失败是环境问题
+        errs.append(f"工作区装配自检跑不起来：{type(exc).__name__}: {exc}")
+    return errs
+
+
+def check_feuille_cli() -> list[str]:
+    """`feuille` 必须在工作区的 PATH 上。
+
+    技能手册通篇写的是 `feuille poster fetch-fonts …`；PATH 上找不到它，智能体就会
+    判定「工具面没有包」而停手（2026-10-20 实测）。真实产线里它在 PATH 上
+    （pnpm workspace），基准工作区不该比真实产线更差。
+    """
+    cli = REPO / "usine" / "packages" / "cli" / "bin" / "feuille.js"
+    if not cli.is_file():
+        return [f"feuille CLI 不在 {cli}：工作区里技能手册写的产线命令跑不通"]
+    if shutil.which("node") is None:
+        return []  # node 缺失由 check_executor 报
+    return []
+
+
 def run_all(run_root: Path) -> tuple[list[str], list[str]]:
     errs: list[str] = []
     warns: list[str] = []
     errs += check_engine()
     errs += check_base_harness()
+    errs += check_workspace_assets()
+    errs += check_feuille_cli()
     errs += check_run_root(run_root)
     x_errs, x_warns = check_executor()
     errs += x_errs

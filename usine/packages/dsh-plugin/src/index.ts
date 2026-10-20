@@ -4,12 +4,12 @@
 //
 // 三条结构决定（都是 2026-10-20 架构评审后改的，改动理由写在这里，别删）：
 //
-// 1. **inject 只留硬依赖**（tools + systemPrompt）。approval / skills 是**可选**服务：
+// 1. **inject 只留硬依赖**（tools）。approval / skills / systemPrompt 是**可选**服务：
 //    声明进 inject 等于「宿主必须提供」，宿主一缺整个插件就永不生效、工具面全空
 //    且不报错（cordis 的 fiber 会一直 pending）。所以：额度审批走 dsh 自带的
 //    tools/pre-execute 门（门内由 dsh-tools 用 ctx.get('approval') 取服务——上游
-//    自己的写法），技能注册走 ctx.inject(['skills'], …)（服务到齐才跑，没到就跳过，
-//    不影响工具面）。
+//    自己的写法），技能注册走 ctx.inject(['skills'], …)、纪律文本节走
+//    ctx.inject(['systemPrompt'], …)（服务到齐才跑，没到就跳过，不影响工具面）。
 //
 // 2. **红线机制在 dispatch 层，不在工具体内**。见 gate.ts：submit 走
 //    tools/pre-execute 瀑布返回 {kind:'ask'}，由 dsh-tools 的 serviceAsk 走
@@ -43,12 +43,19 @@ export { usineRoot } from './tools.js'
 export { TOOL_NAMES as toolNames } from './toolnames.js'
 
 export const name = 'feuille-usine'
-// inject 只声明**硬依赖**：工具注册与 systemPrompt 分节。
-// 声明了但宿主没提供的服务会让 fiber 永远 pending（插件永不生效、工具面全空且
-// 不报错）——2026-10-20 评审发现 approval / skills 被写进 inject 正是这个坑：
-// 宿主缺任一服务，17 个工具一起消失。approval 由 dsh-tools 在门内用 ctx.get 取，
-// skills 由 ctx.inject(['skills'], …) 等到再注册。
-export const inject = ['tools', 'systemPrompt']
+// inject 只声明**硬依赖**：工具注册。
+//
+// 为什么 systemPrompt 也不在里面：它承载的只是纪律文本（红线的「知道」层），
+// 17 个工具一个都不依赖它。把它写进 inject 就是把可选能力变成硬依赖——
+// 宿主一缺 systemPrompt 服务，fiber 永远 pending，插件**永不生效**、工具面全空
+// 且宿主毫无感知（cordis 的 inject 是 AND 语义：fiber.ts 的 _refresh() 拿不到
+// 任一 inject 服务就置 INACTIVE）。真 cordis 实测：只提供 tools 时注册工具数 = 0。
+//
+// 2026-10-20 评审发现 approval / skills 曾被写进 inject（同一个坑），本轮复查时
+// 发现 systemPrompt 还在里面——同一个坑的第三个实例，一并清掉。
+// 纪律文本改走 ctx.inject(['systemPrompt'], …)：服务到齐才挂节，挂不上就只是
+// 少一段文本，**工具面照常**。红线的真正承载是 gate.ts 的代码，不是这段文本。
+export const inject = ['tools']
 
 /** 插件配置（dsh 宿主侧 config 传入）。 */
 export interface Config {
@@ -85,15 +92,17 @@ function writeManifest(tools: string[], publish: boolean): void {
 
 export function apply(ctx: Context, config: Config = {}) {
   // ---- 1. 纪律 systemPrompt 节：文本管「知道」，机制管「做到」 ----
-  const systemPrompt = (ctx as unknown as { systemPrompt?: SystemPromptLike }).systemPrompt
-  if (systemPrompt) {
-    ctx.effect(() =>
+  // 可选服务：宿主没装 systemPrompt 就整段跳过（纪律文本没有，工具面照常有）。
+  ctx.inject(['systemPrompt'], (promptCtx) => {
+    const systemPrompt = (promptCtx as unknown as { systemPrompt?: SystemPromptLike }).systemPrompt
+    if (!systemPrompt) return
+    promptCtx.effect(() =>
       systemPrompt.section({
         name: DISCIPLINE_SECTION_NAME,
         order: DISCIPLINE_SECTION_ORDER,
         text: DISCIPLINE_TEXT,
       }))
-  }
+  })
 
   // ---- 2. 工具注册（argv 家族 + 三条线）----
   const alwaysOn = [usineVersion, ...familyTools(), verifyTool(), quotaTool(), videoGenerationTool()]

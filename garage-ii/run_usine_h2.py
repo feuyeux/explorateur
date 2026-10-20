@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -120,9 +121,13 @@ def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="run_usine_h2", description=__doc__)
     ap.add_argument(
         "--phase",
-        choices=("preflight", "sweep", "judge", "report"),
+        choices=("preflight", "sweep", "judge", "report", "repeat", "compare", "reselect"),
         default="preflight",
-        help="preflight=自检（默认，不花钱）｜sweep=演化（花钱，要 ack）｜judge=机械判据｜report=汇总",
+        help=(
+            "preflight=自检（默认，不花钱）｜sweep=演化（花钱，要 ack）｜judge=机械判据｜"
+            "report=汇总｜repeat=同一棵树重复 rollout（量零分布，花钱）｜compare=并排读两个臂｜"
+            "reselect=只重跑选择这一步（不重跑 rollout，花钱）"
+        ),
     )
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="run root（必须在仓库外）")
     ap.add_argument("--ack", default="", help=f"执行 sweep 的确认口令（{SWEEP_ACK}）")
@@ -150,9 +155,26 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--only-tasks",
         default="",
-        help="只跑这些任务（逗号分隔）；默认全跑 6 个",
+        help="只跑这些任务（逗号分隔）；默认全跑（现在 7 个，见 bench_usine.TASKS）",
     )
     ap.add_argument("--dry-run", action="store_true", help="只打印任务流与命名空间，不开跑")
+    ap.add_argument(
+        "--tree",
+        default="base",
+        help=(
+            "repeat 阶段用哪棵树：`base`（基准 harness）或一个目录"
+            "（子目录名当任务名；`arms.extract_adopted_trees` 抽出来的就是这个形状）"
+        ),
+    )
+    ap.add_argument("--repeats", type=int, default=3, help="repeat 阶段每题跑几次（默认 3）")
+    ap.add_argument(
+        "--append",
+        action="store_true",
+        help="repeat 阶段**接着已有臂往下加**（把 n=3 的零分布扩到 n=10 时用它）",
+    )
+    ap.add_argument("--tag", default="", help="repeat 阶段的臂名（默认按树推）")
+    ap.add_argument("--base-arm", default="", help="compare 阶段当零分布的臂")
+    ap.add_argument("--evolved-arm", default="", help="compare 阶段当演化臂的臂")
     return ap
 
 
@@ -334,11 +356,17 @@ def _report_stage_fallbacks(runs_root: Path, summary_ns: str) -> list[str]:
                 err = (stage.get("error") or "").strip()
                 out.append(label)
                 print(f"  ! 阶段回退 [{mode}] {label}：{err[:200] or '(没有原因)'}")
-            sel = blob.get("selection") or {}
+        # **采纳树是不是基准树**：引擎把它写在 `summary["selections"][mode]` 里
+        # （`core/schedule.py` 的 `res.selections[mode] = d`），
+        # **不是** `summary["modes"][mode]["selection"]`——读错地方的话，
+        # 「这一轮其实什么都没采纳」这条警告**永远不会触发**，
+        # 于是「回退到基准」可以悄悄通过 judge（2026-10-20 verifier 实测）。
+        for mode, sel in (summary.get("selections") or {}).items():
             if sel.get("chosen_tree_is_base"):
                 print(
                     f"  ! [{mode}] 最终被采纳的是**基准树**（没有任何改动被采纳）"
                 )
+                out.append(f"{mode}:chosen_tree_is_base")
     return out
 
 
@@ -402,6 +430,294 @@ def _phase_report(args) -> int:
     return 0
 
 
+def _phase_repeat(args) -> int:
+    """重复跑一棵树 N 次，量出**同树零分布**。
+
+    这是「演化有没有用」这个问题缺的那把尺子：引擎在 k≥2 时会给基准树跑
+    `base1..basek`，但**演化出来的那棵树只有一次 rollout**（`agg1`）——两臂用的
+    不是同一把刻度尺，臂间差异里混着重复抽样差异。
+
+    `--tree` 两种来源：
+    - `base` —— 基准 harness（`garage-ii/harness_base/`）；
+    - 别的路径 —— 一棵具体的树；如果是**目录**，按子目录名当任务名取树
+      （`extract_adopted_trees` 就是按这个形状抽出来的）。
+    """
+    import arms as ARMS
+
+    adapter = _adapter(args)
+    tasks = list(adapter.tasks("all"))
+    if args.only_tasks:
+        wanted = set(_csv(args.only_tasks))
+        tasks = [t for t in tasks if t in wanted]
+    if not tasks:
+        print("没有任务可跑", file=sys.stderr)
+        return 1
+
+    tree_arg = args.tree.strip()
+    if tree_arg == "base":
+        base_dir = adapter.base_harness()
+
+        def tree_for_task(_t: str) -> Path | None:
+            return base_dir
+
+        label = f"base:{base_dir}"
+    else:
+        root = Path(tree_arg).expanduser()
+        if not root.is_dir():
+            print(f"树目录不存在：{root}", file=sys.stderr)
+            return 1
+
+        def tree_for_task(t: str) -> Path | None:
+            cand = root / t
+            if cand.is_dir():
+                return cand
+            # 目录里只有一棵树时，就把它当所有任务通用的树。
+            trees = sorted(p for p in root.iterdir() if p.is_dir())
+            return trees[0] if len(trees) == 1 else None
+
+        label = str(root)
+
+    tag = args.tag.strip() or ("base" if tree_arg == "base" else root.name)
+    out_dir = adapter.spec.runs_root / "arms" / tag
+    print(f"# 臂 {tag}：树 {label}")
+    print(f"# 任务 {len(tasks)} 个，每题 {args.repeats} 次 rollout → 落盘 {out_dir}")
+    print(f"# 命名空间 {tag}-r1..r{args.repeats}；判据在跑完后立刻判（不重跑模型）")
+
+    lock = _acquire_run_root_lock(adapter.spec.runs_root)
+    try:
+        with adapter:
+            ARMS.run_arm(
+                adapter,
+                tree_for_task,
+                tasks,
+                args.repeats,
+                tag=tag,
+                out_dir=out_dir,
+                timeout=args.timeout,
+                append=args.append,
+            )
+    finally:
+        _release_run_root_lock(lock)
+    print(f"record: {out_dir}")
+    return 0
+
+
+def _phase_compare(args) -> int:
+    """把两个臂并排读：零分布 vs 演化臂。"""
+    import arms as ARMS
+
+    adapter = _adapter(args)
+    loaded = ARMS.load_arms(adapter.spec.runs_root / "arms")
+    if not loaded:
+        print(f"没有臂的落盘产物：{adapter.spec.runs_root / 'arms'}；先跑 repeat", file=sys.stderr)
+        return 1
+    tags = list(loaded.keys())
+    if len(tags) < 2:
+        print(f"至少要两个臂才能比：现在只有 {tags}", file=sys.stderr)
+        return 1
+    base_tag = args.base_arm.strip() or tags[0]
+    evo_tag = args.evolved_arm.strip() or next((t for t in tags if t != base_tag), tags[0])
+    if base_tag not in loaded or evo_tag not in loaded:
+        print(f"臂不存在：{base_tag} / {evo_tag}；现在有 {tags}", file=sys.stderr)
+        return 1
+
+    rows = []
+    base_tasks = set(loaded[base_tag])
+    evo_tasks = set(loaded[evo_tag])
+    # **缺格必须说出口**：两臂的任务集不一样时，只比**交集**会悄悄少掉一格，
+    # 而那一格可能正是「演化翻了车」的那一格。2026-10-20 verifier 实测：
+    # 少一格照样判「全部显著」并退出 0——**假绿灯**。
+    missing = (base_tasks - evo_tasks) | (evo_tasks - base_tasks)
+    if missing:
+        print(
+            f"⚠️ 两臂的格不一致：{sorted(missing)}"
+            f"（只有 base 有：{sorted(base_tasks - evo_tasks)}；"
+            f"只有 evolved 有：{sorted(evo_tasks - base_tasks)}）——"
+            "**缺的那一格不参与比较，但不能当它没事**。"
+        )
+    for task_id in sorted(base_tasks & evo_tasks):
+        rows.append(ARMS.compare_arms(loaded[base_tag][task_id], loaded[evo_tag][task_id]))
+
+    print(f"零分布 = {base_tag}　演化臂 = {evo_tag}")
+    print()
+    print(ARMS.format_comparison(rows))
+    print()
+    print(ARMS.format_failure_rate(rows))
+    print()
+    print(ARMS.format_required_n(rows))
+    out = adapter.spec.runs_root / "arms" / f"compare-{base_tag}-vs-{evo_tag}.json"
+    out.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"\nrecord: {out}")
+
+    # 判定纪律：只要有**一格**判不出来，整体就不能说「演化有效」。
+    #
+    # **但「演化没动这一格」的零格除外**：演化在那一格什么都没做（可编辑面内容
+    # 逐字相同），两臂必然同分布——那格**不承载**「演化有没有用」的信息。
+    # 把它算进「判不出提升」是冤枉演化。
+    null_cells = [r for r in rows if r.get("same_surface")]
+    # **没有有效样本的格单列**：它不是零格（演化动了、只是判据没跑成），
+    # 也不是「有演化」——它不承载任何方向的证据。混进 informative 会把
+    # 「没测到」说成「测了但分不开」，那是不该下的结论。
+    nodata_cells = [r for r in rows if r.get("no_data") and not r.get("same_surface")]
+    informative = [
+        r for r in rows if not r.get("same_surface") and not r.get("no_data")
+    ]
+    if null_cells:
+        print(
+            "\n零格（演化没动这一格，可编辑面内容逐字相同，**不参与判决**）："
+            + "、".join(r["task_id"] for r in null_cells)
+        )
+    if nodata_cells:
+        print(
+            "\n没有有效样本（判据没跑成，score=None）："
+            + "、".join(r["task_id"] for r in nodata_cells)
+            + "——这些格**比不了**，不构成任何方向的证据。"
+        )
+    if not informative and not nodata_cells:
+        print("\n注意：**每一格演化都没动**——没有可判的演化效果。")
+        return 1
+    if not informative:
+        print("\n注意：**没有一格拿到可比的样本**——这次比较什么都没测到。")
+        return 1
+    undecided = [r for r in informative if not (r["significant"] and r["delta_mean"] > 0)]
+    if undecided:
+        print(
+            f"\n注意：{len(undecided)}/{len(informative)} 格**有演化但分不开**"
+            "（不显著或方向不对）——**不能**据此说演化带来了提升："
+            + "、".join(r["task_id"] for r in undecided)
+        )
+        return 1
+    if missing:
+        print(
+            f"\n注意：另有 {len(missing)} 格**两臂不一致**（上面列了）——"
+            "判决只覆盖了**两臂都有**的那些格，缺的那几格**没有**被判过。"
+        )
+        return 1
+    print(
+        f"\n判决：{len(informative)} 格**有演化**的格全部显著且方向为正"
+        f"（零格 {len(null_cells)} 格不参与）。"
+    )
+    return 0
+
+
+def _phase_reselect(args) -> int:
+    """重跑**选择**这一步——**不重跑任何 rollout**。
+
+    为什么需要：选择通道修好之后（`minimax_proposer._contract_of`——选择任务有自己的
+    输出契约，不能再用「改文件」的协议盖上去），已有的跑批产物**仍然有效**，
+    只需要把「选哪棵」重做一遍。
+
+    2026-10-20 实测：这个 bug 让 k=3 的**盲选从来没真跑过**——`selection.json` 里
+    `fallback: true`、`error: 证据目录里没有 harness/，无法回报「不改动」`。
+    引擎于是回退到「第一个 final」，而那不是盲选的结果。
+    """
+    from dsh_provider import Relay
+    from harness2.core import selection as HSEL
+    from minimax_proposer import MinimaxProposer
+
+    adapter = _adapter(args)
+    ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
+    ns_dir = adapter.spec.runs_root / "adapt" / ns
+    if not ns_dir.is_dir():
+        print(f"没有这个命名空间的产物：{ns_dir}；先跑 sweep", file=sys.stderr)
+        return 1
+    tasks = [t for t in adapter.tasks("all") if (ns_dir / t).is_dir()]
+    if args.only_tasks:
+        wanted = set(_csv(args.only_tasks))
+        tasks = [t for t in tasks if t in wanted]
+    if not tasks:
+        print("没有可重选的任务", file=sys.stderr)
+        return 1
+
+    # 锁跟 sweep 锁**同一个**目录（`runs_root/adapt`）——否则两个进程能在同一个
+    # 命名空间里各写各的，静默覆盖。
+    lock = _acquire_run_root_lock(adapter.spec.runs_root / "adapt")
+    relay = Relay()
+    relay.start()
+    try:
+        adapter._relay = relay
+        adapter._relay_started = True
+        prop = MinimaxProposer(relay=relay, model=args.model, timeout=args.proposer_timeout)
+        prop.audit_dir = adapter.spec.runs_root / "adapt" / "_audit" / ns
+        bad = 0
+        for task_id in tasks:
+            work_dir = ns_dir / task_id
+            labels = [f"base{i}" for i in range(1, args.k + 1)] + [
+                f"agg{i}" for i in range(1, args.k + 1)
+            ]
+            rollouts = {}
+            for lbl in labels:
+                rv = adapter.run_view(task_id, f"{ns}/{task_id}/{lbl}")
+                if rv.ok:
+                    rollouts[lbl] = rv
+            candidates = HSEL.selection_pool("agg", args.k, rollouts, [])
+            if not candidates:
+                print(f"  [{task_id}] 没有可选的 final")
+                bad += 1
+                continue
+            # 旧的（回退的）选择记录留一份——它是「这个 bug 存在过」的证据。
+            # **备份必须放在 `selection/agg3/` 外面**：`run_selection` 会
+            # `shutil.rmtree(selection/agg3)`，放在里面会被一起删掉。
+            old = work_dir / "selection" / f"agg{args.k}" / "selection.json"
+            if old.is_file():
+                keep = work_dir / "selection" / f"agg{args.k}.before-reselect"
+                keep.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(old, keep / "selection.json")
+            sel = HSEL.run_selection(
+                task_id,
+                args.k,
+                "agg",
+                candidates,
+                adapter=adapter,
+                prop=prop,
+                work_dir=work_dir,
+                pool_kind="finals",
+            )
+            print(
+                f"  [{task_id}] 选中 {sel.chosen_label}（id={sel.chosen_id}）"
+                f" ok={sel.ok} fallback={sel.fallback} 候选 {sorted(candidates)}"
+            )
+            if sel.error:
+                print(f"      错误：{sel.error[:200]}")
+                bad += 1
+            # **必须同步 summary.json**：引擎写的是 `res.selections[mode]`，
+            # 而 `judge` 读的是 `summary["selections"][mode]`。不更新的话，
+            # judge 还在判**重选之前**那条（回退的）记录——2026-10-20 实测。
+            _merge_selection_into_summary(work_dir, sel)
+            if sel.why:
+                print(f"      理由：{sel.why[:200]}")
+        if bad:
+            print(f"\n有 {bad} 个任务的选择没成功", file=sys.stderr)
+            return 1
+    finally:
+        _release_run_root_lock(lock)
+        relay.close()
+    return 0
+
+
+def _merge_selection_into_summary(work_dir: Path, sel) -> None:
+    """把重选出来的选择写回 `summary.json` 的 `selections[mode]`。
+
+    引擎的 `core/schedule.py` 是这么记的（`res.selections[mode] = d`），
+    本层照它做——否则 `judge` 与 `arms extract` 读到的会是两条不同的选择。
+    """
+    summary_path = Path(work_dir) / "summary.json"
+    if not summary_path.is_file():
+        print(f"      （没有 summary.json，跳过同步：{summary_path}）")
+        return
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"      （summary.json 读不动，跳过同步：{exc}）")
+        return
+    d = sel.to_dict()
+    sels = summary.setdefault("selections", {})
+    sels[sel.mode] = d
+    tmp = summary_path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(summary, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, summary_path)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -418,6 +734,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.phase == "sweep":
             return _phase_sweep(args)
+        if args.phase == "repeat":
+            return _phase_repeat(args)
+        if args.phase == "compare":
+            return _phase_compare(args)
+        if args.phase == "reselect":
+            return _phase_reselect(args)
         if args.phase == "judge":
             return _phase_judge(args)
         return _phase_report(args)

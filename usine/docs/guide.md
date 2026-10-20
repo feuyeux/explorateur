@@ -214,7 +214,7 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 | 汇报里出现 SKIP | 前置缺失（如没填 key） | 按 §3 补前置，再喊它跑 |
 | 门禁红（FAIL） | 判据不过 | 让它贴判据原文——它自己定位、修、重跑；连试 2 次不收敛它会停下来问你 |
 | dsh 宿主加载报 `Dynamic require not supported` | 产物是**旧构建**——esbuild banner 注入模块作用域 require 的改动之后必须重建 | 跑 `pnpm --filter @feuille/dsh-plugin build` 重建；`entry-loader.mjs` 垫片已于 2026-10-20 删除，产物现在自足，直接挂 `dist/index.mjs` |
-| 它 boot 成功但工具全没了 | 宿主静默吞了 apply 抛错（如 `inject` 声明了宿主没提供的服务） | 跑 `pnpm --filter @feuille/dsh-plugin preflight`——零 LLM 验装配，工具没挂上当场红；注意 `inject` 现在只声明 `tools` + `systemPrompt`，`approval` / `skills` 是可选服务，缺了不会让工具面全空 |
+| 它 boot 成功但工具全没了 | 宿主静默吞了 apply 抛错（如 `inject` 声明了宿主没提供的服务） | 跑 `pnpm --filter @feuille/dsh-plugin preflight`——零 LLM 验装配，工具没挂上当场红；注意 `inject` 现在只声明 `tools` 一个硬依赖，`approval` / `skills` / `systemPrompt` 都是可选服务，缺了只会少一段能力（纪律文本），**不会让工具面全空** |
 | DSH 沙箱报 `SetNamedSecurityInfoW` 之类的 Windows 权限错 | 宿主环境的文件权限问题，与插件工具面无关 | 让宿主跑它自带的 `diagnose-windows-sandbox-acl` 诊断技能；必要时把宿主会话切到完全权限 |
 | 换台机器还能用吗 | skills 与插件均无绝对路径绑定 | 能：§2（pnpm install + build + ask）即可；dsh 主路连软链都不用 |
 
