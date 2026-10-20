@@ -33,7 +33,7 @@ worked three-file source (all 12 scene markups, voices, config) lives in
 | # | 必须明确 | 缺了会怎样 |
 |---|---|---|
 | 1 | 每个条目的**展示标记**（通常直接复用海报 cell markup） | 无场景可渲染 |
-| 2 | **TTS 文本与展示 token 的切分**（token 必须是 text 的连续字符区间） | 词级时间轴对不上，高亮错位 |
+| 2 | **TTS 文本与展示 token 的切分**（token 必须是 text 的连续字符区间）——且 **TTS 文本只能含旁白语音覆盖的脚本**（中文语音丢掉西里尔/阿语/天城/希伯来，见 `references/av-sync.md` §1a） | 词级时间轴对不上，高亮错位；后半段 token 拿不到边界 → `null` → 合片崩在 `fmt2(null)` |
 | 3 | 每条目一个旁白人设（音色 + 人设字段） | 无法生成 TTS |
 | 4 | 画幅（横版 / 竖版 / 都要） | 状态帧几何与 `?fmt=v` 分支无从校验 |
 | 5 | 片头/片尾卡片（用 `one-page-poster` 的全屏封面变体） | 首尾帧不是满屏，出现色带 |
@@ -192,8 +192,7 @@ pipeline.
 - `feuille karaoke tts|build|verify-sync|scan-blank`（@feuille/karaoke 包）
   — 四段产线入口（promoted from `scripts/gen_tts.py` / `build_video.py` /
   `verify_sync.py` / `scan_blank.py`；底床生成在 `bgm-bed`，不在这里）
-- `references/av-sync.md` — edge-tts WordBoundary semantics, concat drift
-  and the exact-frame-count fix, fps snapping, verification methodology
+- `references/av-sync.md` — edge-tts WordBoundary semantics, **boundary coverage gated by the voice's language** (a zh voice drops Cyrillic/Arabic/Devanagari/Hebrew → `null` token times), punctuation and attached marks must not reach the TTS text, concat drift and the exact-frame-count fix, fps snapping, verification methodology
 - `references/delivery-check.md` — **交付前自检**：为什么门禁全绿仍然要返工、
   歧义指令的处理规则、必须亲手看的时刻清单、封面 `vw` / `scan_blank` 盲区 /
   `preroll` 下限 / 一镜一场景 / 拼接前裁尾、已确认的画面语义约定
