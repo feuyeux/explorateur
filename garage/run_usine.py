@@ -1009,6 +1009,82 @@ def _select_phase_seats(configs: dict, role_paths: dict,
     return configs, role_paths
 
 
+# ------------------------------------------------- spread gate / latency gate
+
+def _apply_spread_constraint(configs: dict, *, phase: str, state: dict,
+                             config) -> dict:
+    """把铺开约束追加进**出题席**的 system_extra（装配期，一次性）。
+
+    为什么必须落在 system_extra 而不是别的提示词里：出题席的指令只有这一份
+    （``config/roles-usine/curriculum-usine.yaml`` 的 ``system_extra``），引擎把它
+    拼在 ``core/actor.py`` 的系统提示后面。约束不进这里，就只是一句没人读的注释。
+
+    只动 Phase-1 的出题席：Phase 2（DRS）有自己的出题席
+    （``curriculum-drs.yaml``，由 ``_select_phase_seats`` 换席），它的工作是复盘
+    并交一个**有上界的 drill**，不是选题铺开——把广度波次的口味塞进深度波次，
+    只会稀释 DRS 那套「brief 必须有上界」的纪律。
+
+    判相位用**换席后的身份**（curriculum 槽里装的是不是 DRS 席），而不是配置
+    文件名：换席是 ``_select_phase_seats`` 干的活，身份判定不会和它脱节。
+    """
+    import spread
+
+    curriculum = configs.get("curriculum")
+    if curriculum is None:
+        return {"applied": False, "reason": "no curriculum seat in this run"}
+    if curriculum is configs.get("curriculum_drs") or phase != "1":
+        return {
+            "applied": False,
+            "reason": "phase 2 runs the DRS curriculum seat; the spread gate "
+                      "is a breadth-wave mechanism and the DRS brief has its "
+                      "own bound",
+        }
+    result = spread.apply_to_seat(curriculum, state, config)
+    result["reason"] = result.get("reason", "")
+    return result
+
+
+def _latency_blocks(latency_report: dict) -> bool:
+    """时延风险是否挡住了这次开跑。
+
+    高风险且**没有**被显式放行 → 挡住（fail-closed：切片吸收不了波动，运气差就
+    整波烧光）。被 ``--allow-high-latency`` 放行的不挡，但风险会被写进 manifest
+    ——放行不等于没有发生过。
+    """
+    return (latency_report.get("risk") == "high"
+            and not latency_report.get("allowed"))
+
+
+def _latency_manifest_entry(latency_report: dict) -> dict:
+    """manifest 里的时延风险标记。
+
+    被 ``--allow-high-latency`` 放行的高时延风险**必须**在 manifest 里看得见：
+    一个被放行却没被记录的风险，和一个根本没检查过的风险，读起来一模一样。
+    """
+    return {
+        "latency_preflight": {
+            "risk": latency_report.get("risk", "none"),
+            "allowed": bool(latency_report.get("allowed")),
+            "latency_history": latency_report.get("latency_history", "none"),
+            "reason": latency_report.get("reason", ""),
+            "seats": latency_report.get("seats", {}),
+        }
+    }
+
+
+def _resume_manifest_key(manifest: dict) -> dict:
+    """resume 逐字比对的 manifest 键。
+
+    ``latency_preflight`` 是对 runs 根目录的**观测**，不是协议/配置决定：操作员
+    可能在原跑与 resume 之间又跑了别的血脉，评估值因此会变；而它每次入口都会
+    重算（execute 路径同样会判，高风险照样被拒），所以把它排除在逐字比对之外
+    不会放过任何风险。其余一切（席位、切片、corpus 哈希、合并设置）必须逐字相同。
+    """
+    trimmed = dict(manifest)
+    trimmed.pop("latency_preflight", None)
+    return trimmed
+
+
 # ---------------------------------------------------------------- credentials
 
 def _context_budget_check(configs: dict) -> dict:
@@ -1924,6 +2000,14 @@ def _parser() -> argparse.ArgumentParser:
               "'nobody can tell which change came from where' failure.  "
               "Give each lineage its own prefix when running more than "
               "once (e.g. --merge-tag-prefix theatre/bfs17)."))
+    parser.add_argument(
+        "--allow-high-latency", action="store_true",
+        help=("run even when the latency preflight finds a seat whose "
+              "historical max exceeds the planned slice (the default is to "
+              "refuse: a slice absorbs variance only so far, and the gateway's "
+              "first-response latency has been measured at 50.6s, 108.2s, "
+              "138.7s, 322s and over 300s).  The risk is recorded in the "
+              "manifest either way - an allowed risk is never a silent one."))
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument(
         "--preflight", action="store_true",
@@ -1976,6 +2060,8 @@ def main(argv: list | None = None) -> int:
         args.project_budget)
 
     theatre = _install_paths()
+    import latency_budget
+    import spread
     import time_budget
     import verifier_adapter
     # Before any guest exists: the guest inherits THIS process's PATH, so a
@@ -2037,6 +2123,37 @@ def main(argv: list | None = None) -> int:
         projects=max(1, min(args.project_budget or 1, args.project_budget or 1)),
         slices=slice_plan)
     applied_seat_wall = time_budget.apply_slices(configs, budget_plan)
+
+    # The manifest is the resume gate's byte-for-byte comparison, and the
+    # spread constraint is derived from the git HEAD — which MOVES when a wave
+    # merges.  Same reasoning as seed_source.json (see _assert_seedable): a
+    # HEAD-derived fact must not live in the manifest, or every resume after a
+    # merge would refuse itself.  So the manifest records the seats as they
+    # are BEFORE the constraint is appended, and the constraint itself is
+    # recorded in its own sibling file.
+    manifest_configs = {role: dataclasses.asdict(cfg)
+                        for role, cfg in sorted(configs.items())}
+
+    # Spread gate: read the RSI merge history (READ ONLY — git log never
+    # touches the working tree) and turn it into a hard constraint on the
+    # Phase-1 curriculum seat.  Without it every wave lands in the same
+    # package: all three recorded RSI merges touched packages/dsh-plugin
+    # only, and the production line itself has zero changes to this day.
+    spread_config = spread.load_config()
+    spread_state = spread.build_spread_state(usine_dir, spread_config)
+    spread_applied = _apply_spread_constraint(
+        configs, phase=args.phase, state=spread_state, config=spread_config)
+
+    # Latency preflight: READ ONLY and zero cost (it sends no LLM request).
+    # It reads the per-seat wall clock the engine already wrote down in past
+    # runs and compares it with this wave's planned slices — a slice absorbs
+    # variance only so far, and the gateway's first-response latency has been
+    # measured at 50.6s / 108.2s / 138.7s / 322s / >300s.
+    latency_report = latency_budget.assess(
+        runs_root=Path(args.root), slices=budget_plan.slices,
+        applied=applied_seat_wall,
+        allow_high_latency=bool(args.allow_high_latency))
+
     ctx_budget = _context_budget_check(configs)
     if not budget_plan.fits and not args.time_budget_allow_over:
         raise RuntimeError(
@@ -2179,9 +2296,15 @@ def main(argv: list | None = None) -> int:
                 "stop_status": time_budget.TIME_BUDGET_EXHAUSTED,
             },
             "context_budget": ctx_budget,
+            "spread": {
+                **spread_state,
+                "constraint": spread_applied,
+            },
+            "latency_preflight": latency_report,
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
-        return 0 if gate_pre["ok"] and ctx_budget["ok"] else 1
+        return 0 if (gate_pre["ok"] and ctx_budget["ok"]
+                     and not _latency_blocks(latency_report)) else 1
 
     expected_ack = EXECUTE_ACK if args.phase == "1" else EXECUTE_ACK_DRS
     if args.execute != expected_ack:
@@ -2198,6 +2321,17 @@ def main(argv: list | None = None) -> int:
             "contradict each other will hit HTTP 400 mid-wave, long after the "
             "run has burned its wall clock (fix the role yaml): "
             + "; ".join(ctx_budget["findings"]))
+    if _latency_blocks(latency_report):
+        raise RuntimeError(
+            "latency preflight refused the run — the measured per-seat wall "
+            "clock from past runs exceeds this wave's planned slice, and a "
+            "slice absorbs variance only so far (one worst-case gateway round "
+            "trip has been measured at 50.6s / 108.2s / 138.7s / 322s / >300s, "
+            "and a stalled request is charged to the seat's wall clock). "
+            "Lower the seat's reasoning_effort, move the seat to another "
+            "endpoint, or raise --run-ceiling-secs; pass "
+            "--allow-high-latency to run anyway (the risk is recorded in the "
+            "manifest). Details: " + latency_report["reason"])
 
     if (run_root.exists() and any(run_root.iterdir())
             and not args.resume_completed_boundary):
@@ -2271,13 +2405,14 @@ def main(argv: list | None = None) -> int:
             "stop_status": time_budget.TIME_BUDGET_EXHAUSTED,
         },
         "context_budget": ctx_budget,
+        **_latency_manifest_entry(latency_report),
         "configs": {
             role: {
                 "path": str(role_paths[role]),
                 "sha256": _sha256(role_paths[role]),
-                "effective": dataclasses.asdict(configs[role]),
+                "effective": manifest_configs[role],
             }
-            for role in sorted(configs)
+            for role in sorted(manifest_configs)
         },
     }
     manifest = json.loads(json.dumps(
@@ -2290,7 +2425,7 @@ def main(argv: list | None = None) -> int:
         except (OSError, UnicodeError, ValueError, TypeError) as exc:
             raise RuntimeError(
                 "usine resume manifest is unreadable") from exc
-        if existing != manifest:
+        if _resume_manifest_key(existing) != _resume_manifest_key(manifest):
             raise RuntimeError(
                 "usine resume protocol/config manifest drifted")
     else:
@@ -2306,6 +2441,18 @@ def main(argv: list | None = None) -> int:
         "worktree_dirty_tracked": seed_source["worktree_dirty_tracked"],
         "index_has_staged_changes": seed_source["index_has_staged_changes"],
         "note": seed_source["note"],
+    })
+
+    # The spread gate's own audit trail, beside the manifest for the same
+    # reason seed_source.json sits beside it: the constraint is derived from
+    # the git HEAD, and HEAD moves when a wave merges — so it must stay out of
+    # the manifest (the resume gate compares that byte for byte).  The file
+    # records what the curriculum seat was actually told.
+    _write_json_atomic(run_root / "spread_state.json", {
+        "phase": phase_label,
+        "state": spread_state,
+        "constraint": spread_applied,
+        "note": "read-only: derived from the git history of the improved tree",
     })
 
     hooks = usine_hooks.hooks_for(corpus_path)

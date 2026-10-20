@@ -3,15 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "feuille 的 dsh（DeepSeek Harness）原生智能体插件：全量工具面（进程内直调 @feuille/* 包 main，无 subprocess 桥）+ 红线机制承载（video-generation 每次 approval fail-closed、publish 默认不注册 config 显式开启）+ systemPrompt 纪律节 + usine 技能资产自动注册。dsh 依赖按本文件的依赖定义接入（npm 发布版，钉版升级单独裁定）；dsh 进程无 TS 变换钩子，本包 esbuild 打包出单文件 dist/index.mjs 供 cordis loader 加载。",
+  "description": "feuille 的 dsh（DeepSeek Harness）原生智能体插件：全量工具面（进程内直调 @feuille/* 包 main，无 subprocess 桥）+ 统一结果契约 {ok,status,output,detail}（dsh 按 output.schema 机检）+ 红线机制承载（视频生成审批在 dispatch 层的 tools/pre-execute 门，publish 默认不注册 config 显式开启）+ systemPrompt 纪律节 + usine 技能资产自动注册（宿主无 skills 服务则跳过，不影响工具面）。dsh 依赖按本文件的依赖定义接入（npm 发布版，钉版升级单独裁定）；dsh 进程无 TS 变换钩子，本包 esbuild 打包出单文件 dist/index.mjs 供 cordis loader 加载（banner 注入模块作用域 require，产物自足，不再依赖 globalThis 垫片）。",
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --format=esm --platform=node --external:sharp --external:@napi-rs/canvas --external:ws --external:playwright --outfile=dist/index.mjs",
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=node --external:sharp --external:@napi-rs/canvas --external:ws --external:playwright --banner:js=\"import{createRequire as __feuilleRequire}from'node:module';const require=__feuilleRequire(import.meta.url);\" --outfile=dist/index.mjs",
     "ask": "node ask.mjs",
-    "preflight": "node ask.mjs --preflight"
+    "preflight": "node ask.mjs --preflight",
+    "host-run": "node host-run.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-sdk-client": "0.2.1-rc.2",

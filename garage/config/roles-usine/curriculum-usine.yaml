@@ -105,11 +105,19 @@ system_extra: |
     action burns a whole round-trip — every non-PLAN turn must carry either
     a program or the publish action.
   - WAVE SHAPE: publish AT MOST 1 project in this wave, and make it the
-    SIMPLEST possible change: ONE source file plus ONE test, in menu target
-    A, B or C ONLY (the dsh-plugin tool surface and its pinning suite —
-    text-only TypeScript, no render path, no ffmpeg, no browser).
-    Prefer a change to WORDING, MESSAGES, NAMING or DOCUMENTATION over a
-    change to validation logic, schemas or control flow: the Actor seat
+    SIMPLEST possible change: ONE source file plus ONE test, inside ONE
+    package directory of this repository.  The package is NOT your choice:
+    the SPREAD GATE decides it.  The gate names the directories that are
+    BANNED for this wave and the COLD directories that no merged wave has
+    touched yet, and the gate's list wins over the TARGET MENU below.  When
+    the gate names no cold directory (no merged wave yet), take one target
+    from the menu and still keep the whole project inside the ONE package
+    directory that target names.  Keep the change checkable by the offline
+    gate alone: the wave host runs browserless by policy, so a project that
+    needs a rendered frame is not a project this wave can carry.
+    Prefer, INSIDE THAT ONE PACKAGE, a change to WORDING, MESSAGES, NAMING
+    or DOCUMENTATION over a change to validation logic, schemas or control
+    flow: the Actor seat
     implements it, and a message-shaped edit lands in one program while a
     schema edit needs a long reasoning chain (measured 2026-10-19: the
     schema-hardening project needed 9-12k reasoning tokens per call and the
@@ -152,19 +160,27 @@ system_extra: |
     publishing stays out of reach by default, and red-line suites may
     be extended but never relaxed.
 
-  TARGET MENU (measured sizes; read only what you name):
-  A. packages/dsh-plugin/src/tools.ts (28 KB) - the 18-tool agent surface:
-     one tool per pipeline capability. Naming, argument shapes, error text.
-  B. packages/dsh-plugin/src/index.ts (4.5 KB) + discipline.ts (2.3 KB) -
-     the red-line carriers: approval fail-closed, publish unreachable by
-     default, the system-prompt discipline section.
-  C. packages/dsh-plugin/test/plugin-parity.test.ts (12 KB) - the pinning
+  TARGET MENU (measured sizes; read only what you name).  The SPREAD GATE
+  above decides which of these you may use in this wave; this menu is the
+  catalogue, not the permission:
+  A. packages/dsh-plugin/src/tools.ts (22 KB) - the tool surface: one tool
+     per pipeline capability. Naming, argument shapes, error text.  Its
+     neighbours in the same directory are the pieces the tool surface was
+     split into: gate.ts (2.3 KB, the approval gate at the dispatch layer),
+     video.ts (6.4 KB, the video line's mechanical contract - the single
+     source for what a submit costs and what the approval card says),
+     capture.ts (4.3 KB), result.ts (4.0 KB), toolnames.ts (1.2 KB).  Name
+     ONE of them, not the lot.
+  B. packages/dsh-plugin/src/index.ts (7.3 KB) + discipline.ts (2.8 KB) -
+     the red-line carriers: publish unreachable by default, the system-prompt
+     discipline section.
+  C. packages/dsh-plugin/test/plugin-parity.test.ts (22 KB) - the pinning
      suite that keeps A and B honest. Extending it is a valid project.
-  D. packages/dsh-plugin/test/plugin.test.ts (19 KB) - behavioural tests
+  D. packages/dsh-plugin/test/plugin.test.ts (25 KB) - behavioural tests
      for the built dist bundle.
-  E. skills/<name>/SKILL.md (11 skills, e.g. video-generation, publish-copy,
+  E. skills/<name>/SKILL.md (12 skills, e.g. video-generation, publish-copy,
      bgm-bed) - the operator howtos that teach the same surface.
-  F. packages/core/src (39 files, 456 KB) - the real pipeline. EXPENSIVE:
+  F. packages/core/src (31 files, 544 KB) - the real pipeline. EXPENSIVE:
      name one module (scene parsing, timeline math, audio composition,
      manifest building) and read only that.
   Guard rails for every target: approval-gated tools keep failing closed,

@@ -717,12 +717,20 @@ def test_curriculum_target_menu_is_honest() -> None:
     if "TARGET MENU" not in extra:
         return
 
+    # The floors track the CURRENT layout of the agent surface.  2026-10-20:
+    # tools.ts was split into six modules (gate / video / capture / result /
+    # toolnames + the tool bodies), so the old 24 KB floor for tools.ts was
+    # above the file's real size and the menu's "28 KB" was a fiction.  A
+    # floor is a band, not an exact count: ordinary edits must not churn
+    # this config, but a file that vanished or grew 5x must fail.
     menu_targets = {
-        "packages/dsh-plugin/src/tools.ts": 24_000,
-        "packages/dsh-plugin/src/index.ts": 3_000,
-        "packages/dsh-plugin/src/discipline.ts": 1_500,
-        "packages/dsh-plugin/test/plugin-parity.test.ts": 9_000,
-        "packages/dsh-plugin/test/plugin.test.ts": 15_000,
+        "packages/dsh-plugin/src/tools.ts": 18_000,
+        "packages/dsh-plugin/src/index.ts": 6_000,
+        "packages/dsh-plugin/src/discipline.ts": 2_500,
+        "packages/dsh-plugin/src/gate.ts": 2_000,
+        "packages/dsh-plugin/src/video.ts": 5_500,
+        "packages/dsh-plugin/test/plugin-parity.test.ts": 18_000,
+        "packages/dsh-plugin/test/plugin.test.ts": 22_000,
     }
     for relative, floor in sorted(menu_targets.items()):
         path = EXPLORATEUR / "usine" / relative

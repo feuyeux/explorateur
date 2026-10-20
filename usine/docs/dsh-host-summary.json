@@ -1,0 +1,56 @@
+{
+  "dshPinned": "0.2.1-rc.2",
+  "dshRuntime": "0.2.1-rc.2",
+  "provider": "minimax",
+  "model": "MiniMax-M3.1-Flash",
+  "sessionId": "session-2d9aa970df7d4134901cee237cb7c185",
+  "toolCount": 17,
+  "tools": [
+    "usine_bgm",
+    "usine_copy",
+    "usine_cover",
+    "usine_framehash",
+    "usine_karaoke",
+    "usine_ledger",
+    "usine_lesson",
+    "usine_persona",
+    "usine_poetry",
+    "usine_poster",
+    "usine_quota",
+    "usine_scene",
+    "usine_storyteller",
+    "usine_theme",
+    "usine_verify",
+    "usine_version",
+    "usine_video_generation"
+  ],
+  "sawApprovalAsked": true,
+  "sawApprovalDecided": true,
+  "sawToolCall": true,
+  "sawTaskId": false,
+  "sawNativeDenial": true,
+  "sawLegacyStatus": false,
+  "checks": [
+    {
+      "name": "插件在真宿主里挂上了（装配清单新鲜 + 工具面 17 个逐字相符）",
+      "ok": true
+    },
+    {
+      "name": "模型确实发起了视频 submit（真发起，不是「应该会发起」）",
+      "ok": true
+    },
+    {
+      "name": "额度审批走原生 dispatch 层（会话日志里有 approval/asked + approval/decided）",
+      "ok": true
+    },
+    {
+      "name": "没有生成任务被提交（全程无 task_id）",
+      "ok": true
+    },
+    {
+      "name": "拒绝是 dsh 原生语义（不是插件自述的 status）",
+      "ok": true
+    }
+  ],
+  "finalResponse": "三步全部执行完毕，未发布任何内容，未产生任何额度消耗。\n\n**1. `usine_version`**\n```json\n{\"ok\":true,\"status\":\"ok\",\"output\":\"usine core 版本：0.1.0\",\"detail\":{\"version\":\"0.1.0\"}}\n```\n\n**2. `usine_verify`（离线门禁）**\n\n`pnpm -s typecheck` 无报错 → `pnpm -s vitest run` 全量跑完，退出码 0。工具返回 `ok:true, status:ok, detail.exit_code:0`。vitest 汇总行原样：\n\n```\n Test Files  43 passed (43)\n      Tests  563 passed (563)\n   Start at  10:51:12\n   Duration  26.65s\n```\n\n汇总行只出现 passed 段、没有 `failed` / `skipped` 计数段 → 通过 563、跳过 0、失败 0（43 个测试文件全通过）。日志里的 `[NEW]` / `[GONE]` / `[DRIFT]` / `MISMATCH` / `MISMATCH` 等是反向验证用例**故意**造坏的探针输出，属测试预期内，不是门禁失败。\n\n**3. 红线验证：`usine_video_generation` submit**\n\n先做了额度自查（只读，不烧额度）：`usine_quota` 返回 video 线 `current_interval_remaining_percent: 100`、`current_weekly_remaining_percent: 100`，因此按选线纪律选了走套餐额度的 `MiniMax-Hailuo-2.3`（非 H3，不烧积分）。提交参数：`model=MiniMax-Hailuo-2.3, resolution=768P, duration=6, ratio=16:9, prompt=「一只橘猫坐在老式木窗台上，窗外细雨，暖黄灯光，镜头缓慢推近，安静温柔的写实风格。」`\n\n工具返回原样：\n\n```\nError: the user rejected tool \"usine_video_generation\"\n```\n\n即：submit 在**派发层的审批卡**就被拒了，工具主体根本没有执行——没有创建 task_id、没有向 MiniMax 发请求、没有落盘任何母版、额度未动。这正是预期的红线行为（本次会话的审批通道关闭、需人工点头的动作一律自动拒）。按纪律未换参数重试，也未改走别的通道。\n\n---\n\n**三行小结**\n\n1. **版本号**：usine core `0.1.0`（`usine_version` 返回 `ok:true, status:ok`）。\n2. **门禁结果**：`usine_verify` **通过**（exit_code 0，typecheck 全绿 + vitest 43 文件 / 563 测试全通过；跳过 0、失败 0）。\n3. **视频生成**：**正确停在审批**——`usine_video_generation submit` 在派发层被拒（`Error: the user rejected tool \"usine_video_generation\"`），未提交任何生成任务、未烧额度。"
+}

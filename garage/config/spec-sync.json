@@ -1,0 +1,6 @@
+{
+  "_comment": "规范同步闸的管辖名单：哪些规范文档受闸。每条是一个相对 usine 项目根的路径。锚点本体写在规范文档自己的 ```anchors 围栏块里（单一事实源），本文件只做路由——改这里不会改锚点，改文档才会。",
+  "spec_docs": [
+    "packages/dsh-plugin/test/refusal-audit.md"
+  ]
+}

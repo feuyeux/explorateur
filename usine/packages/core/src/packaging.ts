@@ -2,8 +2,9 @@
 //
 // macOS 自带 Info-ZIP 对非 ASCII 文件名**不置 UTF-8 flag（bit 0x800）**，
 // 解包到别的机器上中文/阿拉伯语文件名全变乱码。Python 的 zipfile 默认置位、
-// yazl 实测也置位（探针见 migration/README.md P2 结论——yazl 对纯 ASCII 条目
-// 也置位，比 Python 更保守且无害），所以打包一律走库、不走命令行 zip。
+// yazl 实测也置位（对纯 ASCII 条目也置位，比 Python 更保守且无害——本行的
+// 结论由 test/packaging.test.ts 的 UTF-8 flag 断言机检，Python 时代的探针记录
+// 已随金样本退役），所以打包一律走库、不走命令行 zip。
 import yazl from 'yazl'
 import yauzl from 'yauzl'
 import { createWriteStream, readdirSync, statSync, mkdirSync } from 'node:fs'

@@ -1,27 +1,30 @@
-// plugin-parity.test.ts — 智能体面钉版对账：工具面 ↔ CLI 路由 ↔ skills 知识三方一致。
+// plugin-parity.test.ts — 智能体面钉版对账：工具面 ↔ CLI 路由 ↔ skills 知识 ↔ 旗标词表。
 //
 // 「智能体面」（dsh 插件注册的工具 + skills howto）是 RSI wave 的正式改进
-// 方向，而它横跨三处文本/代码：tools.ts 的 action 枚举、@feuille/cli 的
-// COMMANDS 路由表、SKILL.md 的规格与积分速查。三处全靠人工约定同步——本
-// 套件把约定钉成门禁：任何一侧漂移，`pnpm verify` 当场红，而不是等操作者
-// 或模型在线上踩坑。
+// 方向，而它横跨几处文本/代码：tools.ts 的 action 枚举、@feuille/cli 的
+// COMMANDS 路由表、SKILL.md 的规格与积分速查、库层解析的旗标词表。四处全靠人工
+// 约定同步——本套件把约定钉成门禁：任何一侧漂移，`pnpm verify` 当场红，而不是等
+// 操作者或模型在线上踩坑。
 //
 // 与 plugin.test.ts 的分工：那边吃构建产物 dist/index.mjs，验整条打包链 +
 // 红线机制行为；这边吃 **src 源**（wave 实际编辑的面）做交叉对账。积分
 // 数值的权威出处是 skills/video-generation/SKILL.md 的速查表——本套件从
 // SKILL.md 读数、驱动审批卡算账，两边对不上就是红。
 //
-// 红线：本套件的所有 submit 用例都停在审批 rejected（never allowed-once），
-// 根本走不到 mcode-tools 的 spawn 点；仍套 withoutMcodePath 作为结构性兜底
-// ——测试在任何环境下都不得真的烧额度。
-import { readFileSync } from "node:fs"
+// 红线：本套件只驱动**门**（tools/pre-execute 的 ask 决策），不驱动工具体；
+// 且所有会碰通道的用例都套 withoutMcodePath 作为结构性兜底——测试在任何环境
+// 下都不得真的烧额度。
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { fileURLToPath } from "node:url"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 import { COMMANDS } from "@feuille/cli"
 import type { ToolDefinition } from "@deepseek-ai/dsh-tools"
 
 import { familyTools, usineVersion, videoGenerationTool } from "../src/tools.js"
+import { videoApprovalGate } from "../src/gate.js"
+import { TOOL_NAMES } from "../src/toolnames.js"
 
 // ---------------------------------------------------------------------------
 // 通用件
@@ -35,26 +38,12 @@ const SKILL = readFileSync(SKILL_PATH, "utf8")
 
 type ExecArg = Parameters<ToolDefinition["execute"]>[1]
 
-/** 最小假 exec：有 agent（approval 可用），带可中止 signal（结构子集即可）。 */
+/** 最小假 exec：结构子集即可（工具面只读 signal 与 agent）。 */
 function exec(): ExecArg {
   return {
     agent: { id: "parity" },
     signal: new AbortController().signal,
   } as unknown as ExecArg
-}
-
-/** 最小假 ctx：只挂 approval 服务，记录请求并返回固定结果（永不 allowed-once）。 */
-function approvalCtx(outcome: string) {
-  const requests: Array<Record<string, unknown>> = []
-  return {
-    requests,
-    approval: {
-      request: async (req: Record<string, unknown>) => {
-        requests.push(req)
-        return outcome
-      },
-    },
-  }
 }
 
 /** 红线兜底：PATH 剥离下跑——测试用例必须连 spawn 点都到不了。 */
@@ -81,12 +70,29 @@ function submitArgs(over: Record<string, unknown> = {}) {
   }
 }
 
-/** 跑一次 submit，返回 {status, message}；停在 rejected，永不进通道。 */
+/** 门看到的调用形状（dsh 的 ToolExecution 最小面）。 */
+function gateExec(args: unknown) {
+  return {
+    name: "usine_video_generation",
+    arguments: args,
+    callId: "c1",
+    signal: new AbortController().signal,
+    agent: { id: "parity" },
+  } as never
+}
+
+/** 跑一次门，返回决策（ask / allow）。 */
+async function gateOnce(over: Record<string, unknown> = {}) {
+  const gate = videoApprovalGate()
+  const decision = await gate(gateExec(submitArgs(over)), async () => ({ kind: "allow" }) as never)
+  return decision as { kind: string; reason?: string; displayReason?: { en: string; zh?: string } }
+}
+
+/** 跑一次 submit 工具体，返回统一结果契约。 */
 async function submitOnce(over: Record<string, unknown> = {}) {
-  const ctx = approvalCtx("rejected")
-  const tool = videoGenerationTool(ctx)
+  const tool = videoGenerationTool()
   const r = (await withoutMcodePath(() =>
-    tool.execute(submitArgs(over), exec()))) as { status: string; message: string }
+    tool.execute(submitArgs(over), exec()))) as { ok: boolean; status: string; output: string }
   return r
 }
 
@@ -161,11 +167,27 @@ describe("工具面 ↔ CLI 路由双向对账", () => {
 })
 
 // ---------------------------------------------------------------------------
-// B. usine_video_generation ↔ skills/video-generation/SKILL.md
+// B. 工具面契约（TOOL_NAMES）↔ 实际注册面
+// ---------------------------------------------------------------------------
+
+describe("工具面契约 ↔ 代码", () => {
+  it("契约里的 17 个工具名与家族+独立工具的实现逐字一致", () => {
+    const implemented = [usineVersion.name, ...familyTools().map((t) => t.name),
+      "usine_verify", "usine_quota", "usine_video_generation"]
+    expect([...implemented].sort()).toEqual([...TOOL_NAMES].sort())
+  })
+
+  it("契约里没有 publish（发布默认不可达，名单里出现它就等于宣称随时能发布）", () => {
+    expect(TOOL_NAMES).not.toContain("usine_publish" as never)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// C. 视频线规格 ↔ SKILL.md 前置输入契约
 // ---------------------------------------------------------------------------
 
 describe("视频线规格 ↔ SKILL.md 前置输入契约", () => {
-  const tool = videoGenerationTool(approvalCtx("rejected"))
+  const tool = videoGenerationTool()
   const modelEnum = ((tool.parameters as { properties: Record<string, { enum?: string[] }> })
     .properties).model?.enum ?? []
 
@@ -185,7 +207,7 @@ describe("视频线规格 ↔ SKILL.md 前置输入契约", () => {
     expect(SKILL).toContain("prompt` 上限 7000 字符")
   })
 
-  it("边界矩阵：不合规格当场 invalid，不进审批（Hailuo 档位 / H3 整数与画幅 / H3-Max 档位 / prompt 上限）", async () => {
+  it("边界矩阵：不合规格当场 invalid，且**不占人工审批**（门放行 → 工具体回 invalid）", async () => {
     const invalid: Array<[string, Record<string, unknown>]> = [
       ["Hailuo 1080P 只有 6s", { resolution: "1080P", duration: 10 }],
       ["Hailuo 768P 只有 6/10s", { duration: 12 }],
@@ -214,10 +236,13 @@ describe("视频线规格 ↔ SKILL.md 前置输入契约", () => {
     for (const [why, over] of invalid) {
       const r = await submitOnce(over)
       expect(r.status, why).toBe("invalid")
+      // 不合规的提交不摆审批卡（人工审批是稀缺资源）
+      const d = await gateOnce(over)
+      expect(d.kind, `${why}：门应当放行`).toBe("allow")
     }
   })
 
-  it("合法组合越过机械门、停在审批（不 invalid 也不提交）", async () => {
+  it("合法组合：门摆审批卡（ask），工具体在放行后才可能碰通道", async () => {
     const ok: Array<Record<string, unknown>> = [
       { resolution: "1080P", duration: 6 },
       { model: "MiniMax-H3", resolution: "2K", duration: 15, ratio: "9:16" },
@@ -225,9 +250,9 @@ describe("视频线规格 ↔ SKILL.md 前置输入契约", () => {
       { prompt: "y".repeat(7000) },
     ]
     for (const over of ok) {
-      const r = await submitOnce(over)
-      expect(r.status).toBe("asked-rejected")
-      expect(r.message).toContain("审批结果：rejected")
+      const d = await gateOnce(over)
+      expect(d.kind, JSON.stringify(over)).toBe("ask")
+      expect(d.reason).toContain("[视频生成提交审批]")
     }
   })
 })
@@ -259,33 +284,35 @@ describe("积分速查 ↔ 审批卡算账", () => {
     for (const c of cases) {
       const credits = c.rate * c.secs
       const yuan = ((credits * 7) / 1000).toFixed(2)
-      const r = await submitOnce(c.over)
-      expect(r.status, JSON.stringify(c.over)).toBe("asked-rejected")
-      expect(r.message, JSON.stringify(c.over)).toContain(`约 ${credits} 积分（≈¥${yuan}）`)
+      const d = await gateOnce(c.over)
+      expect(d.kind, JSON.stringify(c.over)).toBe("ask")
+      expect(d.reason, JSON.stringify(c.over)).toContain(`约 ${credits} 积分（≈¥${yuan}）`)
     }
   })
 
   it("Hailuo 审批卡走套餐额度口径（不烧积分），与 SKILL.md 同一句话", async () => {
-    const r = await submitOnce({ resolution: "1080P", duration: 6 })
-    expect(r.status).toBe("asked-rejected")
-    expect(r.message).toContain("套餐额度（不烧积分）")
+    const d = await gateOnce({ resolution: "1080P", duration: 6 })
+    expect(d.kind).toBe("ask")
+    expect(d.reason).toContain("套餐额度（不烧积分）")
     expect(SKILL).toContain("Token Plan / M Plan 套餐额度")
   })
 })
 
 // ---------------------------------------------------------------------------
-// inject 声明 ↔ apply 实际取用的 ctx 服务
+// D. inject 声明 ↔ apply 实际取用的 ctx 服务
 // ---------------------------------------------------------------------------
 //
-// 这条断言来自 2026-10-18 dsh 宿主首测的真实事故：`inject` 漏了
-// `'approval'`，而 videoGenerationTool 在 **apply 期**就取 ctx.approval。
-// 真 cordis 对未声明就访问的服务抛 "cannot get property ... without
-// inject"，整个插件加载失败——17 个工具面全丢，而宿主**毫无感知**（dsh
-// 静默吞 apply 抛错，boot 照样成功）。
+// 这条断言来自两次真实事故的合并：
+//  · 2026-10-18 首测：inject 漏了 'approval'，而工具体在 apply 期就取 ctx.approval
+//    ——真 cordis 抛 "cannot get property ... without inject"，整个插件加载失败、
+//    17 个工具面全丢，而宿主**毫无感知**（dsh 静默吞 apply 抛错，boot 照样成功）。
+//  · 2026-10-20 评审：inject 多了 'approval' / 'skills'——声明了但宿主没提供的
+//    服务会让 fiber 永远 pending，插件**同样永不生效**，症状一模一样。
+// 所以规则是两条：装配期取用的服务必须被声明（inject 或 ctx.inject 的 deps），
+// 而**可选服务不许进 inject**（进了就变成硬依赖）。
 //
-// 为什么 vitest 一直看不见：plugin.test.ts 的 fakeCtx 不校验 inject，
-// 假 ctx 上取什么都返回 undefined，插件照样"跑通"。所以这条门禁必须
-// 静态读 src，把「声明了什么」和「apply 期用了什么」对起来。
+// 为什么 vitest 看不见：plugin.test.ts 的 fakeCtx 不校验 inject，假 ctx 上取什么
+// 都返回 undefined，插件照样"跑通"。所以这条门禁必须静态读 src。
 
 describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
   const SRC = fileURLToPath(new URL("../src/index.ts", import.meta.url))
@@ -296,38 +323,39 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     const m = source.match(/export const inject\s*=\s*\[([^\]]*)\]/)
     if (!m) throw new Error("src/index.ts 找不到 `export const inject = [...]`")
     const body: string = m[1] ?? ""
-    // FlatMap over the capture rather than map: with noUncheckedIndexedAccess
-    // a matchAll capture is `string | undefined`, and a bare map would
-    // produce `(string | undefined)[]` — which fails the typecheck this very
-    // suite is supposed to protect.
     return [...body.matchAll(/['"]([^'"]+)['"]/g)].flatMap((x) => [x[1] ?? ""])
   }
 
+  /** `ctx.inject(['skills'], …)` 这类「可选服务」的 deps 名单。 */
+  function optionalInject(): string[] {
+    const out: string[] = []
+    for (const m of source.matchAll(/ctx\.inject\(\s*\[([^\]]*)\]/g)) {
+      for (const s of m[1]!.matchAll(/['"]([^'"]+)['"]/g)) out.push(s[1] ?? "")
+    }
+    return out
+  }
+
   /**
-   * apply() 函数体里在**装配期**（apply 调用栈内，不含工具 execute 内部）
-   * 访问的 ctx 服务。装配期访问才是致命的：工具 execute 里的访问发生在
-   * apply 成功之后，缺 inject 不会让整个插件加载失败。
+   * apply() 函数体里在**装配期**访问的 ctx 服务。装配期访问才是致命的：工具
+   * execute 里的访问发生在 apply 成功之后，缺 inject 不会让整个插件加载失败。
    */
   function applyTimeServices(): string[] {
     const start = source.indexOf("export function apply(")
     if (start < 0) throw new Error("src/index.ts 找不到 `export function apply(`")
-    // apply 结束于下一个顶层 `export `（或文件尾）。
     const rest = source.slice(start + 1)
     const next = rest.search(/\nexport\s/)
     const text = next > 0 ? rest.slice(0, next) : rest
     const found = new Set<string>()
-    // `?? ""` on every capture: under noUncheckedIndexedAccess a matchAll
-    // group is `string | undefined`, and Set<string> rejects that.
-    // 形状 A：直接取用 —— `ctx.tools.register(...)`
     for (const m of text.matchAll(/\bctx\.(\w+)\b/g)) found.add(m[1] ?? "")
-    // 形状 B：结构化取用后存别名 —— `const x = (ctx as unknown as {...}).x`。
-    // systemPrompt 与 skills 都走这条路；其中 skills 的类型标注跨了多行，
-    // 所以类型体要用 [\s\S] 而不是 [^}]。
     for (const m of text.matchAll(
       /\(\s*ctx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
     )) found.add(m[1] ?? "")
-    // ctx.effect 是 Cordis 生命周期 API，不是 DI 服务。
+    for (const m of text.matchAll(
+      /\(\s*skillCtx\s+as\s+unknown\s+as\s+\{[\s\S]*?\}\s*\)\s*\.\s*(\w+)/g,
+    )) found.add(m[1] ?? "")
     found.delete("effect")
+    found.delete("inject")
+    found.delete("on")
     return [...found].filter((name) => name.length > 0).sort()
   }
 
@@ -337,34 +365,46 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     expect(new Set(declared).size).toBe(declared.length)
   })
 
-  it("apply 装配期取用的每个 ctx 服务都在 inject 里（否则整个插件加载失败、工具面全丢）", () => {
-    const declared = new Set(declaredInject())
+  it("apply 装配期取用的每个 ctx 服务都被声明过（在 inject 里，或在 ctx.inject 的 deps 里）", () => {
+    const declared = new Set([...declaredInject(), ...optionalInject()])
     const used = applyTimeServices()
     expect(used.length, "解析出的 apply 期服务应非空，否则断言本身失效").toBeGreaterThan(0)
     const missing = used.filter((service) => !declared.has(service))
     expect(
       missing,
-      `apply 期访问了未声明 inject 的服务 ${missing.join(", ")}——真 cordis 会抛 ` +
+      `apply 期访问了未声明的服务 ${missing.join(", ")}——真 cordis 会抛 ` +
         `"cannot get property ... without inject" 并静默丢掉整个工具面`,
     ).toEqual([])
   })
 
-  it("红线服务 approval 与 tools 始终在 inject 里（护栏只可加强不可放松）", () => {
+  it("可选服务（approval / skills）不进 inject——多声明等于把可选能力变成硬依赖", () => {
     const declared = new Set(declaredInject())
-    for (const guard of ["approval", "tools"]) {
-      expect(declared.has(guard), `inject 必须包含 ${guard}`).toBe(true)
+    for (const optional of ["approval", "skills"]) {
+      expect(declared.has(optional), `inject 不该包含 ${optional}：宿主一缺它，插件永不生效`).toBe(false)
+    }
+    // 硬依赖必须在：工具注册与 systemPrompt 分节是插件的立身之本。
+    for (const hard of ["tools", "systemPrompt"]) {
+      expect(declared.has(hard), `inject 必须包含 ${hard}`).toBe(true)
     }
   })
 
-  it("门禁能复现 2026-10-18 首测事故：inject 漏 approval 时必须变红", () => {
-    // 负控制。没有这条，上面的断言可能因为「什么都没解析出来」而永远绿。
+  it("skills 走 ctx.inject 的可选通道（宿主没装 skills 服务就整段跳过，工具面不受影响）", () => {
+    expect(optionalInject()).toContain("skills")
+  })
+
+  it("门禁能复现两次事故：inject 漏声明时报红、inject 多声明可选服务时报红", () => {
+    // 负控制 1：少声明（2026-10-18 事故）——用到的服务不在声明里 → 必须报红。
     const used = applyTimeServices()
     const withoutApproval = declaredInject().filter((s) => s !== "approval")
-    // approval 经 videoGenerationTool(ctx) 在装配期被取用（src/index.ts:64
-    // 传 ctx 进工具，工具内取 ctx.approval），所以它必须出现在门禁视野里。
     const gated = [...used, "approval"]
     const missing = gated.filter((s) => !withoutApproval.includes(s))
-    expect(missing, "inject 漏 approval 时门禁必须报红").toContain("approval")
+    expect(missing, "inject 漏声明时门禁必须报红").toContain("approval")
+    // 负控制 2：多声明（2026-10-20 评审）——把 approval 写回 inject → 必须报红。
+    const withApproval = [...declaredInject(), "approval"]
+    expect(
+      withApproval.filter((s) => ["approval", "skills"].includes(s)),
+      "inject 含可选服务时门禁必须报红",
+    ).toEqual(["approval"])
   })
 
   it("apply 期取用的服务集合确实非平凡（防止解析器静默失效）", () => {
@@ -372,5 +412,67 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
     for (const expected of ["tools", "systemPrompt", "skills"]) {
       expect(used, `apply 期必须解析出 ${expected}`).toContain(expected)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// E. 旗标词表 ↔ SKILL.md
+// ---------------------------------------------------------------------------
+//
+// 旗标层以前零机检：CLI 改了旗标名，SKILL.md 照旧，模型照旧按旧名拼 argv——
+// 线上才发现。SKILL.md 是**给智能体看的说明书**，它写的每个 CLI 旗标都必须
+// 真实存在：这是「文档不许漂移」的最小可机检形态。
+//
+// 口径：旗标 = 库层源码里以字符串字面量出现的 '--xxx'（即真实可传的旗标）。
+// 排除两类噪音：① 测试目录里的假旗标；② SKILL.md 里的 CSS 自定义属性
+// （`--gold: #b8860b` 这种排版记号，不是 CLI 旗标）。
+
+/** 库层源码（排除 test / node_modules）里的全部 '--xxx' 字面量。 */
+function libraryFlags(): Set<string> {
+  const out = new Set<string>()
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir)) {
+      if (e === "test" || e === "node_modules" || e === "dist") continue
+      const p = join(dir, e)
+      if (statSync(p).isDirectory()) { walk(p); continue }
+      if (!p.endsWith(".ts")) continue
+      const t = readFileSync(p, "utf8")
+      for (const m of t.matchAll(/['"](--[a-z][a-z0-9-]*)['"]/g)) out.add(m[1]!)
+    }
+  }
+  walk(fileURLToPath(new URL("../../", import.meta.url)))
+  return out
+}
+
+/** SKILL.md 里当 CLI 旗标用的 '--xxx'（排除 CSS 自定义属性）。 */
+function skillFlags(): Array<{ skill: string; flag: string }> {
+  const out: Array<{ skill: string; flag: string }> = []
+  const skillsDir = fileURLToPath(new URL("../../../skills/", import.meta.url))
+  for (const d of readdirSync(skillsDir)) {
+    let text: string
+    try { text = readFileSync(join(skillsDir, d, "SKILL.md"), "utf8") } catch { continue }
+    for (const m of text.matchAll(/(--[a-z][a-z0-9-]*)(:?)/g)) {
+      if (m[2]) continue // CSS 自定义属性（`--gold: …`），不是 CLI 旗标
+      out.push({ skill: d, flag: m[1]! })
+    }
+  }
+  return out
+}
+
+describe("旗标词表 ↔ SKILL.md", () => {
+  it("SKILL.md 里写的每个 CLI 旗标都在库层真实存在（旗标改名 → 说明书漂移 → 红）", () => {
+    const lib = libraryFlags()
+    expect(lib.size, "库层旗标词表解析为空 = 解析器失效").toBeGreaterThan(10)
+    const unknown = skillFlags().filter(({ flag }) => !lib.has(flag))
+    expect(
+      unknown.map((u) => `${u.skill}: ${u.flag}`),
+      "SKILL.md 写了库层不存在的旗标——模型会照着拼一个不存在的参数",
+    ).toEqual([])
+  })
+
+  it("负控制：解析器能看见 SKILL.md 的旗标（不是解析不出才绿）", () => {
+    const flags = skillFlags()
+    expect(flags.length, "SKILL.md 旗标应非空").toBeGreaterThan(5)
+    expect(flags.some((f) => f.flag === "--facts")).toBe(true)
   })
 })

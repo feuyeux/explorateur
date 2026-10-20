@@ -118,6 +118,37 @@ Verifier 复核 → 记忆蒸馏 → **合并前 `pnpm verify` 门禁**（红即
 一 commit（`X-Theatre-Wave` trailer）+ 每 wave tag `theatre/wave-N` → 绿合并后
 `dist/index.mjs` 重建，改进直达 dsh 加载的智能体面 → 下一轮围栏从新 HEAD 重算。
 
+#### 3.1 铺开闸：别让每一波都落在同一个包里
+
+**为什么有这道闸**：到 2026-10-20 为止，三次合并进仓库的改进**全部**落在`packages/dsh-plugin/` 一个包里，生产线本体（core / karaoke / poster / poetry /storyteller / copy / bgm / publish）**零改动**。查下来不是 Agent 偷懒——出题席的brief 当时写着「in menu target A, B or C ONLY」，把它锁死在了 dsh-plugin 那三个文件上。规格造成的单一化，机械地治：闸从 git 历史里读「已合并波次触及了哪些包」，把**连续重复的包列为本波禁入**，把**从未被碰过的包列为冷区（要求本波必须落在其中之一）**。
+
+- 策略在 [`config/spread.json`](config/spread.json)：冷区窗口 3 波、连续重复 2 次即禁入、
+  冷区优先级 `required`（必须落在冷区里，不是「优先考虑」）、包重要度顺序
+  （core > karaoke/poster/poetry/storyteller > copy/bgm/publish > cli/gate > dsh-plugin——
+  dsh-plugin 排最后，因为它已经被反复做过）。
+- 约束在**装配期**追加进出题席的 `system_extra`，措辞是闭集的 MUST / MUST-NOT，
+  点名目录、不写「以及其它」——与 DRS 那套「brief 必须有上界」是同一个原则。
+- **只动 Phase-1 的出题席**：Phase-2（DRS）有自己的出题席，它的工作是复盘并交一份
+  有上界的 drill，不是选题铺开。
+- 第一次运行（还没有任何合并历史）优雅降级：不追加任何约束，不报错。
+- 铺开状态是 **HEAD 派生的**，所以**不进 manifest**（manifest 是 resume 的逐字比对门，
+  而 HEAD 会随合并移动——放进去每次 resume 都会拒绝自己）。它落在同级的
+  `spread_state.json` 里。
+
+#### 3.2 端点时延预检：切片吸收不了波动
+网关首响应时延实测在 50.6s / 108.2s / 138.7s / 322s / >300s 之间跳，而出题席切片是 280–400s。**切片吸收不了波动**——照那样开波，运气差就整波烧光。
+
+- preflight **只读、零成本**：不发任何 LLM 请求（这是 preflight 的老规矩），只读**历史
+  run root 里引擎已经记下的每席墙钟**，与本波的计划切片比。
+- 历史为空（第一次跑）→ 判「无历史」，不拒绝，载荷里写 `latency_history: "none"`。
+- 历史里某席的 max 超过计划切片的 60% → 判**高时延风险**，**默认拒绝开跑**，报出
+  哪一席、历史 max、计划切片、以及怎么办（降 `reasoning_effort` / 换端点 / 放宽
+  `--run-ceiling-secs`）。
+- `--allow-high-latency` 可以放行，但风险会**写进 manifest**——被放行却没被记录的风险，
+  和根本没检查过的风险读起来一模一样。
+- 历史数据坏了（坏 JSON / 缺字段）按 fail-closed 处理，**不当成 0 秒**。
+- 离线验证：`python ../garage/smoke_latency_budget.py`（40 项）。
+
 run root（仓库外）落：`events.jsonl`（里程碑）、episode 工件（指令原文/SUBMIT/VERDICT/
 outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终态记忆。
 
@@ -390,6 +421,22 @@ DRS 的**记忆**产出已经进仓库，DRS 的**候选**（那一轮真改出�
   两头对称——一头改另一头必改，smoke_wave_merge 有对应用例）；
 - exec 位保留：`bin/feuille.js` 仍 100755（锚点用例在 smoke_wave_merge）；
 - 每候选一 commit、带 `X-Theatre-Wave` trailer；每 wave 一 tag `theatre/wave-N`；零 push。
+- **规范同步闸**：改了被规范文档管辖的代码，规范必须同批更新，否则整条候选被拒
+  （`spec_sync_rejected`，报告里点名规范路径与代码路径）。规范文档自己声明它钉住什么
+  ——文档里的 ` ```anchors ` 围栏块（单一事实源，注册表 `config/spec-sync.json` 只做
+  路由）。存量的漂移（合并前就与代码对不上）**不**否决候选，只记 notice——闸只管
+  本次候选造成的漂移，否则一道失效的闸会把整条流水线卡死，而卡死的闸没人看得见。
+- **门禁跳过数进报告**：门禁输出里的 `Tests N passed | M skipped` 被解析出来记进
+  候选条目与提交信息。**SKIP 不是 PASS**，报告与提交都如实写；解析不出来记 `null`
+  而不是 0（纪律 8：没数据留 null 不填 0）。
+- **记忆快照进仓库**：波次收口时把终态记忆树抄进 `garage/memory-snapshots/<unit>-<NNN>/`
+  并单独提交（`X-Theatre-Memory` trailer），manifest 记引擎自己的树哈希。记忆是唯一
+  跨波次传递的东西，它必须能被 review、能 diff，而不是只活在仓库外的 run root 里。
+- **锚点以 commit 为准**：`merge_report.json` 的 `anchors` 段写明 primary = commit
+  sha，tag 标 `portable: false`。tag 只存在于创建它的那个 clone——本工程「永不
+  push」，代码靠人工同步，而**同步带提交不带 tag**（实测：本机 clone 的
+  `git tag -l` 是空的）。回滚请用 commit sha 或 commit body 里的
+  `X-Theatre-Wave` / `X-Theatre-Drs` trailer。
 
 ### L2 门禁层（真树上 `pnpm verify`）
 
@@ -402,6 +449,19 @@ DRS 的**记忆**产出已经进仓库，DRS 的**候选**（那一轮真改出�
 - 红线用例只可加强不可放松：approval fail-closed、publish 默认不可达、反向验证探针；
 - wave 若动了 `distribution-usine.md` / 传输注 / curriculum 配置：重跑
   `smoke_distribution_fence.py`（8-gram 围栏从新 HEAD 重算）。
+
+### L2.5 健康分：门禁说「没坏」，它说「更好了」
+门禁只能证明没把产线改坏。**「这一波让产线好了多少」此前没有任何数字回答**——官方 grader 在本环境不可用（`official_evaluator_calls: 0`），于是自我进化实际只剩下「防退化 + 刷验证席 PASS」。2026-10-20 起合并器多了一道**产线健康分闸**：
+
+- 指标在 `usine/packages/eval`（离线、零网络、零浏览器、零额度，确定性）：v0 三个指标
+  ——排版装不下事件数、词级时间轴对齐误差、语种矩阵通过率。**算不出来的指标一律留
+  `null` 并写明为什么**（纪律 8：没数据留 null 不填 0；编出来的数据比没有数据更坏），
+  不拿别的判据冒充。
+- 合并器在应用候选**之前**量一次基线、应用**之后**量一次候选，逐指标比：有指标变坏
+  → 整条候选作废（`health_rejected`），报告里点名是哪个指标。
+- 样本不足（<5）不排名、`null` 一律 not-comparable——**不知道 ≠ 退化**。
+- 健康分工具自己坏了**不拦**合并（真门禁与验证席还在），但会记成 notice——闸缺席与
+  闸失效是两回事，后者才危险。
 
 ### L3 智能体面真验（RSI「真作用力」的最终判据）
 
@@ -428,6 +488,8 @@ L2 绿只证明代码没坏；改进是否**真的到达智能体面**要真宿�
    （call/result 事件成对）、`approval/asked` → `approval/decided(rejected)`、返回
    无 task_id、纪律节生效（模型在思考/回复中引用纪律文本）、零 shell 误调。
 
+**其中第 1 步与「不烧 token 的那几节」已经常驻**：合并器在门禁绿之后会自动跑[`smoke_agent_surface.py`](smoke_agent_surface.py)（dist 新鲜度、inject 与 src 逐字一致、工具族数量、`__require` 垫片形状、仓库里的 loader 产物没漂路径），红即整条候选作废（`l3_rejected`）。真正需要 dsh 宿主的 boot 与首任务真跑仍是人工工序（第 3–5 步）——**SKIP 不是 PASS**，那几节不许充作覆盖。
+
 ## 三、红线（对 wave、对测试、对验收同样成立）
 
 - **零 H3 / mcode-tools 额度调用**：任何会消耗视频生成额度的调用，先向用户报
@@ -444,6 +506,9 @@ L2 绿只证明代码没坏；改进是否**真的到达智能体面**要真宿�
 | [`run_usine.py`](run_usine.py) docstring | 装配契约权威全文（13 条）+ 双宿主就绪清单 |
 | [`distribution-usine.md`](distribution-usine.md) | 给 Curriculum 的目标方向（改进面许可 + 护栏） |
 | `config/roles-usine/*.yaml` | 座位表（模型阵容 fail-closed 校验） |
+| [`spec_sync.py`](spec_sync.py) | 规范同步闸：规范文档自带 `anchors` 围栏，代码改了规范必须同批更新 |
+| [`spread.py`](spread.py) + [`config/spread.json`](config/spread.json) | 铺开闸：连续同包禁入 + 冷区清单 |
+| [`latency_budget.py`](latency_budget.py) | 端点时延预检：只读历史、零成本、fail-closed |
 | [`runs/`](runs/) | 真跑现场归档（含首测事故与修复全套） |
 | [`../théâtre/ARCHITECTURE.md`](../théâtre/ARCHITECTURE.md) | 引擎机制与图表（v1 基线） |
 | [`../théâtre/ADAPTATION.md`](../théâtre/ADAPTATION.md) · [`PROVENANCE.md`](../théâtre/PROVENANCE.md) · [`PORTING-NOTES.md`](../théâtre/PORTING-NOTES.md) | v1 偏离记录 / fork 纪律 / 跨平台病根 |

@@ -200,3 +200,45 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 | 28 | 并发跑两期时其中一期 TTS 步失败：`Error: Opening handshake has timed out` | edge-tts 连微软端点的瞬时网络故障，与代码无关；runner 的 fail-fast 正确地把它变成非零退出 | 直接重跑该期即可（TTS 目录已缓存的语种不重做）；注意 `--jobs 1` 单独重跑比整批重跑省时 |
 | 29 | 汇总表 `series_report` 里第 12 期整行不见了，看着像「那期没跑完」 | 表头 6 行 + 12 行数据，输出时 `md.slice(0, 6 + rows.length)` **少切一行** → 最后一行（ep12）被吞。产物其实全在（海报/三封面/双成片/发布词/清单都齐） | 切片放宽一行，并加自检：**输出里的期行数 ≠ 期数就响亮失败**（这类「汇总工具自己截断」的 bug 极难用肉眼发现——先怀疑工具，再怀疑产物） |
 
+
+## 9 dsh 插件层架构评审整改与真宿主实跑（2026-10-20）
+
+这一轮的起点是「评审 `usine` 工程从 dsh 框架角度的实现是否足够纯粹」，结论是**装配层纯粹、交互契约层不纯粹、验证面不诚实**（分项打分：接缝 7 / 审批 4 / 契约 4 / 诚实度 3）。十条 P0/P1 改动的理由见 [dsh.md §10](dsh.md#10-2026-10-20-架构评审的改动)，这里只记**可复算的数字**。
+
+**钉版**：`@deepseek-ai/*` 钉 **0.2.1-rc.2**；真宿主 runtime 实测同为 **0.2.1-rc.2**（`preflight` 第 ② 道机械检查当场核，不一致就红）。
+
+**门禁**：`pnpm -s typecheck` 退出码 0；`pnpm -s verify` **43 文件 / 563 测试全绿**（改动前后各跑一次，测试数同数——本轮只改写断言口径，没有偷偷加宽判据）。
+
+**插件自测**：`packages/dsh-plugin/test/` 两套件 **44/44 绿**（`plugin.test.ts` 23 例 + `plugin-parity.test.ts` 21 例）。
+
+**preflight（零 LLM）**：**4/4 绿**——产物自足加载 / dsh 钉版一致 / 宿主起得来 / 插件真挂上（装配清单新鲜 + 工具面 17 个逐字相符）。
+
+**host-run（真宿主实跑，MiniMax-M3.1-Flash）**：**5/5 绿**，会话 `session-2d9aa970df7d4134901cee237cb7c185`。会话日志逐帧解码后取到 12 条关键事件：
+
+| seq | 事件 | 关键内容 |
+|---|---|---|
+| 13 / 14 | `tool/call` → `tool/result` | `usine_version` 返回 `{"ok":true,"status":"ok",…}`——统一契约在真宿主里生效 |
+| 15 / 16 | `tool/call` → `tool/result` | `usine_verify` 真跑 typecheck + vitest：43 文件 / 563 测试全绿，`detail.exit_code=0` |
+| 20 / 21 | `tool/call` → `tool/result` | `usine_quota` 只读额度查询（video 线 100%） |
+| 25 | `tool/call` | `usine_video_generation` `action=submit`——模型**真发起**（不是「应该会发起」） |
+| 26 | `approval/asked` | `toolName=usine_video_generation`，reason 是完整中文审批卡（模型 / 提示词 / 画幅 / 时长 / 分辨率 / 预估消耗） |
+| 27 | `approval/decided` | `outcome="rejected"`——工具体**一行没执行** |
+| 28 | `tool/result` | `isError=true`，内容是 dsh 原生文案 `Error: the user rejected tool "usine_video_generation"`（不是插件自述的 status） |
+| 32 / 33 | `tool/call` → `tool/result` | `grep` 复核门禁输出 |
+
+**全程无 `task_id`**：没有生成任务被提交、额度零消耗——这是红线在**派发层**成立的机械证据（批准之前工具体根本没跑过）。证据落 `docs/dsh-host-evidence.ndjson` + `docs/dsh-host-summary.json`。
+
+**旗标层对账**（parity 新增的一条）：SKILL.md 里写的每个 CLI 旗标都必须在库层真实存在——**差集实测 0**。反向（库层 ⊆ SKILL.md）本轮不查：库层有 70 个内部/浏览器旗标不在说明书里，超出本轮比例，硬做会逼出一堆与本轮无关的说明书改动。
+
+**MiniMax 接入实测**：`api.minimaxi.com` 可达（401→鉴权通过）；`MiniMax-M3.1-Flash` 支持 OpenAI 工具调用；`max_tokens=32768` 被接受；模型清单 M3.1-Flash / M3 / M2.7 / M2.5 / M2.1 / M2。**换 provider 的起因**：`fuyao-ai-gateway.xiaopeng.link` 当日**连接超时**（curl 25s 超时，不是鉴权问题）——fuyao 条目仍保留在 overlay 里，改端点即可切回。
+
+**已知非本轮回归**：`publish` 的 playwright mock e2e 在负载下偶发 5s 超时（实跑里 `usine_verify` 如实报 `failed`）；单独连跑两次 11/11 绿 → 既有 flake，仓库 git 历史已有同类记录（桌面浏览器开着会让门禁变红）。
+
+**本轮新暴露的坑**
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 30 | 声明了 `inject` 但宿主没那个服务 → 插件**永不生效**、工具面全空、宿主毫无报错 | cordis 的 `inject` 是**硬激活门槛**（拿不到服务则 fiber 永远 pending），不是「可选声明」 | `inject` 只留硬依赖（`tools` + `systemPrompt`）；可选服务走 `ctx.get`（读）/ `ctx.inject`（等）——同一个坑的反方向也踩过（2026-10-18 首测是「少声明导致服务没到」） |
+| 31 | 审批写在工具体内 → 工具**已经跑过**才说「等审批」，宿主也没法按工具名否决，审计断在工具体里 | 审批服务本来在派发层（`tools/pre-execute` → dsh-tools `serviceAsk`），插件自己又手写了一遍镜像 | 门从工具体内迁到 `ctx.on('tools/pre-execute')`，返回 `{kind:'ask'}`；删掉 120 行手写审批与 `ApprovalLike` 镜像 |
+| 32 | 工具输出里混进宿主自己的日志 / JSON-RPC 帧 | 猴补 `process.stdout.write` 的**时间窗**捕获把窗口内的所有写都收走，宿主写与工具写不分 | 改用 `AsyncLocalStorage` 按**异步上下文**捕获，串行锁删掉；console 与 stdout/stderr 两个出口都盖（vitest 下 console 被测试框架接管，只盖 stdout 会漏） |
+| 33 | 会话日志只解出第一帧，后面的事件全丢 | 日志是多段 zstd 帧拼接，Node 的 `zstdDecompressSync` 只解第一帧 | 取证脚本逐帧解码；审批审计是 log-only（不进通知流），只能从会话日志拿 |

@@ -12,7 +12,9 @@
 //
 // 移植口径说明：
 // - `_digest` 的哈希构造**与 Python 逐字节同构**（v2 前缀 + `|label:sha` 逐段），
-//   金样本批次 2 有逐字节 parity 门禁（migration/golden/ledger.json）。
+//   跨语言逐字节 parity 的金样本批次 2 已随 Python 时代那批 parity 测试退役
+//   （TS 化后指纹含工具链版本，跨语言不可比是设计内——见下）；现在这条口径由
+//   ledger 自身的构造测试与敏感性测试钉住。
 // - 工具链字段随运行时**换血**：python/pillow → node/sharp（sharp 指纹含 vips
 //   版本——vips 才是 TS 侧栅格化的真相源）。跨语言指纹值不可比是**设计内**：
 //   迁移切换后全部条目判一次过期（保守重渲一遍），不假装两套指纹能对上。

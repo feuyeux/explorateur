@@ -1,6 +1,6 @@
 # AGENTS.md · explorateur 工作区约束
 
-> 本仓库承载 `usine/`（feuille——多语种视频生产与发布的可复用层）与 RSI 工作流（`théâtre/` 引擎 + `garage/` 适配层，只对 usine 做单向安全改进）；仓库外同级 `app/` 目录另有两个独立应用，不随本仓库版本化，本文件不约束。
+> 本仓库承载 `usine/`（feuille——多语种视频生产与发布的可复用层）与**两条** RSI 工作流：`théâtre/` 引擎 + `garage/` 适配层（RSIAgent 路线，改**记忆**），`theatre-ii/` 引擎 + `garage-ii/` 适配层（harness2 路线，改 **harness 本身**）；两条都只对 usine 做单向安全改进。仓库外同级 `app/` 目录另有两个独立应用，不随本仓库版本化，本文件不约束。
 > 本文件只定**工作区级**的约束：技能库在哪、怎么复用、与全局技能的分工、规则以哪份文件为准、Markdown 怎么排版。
 
 ## Markdown 排版（硬规则，全工作区一律遵守，屡犯）
@@ -40,4 +40,8 @@
 
 - 在 `usine/` 内工作、或把 feuille 资产用于任何内容项目时，纪律与工程约定的**权威文本是 [usine/AGENTS.md](usine/AGENTS.md)**（22 条纪律 + 跨平台/pnpm 约定 + H3 铁律）；冲突时以它为准。Markdown 排版条（上文）是工作区级新增，usine/AGENTS.md 与它不冲突时同时生效。
 - 在 `théâtre/` 内工作或操作 RSI 波次时，先读 [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）与 [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制、图表与红线）；适配层操作走 `garage/run_usine.py`（`--preflight` 先行，执行需 ack token；发布永不自动，真波次用户喊跑才跑）。
+- 在 `theatre-ii/` 内工作或操作 harness 演化时，先读 [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（vendor 范围、零补丁声明、已知能力缺口）与 [theatre-ii/ARCHITECTURE.md](theatre-ii/ARCHITECTURE.md)（c1..c8 与 Propose–Probe–Compose）；**引擎层不含任何 usine/dsh 专属代码**，桥接一律在 `garage-ii/`，操作走 `garage-ii/run_usine_h2.py`（`--phase preflight` 先行，`--phase sweep` 需 ack token `RUN-USINE-H2-SWEEP`）。
+- **两条路径的关系**：RSIAgent（`théâtre/`+`garage/`）改的是**记忆**，harness2（`theatre-ii/`+`garage-ii/`）改的是**harness 本身**。引擎层对照见 [theatre-ii/COMPARISON.md](theatre-ii/COMPARISON.md)，可跑的三臂对照协议见 [garage-ii/BENCHMARK.md](garage-ii/BENCHMARK.md)——**读数字之前先读该文档的「测不到什么」一节**。
+- **两条路径共同的硬约束**：基准 harness 必须与被改进对象**同源**（`garage-ii/build_base_harness.py` 派生，带漂移闸）；运行产物落**仓库外** run root（dsh 的 project root 判定会让仓库内的 `.dsh/skills` 判到仓库根，候选技能一个都扫不到，且**不报错**）；判据失败是 `None` 不是零分；判据不进 harness 树。
+- **演化结果先看「阶段回退」再看分数**：提案阶段失败时引擎会**退回基准树**继续跑，这一轮「看起来跑完了」，而最终被采纳的其实是**没改过的基准**——分数量的是基准，不是演化后的。`garage-ii` 的 sweep / judge 会把回退打出来并以**退出码 1** 结束。读数纪律与第一批真跑的实测记录见 [garage-ii/BENCHMARK.md](garage-ii/BENCHMARK.md) 的「实测记录」一节。
 - 生成类命令默认不覆盖已有产物（显式 `--force` 才覆盖）；验收一律看退出码。

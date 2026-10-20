@@ -51,6 +51,18 @@ Merge contract (v1)
   sidecar, or a gate that cannot run raises ``UsineMergeError`` (infra — the
   wave loop halts). Data-level rejections (gate red, drift, path policy,
   symlinks) never raise; they are recorded in the per-candidate report.
+* Spec sync.  A candidate that changes code governed by a spec document must
+  update that spec document in the SAME candidate, or it is skipped whole
+  (``spec_sync_rejected``).  The spec document declares what it pins in its own
+  anchors block, so the rule keeps a single source of truth; see
+  ``spec_sync.py`` for why a stale spec is worse than a stale comment.
+* Honest coverage.  The gate's skipped-test count is parsed out of its output
+  and recorded per candidate.  A skip is not a pass, and a report that cannot
+  see it is a report that will quietly overstate what was covered.
+* Memory in the repository.  After a wave merges, the terminal memory tree is
+  copied into ``garage/memory-snapshots/`` and committed, so the knowledge a
+  wave produced is diffable and reviewable in the repository instead of living
+  only in a run root outside it.
 
 Notable limitation: merge rejections are not fed back into Curriculum's next
 wave rationale (stock renders outcome.md before the merge point); they are
@@ -71,11 +83,14 @@ import pathlib
 import re
 import stat as stat_module
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
 from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
+
+import spec_sync
 
 log = logging.getLogger("rsiagent.usine.wave_merge")
 
@@ -103,6 +118,8 @@ _RESERVED_BASENAME = re.compile(
 _ADD_BATCH = 100                  # staged paths per git add call
 _GATE_TAIL = 4000                 # gate stdout tail kept in the report
 _GIT_TIMEOUT = 300
+_HEALTH_TIMEOUT = 300             # the offline health score is sub-second
+_L3_TIMEOUT = 300                 # the agent-surface smoke is a local check
 
 
 class UsineMergeError(RuntimeError):
@@ -127,6 +144,19 @@ class UsineMergeConfig:
     # ``tag_prefix`` + the wave index, not from this label.
     unit_label: str = "wave"
     gate_env: dict | None = None
+    # 产线健康分命令（离线「比合并前更好没有」的判据）。空 = 自动找
+    # <usine>/packages/eval/bin/feuille-eval.js；找不到就没有这道闸。
+    health_argv: tuple[str, ...] = ()
+    # L3「智能体面真验」的冒烟命令。None = 自动发现（且要求适配层与被改进的
+    # 仓在同一个仓库里）；空元组 = 显式关闭。
+    l3_smoke_argv: tuple[str, ...] | None = None
+    # Where the per-wave memory snapshot lands, relative to the repository
+    # toplevel.  Empty = derive it from where this adaptation layer sits (the
+    # real explorateur layout: <repo>/garage/memory-snapshots/).  A deployment
+    # where the layer lives outside the repository — or a test with a
+    # throwaway repo — sets it explicitly; without that the snapshot is
+    # skipped and the report says so.
+    memory_snapshot_dir: str = ""
 
 
 # ------------------------------------------------------------------ archives
@@ -599,6 +629,31 @@ def _gate_side_effects(ctx, usine_dir, delta: dict, entry: dict) -> list[str]:
 
 # ----------------------------------------------------------------------- gate
 
+# vitest 的汇总行：``Tests  528 passed | 8 skipped (536)``（也可能是
+# ``Tests  1 failed | 528 passed | 8 skipped (537)``，或没有 skipped 段）。
+# 跳过数必须被看见：SKIP 不是 PASS，一份看不见跳过数的报告会悄悄夸大覆盖。
+_GATE_TESTS_LINE = re.compile(r"^\s*Tests\s+(?P<body>[^\n(]*)\(\s*(?P<total>\d+)\s*\)",
+                              re.MULTILINE)
+
+
+def _parse_gate_counts(tail: str) -> dict:
+    """从门禁输出里解析 vitest 的计数。解析不出来就留 None——不猜 0。
+
+    ``skipped`` 为 None 表示「门禁没吐可解析的计数」；这与「跳过 0 个」是
+    两回事，报告里必须分得开。
+    """
+    match = _GATE_TESTS_LINE.search(tail)
+    if match is None:
+        return {"passed": None, "failed": None, "skipped": None, "total": None}
+    body = match.group("body")
+    counts = {}
+    for label in ("passed", "failed", "skipped", "todo"):
+        found = re.search(rf"(\d+)\s+{label}", body)
+        counts[label] = int(found.group(1)) if found else 0
+    return {"passed": counts["passed"], "failed": counts["failed"],
+            "skipped": counts["skipped"], "total": int(match.group("total"))}
+
+
 def run_gate(config: UsineMergeConfig, usine_dir) -> dict:
     """Run the usine verification gate on the applied working tree."""
     argv = [str(a) for a in config.gate_argv]
@@ -620,8 +675,11 @@ def run_gate(config: UsineMergeConfig, usine_dir) -> dict:
             f"usine gate exceeded {config.gate_timeout:.0f}s and was killed") \
             from exc
     tail = (proc.stdout or b"")[-_GATE_TAIL:].decode("utf-8", "replace")
+    counts = _parse_gate_counts(tail)
     return {"exit_code": proc.returncode,
-            "seconds": round(time.time() - started, 1), "tail": tail}
+            "seconds": round(time.time() - started, 1),
+            "counts": counts,
+            "tail": tail}
 
 
 # ------------------------------------------------------------- commit and tag
@@ -643,12 +701,23 @@ def _commit_candidate(config: UsineMergeConfig, usine_dir, wave_index: int,
     subject = (f"{config.commit_scope}({label}-{wave_index}): "
                f"accept ep{outcome['project_index']:03d} "
                f"({_clean_id(outcome['project_id'])})")
+    counts = (gate.get("counts") or {})
+    skipped = counts.get("skipped")
+    coverage = ""
+    if counts.get("passed") is not None:
+        coverage = (f"{counts['passed']} passed"
+                    + (f", {skipped} skipped" if skipped else ""))
+        if skipped:
+            # SKIP 不是 PASS：提交信息里也得如实写，别让「门禁绿」被读成
+            # 「全都验过了」。
+            coverage += " (skipped are NOT passed)"
     body = (
         f"Candidate ep{outcome['project_index']:03d} merged from {label} "
         f"{wave_index} (verifier PASS, usine gate green).\n"
         f"Delta: {len(delta['modified'])} modified, {len(delta['added'])} "
         f"added, {len(delta['deleted'])} deleted.\n"
-        f"Gate exit {gate['exit_code']} in {gate['seconds']}s.\n\n"
+        f"Gate exit {gate['exit_code']} in {gate['seconds']}s"
+        + (f" — {coverage}" if coverage else "") + ".\n\n"
         f"X-Theatre-{label.title()}: {wave_index}\n"
         f"X-Theatre-Project: {_clean_id(outcome['project_id'])}\n"
         f"X-Theatre-Source: explorateur theatre phase1 usine wave merge")
@@ -795,6 +864,30 @@ def _atomic_text(path: pathlib.Path, text: str) -> None:
     os.replace(temp, path)
 
 
+def _report_anchors(commits: list[str], tag_info: dict) -> dict:
+    """这一波的**可搬运锚点**。
+
+    tag 只活在创建它的那个 clone 里。本工程的规矩是「永不 push」，代码靠人工
+    同步到另一台 host——而同步带的是提交，不是 tag。2026-10-20 实测：macOS 那
+    个 clone 的 ``git tag -l`` 是**空的**，三条 RSI 合并的 tag 全在 wave host
+    那个 clone 上。把 tag 当回滚锚点在这里是靠不住的。
+
+    真正能跟着代码走的锚点是 commit sha 与 commit body 里的 trailer
+    （``X-Theatre-Wave`` / ``X-Theatre-Drs``）——它们在提交里，而提交会被同步。
+    所以报告把两者分清：primary 是 commit，tag 明确标成 local-only。
+    """
+    return {
+        "primary": {"kind": "commit", "value": commits[0] if commits else None},
+        "commits": list(commits),
+        "portable_trailer": "X-Theatre-Wave / X-Theatre-Drs (in the commit body)",
+        "tag": {"name": tag_info.get("tag"),
+                "created": tag_info.get("tag_created"),
+                "portable": False,
+                "note": "the tag lives only in the clone that created it; code "
+                        "sync does not carry tags — roll back by commit sha"},
+    }
+
+
 def _render_md(report: dict) -> str:
     lines = [f"# usine wave {report['wave_index']} merge report", "",
              f"- repository: `{report['repo_toplevel']}` "
@@ -803,25 +896,267 @@ def _render_md(report: dict) -> str:
              f"- commits: {len(report['commits'])}"
              + (f", tag: `{report['tag']}`"
                 f"{' (created)' if report['tag_created'] else ' (pre-existing)'}"
+                f" [local only — roll back by commit sha]"
                 if report["tag"] else ", tag: none"),
              f"- gate argv: `{' '.join(report['gate_argv'])}`"
              f" ({report['gate_seconds_total']}s total)", ""]
     if report.get("skipped"):
         lines.append(f"> skipped: {report['skipped']}")
         lines.append("")
+    snapshot = report.get("memory_snapshot") or {}
+    if snapshot.get("written"):
+        lines.append(f"- memory snapshot: `{snapshot['path']}` "
+                     f"({snapshot['file_count']} record(s), "
+                     f"{snapshot['bytes']}B, tree `{snapshot.get('tree_sha256')}`)")
+    elif snapshot.get("reason"):
+        lines.append(f"- memory snapshot: none — {snapshot['reason']}")
     lines += ["| ep | project | outcome | decision | commit |",
               "|---|---|---|---|---|"]
     for entry in report["candidates"]:
         commit = entry.get("commit") or ""
+        gate = entry.get("gate") or {}
+        counts = gate.get("counts") or {}
+        skipped = counts.get("skipped")
+        suffix = (f"（门禁跳过 {skipped} 项——SKIP 不是 PASS）"
+                  if skipped else "")
         lines.append(
             f"| {entry['project_index']:03d} | {entry['project_id'][:24]} "
-            f"| {entry['terminal_outcome']} | {entry['decision']} "
+            f"| {entry['terminal_outcome']} | {entry['decision']}{suffix} "
             f"| `{commit[:12]}` |")
     for entry in report["candidates"]:
         if entry.get("reason"):
             lines += ["", f"**ep{entry['project_index']:03d}** "
                           f"({entry['decision']}): {entry['reason']}"]
     return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------- spec sync and memory in git
+
+def _health_argv(config: UsineMergeConfig, usine) -> tuple[str, ...]:
+    """产线健康分的命令；本仓没有这个包时返回空元组。
+
+    默认自动找 ``packages/eval/bin/feuille-eval.js``（usine 侧的离线健康分
+    包）。找不到就**没有**这道闸——但那会被记成 notice，不是静默消失：闸缺席
+    与闸失效是两回事，后者才危险。
+    """
+    if config.health_argv:
+        return tuple(str(a) for a in config.health_argv)
+    candidate = pathlib.Path(usine) / "packages" / "eval" / "bin" / "feuille-eval.js"
+    if candidate.is_file():
+        return ("node", str(candidate))
+    return ()
+
+
+def _run_health(argv: tuple[str, ...], cwd, out_path: pathlib.Path) -> dict:
+    """跑一次健康分，把报告写到 ``out_path``。
+
+    返回 ``{"ok": bool, "exit_code": int, "tail": str}``。健康分工具自己坏了
+    **不拦**合并——真门禁与验证席还在，别让一个辅助工具把整条流水线卡死；
+    但它坏了会被记成 notice，一眼看得见。
+    """
+    proc = subprocess.run([*argv, "health", "--out", str(out_path)], cwd=str(cwd),
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          timeout=_HEALTH_TIMEOUT)
+    tail = (proc.stdout or b"")[-2000:].decode("utf-8", "replace")
+    return {"ok": proc.returncode == 0 and out_path.is_file(),
+            "exit_code": proc.returncode, "tail": tail}
+
+
+def _compare_health(argv: tuple[str, ...], cwd, baseline: pathlib.Path,
+                    candidate: pathlib.Path) -> dict:
+    """比两份健康分报告。退出码 1 = 有指标变坏（这就是合并闸要的判据）。"""
+    proc = subprocess.run(
+        [*argv, "compare", "--baseline", str(baseline),
+         "--candidate", str(candidate), "--json"],
+        cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        timeout=_HEALTH_TIMEOUT)
+    tail = (proc.stdout or b"")[-4000:].decode("utf-8", "replace")
+    payload = {}
+    try:
+        payload = json.loads(tail) if tail.strip().startswith("{") else {}
+    except ValueError:
+        payload = {}
+    return {"exit_code": proc.returncode,
+            "regressed": payload.get("regressed") or [],
+            "improved": payload.get("improved") or [],
+            "not_comparable": payload.get("not_comparable") or [],
+            "tail": tail}
+
+
+def _l3_smoke_argv(config: UsineMergeConfig, ctx: dict) -> tuple[str, ...]:
+    """L3「智能体面真验」的冒烟命令；不适用时返回空元组。
+
+    自动发现：冒烟脚本就在本模块旁边（适配层目录）。**但它只在本适配层与被
+    改进的仓在同一个仓库里时适用**——那个冒烟检查的是真的 dist 产物，对着
+    一个临时仓库跑会检查错树。测试仓与这种部署形态都返回空元组。
+    """
+    if config.l3_smoke_argv is not None:
+        return tuple(str(a) for a in config.l3_smoke_argv)
+    here = pathlib.Path(__file__).resolve().parent
+    toplevel = pathlib.Path(ctx["toplevel"])
+    try:
+        here.relative_to(toplevel)
+    except ValueError:
+        return ()
+    script = here / "smoke_agent_surface.py"
+    if script.is_file():
+        return (sys.executable, str(script))
+    return ()
+
+
+def _run_l3_smoke(argv: tuple[str, ...], cwd) -> dict:
+    """跑一次 L3 冒烟。它验的是「改进有没有真到达智能体面」。"""
+    proc = subprocess.run(list(argv), cwd=str(cwd), stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, timeout=_L3_TIMEOUT)
+    tail = (proc.stdout or b"")[-4000:].decode("utf-8", "replace")
+    return {"ok": proc.returncode == 0, "exit_code": proc.returncode,
+            "tail": tail}
+
+
+def _spec_sync_violations(usine, delta, candidate_bytes) -> tuple[list[dict], list[dict]]:
+    """规范同步闸：改了被规范的代码，规范必须同批更新。
+
+    返回 (违规, 通知)。违规非空 → 候选被拒；通知非空 → 闸没约束到东西或本仓
+    不承载那份规范，**不拦但必须被看见**（一道静默失效的闸比没有闸更坏）。
+
+    闸的配置坏了 = 闸静默失效 = 漂移重新变成不可见，所以这里 fail-closed：
+    注册表读不出来就抛 ``UsineMergeError``（infra），绝不降级成「没有受管辖
+    的文档」。
+    """
+    try:
+        docs = spec_sync.load_registry()
+    except spec_sync.SpecSyncError as exc:
+        raise UsineMergeError(f"spec-sync registry is broken: {exc}") from exc
+    if not docs:
+        return [], []
+
+    def read_text(rel):
+        try:
+            return (pathlib.Path(usine) / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    try:
+        result = spec_sync.check(docs, delta, candidate_bytes, read_text)
+    except spec_sync.SpecSyncError as exc:
+        raise UsineMergeError(f"spec-sync check failed: {exc}") from exc
+    return result["violations"], result["notices"]
+
+
+def _memory_tree_hash(files: dict[str, bytes]) -> str | None:
+    """用**引擎自己的**树哈希口径算记忆树的摘要。
+
+    不用本地重算：两份口径会分叉，而记忆树的摘要要被拿来和引擎写在事件里的
+    ``memory_tree_sha256`` 对账（README §二）。口径的归属模块是
+    ``explore.memory_hash``——它只依赖标准库，所以**在没装齐依赖的机器上也能
+    导入**；``explore.target_learning._memory_tree_sha256`` 只是它的一层薄包装
+    （逐文件 sha256 之后调同一个 ``tree_sha256``），而那个模块要 import openai，
+    在纯标准库环境里导不进来。两个都拿不到时返回 None 并如实记为「没算出来」，
+    不猜。
+    """
+    try:
+        from explore.memory_hash import tree_sha256
+    except ImportError:
+        try:
+            from explore.target_learning import _memory_tree_sha256
+        except ImportError:
+            return None
+        return _memory_tree_sha256(files)
+    hashes = {name: hashlib.sha256(data).hexdigest()
+              for name, data in sorted(files.items())}
+    return tree_sha256(hashes)
+
+
+def _read_memory_tree_files(source: pathlib.Path) -> dict[str, bytes]:
+    """记忆树目录 → {相对名: 字节}。软链跳过（种子安装器本身就拒绝软链）。"""
+    files: dict[str, bytes] = {}
+    if not source.is_dir():
+        return files
+    for path in sorted(source.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(source).as_posix()
+        files[rel] = path.read_bytes()
+    return files
+
+
+def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
+                                unit_label: str, index: int,
+                                snapshot_dir: str = "") -> dict:
+    """把这一波产出的记忆树快照进仓库并单独提交。
+
+    **为什么**：记忆是唯一跨波次传递的东西。它只住在仓库外的 run root 里时
+    有一串坏处——评审看不见（改了什么都发现不了）、run root 一清就没了、
+    变更不可 diff（记忆被悄悄改过也没人能审）。放进 ``garage/memory-snapshots/``
+    之后，记忆的变更和它产出的代码落在同一条提交流里，可以逐条 review。
+
+    提交是**单独一个**（``X-Theatre-Memory`` trailer），不混进候选提交——
+    「一候选一 commit」那条规矩管的是代码候选，记忆快照不是候选。
+    """
+    source = lineage / "memory"
+    files = _read_memory_tree_files(source)
+    if not files:
+        return {"written": False,
+                "reason": "the lineage has no memory tree to snapshot yet"}
+    toplevel = pathlib.Path(ctx["toplevel"])
+    if snapshot_dir:
+        garage_rel = snapshot_dir.strip("/")
+    else:
+        garage_rel = os.path.relpath(str(pathlib.Path(__file__).resolve().parent),
+                                      str(toplevel))
+        if garage_rel.startswith(".."):
+            # 适配层不在这个仓库里（另一种部署形态）——记下来，不硬塞。
+            return {"written": False,
+                    "reason": f"the adaptation layer is outside the repository "
+                              f"({garage_rel})"}
+    dest = toplevel / garage_rel / "memory-snapshots" / f"{unit_label}-{index:03d}"
+    dest.mkdir(parents=True, exist_ok=True)
+    written = []
+    for rel, data in files.items():
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        written.append(rel)
+    tree_hash = _memory_tree_hash(files)
+    manifest = {
+        "schema_version": 1,
+        "unit": f"{unit_label}-{index:03d}",
+        "source": str(source),
+        "files": sorted(written),
+        "file_count": len(written),
+        "bytes": sum(len(data) for data in files.values()),
+        "tree_sha256": tree_hash,
+        "tree_sha256_note": (
+            "the engine's own tree hash (explore.memory_hash.tree_sha256, the "
+            "same口径 explore.target_learning._memory_tree_sha256 uses); null "
+            "means the engine was not importable here, so nothing was invented"),
+        "recorded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    (dest / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+    rel_paths = [f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}/"
+                 f"{rel}" for rel in sorted(written)]
+    rel_paths.append(f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}/"
+                     "manifest.json")
+    _run_pathspec(["add", "-A"], toplevel, rel_paths)
+    _git(["-c", "user.name=theatre-rsi",
+          "-c", "user.email=theatre-rsi@explorateur.local",
+          "commit", "-m",
+          f"theatre-memory({unit_label}-{index}): snapshot the wave's memory tree",
+          "-m",
+          f"Memory tree snapshot for {unit_label} {index} "
+          f"({len(written)} record(s), {manifest['bytes']} bytes).\n"
+          f"Tree sha256: {tree_hash}\n\n"
+          f"X-Theatre-Memory: {unit_label}-{index}"], cwd=toplevel)
+    sha = _git(["rev-parse", "HEAD"], cwd=toplevel) \
+        .stdout.decode("utf-8", "replace").strip()
+    return {"written": True,
+            "path": f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}",
+            "tree_sha256": tree_hash,
+            "file_count": len(written),
+            "bytes": manifest["bytes"],
+            "commit": sha}
 
 
 def merge_wave(lineage_root, wave_index: int,
@@ -922,12 +1257,46 @@ def merge_wave(lineage_root, wave_index: int,
             entry["decision"] = "drift_skipped"
             entry["reason"] = details["reason"]
             continue
+        # 规范同步闸：改了被规范的代码而没同批更新规范 → 整条候选跳过。
+        # 放在 apply 之前是为了不白花门禁时间——这道闸是二值判定，读文件就够。
+        sync_violations, sync_notices = _spec_sync_violations(usine, delta, wanted)
+        if sync_notices:
+            entry["spec_sync_notices"] = sync_notices
+            log.info("ep%03d spec-sync notice: %s", outcome["project_index"],
+                     spec_sync.describe_notices(sync_notices))
+        if sync_violations:
+            entry["decision"] = "spec_sync_rejected"
+            entry["reason"] = spec_sync.describe(sync_violations)
+            entry["spec_sync"] = sync_violations
+            log.warning("ep%03d rejected by the spec-sync gate: %s",
+                        outcome["project_index"], entry["reason"])
+            continue
         executable = (_archive_exec_bits(
             candidate_dir, [*delta["modified"], *delta["added"]])
             | _tracked_exec_bits(
                 ctx, [rel for rel in delta["modified"]
                       if rel not in delta["added"]]))
         snapshot = _snapshot_tree(usine, delta)
+        # 健康分的**基线**：在应用候选之前量一次工作树。这是「比合并前更好
+        # 没有」的那条判据的起点——门禁只防退化，健康分才谈变好。
+        health_argv = _health_argv(config, usine)
+        health_baseline = None
+        if health_argv:
+            fd, base_path = tempfile.mkstemp(prefix="usine-health-base-",
+                                             suffix=".json")
+            os.close(fd)
+            baseline_report = _run_health(health_argv, usine,
+                                          pathlib.Path(base_path))
+            if baseline_report["ok"]:
+                health_baseline = pathlib.Path(base_path)
+            else:
+                os.unlink(base_path)
+                entry["health_notice"] = (
+                    "产线健康分跑不起来，这道闸本次没有生效："
+                    + baseline_report["tail"].strip()[-200:])
+                log.warning("ep%03d health baseline failed: %s",
+                            outcome["project_index"],
+                            baseline_report["tail"].strip()[-200:])
         try:
             _apply_delta(usine, delta, wanted, executable)
             gate = run_gate(config, usine)
@@ -941,6 +1310,63 @@ def merge_wave(lineage_root, wave_index: int,
                 log.warning("ep%03d rejected by the usine gate (exit %s)",
                             outcome["project_index"], gate["exit_code"])
                 continue
+            # L3「改进有没有真到达智能体面」：门禁跑完 dist 已经重建，这时
+            # 验它比在门禁之前验更准。失败即整条候选作废——改进没到达智能体
+            # 面，就不算改进。
+            l3_argv = _l3_smoke_argv(config, ctx)
+            if l3_argv:
+                l3 = _run_l3_smoke(l3_argv, ctx["toplevel"])
+                entry["l3"] = {"exit_code": l3["exit_code"],
+                               "ok": l3["ok"], "tail": l3["tail"][-800:]}
+                if not l3["ok"]:
+                    _rollback_delta(usine, delta, snapshot)
+                    entry["decision"] = "l3_rejected"
+                    entry["reason"] = ("改进没有到达智能体面（L3 冒烟红）："
+                                       + l3["tail"].strip()[-300:])
+                    log.warning("ep%03d rejected by the L3 agent-surface smoke",
+                                outcome["project_index"])
+                    continue
+            # 健康分：候选落地后的那一份，与基线逐指标比。有指标变坏 → 作废。
+            if health_argv and health_baseline is not None:
+                fd, cand_path = tempfile.mkstemp(prefix="usine-health-cand-",
+                                                 suffix=".json")
+                os.close(fd)
+                candidate_report = _run_health(health_argv, usine,
+                                               pathlib.Path(cand_path))
+                if candidate_report["ok"]:
+                    comparison = _compare_health(health_argv, usine,
+                                                 health_baseline,
+                                                 pathlib.Path(cand_path))
+                    entry["health"] = {
+                        "baseline": str(health_baseline),
+                        "candidate": cand_path,
+                        "regressed": comparison["regressed"],
+                        "improved": comparison["improved"],
+                        "not_comparable": comparison["not_comparable"],
+                        "exit_code": comparison["exit_code"],
+                    }
+                    if comparison["exit_code"] != 0:
+                        _rollback_delta(usine, delta, snapshot)
+                        entry["decision"] = "health_rejected"
+                        entry["reason"] = (
+                            "产线健康分变坏："
+                            + "、".join(comparison["regressed"])
+                            + "（门禁只防退化，这道闸才问「更好了没有」）")
+                        log.warning("ep%03d rejected by the health gate: %s",
+                                    outcome["project_index"],
+                                    "、".join(comparison["regressed"]))
+                        os.unlink(cand_path)
+                        continue
+                else:
+                    entry["health_notice"] = (
+                        "候选侧的健康分跑不起来，本次没有比较："
+                        + candidate_report["tail"].strip()[-200:])
+                os.unlink(cand_path)
+            if health_baseline is not None:
+                try:
+                    os.unlink(health_baseline)
+                except OSError:
+                    pass
             _stage_delta(usine, delta)
             quiet = _git(["diff", "--cached", "--quiet"], cwd=usine,
                          check=False)
@@ -964,12 +1390,21 @@ def merge_wave(lineage_root, wave_index: int,
             raise
     tag_info = ({"tag": None, "tag_created": False} if not commits
                 else _ensure_wave_tag(config, usine, wave_index, commits))
+    # 记忆快照进仓库：记忆是唯一跨波次传递的东西，它必须在同一条提交流里
+    # 可 review、可 diff。放在所有候选提交之后——树在那一刻是干净的。
+    memory_snapshot = ({"written": False, "reason": "no candidate was merged"}
+                       if not commits
+                       else _snapshot_memory_into_repo(
+                           ctx, lineage, config.unit_label, wave_index,
+                           config.memory_snapshot_dir))
     report = {"schema_version": 1, "wave_index": wave_index,
               "usine_dir": str(usine), "repo_toplevel": ctx["toplevel"],
               "repo_prefix": ctx["prefix"], "base_commit": base_commit,
               "gate_argv": [str(a) for a in config.gate_argv],
               "commits": commits, "gate_seconds_total": round(gate_seconds, 1),
               "candidates": candidates,
+              "anchors": _report_anchors(commits, tag_info),
+              "memory_snapshot": memory_snapshot,
               "ts": time.strftime("%Y-%m-%d %H:%M:%S"), **tag_info}
     _atomic_json(report_path, report)
     _atomic_text(wave_dir / "merge_report.md", _render_md(report))

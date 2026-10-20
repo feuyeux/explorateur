@@ -1,8 +1,9 @@
 // draw.ts — op-spec 场景绘制（scenes.py DrawScaled/SS 超采样语义的 TS 移植，
 // @napi-rs/canvas 承载）。spike 2 产物，P4 时 scenes.ts 在此面上铺开注册表。
 //
-// 与 Python 参照（migration/spike2_scenes_ref.py）共享同一份 op-spec JSON：
-// 坐标为 1× 语义坐标（1080×1920），SS 超采样绘制后 LANCZOS 缩回。
+// op-spec 的坐标口径（1× 语义坐标 1080×1920，SS 超采样绘制后 LANCZOS 缩回）
+// 承自 Python 时代的 spike 2 参照实现（该参照脚本已随金样本退役；口径本身
+// 由 core/src/rig.ts 与 core/src/scenes.ts 的注册表现取，并被各自的测试钉住）。
 //
 // 语义对齐要点：
 // - setTransform(SS,0,0,SS,0,0) 之后所有坐标/线宽按语义单位书写，device 像素

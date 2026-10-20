@@ -4,12 +4,13 @@
 #   - dist/index.mjs 由 `pnpm --filter @feuille/dsh-plugin build` 产出（esbuild
 #     单文件：@feuille/core 源码打进包——dsh 宿主是纯 node，吃不了 TS 源直跑；
 #     sharp/@napi-rs/canvas/ws 三个原生/重依赖保持 external，从 dsh-plugin 自己的
-#     node_modules 解析——故它们同时声明为本包 dependencies）。
-#   - insert 指向 entry-loader.mjs（require 互操作垫片），它再加载 dist/index.mjs。
+#     node_modules 解析——故它们同时声明为本包 dependencies）。产物 banner 注入
+#     模块作用域 require，**自足可加载**：不再需要 globalThis.require 垫片。
+#   - insert 直接指 dist/index.mjs。
 #   - 本 overlay 只装插件；带 provider 与 approval policy 的完整对话入口
 #     见 ./ask.cordis.yml + ./ask.mjs（`pnpm --filter @feuille/dsh-plugin ask`）。
 - insert:
     - id: feuille-usine
-      name: './entry-loader.mjs'
+      name: './dist/index.mjs'
 
 

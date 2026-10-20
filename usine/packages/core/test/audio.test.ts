@@ -1,9 +1,11 @@
-// audio.test.ts — 滤镜图金样本 parity（migration/golden/audio.json）+
-// verify_audio.py 的反向验证移植。
+// audio.test.ts — 音频合成与滤镜图顺序纪律的断言。
 //
-// 核心是坑③那条顺序纪律：**apad 必须在 loudnorm 之前**（实测的非确定 EOF
-// 冲刷竞态：后置时 10 连跑丢补尾 3 次）。顺序写错不会立刻炸，只会随机
-// 出片——所以用断言钉住 filterGraph 的字符串顺序，不跑 ffmpeg 也能验。
+// 历史：这里曾是「滤镜图金样本 parity（migration/golden/audio.json）」——Python
+// 时代的金样本已随那批 parity 测试一起退役（跨语言逐字节比对在 TS 化后不再
+// 成立，见 docs/record.md）。留下来的断言是**顺序纪律**那条硬结论：
+// **apad 必须在 loudnorm 之前**（实测的非确定 EOF 冲刷竞态：后置时 10 连跑丢
+// 补尾 3 次）。顺序写错不会立刻炸，只会随机出片——所以用断言钉住 filterGraph
+// 的字符串顺序，不跑 ffmpeg 也能验。
 import { execFileSync } from "node:child_process"
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"

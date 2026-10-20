@@ -11,6 +11,7 @@
   "scripts": {
     "test": "pnpm --filter @feuille/dsh-plugin build && vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "eval": "node --import tsx packages/eval/src/index.ts",
     "verify": "pnpm -s typecheck && pnpm -s test"
   },
   "devDependencies": {

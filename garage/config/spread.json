@@ -1,0 +1,27 @@
+{
+  "_comment_schema": "JSON has no comment syntax, so every setting below carries its own _comment_<key> field. garage/spread.py reads ONLY the value keys; the _comment_* keys are documentation and are ignored by the loader. Keep each comment naming the real incident it pins - a policy knob nobody can trace to a failure is a knob nobody dares to change.",
+
+  "cold_window": 3,
+  "_comment_cold_window": "How many of the most recent merged RSI waves are inspected when deciding whether a package counts as COLD (not touched recently). 3 is the number of merged RSI waves that exist in the recorded history (6e8665f wave-1, 1d550b2 drs-1, eedaf73 wave-1) - and all three of them touched packages/dsh-plugin, while packages/core, packages/karaoke, packages/poster, packages/poetry, packages/storyteller, packages/copy, packages/bgm, packages/publish, packages/cli and packages/gate have ZERO merged changes to this day. A window of 3 is what it takes to SEE that pattern; a window of 1 would have hidden it behind the single most recent wave.",
+
+  "repeat_ban": 2,
+  "_comment_repeat_ban": "After the same package has been touched by this many CONSECUTIVE merged RSI waves, that package is BANNED for the next wave. 2 is the point where the repetition is already a pattern rather than a coincidence: the recorded history shows three consecutive waves inside packages/dsh-plugin, and every one of them landed on the same function's same four refusal branches. The third such wave should have been forced elsewhere; with repeat_ban=2 it is.",
+
+  "cold_priority": "required",
+  "_comment_cold_priority": "How hard the cold-area instruction is worded in the curriculum seat's system_extra. 'required' = the project MUST sit inside one of the cold packages; 'preferred' = the cold packages are named as the preferred choice; 'off' = the cold list is reported but not worded into the seat. 'required' is the default because the distribution file's own sentence about spreading work over different areas of the line is a PROMISE with no mechanical constraint - it survived three consecutive single-package waves untouched. A promise does not move behaviour; a MUST in the seat's own instructions does.",
+
+  "package_priority": [
+    "core",
+    "karaoke",
+    "poster",
+    "poetry",
+    "storyteller",
+    "copy",
+    "bgm",
+    "publish",
+    "cli",
+    "gate",
+    "dsh-plugin"
+  ],
+  "_comment_package_priority": "Production-line importance, most important first; it is the ORDER the cold list is printed in, and the order the seat is told to prefer. The tiers are: the pipeline core (scene parsing, lesson model, TTS, audio composition, timeline math, rendering layers, covers, manifests) first, because that is the code the operators actually run; then the pipeline packages that turn a lesson into a video (karaoke, poster, poetry, storyteller); then the content/asset packages (copy, bgm, publish); then the operator shell and the accounting gate (cli, gate); and dsh-plugin LAST, because it is the AI-operator tool surface and it has ALREADY been done three times - the recorded RSI history put all three merged waves inside packages/dsh-plugin/src/tools.ts, so it is the one area that is demonstrably over-served. A package that is not listed here (a new one) is ranked after every listed one, alphabetically."
+}

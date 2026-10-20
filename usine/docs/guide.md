@@ -1,6 +1,6 @@
 ---
 title: "feuille · 智能体使用指南（交互手册）"
-updated: { by: zcode/fuyao-work, at: 2026-10-19 }
+updated: { by: zcode/fuyao-work, at: 2026-10-20 }
 related:
   - "reference.md —— 结构 / 工作流 / 工具 / 不变量"
   - "record.md —— 实测数字与已修缺陷"
@@ -55,11 +55,17 @@ pnpm install                                    # dsh 依赖 = packages/dsh-plug
 pnpm --filter @feuille/dsh-plugin build         # 里的 npm 发布版钉版定义，零机器路径；
                                                 # 换 dsh 版本只改这处定义
 # 会话入口（packages/dsh-plugin/package.json 的 scripts）：
-pnpm --filter @feuille/dsh-plugin preflight     # 零 LLM：只验「runtime 起得来 + 插件挂得上」，不花额度
+pnpm --filter @feuille/dsh-plugin preflight     # 零 LLM：四道机械检查（产物自足 / dsh 钉版一致 / 宿主起得来 / 插件挂上），不花额度
 pnpm --filter @feuille/dsh-plugin ask           # 交互会话：逐行输入，Ctrl-D / Ctrl-C 退出
 pnpm --filter @feuille/dsh-plugin ask 自检      # 单发一句话，答完即退
+pnpm --filter @feuille/dsh-plugin host-run      # 真宿主实跑：取证「审批在派发层拦住、工具体没执行」
 # 宿主装配文件 = packages/dsh-plugin/ask.cordis.yml（provider + 插件 + approval 全在里头）；
-# 插件本体经 entry-loader.mjs 垫 require 后加载 dist/。
+# 插件本体直接加载 dist/index.mjs（产物自足：banner 注入模块作用域 require，不需要垫片）。
+# provider/model 默认 minimax / MiniMax-M3.1-Flash，可用 FEUILLE_DSH_PROVIDER、FEUILLE_DSH_MODEL 覆盖；
+#      baseURL 随区域走（cn 区 api.minimaxi.com / global 区 api.minimax.io），
+#      FEUILLE_DSH_MINIMAX_BASE_URL 可覆盖。
+# 凭据：MiniMax 平台 key —— 优先环境变量 MINIMAX_API_KEY，其次 mmx 凭据店（~/.mmx/config.json）；
+#      key 只以变量名出现在 overlay 里，本体由 dsh 凭据服务从进程环境取，永不进仓库。
 # skills 不用挂软链：插件自己把 usine/skills/ 注册为技能资产（随宿主启动自动加载）。
 
 # b. 任意智能体（无 dsh 环境的兼容路）：把 skills 软链过去
@@ -92,7 +98,7 @@ pnpm --filter @feuille/dsh-plugin ask 自检
 |---|---|---|---|
 | TTS / 海报 / 成片 | 无凭据 | — | — |
 | BGM 配乐 | `GEMINI_API_KEY`（Lyria 免费层，$0） | 填进 `explorateur/config/.env` 的 `GEMINI_API_KEY=`（等号后直接贴，别加引号；样例见同目录 `env.sample`；**勿进仓库**） | 说「查一下 BGM 凭据」→ 只探凭据不碰网络 |
-| 实拍母版 | MiniMax 套餐额度 / 积分 | 宿主侧账号 | 说「查一下额度」→ 只读查询 |
+| 实拍母版 | MiniMax 套餐额度 / 积分 | 宿主侧账号；dsh 入口的 key 走 `MINIMAX_API_KEY`（见 §2 注释） | 说「查一下额度」→ 只读查询 |
 | 平台发布 | 各平台登录态 | 说「登录小红书」→ 扫码**你自己扫** | 回读登录态；profile 目录存盘勿删 |
 
 ## 4. 快速开始：第一段对话
@@ -157,7 +163,14 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 ## 8. 工具面参考（dsh 宿主）
 
 默认注册 17 个工具，与 CLI 路由同覆盖面（发布除外）；每个工具的残余参数与
-`feuille <组> <命令>` 完全一致，退出码 0/1/2 同口径：
+`feuille <组> <命令>` 完全一致。**全部工具返回同一套结果契约**：
+
+```jsonc
+{ "ok": true, "status": "ok", "output": "人类可读输出全文", "detail": { "exit_code": 0 } }
+```
+
+`status` 三档：`ok`（过）/ `invalid`（用法或参数不合规，该改参再调）/ `failed`（检查不过或
+执行失败）；CLI 的退出码语义（0/1/2）折进 `status` 与 `detail.exit_code`，与 CLI 同一口径。
 
 | 工具 | 干什么 |
 |---|---|
@@ -200,8 +213,8 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 | 它停成一张审批卡 | 额度红线（§7） | 看卡上的消耗，点头或拒绝；**别期待「同意过一次以后免审」** |
 | 汇报里出现 SKIP | 前置缺失（如没填 key） | 按 §3 补前置，再喊它跑 |
 | 门禁红（FAIL） | 判据不过 | 让它贴判据原文——它自己定位、修、重跑；连试 2 次不收敛它会停下来问你 |
-| dsh 宿主加载报 `Dynamic require not supported` | esbuild 产物在 Node 原生 ESM 下缺 require 垫片 | 用 `packages/dsh-plugin/entry-loader.mjs` 作为插件入口（垫片已内置），别直挂 `dist/index.mjs` |
-| 它 boot 成功但工具全没了 | 宿主静默吞了 apply 抛错（如 inject 缺 `approval`） | 跑 `pnpm --filter @feuille/dsh-plugin preflight`——零 LLM 验装配，工具没挂上当场红 |
+| dsh 宿主加载报 `Dynamic require not supported` | 产物是**旧构建**——esbuild banner 注入模块作用域 require 的改动之后必须重建 | 跑 `pnpm --filter @feuille/dsh-plugin build` 重建；`entry-loader.mjs` 垫片已于 2026-10-20 删除，产物现在自足，直接挂 `dist/index.mjs` |
+| 它 boot 成功但工具全没了 | 宿主静默吞了 apply 抛错（如 `inject` 声明了宿主没提供的服务） | 跑 `pnpm --filter @feuille/dsh-plugin preflight`——零 LLM 验装配，工具没挂上当场红；注意 `inject` 现在只声明 `tools` + `systemPrompt`，`approval` / `skills` 是可选服务，缺了不会让工具面全空 |
 | DSH 沙箱报 `SetNamedSecurityInfoW` 之类的 Windows 权限错 | 宿主环境的文件权限问题，与插件工具面无关 | 让宿主跑它自带的 `diagnose-windows-sandbox-acl` 诊断技能；必要时把宿主会话切到完全权限 |
 | 换台机器还能用吗 | skills 与插件均无绝对路径绑定 | 能：§2（pnpm install + build + ask）即可；dsh 主路连软链都不用 |
 

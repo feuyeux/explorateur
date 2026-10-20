@@ -74,7 +74,7 @@
 
 ### pnpm 统一：Node 一律走 workspace
 
-- feuille 是 **pnpm TS monorepo**：`package.json` + `pnpm-workspace.yaml` + `packages/` 十包。依赖锁版在 pnpm-lock.yaml；**成像库（sharp / @napi-rs/canvas）是像素基线锚点，升级前必须重验逐帧基线**（Python 时代 Pillow 同担此角色）。
+- feuille 是 **pnpm TS monorepo**：`package.json` + `pnpm-workspace.yaml` + `packages/` 十二包。依赖锁版在 pnpm-lock.yaml；**成像库（sharp / @napi-rs/canvas）是像素基线锚点，升级前必须重验逐帧基线**（Python 时代 Pillow 同担此角色）。
 - 一切运行走 workspace：`pnpm verify`（全量门禁）/ `pnpm vitest run`（单测）/ `feuille <组> <命令>`（产线 CLI，`packages/cli` 路由表）。**不写死 node_modules 路径，不全局装包，不 `require` 借用他项目源码**（借来的代码改不动）。
 - 发布类依赖（Playwright）在 `@feuille/publish` 包内声明，`pnpm install` 即装。
 - 音乐类依赖（Lyria 客户端 `@google/genai`，`@feuille/bgm` 用）同在各自包内声明。
@@ -113,8 +113,9 @@ feuille/
   README.md            状态与索引
   package.json         pnpm TS monorepo 根（`pnpm verify` = typecheck + 全部 vitest 测试）
   pnpm-workspace.yaml  工作区（Node ≥24 + pnpm@11；依赖锁版在 pnpm-lock.yaml）
-  packages/            代码：十包按工作流 ①–⑬ 分模块（每件带反向验证，测试在各包 test/）
+  packages/            代码：十二包按工作流 ①–⑬ 分模块（每件带反向验证，测试在各包 test/）
   packages/gate/       归属门禁：ownership.json ↔ 磁盘 ↔ SKILL.md「拥有模块」三方对账
+  packages/eval/       离线产线健康分：机器可读、确定性的产线健康指标（算不出来的指标留 null，不填 0）
   languages/           语种注册表（14 manifest：字体栈/展示字体栈/国旗/书写方向/引号对）
   personas/            人设目录：28 人班底数据 + schema/声库/视觉/选角文档；
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄

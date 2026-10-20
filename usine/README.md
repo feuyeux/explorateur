@@ -13,7 +13,7 @@
 |---|---|
 | [AGENTS.md](AGENTS.md) | ★ 活规则：22 条纪律 + 工程约定（跨平台 + pnpm 统一）+ H3 铁律 |
 | `package.json` + `pnpm-workspace.yaml` | pnpm TS monorepo（Node ≥24；devDependencies 锁在 lockfile） |
-| `packages/` | 代码：pnpm 工作区 10 包（core / cli / publish / poster / karaoke / poetry / storyteller / copy / bgm / dsh-plugin + gate 门禁），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#packages-模块地图三层归属) |
+| `packages/` | 代码：pnpm 工作区 12 包（core / cli / publish / poster / karaoke / poetry / storyteller / copy / bgm / dsh-plugin + gate 门禁 + eval 健康分），按工作流①–⑬全覆盖——三层归属见[下方模块地图](#packages-模块地图三层归属) |
 | 各包 `test/` | vitest 门禁：反向验证纪律原样移植（**凿洞必被抓**；`pnpm verify` 一条命令全量跑：typecheck + 全部测试） |
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
@@ -68,7 +68,7 @@
 | `core.num` | 数值口径底座：pyFloat / roundHalfEven / clamp——Python 口径镜像 |
 | `core.argv` | CLI 旗标取值：`--k v` 与 `--k=v` 同收 |
 | `core.imaging` | 成像底座：sharp 解码/编码 + @napi-rs/canvas 绘制（Pillow 语义镜像），唯一成像实现 |
-| `dsh-plugin` | dsh 原生智能体插件：17 工具面 + approval 红线门控 + systemPrompt 纪律节 |
+| `dsh-plugin` | dsh 原生智能体插件：17 工具面 + 统一结果契约 + dispatch 层额度审批门 + systemPrompt 纪律节 |
 
 ### skill 专属 —— 13 个（只被这一个 skill 用的业务实现）
 

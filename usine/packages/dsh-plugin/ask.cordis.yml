@@ -1,29 +1,83 @@
 # ask.mjs 对话入口的 overlay：在 dsh `sdk` 剖面上临时叠加，不动 ~/.dsh 剖面。
 #
-#  1. llm-pi-ai 补 fuyao-ai-gateway provider（规格逐字照抄 ~/.dsh/profiles/desktop
-#     的同名条目；apiKeyEnv 只写环境变量名，key 本体在 $DSH_HOME 凭据店，永不进仓库）；
-#  2. insert feuille-usine 插件——入口指 require 互操作垫片（entry-loader.mjs），
-#     它再加载本包 dist/index.mjs（17 个 usine_* 工具 + 纪律 systemPrompt）；
+#  1. llm-pi-ai 补两个 provider：
+#     · minimax —— MiniMax 平台（OpenAI 兼容端点）。baseURL 由
+#       FEUILLE_DSH_MINIMAX_BASE_URL 决定（cn 区 api.minimaxi.com / global 区
+#       api.minimax.io），端点选择随本机 key 所在区域走；key 只以环境变量名
+#       MINIMAX_API_KEY 出现，本体由 dsh 凭据服务从进程环境取，永不进仓库。
+#     · fuyao —— 规格**逐字照抄** ~/.dsh/profiles/desktop 的同名条目（provider id、
+#       apiKeyEnv、baseURL、模型规格、reasoningEfforts 全部一致）。改了这里就必须
+#       同步改 desktop 剖面，否则两处漂移。
+#  2. insert feuille-usine 插件——入口指 dist/index.mjs（esbuild 产物自足：banner 注入
+#     模块作用域 require，纯 node 下可独立加载，不需要 globalThis 垫片）。
 #  3. approval policy=never：所有审批问询确定性自动拒绝——红线双保险，花额度的
-#     生成提交结构性停摆（视频生成必停在审批），本入口零 H3/额度。
+#     生成提交结构性停摆（视频生成卡在 dispatch 层的审批门，工具不执行），本入口零 H3/额度。
 - id: llm-pi-ai
   config:
     providers:
-      fuyao-ai-gateway:
-        displayName: fuyao-ai-gateway
-        apiKeyEnv: FUYAO_AI_GATEWAY_API_KEY
+      minimax:
+        displayName: MiniMax
+        api: openai-completions
+        baseURL: !!js "process.env.FEUILLE_DSH_MINIMAX_BASE_URL ?? 'https://api.minimaxi.com/v1'"
+        apiKeyEnv: MINIMAX_API_KEY
+        defaultInput:
+          - text
+        models:
+          - id: MiniMax-M3.1-Flash
+            name: MiniMax M3.1 Flash
+            contextWindow: 512000
+            maxTokens: 32768
+            input:
+              - text
+          - id: MiniMax-M3
+            name: MiniMax M3
+            contextWindow: 512000
+            maxTokens: 32768
+            input:
+              - text
+      fuyao:
+        displayName: Fuyao AI Gateway
         api: openai-completions
         baseURL: https://fuyao-ai-gateway.xiaopeng.link/v1
+        apiKeyEnv: FUYAO_API_KEY
+        defaultInput:
+          - text
         models:
           - id: fuyao-coding
-            name: fuyao-coding
+            name: Fuyao Coding
+            contextWindow: 1000000
+            maxTokens: 65536
+            input:
+              - text
+              - image
+            reasoningEfforts:
+              low: low
+              high: high
+              max: max
           - id: fuyao-work
-            name: fuyao-work
+            name: Fuyao Work
+            contextWindow: 1000000
+            maxTokens: 65536
+            input:
+              - text
+            reasoningEfforts:
+              low: low
+              high: high
+              max: max
           - id: fuyao-data
-            name: fuyao-data
+            name: Fuyao Data
+            contextWindow: 262000
+            maxTokens: 65536
+            input:
+              - text
+              - image
+            reasoningEfforts:
+              low: low
+              medium: medium
+              xhigh: xhigh
 - insert:
     - id: feuille-usine
-      name: './entry-loader.mjs'
+      name: './dist/index.mjs'
 - id: approval
   config:
     policy: never

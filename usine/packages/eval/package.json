@@ -1,0 +1,17 @@
+{
+  "name": "@feuille/eval",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "离线产线健康分 v0：机器可读、确定性的产线健康指标（排版装不下 / 词级时间轴对齐 / 语种矩阵通过率），给「比合并前更好没有」提供判据。零网络、零浏览器、零额度；算不出来的指标一律 null（纪律 8）。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "feuille-eval": "./bin/feuille-eval.js"
+  },
+  "dependencies": {
+    "@feuille/core": "workspace:*"
+  }
+}

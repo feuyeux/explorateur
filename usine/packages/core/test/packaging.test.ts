@@ -35,7 +35,8 @@ describe('交付打包（zipTree / UTF-8 flag / 条目完整性）', () => {
 
     const zp = await packaging.zipTree(src, join(d, 'out.zip'))
     expect(await packaging.hasUtf8Flag(zp, '子目录/中文_抖音封面.png')).toBe(true)
-    // ASCII 条目 yazl 也置位（探针证明，见 migration/README.md P2 结论）——更保守且无害
+    // ASCII 条目 yazl 也置位（本行的断言就是那个探针的结论；Python 时代的
+    // 探针记录已随金样本退役，行为改由这一行机检）
     expect(await packaging.hasUtf8Flag(zp, '普通.txt')).toBe(true)
 
     const entries = await packaging.listEntries(zp)

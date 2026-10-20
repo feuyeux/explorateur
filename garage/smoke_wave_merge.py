@@ -152,6 +152,10 @@ def _write(name, text):
 
 with open(_p("gate-ran-marker"), "a", encoding="utf-8", newline="\\n") as handle:
     handle.write("ran\\n")
+if os.path.exists(_p("gate-counts")):
+    # 让桩门禁能吐 vitest 风格的汇总行，好让合并器把「跳过几项」记进报告。
+    with open(_p("gate-counts"), "r", encoding="utf-8") as handle:
+        sys.stdout.write(handle.read())
 if os.path.exists(_p("gate-side-effect")):
     _write("src/innocent.txt", "gate was here\\n")
 if os.path.exists(_p("gate-revert")):
@@ -232,7 +236,11 @@ def make_episode(lineage: pathlib.Path, name: str, wave: int,
 def config_for(usine: pathlib.Path, gate_argv=None) -> wave_merge.UsineMergeConfig:
     return wave_merge.UsineMergeConfig(
         usine_dir=str(usine),
-        gate_argv=tuple(gate_argv) if gate_argv else (sys.executable, "gate.py"))
+        gate_argv=tuple(gate_argv) if gate_argv else (sys.executable, "gate.py"),
+        # The throwaway repo has no adaptation layer inside it, so the memory
+        # snapshot is told where to land — same knob the real deployment uses
+        # when the layer sits outside the repository.
+        memory_snapshot_dir="garage")
 
 
 def git_read(usine: pathlib.Path, *args) -> str:
@@ -1111,6 +1119,387 @@ def test_drs_fail_and_plan() -> None:
                      wave_merge.merge_drs_run, str(empty), config_for(usine))
 
 
+def _sha_of(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _spec_registry(base: pathlib.Path, docs: list[str]) -> pathlib.Path:
+    """Write a spec-sync registry for the throwaway repo and point the gate at it."""
+    path = base / "spec-sync.json"
+    path.write_text(json.dumps({"spec_docs": docs}), encoding="utf-8")
+    os.environ["GARAGE_SPEC_SYNC_REGISTRY"] = str(path)
+    return path
+
+
+def _spec_doc(anchors: str, prose: str = "spec") -> bytes:
+    body = f"# spec\n\n{prose}\n\n```anchors\n{anchors}\n```\n"
+    return body.encode("utf-8")
+
+
+def test_spec_sync_and_memory() -> None:
+    """Spec sync gate + memory snapshot + honest gate counts.
+
+    The spec-sync rule exists because a stale spec is worse than a stale
+    comment: the next wave reads the spec as the truth about the code, and
+    re-does work that was already done.  These cases pin the four outcomes:
+    drift without a spec update is rejected, a same-batch spec update is
+    accepted, a candidate whose OWN spec lies is rejected, and an untouched
+    spec needs no update at all.
+    """
+    saved_registry = os.environ.get("GARAGE_SPEC_SYNC_REGISTRY")
+    try:
+        # 1. The spec claims a literal that the code still has: touching an
+        #    unrelated file must NOT force a spec update.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc(
+                "src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "unrelated", "PASS",
+                         files, dict(files, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: an unrelated change needs no spec update",
+                  entry["decision"] == "merged", entry.get("reason", ""))
+
+        # 2. The spec's anchor is gone from the code and the spec was NOT
+        #    updated: the candidate must be skipped whole.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "drift", "PASS",
+                         files, dict(files, **{"src/a.txt": b"REWRITTEN\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: a stale spec rejects the candidate",
+                  entry["decision"] == "spec_sync_rejected", entry.get("reason", ""))
+            check("spec sync: the rejection names the spec and the code",
+                  "docs/spec.md" in (entry.get("reason") or "")
+                  and "src/a.txt" in (entry.get("reason") or ""),
+                  entry.get("reason", ""))
+            check("spec sync: the rejected candidate was never applied",
+                  tree_sha(usine, "src/a.txt") != _sha_of(b"REWRITTEN\n"), "")
+
+        # 3. The same code change WITH the spec updated in the same candidate
+        #    is accepted: that is the escape hatch the rule is designed for.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            candidate = dict(files, **{"src/a.txt": b"REWRITTEN\n"})
+            candidate["docs/spec.md"] = _spec_doc("src/a.txt REWRITTEN")
+            make_episode(lineage, "ep001", 1, 1, "updated", "PASS",
+                         files, candidate)
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: a same-batch spec update is accepted",
+                  entry["decision"] == "merged", entry.get("reason", ""))
+            check("spec sync: the accepted candidate carries the new bytes",
+                  tree_sha(usine, "src/a.txt") == _sha_of(b"REWRITTEN\n"), "")
+
+        # 4. The candidate updates the spec but the spec now lies: rejected.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            candidate = dict(files, **{"src/a.txt": b"REWRITTEN\n"})
+            candidate["docs/spec.md"] = _spec_doc("src/a.txt NEVER-EXISTED")
+            make_episode(lineage, "ep001", 1, 1, "lying", "PASS",
+                         files, candidate)
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: a candidate whose own spec lies is rejected",
+                  entry["decision"] == "spec_sync_rejected", entry.get("reason", ""))
+
+        # 5. A tree that does not carry the spec at all: the gate cannot
+        #    apply, and it says so instead of vanishing.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            usine = make_repo(base)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "nospec", "PASS",
+                         BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: a missing spec does not block the merge",
+                  entry["decision"] == "merged", entry.get("reason", ""))
+            check("spec sync: a missing spec is reported as a notice",
+                  bool(entry.get("spec_sync_notices")), "")
+
+        # 6. The memory tree lands in the repository, with the engine's own
+        #    tree hash, in a commit of its own.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            memory = lineage / "memory"
+            memory.mkdir(parents=True, exist_ok=True)
+            (memory / "notes.md").write_text("记住：产线口径\n", encoding="utf-8")
+            make_episode(lineage, "ep001", 1, 1, "withmemory", "PASS",
+                         files, dict(files, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            snapshot = report.get("memory_snapshot") or {}
+            check("memory: the snapshot is written", snapshot.get("written") is True,
+                  str(snapshot.get("reason", "")))
+            check("memory: the snapshot carries a tree hash",
+                  bool(snapshot.get("tree_sha256")), "")
+            check("memory: the snapshot is committed on its own",
+                  bool(snapshot.get("commit")), "")
+            log = git_read(usine, "log", "--format=%s%n%b", "-2")
+            check("memory: the commit says which unit it belongs to",
+                  "X-Theatre-Memory" in log, log[-200:])
+
+        # 7. The gate's skipped count is visible in the report: a skip is not
+        #    a pass, and a report that cannot see it overstates coverage.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            usine = make_repo(base)
+            (usine / "gate-counts").write_text(
+                " Test Files  42 passed (42)\n"
+                "      Tests  528 passed | 8 skipped (536)\n", encoding="utf-8")
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "counts", "PASS",
+                         BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            gate = report["candidates"][0].get("gate") or {}
+            counts = gate.get("counts") or {}
+            check("gate: the skipped count is recorded", counts.get("skipped") == 8,
+                  str(counts))
+            check("gate: the passed count is recorded", counts.get("passed") == 528,
+                  str(counts))
+            body = git_read(usine, "log", "--format=%b", "-1")
+            check("gate: the commit body admits the skips",
+                  "skipped" in body and "NOT passed" in body, body[-200:])
+
+        # 8. A pre-existing drift must not be blamed on the candidate.  A
+        #    baseline whose spec is already out of sync must not block every
+        #    later candidate — that is how a gate goes silently dead.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            files = dict(BASE_FILES)
+            # The spec already claims a literal the code never had.
+            files["docs/spec.md"] = _spec_doc("src/a.txt NEVER-EXISTED")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "preexisting", "PASS",
+                         files, dict(files, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            entry = report["candidates"][0]
+            check("spec sync: a pre-existing drift does not block a candidate",
+                  entry["decision"] == "merged", entry.get("reason", ""))
+            check("spec sync: a pre-existing drift is reported as a notice",
+                  bool(entry.get("spec_sync_notices")), "")
+
+        # 9. A gate whose output carries no parsable counts reports null, not
+        #    zero: "we could not see it" and "there was none" are different.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            usine = make_repo(base)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "nocounts", "PASS",
+                         BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"CHANGED-B\n"}))
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            gate = report["candidates"][0].get("gate") or {}
+            counts = gate.get("counts") or {}
+            check("gate: unparsable counts stay null, not zero",
+                  counts.get("skipped") is None, str(counts))
+    finally:
+        if saved_registry is None:
+            os.environ.pop("GARAGE_SPEC_SYNC_REGISTRY", None)
+        else:
+            os.environ["GARAGE_SPEC_SYNC_REGISTRY"] = saved_registry
+
+
+FAKE_HEALTH = '''#!/usr/bin/env python3
+"""A stand-in for the offline health score, with the same CLI contract.
+
+The real one lives in the target project (packages/eval).  This fake keeps
+the contract — "health --out FILE" writes a report, "compare --baseline A
+--candidate B" exits 1 when a metric got worse — so the merge's gate wiring
+can be tested without the real project in the tree.
+"""
+import json
+import os
+import sys
+
+args = sys.argv[1:]
+
+
+def flag(name):
+    return args[args.index(name) + 1] if name in args else None
+
+
+if args and args[0] == "health":
+    out = flag("--out")
+    state = "good"
+    marker = os.path.join(os.getcwd(), "health-state.txt")
+    if os.path.exists(marker):
+        with open(marker, encoding="utf-8") as handle:
+            state = handle.read().strip()
+    value = 1.0 if state == "good" else 0.0
+    report = {
+        "schema_version": 1,
+        "inputs_sha256": state,
+        "metrics": {"locale_matrix": {
+            "value": value, "unit": "rate", "samples": 14,
+            "direction": "higher_is_better"}},
+    }
+    with open(out, "w", encoding="utf-8") as handle:
+        json.dump(report, handle)
+    sys.exit(0)
+
+if args and args[0] == "compare":
+    with open(flag("--baseline"), encoding="utf-8") as handle:
+        base = json.load(handle)
+    with open(flag("--candidate"), encoding="utf-8") as handle:
+        cand = json.load(handle)
+    before = base["metrics"]["locale_matrix"]["value"]
+    after = cand["metrics"]["locale_matrix"]["value"]
+    regressed = after < before
+    print(json.dumps({
+        "schema_version": 1, "metrics": [],
+        "improved": [] if regressed else ["locale_matrix"],
+        "regressed": ["locale_matrix"] if regressed else [],
+        "unchanged": [], "not_comparable": []}))
+    sys.exit(1 if regressed else 0)
+
+sys.exit(2)
+'''
+
+FAKE_L3_OK = '''#!/usr/bin/env python3
+import sys
+sys.exit(0)
+'''
+
+FAKE_L3_RED = '''#!/usr/bin/env python3
+import sys
+sys.exit(1)
+'''
+
+
+def _write_script(path: pathlib.Path, source: str) -> str:
+    path.write_text(source, encoding="utf-8")
+    return str(path)
+
+
+def test_health_and_l3_gates() -> None:
+    """The health gate and the L3 agent-surface gate.
+
+    The gate says "nothing broke"; the health score says "it got better";
+    L3 says "the improvement actually reached the agent surface".  A merge
+    needs all three, and each one has to be able to say no.
+    """
+    saved_registry = os.environ.get("GARAGE_SPEC_SYNC_REGISTRY")
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            _spec_registry(base, ["docs/spec.md"])
+            health = _write_script(base / "fake-health.py", FAKE_HEALTH)
+            l3_ok = _write_script(base / "fake-l3-ok.py", FAKE_L3_OK)
+            l3_red = _write_script(base / "fake-l3-red.py", FAKE_L3_RED)
+
+            # 1. A candidate that makes the health score worse is rejected.
+            files = dict(BASE_FILES)
+            files["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+            usine = make_repo(base, files)
+            lineage = base / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "worse", "PASS",
+                         files, dict(files, **{"health-state.txt": b"bad\n"}))
+            config = wave_merge.UsineMergeConfig(
+                usine_dir=str(usine), gate_argv=(sys.executable, "gate.py"),
+                memory_snapshot_dir="garage",
+                health_argv=(sys.executable, health),
+                l3_smoke_argv=(sys.executable, l3_ok))
+            report = wave_merge.merge_wave(str(lineage), 1, config)
+            entry = report["candidates"][0]
+            check("health: a worse score rejects the candidate",
+                  entry["decision"] == "health_rejected", entry.get("reason", ""))
+            check("health: the rejection names the metric",
+                  "locale_matrix" in (entry.get("reason") or ""),
+                  entry.get("reason", ""))
+            check("health: the rejected candidate was rolled back",
+                  not (usine / "health-state.txt").exists(), "")
+
+            # 2. A candidate that makes it better is accepted, and the report
+            #    says which metrics moved.
+            with tempfile.TemporaryDirectory() as tmp2:
+                base2 = pathlib.Path(tmp2)
+                _spec_registry(base2, ["docs/spec.md"])
+                health2 = _write_script(base2 / "fake-health.py", FAKE_HEALTH)
+                l3_ok2 = _write_script(base2 / "fake-l3-ok.py", FAKE_L3_OK)
+                files2 = dict(BASE_FILES)
+                files2["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+                usine2 = make_repo(base2, files2)
+                lineage2 = base2 / "lineage"
+                make_episode(lineage2, "ep001", 1, 1, "better", "PASS",
+                             files2, dict(files2, **{"health-state.txt": b"good\n"}))
+                config2 = wave_merge.UsineMergeConfig(
+                    usine_dir=str(usine2), gate_argv=(sys.executable, "gate.py"),
+                    memory_snapshot_dir="garage",
+                    health_argv=(sys.executable, health2),
+                    l3_smoke_argv=(sys.executable, l3_ok2))
+                report2 = wave_merge.merge_wave(str(lineage2), 1, config2)
+                entry2 = report2["candidates"][0]
+                check("health: a better score is accepted",
+                      entry2["decision"] == "merged", entry2.get("reason", ""))
+                check("health: the report says what improved",
+                      (entry2.get("health") or {}).get("improved") == ["locale_matrix"],
+                      str(entry2.get("health")))
+
+            # 3. L3 red: the improvement never reached the agent surface.
+            with tempfile.TemporaryDirectory() as tmp3:
+                base3 = pathlib.Path(tmp3)
+                _spec_registry(base3, ["docs/spec.md"])
+                health3 = _write_script(base3 / "fake-health.py", FAKE_HEALTH)
+                l3_red3 = _write_script(base3 / "fake-l3-red.py", FAKE_L3_RED)
+                files3 = dict(BASE_FILES)
+                files3["docs/spec.md"] = _spec_doc("src/a.txt BASE-A")
+                usine3 = make_repo(base3, files3)
+                lineage3 = base3 / "lineage"
+                make_episode(lineage3, "ep001", 1, 1, "l3red", "PASS",
+                             files3, dict(files3, **{"src/b.txt": b"CHANGED-B\n"}))
+                config3 = wave_merge.UsineMergeConfig(
+                    usine_dir=str(usine3), gate_argv=(sys.executable, "gate.py"),
+                    memory_snapshot_dir="garage",
+                    health_argv=(sys.executable, health3),
+                    l3_smoke_argv=(sys.executable, l3_red3))
+                report3 = wave_merge.merge_wave(str(lineage3), 1, config3)
+                entry3 = report3["candidates"][0]
+                check("l3: a red agent-surface smoke rejects the candidate",
+                      entry3["decision"] == "l3_rejected", entry3.get("reason", ""))
+                check("l3: the rejection is recorded with its exit code",
+                      (entry3.get("l3") or {}).get("exit_code") == 1,
+                      str(entry3.get("l3")))
+    finally:
+        if saved_registry is None:
+            os.environ.pop("GARAGE_SPEC_SYNC_REGISTRY", None)
+        else:
+            os.environ["GARAGE_SPEC_SYNC_REGISTRY"] = saved_registry
+
+
 def main() -> int:
     test_archives()
     test_merge_green()
@@ -1123,6 +1512,8 @@ def main() -> int:
     test_crlf_worktree_is_not_drift()
     test_drs_merge()
     test_drs_fail_and_plan()
+    test_spec_sync_and_memory()
+    test_health_and_l3_gates()
     passed = sum(1 for status, _, _ in RESULTS if status == "PASS")
     failed = sum(1 for status, _, _ in RESULTS if status == "FAIL")
     infos = sum(1 for status, _, _ in RESULTS if status == "INFO")

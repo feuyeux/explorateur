@@ -33,6 +33,21 @@ usine 除人工演进外，还由 **RSI 引擎**（波次化递归自我改进�
 
 ---
 
+## 第二条自进化路径（theatre-ii × garage-ii）
+
+**同一个 `usine`、同一个 dsh 智能体**，换一套引擎。区别在**改什么**：`théâtre/`（RSIAgent）改的是**记忆**——一份 Markdown 语料库；`theatre-ii/`（harness2）改的是**harness 本身**——智能体每一步都读的那份东西（系统提示 / 红线 / 工具指引 / 技能路由）。
+
+| 目录 | 是什么 | 入口 |
+|---|---|---|
+| [`theatre-ii/`](theatre-ii/) | vendored harness2 引擎（上游 [google-research/harness2](https://github.com/google-research/harness2) @ `1cfe254`，Apache-2.0，**零补丁**） | [ARCHITECTURE.md](theatre-ii/ARCHITECTURE.md)（c1..c8 与 Propose–Probe–Compose）· [COMPARISON.md](theatre-ii/COMPARISON.md)（**对 RSIAgent 的引擎层对照**）· [PROVENANCE.md](theatre-ii/PROVENANCE.md)（vendor 范围与已知缺口） |
+| [`garage-ii/`](garage-ii/) | 桥接层：dsh 那一面（可编辑面 + 装配 + 轨迹）+ usine 那一格（任务 / 判据 / 运行手册）+ 三臂对照驱动 | [README](garage-ii/README.md)（**运行手册**）· [BENCHMARK.md](garage-ii/BENCHMARK.md)（**对照协议：任务、判据、公平性保障、读数纪律**）· `run_usine_h2.py`（`--preflight` 先行；`--phase sweep` 需 ack token；真波次喊跑才跑） |
+
+两层的红线与 `garage/` 对齐：自检先行、执行需 ack、**发布永不自动**、运行产物落**仓库外** run root、基准 harness 与被改进对象**同源**（`build_base_harness.py` 派生，带漂移闸）。
+
+`usine` 侧**只被读、不被改**：本层只从 `usine/packages/dsh-plugin/src/` 与 `usine/skills/` 派生基准资产。
+
+---
+
 ## 前置依赖
 
 - `usine`：Node ≥24、pnpm ≥11（standalone）；`pnpm install` 一次后 `pnpm verify` 全量门禁。
