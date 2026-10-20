@@ -165,12 +165,21 @@ BASE_FILES = {"src/a.txt": b"BASE-A\n", "src/b.txt": b"BASE-B\n",
               "docs/readme.md": b"README\n"}
 
 
-def make_repo(base: pathlib.Path, files=None) -> pathlib.Path:
+def make_repo(base: pathlib.Path, files=None,
+              autocrlf: str = "false") -> pathlib.Path:
     """A throwaway git repo with the usine project as a tracked subtree.
 
     The repository root is ``base/repo`` and the project files live under
     ``base/repo/usine`` — the explorateur topology (usine is a subtree of a
     larger repository), so the prefix-aware git paths stay covered.
+
+    ``autocrlf`` is the repository's line-ending policy AT COMMIT TIME,
+    and it has to be: git caches the "convert to git" filter in the INDEX
+    ENTRY when a file is added, so a file committed under
+    ``autocrlf=false`` is still compared byte-for-byte afterwards even if
+    the config is changed later.  The real repository commits under
+    ``autocrlf=input``, which is why a CRLF working-tree file there is
+    still "clean" to git.
     """
     files = dict(files or BASE_FILES)
     repo = base / "repo"
@@ -191,7 +200,7 @@ def make_repo(base: pathlib.Path, files=None) -> pathlib.Path:
         return proc.stdout.decode("utf-8", "replace")
 
     git("init", "-q")
-    git("config", "core.autocrlf", "false")
+    git("config", "core.autocrlf", autocrlf)
     git("add", "-A")
     git("-c", "user.name=smoke", "-c", "user.email=smoke@local",
         "commit", "-q", "-m", "base")
@@ -242,6 +251,21 @@ def commit_all(usine: pathlib.Path, message: str) -> None:
         if proc.returncode != 0:
             raise RuntimeError(f"git {args[0]} failed: "
                                f"{proc.stderr.decode('utf-8', 'replace')[:300]}")
+
+
+def refresh_index(usine: pathlib.Path) -> None:
+    """Re-stage the tree so git's index stat cache matches the worktree.
+
+    This is what makes a CRLF working-tree file "clean" to git: the index
+    entry keeps the folded LF blob and picks up the CRLF file's stat, so
+    git no longer sees a difference.  No commit happens — the content did
+    not change, only its on-disk spelling.
+    """
+    proc = subprocess.run(["git", "add", "-A"], cwd=str(usine),
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        raise RuntimeError("git add failed: "
+                           f"{proc.stderr.decode('utf-8', 'replace')[:300]}")
 
 
 def gate_runs(usine: pathlib.Path) -> int:
@@ -924,6 +948,169 @@ def test_sink_and_catchup() -> None:
                          config_for(usine))
 
 
+# ------------------------------------------- D: line endings and the DRS merge
+
+def test_crlf_worktree_is_not_drift() -> None:
+    """A CRLF working tree is NOT a content change.
+
+    On this host the repository's canonical form is the LF blob
+    (``core.autocrlf=input``: git folds CRLF on the way IN and never expands
+    LF on checkout), so a working-tree file may carry CRLF while git still
+    calls the file clean.  The merge's drift check compares the working tree
+    against the baseline and the candidate; a raw-bytes-only comparison
+    called that "drift" and dropped the candidate WHOLE — a
+    verifier-PASSed, gate-green improvement lost over line endings.  The
+    comparison is raw AND line-ending-folded, so the fold decides here.
+    """
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-d1-") as tmp:
+        root = pathlib.Path(tmp)
+        # The host's real setting, in force FROM THE COMMIT: fold CRLF on
+        # the way in, never expand on checkout.
+        usine = make_repo(root, autocrlf="input")
+        # Reproduce the real situation: the file was edited with CRLF and
+        # then added, so git folded it into an LF blob while its index stat
+        # still describes the CRLF working-tree file.  The tree therefore
+        # reads as CLEAN to git, while the worktree bytes differ from the
+        # baseline archive byte-for-byte.
+        (usine / "src/a.txt").write_bytes(b"BASE-A\r\n")
+        refresh_index(usine)
+        check("crlf: git still calls the tree clean",
+              git_read(usine, "status", "--porcelain", "-uno").strip() == "",
+              git_read(usine, "status", "--porcelain", "-uno"))
+        check("crlf: the blob is still the folded LF one",
+              git_read(usine, "cat-file", "-s",
+                       git_read(usine, "rev-parse", ":usine/src/a.txt").strip()
+                       ).strip() == str(len(b"BASE-A\n")),
+              git_read(usine, "rev-parse", ":usine/src/a.txt"))
+
+        lineage = root / "lineage"
+        make_episode(lineage, "ep001", 1, 1, "p-crlf", "PASS",
+                     BASE_FILES, _green_candidate_files())
+        report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        check("crlf: the candidate merges instead of drift-skipping",
+              report["candidates"][0]["decision"] == "merged"
+              and report["candidates"][0]["pre_applied"] == 0,
+              report["candidates"][0])
+        check("crlf: the tree carries the candidate bytes",
+              (usine / "src/a.txt").read_bytes() == b"NEW-A\n",
+              (usine / "src/a.txt").read_bytes())
+
+        # A working tree that matches NEITHER side is still drift: the fold
+        # only forgives line endings, not content.  The realistic drift case
+        # is a tree that MOVED ON after the wave was captured — HEAD's blob
+        # is neither the baseline nor the candidate, and the tree is clean.
+        other = make_repo(root / "other", autocrlf="input")
+        (other / "src/a.txt").write_bytes(b"UNRELATED\n")
+        commit_all(other, "unrelated change")
+        lineage2 = root / "other" / "lineage"
+        make_episode(lineage2, "ep001", 1, 1, "p-drift", "PASS",
+                     BASE_FILES, _green_candidate_files())
+        report2 = wave_merge.merge_wave(str(lineage2), 1, config_for(other))
+        check("crlf: unrelated content is still drift",
+              report2["candidates"][0]["decision"] == "drift_skipped",
+              report2["candidates"][0])
+
+
+def make_drs_episode(lineage: pathlib.Path, name: str, outcome: str,
+                     fixture_files: dict, candidate_files: dict) -> pathlib.Path:
+    """An episode in the ENGINE's DRS shape.
+
+    A DRS episode's ``outcome.json`` carries ``terminal_outcome`` but no
+    ``wave_index`` / ``project_id``: it closed with PROJECT_CLOSED, not
+    PHASE1_WAVE_COMPLETED.  The merge writes its own Phase-1-shaped record
+    BESIDE it and never rewrites the engine's file.
+    """
+    episode = lineage / "episodes" / name
+    write_materials(episode / "fixtures", fixture_files)
+    write_materials(episode / "candidates" / "cycle_001", candidate_files)
+    (episode / "outcome.json").write_text(json.dumps({
+        "schema_version": 1,
+        "project_index": 1,
+        "project": "a deep drill about the wording of one message",
+        "terminal_outcome": outcome,
+        "verification_cycles": 1,
+    }), encoding="utf-8")
+    return episode
+
+
+def test_drs_merge() -> None:
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-d2-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        episode = make_drs_episode(lineage, "ep001", "PASS", BASE_FILES,
+                                   _green_candidate_files())
+        engine_outcome = (episode / "outcome.json").read_bytes()
+
+        report = wave_merge.merge_drs_run(str(lineage), config_for(usine))
+        check("drs: the engine's outcome.json is left byte-for-byte alone",
+              (episode / "outcome.json").read_bytes() == engine_outcome)
+        record = json.loads(
+            (episode / "merge_outcome.json").read_text(encoding="utf-8"))
+        check("drs: the merge record carries the wave shape",
+              record["wave_index"] == 1 and record["project_index"] == 1
+              and record["project_id"].startswith("drs-")
+              and record["terminal_outcome"] == "PASS", record)
+        check("drs: the candidate merges",
+              report["candidates"][0]["decision"] == "merged",
+              report["candidates"][0])
+        subject = git_read(usine, "log", "-1", "--format=%s").strip()
+        body = git_read(usine, "log", "-1", "--format=%B")
+        check("drs: the commit never calls itself a wave",
+              subject.startswith("theatre-drs(drs-1): accept ep001 (drs-")
+              and "X-Theatre-Drs: 1" in body
+              and "X-Theatre-Wave" not in body, subject)
+        tags = git_read(usine, "tag", "-l").split()
+        check("drs: the tag is the DRS one, not a wave tag",
+              report["tag"] == "theatre/drs-1" and "theatre/drs-1" in tags
+              and "theatre/wave-1" not in tags, tags)
+        check("drs: the tree carries the candidate bytes",
+              (usine / "src/a.txt").read_bytes() == b"NEW-A\n"
+              and (usine / "src/newdir/new.txt").read_bytes() == b"NEW\n")
+
+
+def test_drs_fail_and_plan() -> None:
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-d3-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        make_drs_episode(lineage, "ep001", "FAIL", BASE_FILES,
+                         _green_candidate_files())
+        report = wave_merge.merge_drs_run(str(lineage), config_for(usine))
+        check("drs: a FAIL episode is not merged",
+              report["candidates"][0]["decision"] == "not_pass"
+              and not report["commits"], report["candidates"][0])
+
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-d4-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        make_drs_episode(lineage, "ep001", "PASS", BASE_FILES,
+                         _green_candidate_files())
+        head = git_read(usine, "rev-parse", "HEAD").strip()
+        plan = wave_merge.plan_drs_run(str(lineage), config_for(usine))
+        check("drs plan: the delta and the verdict are reported",
+              plan["episodes"][0]["verdict"] == "fresh"
+              and plan["episodes"][0]["delta"]["modified"] == ["src/a.txt"]
+              and plan["episodes"][0]["delta"]["added"] == ["src/newdir/new.txt"]
+              and plan["would_merge"] is True, plan)
+        check("drs plan: the tag it would create is the DRS one",
+              plan["tag"] == "theatre/drs-1", plan.get("tag"))
+        check("drs plan: nothing was applied, committed or gated",
+              git_read(usine, "rev-parse", "HEAD").strip() == head
+              and git_read(usine, "tag", "-l").strip() == ""
+              and git_read(usine, "status", "--porcelain", "-uno").strip() == ""
+              and gate_runs(usine) == 0)
+
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-d5-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        empty = root / "empty"
+        (empty / "episodes").mkdir(parents=True)
+        expect_raise("drs merge: no closed episode fails closed",
+                     wave_merge.merge_drs_run, str(empty), config_for(usine))
+
+
 def main() -> int:
     test_archives()
     test_merge_green()
@@ -933,6 +1120,9 @@ def main() -> int:
     test_merge_policy_and_gate()
     test_merge_preconditions()
     test_sink_and_catchup()
+    test_crlf_worktree_is_not_drift()
+    test_drs_merge()
+    test_drs_fail_and_plan()
     passed = sum(1 for status, _, _ in RESULTS if status == "PASS")
     failed = sum(1 for status, _, _ in RESULTS if status == "FAIL")
     infos = sum(1 for status, _, _ in RESULTS if status == "INFO")

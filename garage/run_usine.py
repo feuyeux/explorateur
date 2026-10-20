@@ -456,6 +456,72 @@ def _append_event(path: Path, event_type: str, *, status: str,
         os.fsync(handle.fileno())
 
 
+def _inspect_memory_seed(source: Path) -> dict:
+    """Describe a memory tree that will seed a run (never its contents).
+
+    A seed is a DIRECTORY of memory records (``*.md``).  It is what a
+    previous wave — or a previous DRS — learned, and installing it is how
+    the next run starts on top of that knowledge instead of rediscovering
+    it.  The engine reads the run's ``memory/`` directory as the starting
+    tree (the Curriculum seat reads it, the Actor is handed it), so
+    seeding is a directory copy: no engine change is involved.
+    """
+    source = Path(source)
+    files = sorted(path for path in source.rglob("*") if path.is_file())
+    return {
+        "path": str(source),
+        "files": len(files),
+        "bytes": sum(path.stat().st_size for path in files),
+        "names": [str(path.relative_to(source)) for path in files][:64],
+    }
+
+
+def _merge_drs_into_usine(run_root: Path, merge_config) -> dict:
+    """Merge a DRS episode's candidate into the usine tree.
+
+    The DRS's serial core closes its episode with ``PROJECT_CLOSED``, not
+    ``PHASE1_WAVE_COMPLETED``, so the wave-merge event sink never fires:
+    the candidate — verifier PASS, offline gate green — stays in the run
+    root and the repository never changes.  This runs the SAME machinery a
+    breadth wave goes through (delta, drift check, the offline gate against
+    the REAL tree, commit, tag), so a DRS improvement lands under the same
+    rules as everything else, and it is re-gated on the way in rather than
+    trusted from the guest.
+
+    The outcome is REPORTED, never assumed.  A merge failure is recorded
+    in the payload (and the process exits 4) instead of turning into a
+    silent no-op: "the DRS produced an improvement" and "the improvement is
+    in the repository" are two different claims.
+    """
+    import wave_merge
+    try:
+        report = wave_merge.merge_drs_run(str(run_root), merge_config)
+    except wave_merge.UsineMergeError as exc:
+        log.error("DRS merge failed: %s", exc)
+        return {"ok": False, "error": str(exc)}
+    candidates = []
+    for entry in report.get("candidates", []):
+        gate = entry.get("gate") or {}
+        candidates.append({
+            "project_index": entry.get("project_index"),
+            "decision": entry.get("decision"),
+            "reason": entry.get("reason"),
+            "commit": entry.get("commit"),
+            "delta": entry.get("delta"),
+            "gate_exit_code": gate.get("exit_code"),
+        })
+    return {
+        "ok": True,
+        "commits": report.get("commits", []),
+        "tag": report.get("tag"),
+        "tag_created": report.get("tag_created", False),
+        "base_commit": report.get("base_commit"),
+        "gate_seconds_total": report.get("gate_seconds_total"),
+        "drs_episodes": report.get("drs_episodes", []),
+        "candidates": candidates,
+    }
+
+
 def _install_seed_memory(source: Path, destination: Path) -> int:
     """Copy a canonical memory tree into a fresh lineage root.
 
@@ -1831,6 +1897,23 @@ def _parser() -> argparse.ArgumentParser:
         help=("resume an infrastructure-stopped lineage only when every "
               "accepted project is durably closed and the persistent "
               "Curriculum transcript is intact"))
+    parser.add_argument(
+        "--memory-seed", default="",
+        help=("seed this run's memory tree from an existing one (a "
+              "directory of .md records).  Phase 1 normally starts from an "
+              "empty tree; seeding it lets a wave run ON TOP of what an "
+              "earlier phase learned, so the Actor starts with the "
+              "hard-won records instead of rediscovering them.  The DRS "
+              "(Phase 2) already seeds itself from Phase 1."))
+    parser.add_argument(
+        "--merge-drs", action="store_true",
+        help=("merge the DRS episode's candidate into the usine tree "
+              "(Phase 2 only).  The DRS's serial core closes an episode "
+              "with PROJECT_CLOSED, so the wave-merge sink never fires and "
+              "the candidate normally stays in the run root.  With this "
+              "flag the candidate goes through the same delta, drift, gate, "
+              "commit and tag machinery as a breadth wave — the gate is "
+              "re-run against the REAL tree before it lands there."))
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument(
         "--preflight", action="store_true",
@@ -1851,6 +1934,27 @@ def main(argv: list | None = None) -> int:
         raise RuntimeError("--max-parallel must be positive")
     if not args.gate_argv:
         raise RuntimeError("--gate-argv must name the offline gate command")
+    if args.merge_drs and args.phase != "2":
+        # The DRS is the only phase whose candidate never reaches the
+        # repository on its own: its serial core closes an episode with
+        # PROJECT_CLOSED, so the wave-merge sink never fires.  Phase 1
+        # merges through that sink already; --merge-drs there would be a
+        # second, redundant path to the same merge.
+        raise RuntimeError(
+            "--merge-drs is a Phase-2 (DRS) feature: Phase 1 already merges "
+            "its waves through the event sink")
+    memory_seed: Path | None = None
+    if args.memory_seed:
+        memory_seed = Path(args.memory_seed).expanduser().resolve(strict=False)
+        if not memory_seed.is_dir():
+            raise RuntimeError(
+                f"--memory-seed must be a directory of memory records: "
+                f"{memory_seed}")
+        if not any(path.is_file() for path in memory_seed.rglob("*")):
+            raise RuntimeError(
+                f"--memory-seed holds no files: {memory_seed}")
+    memory_seed_info = (_inspect_memory_seed(memory_seed)
+                        if memory_seed is not None else None)
     checkpoints = _parse_checkpoints(
         args.checkpoints if args.checkpoints is not None
         else _default_checkpoints(args.project_budget),
@@ -2038,6 +2142,7 @@ def main(argv: list | None = None) -> int:
             "usine_repo_prefix": ctx["prefix"] or "(repo root)",
             "seed_source": seed_source,
             "seed_preview": seed_preview,
+            "memory_seed": memory_seed_info,
             "gate": {"argv": list(gate_argv),
                      "timeout": float(args.gate_timeout)},
             "gate_preflight": gate_pre,
@@ -2141,6 +2246,8 @@ def main(argv: list | None = None) -> int:
         "corpus_resume_check": "equal_to_distribution_rebuild",
         "seed_source": "git_archive_head_prefix",
         "seed_cache_key": "guest_scratch",
+        "memory_seed": memory_seed_info,
+        "merge_drs": bool(args.merge_drs),
         "time_budget": {
             **budget_plan.to_dict(),
             "applied_seat_wall_clock_secs": applied_seat_wall,
@@ -2223,23 +2330,37 @@ def main(argv: list | None = None) -> int:
     # than begun and abandoned mid-flight.  project_budget=0 makes the
     # engine return budget_exhausted at the first boundary check, which is
     # the only lever the stock loop exposes for "stop now, cleanly".
+    # The DRS baseline (what its memory delta is measured against) is set
+    # in the Phase-2 branch below; Phase 1 has no DRS delta.
+    drs_memory_baseline: Path | None = None
     if args.phase == "2":
         # DRS is only meaningful over memory that already exists (paper 2.2:
         # the deep wave drills gaps the breadth wave exposed).  Refuse an
         # empty baseline rather than letting Phase 2 degenerate into a second
         # breadth wave wearing a DRS label.
-        source_memory = _phase1_memory_dir(args.root, args.run_name)
+        #
+        # The baseline is the Phase-1 memory tree by default.  An explicit
+        # --memory-seed REPLACES it: that is how a second DRS deepens the
+        # memory the FIRST DRS deepened, instead of re-deepening the
+        # shallower Phase-1 tree.  Whatever the baseline is, it is what the
+        # delta below is measured against — the seed and the baseline are
+        # the same directory on purpose, so "what grew" stays answerable.
+        source_memory = (memory_seed if memory_seed is not None
+                         else _phase1_memory_dir(args.root, args.run_name))
         if not source_memory.is_dir() or not any(
                 candidate.is_file() for candidate in source_memory.rglob("*")):
             raise RuntimeError(
-                f"--phase 2 deepens the memory Phase 1 produced, but "
-                f"{source_memory} holds no files. Run --phase 1 to completion "
-                "first: a DRS run over empty memory would prove nothing about "
-                "deep recursion.")
+                f"--phase 2 deepens memory that already exists, but "
+                f"{source_memory} holds no files. "
+                + ("Point --memory-seed at a memory tree."
+                   if memory_seed is not None else
+                   "Run --phase 1 to completion first: a DRS run over empty "
+                   "memory would prove nothing about deep recursion."))
         seeded_files = sum(1 for candidate in source_memory.rglob("*")
                            if candidate.is_file())
-        log.info("DRS seeded from Phase-1 memory: %d file(s)", seeded_files)
+        log.info("DRS seeded from %s: %d file(s)", source_memory, seeded_files)
         _install_seed_memory(source_memory, run_root / "memory")
+        drs_memory_baseline = source_memory
 
         # DRS wiring, checked BEFORE any token is spent.  The serial core
         # (explore/practice_loop.py) takes the Verifier CONTROL profile in
@@ -2285,6 +2406,16 @@ def main(argv: list | None = None) -> int:
             desktop.close()
     else:
         from explore.phase1_wave import evolve_parallel_phase1
+        if memory_seed is not None:
+            # A wave can start ON TOP of what an earlier phase learned.
+            # The engine reads the run's ``memory/`` directory as the
+            # starting tree — the Curriculum seat reads it, the Actor is
+            # handed it, and the branch distillation writes back into it —
+            # so installing the seed here is the whole mechanism.  No
+            # engine change is involved, and the engine's own ``mkdir(
+            # exist_ok=True)`` leaves the seeded records alone.
+            seeded = _install_seed_memory(memory_seed, run_root / "memory")
+            log.info("wave seeded from %s: %d file(s)", memory_seed, seeded)
         result = evolve_parallel_phase1(
             root=str(run_root), target_direction=distribution,
             actor_cfg=configs["actor"],
@@ -2339,15 +2470,20 @@ def main(argv: list | None = None) -> int:
     if args.phase == "2":
         # The paper's claim is that DEEP recursion keeps improving memory
         # (2.5's reuse table is entirely post-DRS).  Record the delta against
-        # the Phase-1 baseline explicitly: without this, "the DRS run finished"
-        # says nothing about whether memory actually grew.
+        # the baseline explicitly: without this, "the DRS run finished"
+        # says nothing about whether memory actually grew.  The baseline is
+        # the tree the DRS actually started from — the Phase-1 tree, or the
+        # --memory-seed tree when one was given.
         from explore.target_learning import _memory_tree_sha256 as _sha
-        source_memory = _read_memory_tree(str(
-            _phase1_memory_dir(args.root, args.run_name)))
+        baseline_dir = (drs_memory_baseline
+                        if drs_memory_baseline is not None
+                        else _phase1_memory_dir(args.root, args.run_name))
+        source_memory = _read_memory_tree(str(baseline_dir))
         after = _memory_tree_sha256(memory)
         before = _sha(source_memory)
         payload["drs_delta"] = {
             "baseline_phase": 1,
+            "baseline_dir": str(baseline_dir),
             "baseline_files": len(source_memory),
             "baseline_bytes": sum(len(v) for v in source_memory.values()),
             "baseline_tree_sha256": before,
@@ -2360,6 +2496,15 @@ def main(argv: list | None = None) -> int:
                 "changed tree is the signal, not a size increase"),
         }
     _write_json_atomic(run_root / "result.json", payload)
+    if args.merge_drs:
+        # The DRS's serial core closes its episode with PROJECT_CLOSED, not
+        # PHASE1_WAVE_COMPLETED, so the wave-merge event sink never fires and
+        # the candidate — verifier PASS, gate green — stays in the run root
+        # where the repository never sees it.  This is the explicit switch
+        # that puts it through the SAME delta / drift / gate / commit / tag
+        # machinery a breadth wave goes through.
+        payload["drs_merge"] = _merge_drs_into_usine(run_root, merge_config)
+        _write_json_atomic(run_root / "result.json", payload)
     if deadline.expired:
         # The ceiling is the operator's contract, not a soft target: a run
         # that overran it is reported as its own status so a monitoring loop
@@ -2375,6 +2520,11 @@ def main(argv: list | None = None) -> int:
     print("\n=== USINE PHASE 1 RESULT " + json.dumps(payload, sort_keys=True))
     if payload["status"] == time_budget.TIME_BUDGET_EXHAUSTED:
         return 3
+    if args.merge_drs and not payload["drs_merge"]["ok"]:
+        # The run itself may have succeeded; the MERGE did not.  Exit 4 says
+        # exactly that, so a monitoring loop does not read "the DRS worked"
+        # out of a payload whose candidate never reached the repository.
+        return 4
     return 0 if result.status in {"saturated", "budget_exhausted"} else 2
 
 

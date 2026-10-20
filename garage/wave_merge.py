@@ -74,7 +74,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 
 log = logging.getLogger("rsiagent.usine.wave_merge")
@@ -119,6 +119,13 @@ class UsineMergeConfig:
     identity: tuple[str, str] = ("theatre-rsi", "theatre-rsi@explorateur.local")
     tag_prefix: str = "theatre/wave"
     commit_scope: str = "theatre"
+    # What ONE merged unit is called in the commit subject, the commit body
+    # and the trailers: "wave" for a breadth wave, "drs" for a deep-
+    # recursion episode.  A DRS episode is NOT a wave — it is one serial
+    # project — so a commit that calls it "wave-1" states something false
+    # about where the change came from.  The TAG name is built from
+    # ``tag_prefix`` + the wave index, not from this label.
+    unit_label: str = "wave"
     gate_env: dict | None = None
 
 
@@ -236,23 +243,44 @@ def _extract_members(host_dir, rels, inventory_files: dict) -> dict:
 
 # ------------------------------------------------------------ classification
 
-def _tree_state(path: pathlib.Path) -> tuple[str, str | None]:
-    """(kind, sha) for a working-tree path: file/missing/dir/special/error."""
+def _normalized_sha(data: bytes) -> str:
+    """sha256 of the bytes with CRLF folded to LF.
+
+    Line endings are NOT a content change on this host.  The repository's
+    canonical form is the LF blob (``core.autocrlf=input``: git folds
+    CRLF on the way IN and never expands LF on checkout), so a working-tree
+    file may carry CRLF because an editor, a formatter, or a stash
+    round-trip rewrote it — and git still calls that file clean.  The
+    merge's drift check must call it unchanged too, or the candidate is
+    skipped whole for a difference that is not a difference.
+
+    Measured 2026-10-20: the DRS candidate's ``tools.ts`` was byte-identical
+    to HEAD's blob after folding, and the raw bytes differed by exactly 558
+    CRLFs.  The raw comparison called that "drift", which would have
+    silently dropped a verifier-PASSed, gate-green candidate.
+    """
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _tree_state(path: pathlib.Path) -> tuple[str, str | None, str | None]:
+    """(kind, raw sha, normalized sha) for a working-tree path."""
     try:
         info = path.lstat()
     except FileNotFoundError:
-        return "missing", None
+        return "missing", None, None
     except OSError:
-        return "error", None
+        return "error", None, None
     if stat_module.S_ISDIR(info.st_mode):
-        return "dir", None
+        return "dir", None, None
     if not stat_module.S_ISREG(info.st_mode):
-        return "special", None
-    return "file", hashlib.sha256(path.read_bytes()).hexdigest()
+        return "special", None, None
+    data = path.read_bytes()
+    return "file", hashlib.sha256(data).hexdigest(), _normalized_sha(data)
 
 
 def classify_delta(delta: dict, fixture_files: dict, candidate_files: dict,
-                   usine_dir) -> tuple[str, dict]:
+                   usine_dir, fixture_normalized: dict | None = None,
+                   candidate_normalized: dict | None = None) -> tuple[str, dict]:
     """Tri-state every delta path against the working tree.
 
     Returns ``(verdict, details)`` with verdict:
@@ -264,30 +292,41 @@ def classify_delta(delta: dict, fixture_files: dict, candidate_files: dict,
       paths inside a mixed verdict;
     * ``drift`` — some path matches neither the baseline nor the candidate;
       the candidate is skipped whole.
+
+    Each side is compared BOTH raw and line-ending-folded (see
+    ``_normalized_sha``): a working-tree copy that carries CRLF where the
+    archives carry LF is the same content, and calling it drift would drop
+    a candidate over an invisible difference.
     """
     root = pathlib.Path(usine_dir)
+    fixture_norm = fixture_normalized or {}
+    candidate_norm = candidate_normalized or {}
     states: dict[str, str] = {}
     for rel in delta["modified"]:
-        kind, sha = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
-        if kind == "file" and sha == candidate_files[rel]:
+        kind, sha, norm = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
+        if kind == "file" and (sha == candidate_files[rel]
+                               or norm == candidate_norm.get(rel)):
             states[rel] = "candidate"
-        elif kind == "file" and sha == fixture_files[rel]:
+        elif kind == "file" and (sha == fixture_files[rel]
+                                 or norm == fixture_norm.get(rel)):
             states[rel] = "fixture"
         else:
             states[rel] = "other"
     for rel in delta["added"]:
-        kind, sha = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
+        kind, sha, norm = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
         if kind == "missing":
             states[rel] = "fixture"
-        elif kind == "file" and sha == candidate_files[rel]:
+        elif kind == "file" and (sha == candidate_files[rel]
+                                 or norm == candidate_norm.get(rel)):
             states[rel] = "candidate"
         else:
             states[rel] = "other"
     for rel in delta["deleted"]:
-        kind, sha = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
+        kind, sha, norm = _tree_state(root.joinpath(*PurePosixPath(rel).parts))
         if kind == "missing":
             states[rel] = "candidate"
-        elif kind == "file" and sha == fixture_files[rel]:
+        elif kind == "file" and (sha == fixture_files[rel]
+                                 or norm == fixture_norm.get(rel)):
             states[rel] = "fixture"
         else:
             states[rel] = "other"
@@ -600,16 +639,17 @@ def _stage_delta(usine_dir, delta: dict) -> None:
 
 def _commit_candidate(config: UsineMergeConfig, usine_dir, wave_index: int,
                       outcome: dict, delta: dict, gate: dict) -> str:
-    subject = (f"{config.commit_scope}(wave-{wave_index}): "
+    label = config.unit_label
+    subject = (f"{config.commit_scope}({label}-{wave_index}): "
                f"accept ep{outcome['project_index']:03d} "
                f"({_clean_id(outcome['project_id'])})")
     body = (
-        f"Candidate ep{outcome['project_index']:03d} merged from wave "
+        f"Candidate ep{outcome['project_index']:03d} merged from {label} "
         f"{wave_index} (verifier PASS, usine gate green).\n"
         f"Delta: {len(delta['modified'])} modified, {len(delta['added'])} "
         f"added, {len(delta['deleted'])} deleted.\n"
         f"Gate exit {gate['exit_code']} in {gate['seconds']}s.\n\n"
-        f"X-Theatre-Wave: {wave_index}\n"
+        f"X-Theatre-{label.title()}: {wave_index}\n"
         f"X-Theatre-Project: {_clean_id(outcome['project_id'])}\n"
         f"X-Theatre-Source: explorateur theatre phase1 usine wave merge")
     _git(["-c", f"user.name={config.identity[0]}",
@@ -629,7 +669,7 @@ def _ensure_wave_tag(config: UsineMergeConfig, usine_dir, wave_index: int,
     _git(["-c", f"user.name={config.identity[0]}",
           "-c", f"user.email={config.identity[1]}",
           "tag", "-a", tag, "-m",
-          f"{config.commit_scope} wave {wave_index}: "
+          f"{config.commit_scope} {config.unit_label} {wave_index}: "
           f"{len(commits)} candidate(s) merged"], cwd=usine_dir)
     return {"tag": tag, "tag_created": True}
 
@@ -642,7 +682,14 @@ def _read_outcomes(lineage: pathlib.Path) -> list[dict]:
         return []
     records = []
     for directory in sorted(episodes.iterdir()):
-        path = directory / "outcome.json"
+        # A DRS episode carries the ENGINE's outcome.json, which has no
+        # wave_index/project_id — it closed with PROJECT_CLOSED, not
+        # PHASE1_WAVE_COMPLETED.  The DRS merge writes a Phase-1-shaped
+        # record beside it; when that sibling exists it is the record the
+        # merge reads, and the engine's file is left byte-for-byte alone.
+        path = directory / "merge_outcome.json"
+        if not path.is_file():
+            path = directory / "outcome.json"
         if not path.is_file():
             continue
         try:
@@ -846,8 +893,26 @@ def merge_wave(lineage_root, wave_index: int,
             entry["reason"] = "; ".join(
                 f"{rel}: {why}" for rel, why in sorted(violations.items())[:3])
             continue
+        # The baseline and candidate bytes for the delta paths are needed
+        # BEFORE the verdict: the drift check compares the working tree
+        # against them both raw and line-ending-folded, and the apply step
+        # reuses the candidate bytes.
+        #
+        # Each archive is asked only for the paths it can hold: an ADDED
+        # path is absent from the baseline archive and a DELETED path is
+        # absent from the candidate archive.  Asking either archive for a
+        # path it does not have is a hard error ("candidate archive lost
+        # members"), not a shrug.
+        baseline_bytes = _extract_members(
+            _baseline_dir(lineage, wave_index, episode_dir),
+            [*delta["modified"], *delta["deleted"]], fixture["files"])
+        wanted = _extract_members(
+            candidate_dir, [*delta["modified"], *delta["added"]],
+            candidate["files"])
         verdict, details = classify_delta(
-            delta, fixture["files"], candidate["files"], usine)
+            delta, fixture["files"], candidate["files"], usine,
+            {rel: _normalized_sha(data) for rel, data in baseline_bytes.items()},
+            {rel: _normalized_sha(data) for rel, data in wanted.items()})
         entry["pre_applied"] = details.get("pre_applied", 0)
         if verdict == "already_merged":
             entry["decision"] = "already_merged"
@@ -857,9 +922,6 @@ def merge_wave(lineage_root, wave_index: int,
             entry["decision"] = "drift_skipped"
             entry["reason"] = details["reason"]
             continue
-        wanted = _extract_members(
-            candidate_dir, [*delta["modified"], *delta["added"]],
-            candidate["files"])
         executable = (_archive_exec_bits(
             candidate_dir, [*delta["modified"], *delta["added"]])
             | _tracked_exec_bits(
@@ -913,6 +975,158 @@ def merge_wave(lineage_root, wave_index: int,
     _atomic_text(wave_dir / "merge_report.md", _render_md(report))
     log.info("wave %s merge done: %d commit(s), tag=%s",
              wave_index, len(commits), report["tag"])
+    return report
+
+
+def _drs_merge_outcomes(lineage: pathlib.Path) -> list[str]:
+    """Write the Phase-1-shaped record beside every closed DRS episode.
+
+    The engine's ``outcome.json`` for a DRS episode carries
+    ``terminal_outcome`` but no ``wave_index`` / ``project_id``: it closed
+    with ``PROJECT_CLOSED``, not ``PHASE1_WAVE_COMPLETED``.  The wave
+    reader needs those two fields, so the merge writes a SIBLING record,
+    ``merge_outcome.json``, and leaves the engine's file byte-for-byte
+    alone.  The project id is derived from the project text, so it is
+    stable across runs of the same drill.
+    """
+    episodes_dir = lineage / "episodes"
+    if not episodes_dir.is_dir():
+        raise UsineMergeError(f"no episodes under {lineage}")
+    recorded: list[str] = []
+    for directory in sorted(episodes_dir.iterdir()):
+        outcome_path = directory / "outcome.json"
+        if not outcome_path.is_file():
+            continue
+        try:
+            record = json.loads(outcome_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise UsineMergeError(
+                f"{directory.name}: outcome.json is unreadable: {exc}") from exc
+        if not isinstance(record, dict):
+            continue
+        if record.get("terminal_outcome") not in {"PASS", "FAIL"}:
+            continue
+        project_text = str(record.get("project") or "")
+        project_id = "drs-" + hashlib.sha256(
+            project_text.encode("utf-8")).hexdigest()[:12]
+        _atomic_json(directory / "merge_outcome.json", {
+            "wave_index": 1,
+            "project_index": int(record.get("project_index") or 1),
+            "project_id": project_id,
+            "terminal_outcome": record["terminal_outcome"],
+            "source": "drs_phase2_episode",
+            "engine_outcome": str(outcome_path),
+        })
+        recorded.append(directory.name)
+    return recorded
+
+
+def _drs_config(config: UsineMergeConfig) -> UsineMergeConfig:
+    """The DRS flavour of a merge config: its own tag, scope and unit label.
+
+    The DRS tag is ``theatre/drs-1``, not ``theatre/wave/drs-1``: the
+    default prefix is "theatre/wave" (a breadth wave), and the DRS keeps
+    the namespace root it shares with Phase 1.  The commit scope says
+    "drs" and the unit label says "drs", so no part of the commit claims
+    this was a wave.
+    """
+    prefix = config.tag_prefix
+    if prefix.endswith("/wave"):
+        prefix = prefix[: -len("/wave")]
+    return replace(config, tag_prefix=f"{prefix}/drs",
+                   commit_scope=f"{config.commit_scope}-drs",
+                   unit_label="drs")
+
+
+def plan_drs_run(lineage_root, config: UsineMergeConfig) -> dict:
+    """Preview a DRS merge: what would land, and would it be allowed to.
+
+    Read-only with respect to the REPOSITORY: nothing is applied, no gate
+    runs, no commit and no tag are created.  (It does write the same
+    ``merge_outcome.json`` the merge writes, inside the RUN ROOT — the
+    wave reader needs it, and the run root is the DRS's own scratch space.)
+
+    The verdict per episode is the same one the merge would reach:
+    ``fresh`` (the delta may be applied), ``already_merged`` (the working
+    tree already carries the candidate bytes) or ``drift`` (the working
+    tree matches neither the baseline nor the candidate — the merge would
+    skip the candidate whole).
+    """
+    lineage = pathlib.Path(lineage_root)
+    recorded = _drs_merge_outcomes(lineage)
+    if not recorded:
+        raise UsineMergeError(
+            f"no closed DRS episode under {lineage / 'episodes'} to merge")
+    drs_config = _drs_config(config)
+    usine = pathlib.Path(config.usine_dir)
+    episodes = []
+    for name in recorded:
+        episode_dir = lineage / "episodes" / name
+        candidate_dir = episode_dir / "candidates" / "cycle_001"
+        fixture = load_archive_inventory(
+            _baseline_dir(lineage, 1, episode_dir), f"{name} baseline")
+        candidate = load_archive_inventory(candidate_dir, f"{name} candidate")
+        delta = candidate_delta(fixture["files"], candidate["files"])
+        baseline_bytes = _extract_members(
+            _baseline_dir(lineage, 1, episode_dir),
+            [*delta["modified"], *delta["deleted"]], fixture["files"])
+        wanted = _extract_members(
+            candidate_dir, [*delta["modified"], *delta["added"]],
+            candidate["files"])
+        verdict, details = classify_delta(
+            delta, fixture["files"], candidate["files"], usine,
+            {rel: _normalized_sha(data) for rel, data in baseline_bytes.items()},
+            {rel: _normalized_sha(data) for rel, data in wanted.items()})
+        episodes.append({
+            "episode": name,
+            "verdict": verdict,
+            "reason": details.get("reason", ""),
+            "pre_applied": details.get("pre_applied", 0),
+            "delta": {key: delta[key] for key in
+                      ("modified", "added", "deleted")},
+        })
+    return {
+        "schema_version": 1,
+        "usine_dir": str(usine),
+        "tag": f"{drs_config.tag_prefix}-1",
+        "commit_scope": drs_config.commit_scope,
+        "gate_argv": [str(a) for a in config.gate_argv],
+        "episodes": episodes,
+        "would_merge": any(entry["verdict"] == "fresh" for entry in episodes),
+    }
+
+
+def merge_drs_run(lineage_root, config: UsineMergeConfig) -> dict:
+    """Merge a DRS (Phase 2) episode's candidate into the usine tree.
+
+    The DRS's serial core closes an episode with ``PROJECT_CLOSED``, not
+    ``PHASE1_WAVE_COMPLETED``, so the wave-merge event sink never fires and
+    the DRS's candidate — verifier PASS, offline gate green — stays in the
+    run root, where nobody can see it in the repository.  A DRS episode's
+    archives are shaped exactly like a Phase-1 episode's (the candidate at
+    ``episodes/<ep>/candidates/cycle_001``, the baseline at
+    ``episodes/<ep>/fixtures``), so the SAME merge machinery applies: the
+    delta, the drift check, the offline gate, the commit and the tag.
+
+    What this adds is the Phase-1-shaped record the reader expects
+    (``wave_index`` / ``project_id``) and a distinct tag prefix, so a DRS
+    merge is never mistaken for a breadth wave.  The engine's own
+    ``outcome.json`` is never rewritten: the merge record is a sibling
+    file, ``merge_outcome.json``.
+
+    The gate runs here too.  A DRS candidate is not "already merged" just
+    because it passed in the guest — it is re-gated against the REAL tree
+    before it lands there, which is the only proof that it does not break
+    the repository it is about to enter.
+    """
+    lineage = pathlib.Path(lineage_root)
+    recorded = _drs_merge_outcomes(lineage)
+    if not recorded:
+        raise UsineMergeError(
+            f"no closed DRS episode under {lineage / 'episodes'} to merge")
+    drs_config = _drs_config(config)
+    report = merge_wave(lineage_root, 1, drs_config)
+    report["drs_episodes"] = recorded
     return report
 
 
