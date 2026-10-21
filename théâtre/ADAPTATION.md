@@ -162,8 +162,9 @@ uv run python garage/run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WA
 ```
 
 其余旋钮：`--resume-completed-boundary`（仅在全部 accepted project 已持久收口
-且 Curriculum 持久转录完好时恢复）；`--root` 默认 `theatre-usine-runs`
-（**仓库外**，endpoints.json 在那里生成）；`--project-budget 8` /
+且 Curriculum 持久转录完好时恢复）；`--root` 默认 `garage-result`
+（**仓库外**、与本仓库同级，endpoints.json 在那里生成；harness2 线的产物另落
+`garage-ii-result`，两线不混放）；`--project-budget 8` /
 `--checkpoints 0,2,4,8` / `--max-parallel 4`（宿主调度容量，不规定波宽）；
 `--gate-argv` / `--gate-timeout`；`--llm-config` 默认 `explorateur/config/.env`（样例 `config/env.sample`）。
 按需波次：一波一喊，不自动连续波（节奏升级留待用户裁定）。
@@ -194,9 +195,10 @@ symlink 变更不合并、mode / exec-bit 变更不合并（拒绝如实记录�
   目标目录已回收）。所有 VM 统一回落 `Y:`，行为一致；干跑期间保持不动，
   收口时 `subst Z: /D` 摘除（教训入 [ARCHITECTURE.md](ARCHITECTURE.md) §5）。
 - **防休眠任务**：跑波次期间常驻（长跑不被系统睡眠打断），收口时停。
-- **run root 在仓库外**（`theatre-usine-runs`）：events / result / corpus /
+- **run root 在仓库外**（RSIAgent 线落 `garage-result`，与 explorateur 同级；
+  harness2 线另落 `garage-ii-result`）：events / result / corpus /
   endpoints.json / memory / waves / episodes 全在那里；explorateur 根
-  `.gitignore` 兜底 `endpoints.json`。
+  `.gitignore` 兜底 `endpoints.json` 与两个结果根。
 - **théâtre/.git 入库裁定**（原 §7 未决项，已定）：磁盘保留（HEAD 即上游
   commit），**绝不进 explorateur 索引**——`.gitignore` 规则 + 入库时暂移 +
   暂存集 mode-160000 审计三层防线。

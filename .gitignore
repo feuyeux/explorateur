@@ -73,3 +73,8 @@ one-unit-money-poster/
 # RSI run root 生成的真网关凭据文件（run root 约定在仓库外；
 # 此规则兜底 --root 一旦指进仓库的失误，密钥永不入库）
 endpoints.json
+# 运行产物落位（AGENTS.md「运行产物落位」）：RSIAgent 线 → garage-result/，
+# harness2 线 → garage-ii-result/，两者都在**仓库外**、与本仓库同级。
+# 下面两条是兜底：根一旦被指进仓库，产物（可能含凭据与大文件）不进索引
+garage-result/
+garage-ii-result/

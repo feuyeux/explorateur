@@ -149,8 +149,10 @@ Verifier 复核 → 记忆蒸馏 → **合并前 `pnpm verify` 门禁**（红即
 - 历史数据坏了（坏 JSON / 缺字段）按 fail-closed 处理，**不当成 0 秒**。
 - 离线验证：`python ../garage/smoke_latency_budget.py`（40 项）。
 
-run root（仓库外）落：`events.jsonl`（里程碑）、episode 工件（指令原文/SUBMIT/VERDICT/
-outcome）、`merge_report.json`、`endpoints.json`（gitignore 兜底）、终态记忆。
+run root（仓库外，与本仓库**同级**）落 `garage-result/`（默认 `--root`）：`events.jsonl`
+（里程碑）、episode 工件（指令原文/SUBMIT/VERDICT/outcome）、`merge_report.json`、
+`endpoints.json`（gitignore 兜底）、终态记忆。harness2 线的产物另落 `garage-ii-result/`，
+两线不混放。
 
 ### 4. 时间上限（每次自进化都必须可控）
 

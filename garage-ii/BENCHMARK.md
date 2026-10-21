@@ -52,18 +52,20 @@
 
 ## 3. 跑法
 
+run root 落**仓库外**，与 RSIAgent 线的 `garage-result` 分开：本线默认 `../garage-ii-result`（与本仓库**同级**），实验根用其下的 `exp-*` 子目录（每个根有各自的 sweep 锁）。
+
 ```sh
 # 0) 自检（不花钱）
-python3 garage-ii/preflight.py --root ~/.cache/usine-h2
+python3 garage-ii/preflight.py --root ../garage-ii-result
 
 # 1) 看清要跑什么（不花钱，不要 ack）
 python3 garage-ii/compare_rsiagent.py --dry-run
 
 # 2) 真跑（花钱，要 ack）
-python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 --ack RUN-USINE-H2-COMPARE
+python3 garage-ii/compare_rsiagent.py --root ../garage-ii-result --ack RUN-USINE-H2-COMPARE
 
 # 3) 带 RSIAgent 的记忆语料跑（那一臂才有意义）
-python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 \
+python3 garage-ii/compare_rsiagent.py --root ../garage-ii-result \
     --memory /path/to/frozen/memory --ack RUN-USINE-H2-COMPARE
 ```
 
@@ -154,7 +156,7 @@ python3 garage-ii/build_base_harness.py --check   # 只核对（preflight 就在
 | 基准树里的技能不许被改写 | `UsineAdapter.validate_tree`：同名且内容不同 = 违规（dsh 的技能注册表按 rank 合并，项目根会**静默盖掉**插件那份） |
 | 每次 rollout 独立工作区 | `UsineAdapter._launch_one`：每个 run_id 一份 `workspace/` 拷贝 |
 | rollout 串行 | `UsineAdapter._rollout_lock`：`usine_verify` 跑的是 usine 仓里的全量门禁，同仓并发两遍会互相踩——纪律里明写「别并发跑」，这里把它从文本纪律变成机制约束 |
-| run root 必须在仓库外 | `preflight.check_run_root`（dsh 的 project root 判定会让仓库内的 `.dsh/skills` 判到仓库根，候选技能一个都扫不到，**不报错**、只是分数静默塌到基线） |
+| run root 必须在仓库外 | `preflight.check_run_root`（dsh 的 project root 判定会让仓库内的 `.dsh/skills` 判到仓库根，候选技能一个都扫不到，**不报错**、只是分数静默塌到基线）。默认落 `../garage-ii-result`（与仓库**同级**），RSIAgent 线另落 `../garage-result`——两线不混放 |
 | 提案通道与执行器解耦 | proposer 走本层自建的 `MinimaxProposer`，solver 是 dsh（`harness2/core/spec.py` 的三层接缝）；引擎的 `selector` 也指到同一条通道上（`selector_prop=prop`） |
 
 ## 9. 实测记录（2026-10-20 第一次真跑）
@@ -166,6 +168,8 @@ python3 garage-ii/run_usine_h2.py --phase sweep --root ~/.cache/usine-h2 --ack R
 python3 garage-ii/run_usine_h2.py --phase judge  --root ~/.cache/usine-h2
 python3 garage-ii/run_usine_h2.py --phase report --root ~/.cache/usine-h2
 ```
+
+> 那轮真跑的 run root 在当时那台 macOS 主机上就是 `~/.cache/usine-h2`。自 2026-10-21 起，harness2 线的产物统一落 `../garage-ii-result`（见 §3），RSIAgent 线落 `../garage-result`——**本节及以下各节的命令与路径保持原样**，因为它们记录的是**当时**的事实，改写路径等于改写记录。
 
 ### 管线是通的
 
@@ -532,19 +536,19 @@ harness2 的引擎在 k≥2 时会跑 `base1..basek`（`core/schedule.py` 的 `l
 
 ```sh
 # 基准臂：6 个任务，每题 3 次 → 同树零分布
-python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
+python3 garage-ii/run_usine_h2.py --phase repeat --root ../garage-ii-result/exp-arms \
   --tree base --repeats 3 --tag base
 
 # 抽出某次跑批被采纳的树（引擎只给它跑了一次）
-python3 garage-ii/arms.py extract --sweep-root ~/.cache/usine-h2-k3 \
-  --ns usine-dsh-dsh-agg3 --out ~/.cache/usine-h2-arms/trees/evo-k3
+python3 garage-ii/arms.py extract --sweep-root ../garage-ii-result/exp-k3 \
+  --ns usine-dsh-dsh-agg3 --out ../garage-ii-result/exp-arms/trees/evo-k3
 
 # 演化臂：同一棵采纳树，每题 3 次
-python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
-  --tree ~/.cache/usine-h2-arms/trees/evo-k3 --repeats 3 --tag evo-k3
+python3 garage-ii/run_usine_h2.py --phase repeat --root ../garage-ii-result/exp-arms \
+  --tree ../garage-ii-result/exp-arms/trees/evo-k3 --repeats 3 --tag evo-k3
 
 # 并排读
-python3 garage-ii/run_usine_h2.py --phase compare --root ~/.cache/usine-h2-arms \
+python3 garage-ii/run_usine_h2.py --phase compare --root ../garage-ii-result/exp-arms \
   --base-arm base --evolved-arm evo-k3
 ```
 

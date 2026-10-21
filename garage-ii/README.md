@@ -42,7 +42,7 @@ usine/               产线：dsh 插件、十个技能、十八个工具面、�
 ### 1. 自检（全绿才许进 2；不花钱）
 
 ```sh
-python3 garage-ii/preflight.py --root ~/.cache/usine-h2
+python3 garage-ii/preflight.py --root ../garage-ii-result
 ```
 
 五条硬检查，任何一条不过这一轮就不许开跑：
@@ -87,23 +87,23 @@ python3 garage-ii/run_usine_h2.py --phase report
 
 ```sh
 # 基准臂：同一棵树，每题 n 次 rollout → 这一棵树自己的零分布
-python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
+python3 garage-ii/run_usine_h2.py --phase repeat --root ../garage-ii-result/exp-arms \
     --tree base --repeats 6 --tag base
 
 # 抽出某次跑批**被采纳**的树（k≥2 时是引擎盲选的结果，不是固定 agg1）
-python3 garage-ii/arms.py extract --sweep-root ~/.cache/usine-h2-k3 \
-    --ns usine-dsh-dsh-agg3 --out ~/.cache/usine-h2-arms/trees/evo-k3
+python3 garage-ii/arms.py extract --sweep-root ../garage-ii-result/exp-k3 \
+    --ns usine-dsh-dsh-agg3 --out ../garage-ii-result/exp-arms/trees/evo-k3
 
 # 演化臂：同一棵采纳树，每题 n 次 rollout
-python3 garage-ii/run_usine_h2.py --phase repeat --root ~/.cache/usine-h2-arms \
-    --tree ~/.cache/usine-h2-arms/trees/evo-k3 --repeats 6 --tag evo-k3
+python3 garage-ii/run_usine_h2.py --phase repeat --root ../garage-ii-result/exp-arms \
+    --tree ../garage-ii-result/exp-arms/trees/evo-k3 --repeats 6 --tag evo-k3
 
 # 并排读：精确置换检验 + 逐条判据失分率 + 要多大 n
-python3 garage-ii/run_usine_h2.py --phase compare --root ~/.cache/usine-h2-arms \
+python3 garage-ii/run_usine_h2.py --phase compare --root ../garage-ii-result/exp-arms \
     --base-arm base --evolved-arm evo-k3
 
 # 只重跑「选择」这一步（不重跑任何 rollout）——k≥2 的盲选通道修好之后用
-python3 garage-ii/run_usine_h2.py --phase reselect --root ~/.cache/usine-h2-k3 --k 3
+python3 garage-ii/run_usine_h2.py --phase reselect --root ../garage-ii-result/exp-k3 --k 3
 ```
 
 **为什么要有这些**：单次得分说明不了任何事——同一棵树上跑 3 次，方差就能盖过任何效应。**先有同树零分布，才谈「演化变好了」**。细节见 [BENCHMARK.md](BENCHMARK.md) 第 10–13 节。
@@ -112,8 +112,8 @@ python3 garage-ii/run_usine_h2.py --phase reselect --root ~/.cache/usine-h2-k3 -
 
 ```sh
 python3 garage-ii/compare_rsiagent.py --dry-run
-python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 --ack RUN-USINE-H2-COMPARE
-python3 garage-ii/compare_rsiagent.py --root ~/.cache/usine-h2 \
+python3 garage-ii/compare_rsiagent.py --root ../garage-ii-result --ack RUN-USINE-H2-COMPARE
+python3 garage-ii/compare_rsiagent.py --root ../garage-ii-result \
     --memory /path/to/frozen/memory --ack RUN-USINE-H2-COMPARE
 ```
 
@@ -245,7 +245,7 @@ harness2 的 `core/prompts.py` 有一张按 **surface 名**索引的提示表（
 2. **判据不许进 harness 树**。harness2 侧有机械闸（`assert_tree_has_no_grader_verdicts`），本层不重复实现第二套。
 3. **判据失败不是零分**。`adapter.score` 失败返回 `None`；harness2 的 `Scored.graded` 说的是「判成了」，不是「跑得好」。`None` 从分母剔除。
 4. **同名技能不许被改写**。dsh 的技能注册表按 rank 合并，项目根（rank 100）会**静默盖掉**插件的 custom 根（rank 300）——一份被改写的同名技能会让「harness 变好」和「技能被换掉」分不开。所以基准树里那十份技能必须与插件里的**逐字相同**。
-5. **run root 在仓库外**。见 §二.1 那条检查。
+5. **run root 在仓库外**，且与 RSIAgent 线的 `garage-result` 分开落：本线默认 `../garage-ii-result`（与本仓库**同级**），实验根用其下的 `exp-*` 子目录（每个根有各自的 sweep 锁）。见 §二.1 那条检查。
 6. **每个 rollout 一份独立工作区**。装配目录共用，工作区必须每次 rollout 独占，否则并行 rollout 会互相改对方的 `AGENTS.md`。
 7. **真波次要 ack**。sweep 与对照都锁在 ack token 后面；`--dry-run` 不花钱也不要 ack。
 8. **不改 `usine/` 的行为**。本层只读 `usine/` 的插件与技能资产；`usine` 是被改进对象，不在本层的修改范围内。
