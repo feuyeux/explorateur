@@ -2380,23 +2380,38 @@ A 线（改记忆）那边同理：`result.json` 里写着 `study_design: "held_
 
 #### A 线：它测的是另一件事
 
-A 线改的是记忆，所以它的泛化问题是「**上一份记忆帮了还是害了下一个项目**」。`garage/transfer_check.py` 读已有波次产物，给四种判决：
+A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还是害了后一个项目**」。`garage/transfer_check.py` 读已有波次产物给判决。
+
+**先纠正一个很容易搞错的机制细节**，因为它决定读数的单位：`memory_dir = lineage / "memory"` 是**跨波次累计**的（`explore/phase1_wave.py:584`），每波开始时打一份快照 `waves/wave_NNN/memory_snapshot`（`:684`），波内项目通过 `ThreadPoolExecutor` **并行**跑（`:705`）且全部从**同一份快照**起步（`:713`）。所以：
+
+- **波内项目互不可见**——同波项目 A 读不到 B 在这一波里写的记忆，它们同时在跑。
+- **继承发生在波次之间**——`wave_002` 的快照里含有 `wave_001` 结束时的记忆。
+
+`transfer_check.py` 的第一版把继承单位写成「波内项目」，于是同波并行会被误判成 `broken_lineage`。**2026-10-21 读代码时抓到，当场改**——这是「先读机制再写判据」的一个具体反例。
 
 | 判决 | 触发条件 | 为什么单独分出来 |
 |---|---|---|
+| `no_episodes` | 一个项目都没跑起来 | 谈不上迁移 |
 | `single_project` | 只有 1 个项目 | **迁移从未被观测**——不是「迁移失败」 |
-| `broken_lineage` | 项目开始时记忆 ≠ 上一个项目结束时 | 链断了，后面的表现方向不能用来判迁移 |
 | `memory_shrank` | 有项目**删了**既有记忆 | 删记忆是退化信号，而且**不能用净数量判**（删一个补一个，净数量不变） |
+| `broken_lineage` | 某波快照里没有上一波**产出**的记忆 | 链断了，后面的表现方向不能用来判迁移 |
 | `all_pass` / `mixed` | 多项目、链完整、无删除 | 全过是**正向但不充分**（天花板效应）；混合**不能归因于记忆**（项目难度不受控） |
 
-`memory_shrank` 那条判据的第一版是错的：它只看 `memory_delta < 0`（净数量变少），于是「删掉 `b.md` 再加一个 `c.md`」这种**净数量不变**的遗忘静默通过。`smoke_transfer.py` 第一次跑就红了两条，把这个缺陷抓出来了——这也是「新判据必须配反向验证」的一个具体例子。
+两处判据的措辞值得记下来，因为都是被自检抓出来的：
 
-**现在的真实读数**（2026-10-21）：bfs16 与 bfs17 都是 `single_project`，退出码 1。bfs17 的 `memory_before` 确实带着 bfs16 那三份记忆的 sha256（跨波次继承是**真的**），但每个波次里只有 1 个项目，所以「记忆有没有帮到下一个项目」**从未被观测**。要让这一格有读数，波次至少要 `--project-budget 2`。
+- **`memory_shrank` 的第一版是错的**：它只看 `memory_delta < 0`（净数量变少），于是「删掉 `b.md` 再加一个 `c.md`」这种**净数量不变**的遗忘静默通过。
+- **`inherited_previous` 的第一版也是错的**：它把「本波快照」与「上一波快照」比。但上一波快照是那一波**开始时**的记忆，本波快照应当在上一波**结束后**的记忆之上——拿两个快照比，等于要求「记忆一直不变」，而那正好是「什么都没学到」。改成与上一波的**产出**（`produced`）比。
+
+两条都是 `smoke_transfer.py`（20 条）第一次或第二次跑就红的，反向验证时注入这两个缺陷分别让 2 条、4 条断言变红。
+
+**现在的真实读数**（2026-10-21）：bfs16 与 bfs17 都是 `single_project`，退出码 1。机检确认 bfs17 的波次快照**确实装着** bfs16 产出的那三份记忆（`environment-quirks.md`、`usine-monorepo.md`、`verification-discipline.md`）——所以**跨波次继承是真的**，缺的是「第二个项目上被试过」这一步。
+
+**点亮这一格需要什么**：只要把 `--project-budget` 调大。预算数的是**项目**，而 curriculum 每波派 1 个（`curriculum-usine.yaml:107` 的 `AT MOST 1 project`），所以 `--project-budget 3` 会跑出 3 个波次、每波 1 个 episode（`ep001`…`ep003`），`lineage/memory` 跨波累计——`ep002` 起跑时读到的就是 `ep001` 写下的记忆。**机制不需要任何改动**，缺的只是一次真跑。
 
 #### 这一节仍然测不到什么
 
 > **⚠️ 已知失效面 / 坑**
-> ① **24 个任务里 17 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧各 12 格，n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线仍未走多项目**：`--project-budget` 默认 8，但实际波次都被显式传成 1；机制是齐的（`lineage/memory` 全程共享），缺的是跑一次 ≥2。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。
+> ① **24 个任务里 17 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧各 12 格，n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线仍未走多项目**：`--project-budget` 默认 8，但实际波次都被显式传成 1；机制是齐的（`lineage/memory` 全程共享），缺的是跑一次 ≥2。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。⑥ **A 线开跑要多给一个开关**：`--preflight` 会因 curriculum 席位实测 728.5s 超过计划切片 280s 的 60% 而拦下（退出码 1），需显式 `--allow-high-latency` 才放行——这是延迟预检在正常工作，不是缺陷。
 
 ## 7. 产物与现状：诚实的账
 
@@ -2689,10 +2704,20 @@ cd <explorateur>\théâtre
 .\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --preflight
 .\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --execute RUN-USINE-PHASE1-WAVES
 
+# 想量跨项目迁移就把预算调大（默认 8；历史波次都被手工传成 1，所以迁移从未被观测）。
+# curriculum 每波派 1 个项目，所以 3 = 3 个波次、每波 1 个 episode，记忆跨波累计。
+.\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --project-budget 3 --preflight
+.\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --project-budget 3 --execute RUN-USINE-PHASE1-WAVES
+
+# 跑完读迁移读数（证据不足时非零退出，别把它当成「通过」）
+.\.venv\Scripts\python.exe ..\garage\transfer_check.py ..\..\garage-result\<名>
+
 # DRS 深度波次（必须在 Phase-1 之后，有独立 ack）
 .\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --phase 2 --preflight
 .\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --phase 2 --execute RUN-USINE-PHASE2-DRS
 ```
+
+> **`--preflight` 在本机会以退出码 1 结束，那是延迟预检在正常工作，不是缺陷。** 实测：curriculum 席位的历史观测是 728.5s，而计划切片是 280s，超过 60% 阈值（168.0s）就被拦。确认要跑就显式加 `--allow-high-latency`——它放行的是「已知的高延迟风险」，不是关掉检查。**别把这条当成「门禁坏了」去改阈值**：那会让一次 322s 的网关往返把席位的时间预算吃掉，bfs16d 就是这么丢掉 curriculum 席的。
 
 其余四个 smoke 是**针对性回归**，改到哪跑哪个：
 
