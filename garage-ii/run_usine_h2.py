@@ -65,8 +65,50 @@ def _csv(raw: str) -> tuple[str, ...]:
     return tuple(s.strip() for s in raw.split(",") if s.strip())
 
 
-def _acquire_run_root_lock(root: Path):
-    """给 run root 加一把锁：同一个 root 上不许同时跑两个 sweep。
+def _pid_alive(pid: int) -> bool:
+    """这个 pid 还活着吗？**不许用会杀人的办法问。**
+
+    2026-10-21 实测（Windows）：`os.kill(pid, 0)` 在 Windows 上**不是**存在性检查——
+    CPython 的 `win32_kill` 对除 CTRL_C_EVENT / CTRL_BREAK_EVENT 以外的信号一律走
+    `TerminateProcess(handle, sig)`，**sig=0 也会杀**（退出码 0）。于是原来的锁：
+
+    - 第二个进程来抢锁 → 探活 → **把持锁的那个进程杀了** → 自己再拿锁；
+    - 自检里探自己的 pid → **把自己杀了**（离线自检在第 [9] 节当场死掉）。
+
+    POSIX 上 `kill(pid, 0)` 是安全的探活，Windows 上必须另走一条：
+    `OpenProcess` + `GetExitCodeProcess`（ STILL_ACTIVE == 259）。
+    """
+    if pid <= 0:
+        return False
+    import os
+
+    if os.name == "nt":  # pragma: no cover - 平台分支
+        import ctypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            return code.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _acquire_run_root_lock(root: Path, key: str = ""):
+    """给 run root 加一把锁：**同一个命名空间**上不许同时跑两个 sweep。
 
     为什么需要：两个 sweep 共用一个 run root 时，**产物会互相覆盖**——
     第二个 sweep 的 `base1` 会盖掉第一个的 `base1`，轨迹、事件流、分数全对不上，
@@ -77,31 +119,37 @@ def _acquire_run_root_lock(root: Path):
     症状是「提案阶段 Connection refused」（一个 sweep 的中继被另一个的清理动作杀了）
     加「rollout 目录一会儿有文件一会儿空」。**这属于不报错的静默错误**，所以要有锁。
 
-    锁是 run root 里的一个文件（`~/<root>/.sweep.lock`），内含 pid。
-    进程已经不在了（stale lock）就自动接管。
+    **锁的粒度 = 碰撞的单位（2026-10-21 改）**。原来锁的是整个 run root
+    （`adapt/.sweep.lock`），比真正的碰撞单位粗：产物落在
+    `adapt/<ns>/<task>/<label>/`，而 ns 由 (bench, substrate, mode, k, seed, tag)
+    决定——**不同 tag 的两条实验各写各的目录，本来就不会互相覆盖**。
+    粗锁的代价是：两条**文件互不相干**的实验（同一台机器、同一台 B 线）也被挡在
+    门外，只能排队。粗锁还漏了一种碰撞：repeat 相位锁的是
+    `<root>/.sweep.lock`，跟 sweep 的锁**不是同一个文件**——两个相位各锁各的，
+    等于没锁到同一件事上。
+
+    现在锁文件带上 key（命名空间名 / 臂名）：同 key 互斥，不同 key 各跑各的。
+    锁是 run root 里的一个文件（`~/<root>/adapt/.sweep.<key>.lock`），内含 pid。
+    进程已经不在了（stale lock）就自动接管——**探活不许用会杀人的办法**
+    （见 `_pid_alive`：Windows 上 `os.kill(pid, 0)` 是 `TerminateProcess`）。
     """
     import os
 
     lock_dir = Path(root)
     lock_dir.mkdir(parents=True, exist_ok=True)
-    lock = lock_dir / ".sweep.lock"
+    safe = "".join(ch if (ch.isalnum() or ch in "-._") else "_" for ch in (key or ""))
+    lock = lock_dir / (f".sweep.{safe}.lock" if safe else ".sweep.lock")
     if lock.exists():
         try:
             pid = int(lock.read_text(encoding="utf-8").strip() or 0)
         except (OSError, ValueError):
             pid = 0
-        alive = False
-        if pid > 0:
-            try:
-                os.kill(pid, 0)
-                alive = True
-            except OSError:
-                alive = False
+        alive = _pid_alive(pid)
         if alive:
             raise RuntimeError(
-                f"run root {root} 上已经有一个 sweep 在跑（pid {pid}）。"
-                f"两个 sweep 共用一个 run root 会互相覆盖产物，**而且不报错**。"
-                f"先停掉那个，或换一个 --root。"
+                f"run root {root} 的命名空间 {key or '(默认)'} 上已经有一个 sweep 在跑"
+                f"（pid {pid}）。两个 sweep 共用一个命名空间会互相覆盖产物，"
+                f"**而且不报错**。先停掉那个，或换一个 --tag/--seed。"
             )
         lock.unlink(missing_ok=True)
     lock.write_text(str(os.getpid()), encoding="utf-8")
@@ -408,7 +456,9 @@ def _phase_sweep(args) -> int:
     library_root = C.library_root_for(adapter, args.k, seed=args.seed)
     summary_ns = C.summary_namespace(adapter, args.k, seed=args.seed)
 
-    lock = _acquire_run_root_lock(runs_root)
+    # 锁的 key = **命名空间**（碰撞单位）：同 ns 的两个 sweep 互斥，
+    # 不同 ns（不同 --tag/--seed）的两条实验文件各写各的，可以并存。
+    lock = _acquire_run_root_lock(runs_root, summary_ns)
     try:
         return _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns)
     finally:
@@ -878,7 +928,9 @@ def _phase_repeat(args) -> int:
     print(f"# 任务 {len(tasks)} 个，每题 {args.repeats} 次 rollout → 落盘 {out_dir}")
     print(f"# 命名空间 {tag}-r1..r{args.repeats}；判据在跑完后立刻判（不重跑模型）")
 
-    lock = _acquire_run_root_lock(adapter.spec.runs_root)
+    # 臂的碰撞单位是**臂名**（`arms/<tag>/` + `<root>/<task>/repeat-<tag>-*`）：
+    # 同 tag 的两个 repeat 互斥，不同 tag 各写各的。
+    lock = _acquire_run_root_lock(adapter.spec.runs_root, tag)
     try:
         with adapter:
             ARMS.run_arm(
@@ -1025,9 +1077,9 @@ def _phase_reselect(args) -> int:
         print("没有可重选的任务", file=sys.stderr)
         return 1
 
-    # 锁跟 sweep 锁**同一个**目录（`runs_root/adapt`）——否则两个进程能在同一个
-    # 命名空间里各写各的，静默覆盖。
-    lock = _acquire_run_root_lock(adapter.spec.runs_root / "adapt")
+    # 锁跟 sweep 锁**同一个命名空间**——否则两个进程能在同一个命名空间里
+    # 各写各的，静默覆盖。key 用命名空间名：同 ns 互斥，不同 ns 各跑各的。
+    lock = _acquire_run_root_lock(adapter.spec.runs_root / "adapt", ns)
     relay = _make_relay(_llm_choice(args))
     relay.start()
     try:

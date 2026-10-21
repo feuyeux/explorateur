@@ -607,6 +607,45 @@ def _absolute_paths_ok() -> None:
         adapter.close()
 
 
+def _run_lock_ok() -> None:
+    print("[6c] 跑批锁按命名空间/臂名加锁（不同实验可以并存，同一个必须互斥）")
+    # 2026-10-21 实测：锁原来加在整个 run root 上，比真正的碰撞单位粗——
+    # 两条**文件各写各的**实验（同 tag 之外的一切）也被挡在门外，只能排队；
+    # 而 repeat 相位锁的是另一个文件，等于没锁到同一件事上。
+    # 现在锁的 key 是碰撞单位：同 key 互斥，不同 key 各跑各的。
+    import run_usine_h2 as H
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        lock1 = H._acquire_run_root_lock(root, "ns-a")
+        try:
+            try:
+                H._acquire_run_root_lock(root, "ns-a")
+                blocked = False
+            except RuntimeError:
+                blocked = True
+            check("同一个命名空间的第二个 sweep 被挡下", blocked, "同 key 没互斥")
+        finally:
+            H._release_run_root_lock(lock1)
+
+        lock_a = H._acquire_run_root_lock(root, "ns-a")
+        lock_b = H._acquire_run_root_lock(root, "ns-b")
+        try:
+            check(
+                "不同命名空间的两条实验可以并存",
+                lock_a != lock_b and lock_a.exists() and lock_b.exists(),
+                f"{lock_a.name} / {lock_b.name}",
+            )
+            check(
+                "锁文件名带命名空间（不同实验不共用一个锁文件）",
+                "ns-a" in lock_a.name and "ns-b" in lock_b.name,
+                f"{lock_a.name} / {lock_b.name}",
+            )
+        finally:
+            H._release_run_root_lock(lock_a)
+            H._release_run_root_lock(lock_b)
+
+
 def _launcher_ok() -> None:
     print("[7] 端到端：装配 → 执行 → 轨迹 → 判据（假执行器，不调模型）")
     # 用一个**假执行器**把整条链走通：装配 → 起「会话」→ 事件落盘 → 轨迹渲染 →
@@ -1819,6 +1858,7 @@ def main() -> int:
         _checks_ok,
         _run_root_guard_ok,
         _absolute_paths_ok,
+        _run_lock_ok,
         _launcher_ok,
         _engine_prompts_ok,
         _keep_base_ok,
