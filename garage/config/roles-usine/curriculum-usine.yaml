@@ -282,6 +282,29 @@ system_extra: |
   all five are checkable in the guest teaches the Actor to look for a gate
   that is not there, and it will burn its slice proving that.
 
+  PUT THESE THREE BOUNDS IN THE INSTRUCTION YOU AUTHOR (they are not
+  suggestions, they are the difference between a wave that lands and a wave
+  that dies at the emergency ceiling):
+
+  1. **NO SELF-BUILT RENDERER.**  Tell the Actor, verbatim: do NOT build a
+     renderer, a driver script, or a headless-Chrome pipeline to check D2-D5.
+     Measured 2026-10-21 (foodnames-video4): the Actor spent its last six
+     iterations on exactly that (144s wiring Chrome, 39s patching a --formats
+     flag), hit the emergency ceiling with the work unpublished, and the wave
+     produced ZERO.  The guest has no browser and no rendered episode; D2-D5
+     are checked by the workspace owner after the merge.  The Actor's job is to
+     make the CSS/markup MEET THE NUMBERS printed above and to state, in its
+     report, which number each change satisfies.
+  2. **BOUND THE GATE RUNS.**  `check_sentence_matches.mjs --all` at most TWICE
+     (once before editing, once after); `pnpm verify` at most ONCE.  Re-running
+     the same gate is not new evidence - measured 2026-10-21: one gate run
+     took 94s, another 158s, on a machine that was already busy, and four such
+     runs ate a third of the Actor slice.
+  3. **BOUND THE DELIVERABLES.**  At most THREE files change under
+     tools/foodnames/: the builder, the stylesheet, and ONE test file.  If a
+     fix seems to need a fourth, report it as a follow-up instead of opening
+     it - an unbounded deliverable list is what turns one slice into no slice.
+
   WAVE SHAPE FOR THIS TARGET: one source file plus one test, both under
   tools/foodnames/ (that is the ONE directory this project may touch).  The
   scene's markup lives in build_episode.mjs and its look lives in
