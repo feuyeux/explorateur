@@ -151,13 +151,14 @@ export function browserPath(only?: string): string | null {
 // ---------------------------------------------------------------- 视口亏空
 /**
  * `--window-size=W,H` 给的是**窗口**尺寸，Chromium 的实际**视口**往往更矮：
- * 2026-10-22 实测本机 Chrome 155，`innerHeight = 窗口高 − 95` CSS px。
+ * 2026-10-22 实测本机 Edge 144.0.3719.82，`innerHeight = 窗口高 − 93` CSS px
+ * （Chrome 155 是 −95；两种浏览器各量各的，四种窗口尺寸的亏空都一样）。
  * 差值随浏览器版本/机器变，**写死常数迟早过期**——过期那天不会报错，
  * 只会把画布底部一整条渲成底色（画面看起来「只是矮了一点」）。
  *
- * 2026-10-20 Chrome 自动升级到 155 之后，foodnames 12 期全卡在
- * `poster verify-colors` 的「grid not found」：海报网格的底边正好落在
- * 被切掉的 95px 里。视频帧没中招（走 textlayer 那条路，它早有补偿）。
+ * 2026-10-20 之后 foodnames 12 期全卡在 `poster verify-colors` 的「grid not found」：
+ * 海报网格的底边正好落在被切掉的 93px 里。视频帧没中招（走 textlayer 那条路，
+ * 它早有补偿）。
  *
  * **这里探一次、之后按浏览器路径 memoize**：探针页只报 `innerHeight` 与
  * `document.documentElement.clientWidth`（后者是**排版宽度**，不含滚动条）。

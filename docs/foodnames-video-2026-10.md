@@ -9,8 +9,7 @@
 
 ## 一、先把「明显的问题」变成能机检的数字
 
-用户说的「有明显的问题」原本是观感。观感不能当验收口径，所以第一步是把它拆成
-**五条可机检的缺陷**，每条配一道能跑的判据。
+用户说的「有明显的问题」原本是观感。观感不能当验收口径，所以第一步是把它拆成 **五条可机检的缺陷**，每条配一道能跑的判据。
 
 | 编号 | 缺陷 | 判据怎么量 | 旧 12 期实测 |
 |---|---|---|---|
@@ -28,10 +27,7 @@ fr-FR  画面 "sushi sushi est un plat japonais"   配音 "Le sushi est un plat 
 ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は中国から来た"
 ```
 
-根因在 `usine/tools/foodnames/build_episode.mjs`：为了给菜名上色，它把句子的
-**第一个 token 无条件替换成词形**。句首不是那个词的语种——冠词（Le / El / Το）、
-日语助词「は」、韩语助词「는」——那个 token 被吃掉，词本身若在句中再现就重复一遍。
-后果是**音画不同步**：卡拉OK 按 token 逐个亮，token 数没变但内容整体错开一词。
+根因在 `usine/tools/foodnames/build_episode.mjs`：为了给菜名上色，它把句子的 **第一个 token 无条件替换成词形**。句首不是那个词的语种——冠词（Le / El / Το）、日语助词「は」、韩语助词「는」——那个 token 被吃掉，词本身若在句中再现就重复一遍。后果是**音画不同步**：卡拉OK 按 token 逐个亮，token 数没变但内容整体错开一词。
 
 `verify-sync` 门抓不到它——那个门只数词数，不比词。
 
@@ -41,12 +37,8 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 两处结构性改动（都先于跑批落地，否则 RSI 线路对这条产线**结构性不可达**）：
 
-1. **铺开闸**（`garage/spread.py` + `garage/config/spread.json`）：原先 `tools/` 全被归进
-   `other`，而 `other` 不在冷区名单 —— RSI 波次永远看不到 foodnames 这条产线。
-   现在 `tools/` 是一等顶层单位，`package_priority` 里也有它。
-2. **出题面**（`garage/config/roles-usine/curriculum-usine.yaml`）：TARGET MENU 加了
-   G 目标（foodnames 视频线），WAVE BRIEF 带上 D1–D5 的简报，**并写明「不要侦察，
-   直接出题」**——出题席的切片装不下侦察。
+1. **铺开闸**（`garage/spread.py` + `garage/config/spread.json`）：原先 `tools/` 全被归进 `other`，而 `other` 不在冷区名单 —— RSI 波次永远看不到 foodnames 这条产线。现在 `tools/ ` 是一等顶层单位，`package_priority` 里也有它。
+2. **出题面**（`garage/config/roles-usine/curriculum-usine.yaml`）：TARGET MENU 加了 G 目标（foodnames 视频线），WAVE BRIEF 带上 D1–D5 的简报，**并写明「不要侦察，直接出题」**——出题席的切片装不下侦察。
 
 另外把出题席的**推理档位**从 `max` 降到 `low`，理由见下一节。
 
@@ -54,27 +46,22 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 ### 3.1 第一波 `foodnames-video`：出题席切片被砍
 
-出题席切片 280s，被杀时**一题都没出**（wave 状态 `safety_ceiling`）：
-首响应 207s + 第二轮 74s = 281s。
+出题席切片 280s，被杀时**一题都没出**（wave 状态 `safety_ceiling`）：首响应 207s + 第二轮 74s = 281s。
 
-修法一：切片抬到 400s（对齐 DRS 口径——同一台机器的两种口径），run ceiling
-1500s → 1700s。
+修法一：切片抬到 400s（对齐 DRS 口径——同一台机器的两种口径），run ceiling 1500s → 1700s。
 
 ### 3.2 第二波 `foodnames-video2`：档位反转，19 分钟一次都没答上
 
-第二波在 400s 切片下仍然反复 `APITimeoutError`（21:29–21:50，约 19 分钟，
-出题席一次都没答上）。
+第二波在 400s 切片下仍然反复 `APITimeoutError`（21:29–21:50，约 19 分钟，出题席一次都没答上）。
 
-按 yaml 里自己写着的规矩（「改旋钮前先跑探针」）跑了 `garage/probe_curriculum_effort.py`
-——同一份**当前**出题面（24067 字符 system + 8412 字符 user）、同一批字节、同一个网关：
+按 yaml 里自己写着的规矩（「改旋钮前先跑探针」）跑了 `garage/probe_curriculum_effort.py`——同一份**当前**出题面（24067 字符 system + 8412 字符 user）、同一批字节、同一个网关：
 
 | effort | 结果 |
 |---|---|
 | `low` | **7.2s 答出**（prompt 7411 / completion 1883，正文 7471 字），且答的是「target G, D1 primary + D2–D5 fix direction」 |
 | `max` | **200s 内没有答案**（TimeoutError） |
 
-也就是说 2026-10-19 那次「max 比 medium 快」的测量**已经反转**——不是「低档思考更久」
-那种直觉，而是「max 这一档现在根本不答」。于是出题席改到 `low`。
+也就是说 2026-10-19 那次「max 比 medium 快」的测量**已经反转**——不是「低档思考更久」那种直觉，而是「max 这一档现在根本不答」。于是出题席改到 `low`。
 
 ### 3.3 第三波 `foodnames-video3`：出题席一击命中，Actor 差一轮没写完收尾
 
@@ -88,44 +75,30 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
     cannot produce … do NOT go looking for a rendered-frame gate - it does not exist here.
     D1 is the only part with a runnable gate, and it must pass」；
   - 验收顺序：`check_sentence_matches.mjs --all` → exit 0；`pnpm verify` → exit 0。
-- Actor 随后在 guest 里逐个语种算出「句子里哪个 token 才是那个词」，改好构建器、
-  抽出共享判定源 `hero_token.mjs`、写完回归测试 `sentence-tokens.test.mjs`。
-- **22:03:53 撞上 Actor 席的 580s 切片上限被杀**：第 38 轮迭代，差一轮没写完收尾，
-  整波零产出（`memory_bytes: 0`、`projects: 0`）。
+- Actor 随后在 guest 里逐个语种算出「句子里哪个 token 才是那个词」，改好构建器、抽出共享判定源 `hero_token.mjs`、写完回归测试 `sentence-tokens.test.mjs`。
+- **22:03:53 撞上 Actor 席的 580s 切片上限被杀**：第 38 轮迭代，差一轮没写完收尾，整波零产出（`memory_bytes: 0`、`projects: 0`）。
 
 ### 3.4 第四次修：Actor 席切片 580s → 950s（切片是天花板不是地板）
 
-`actor-usine.yaml` 自己声明 `wall_clock_secs: 950s`，而计划里的 580s 才是真正的约束
-（`apply_slices` 只收紧不放松）——**两个口径必须对齐，否则「计划」就是假账**。
-现在计划、声明、生效三处同数（950），run ceiling 1700 → 2050s。
+`actor-usine.yaml` 自己声明 `wall_clock_secs: 950s`，而计划里的 580s 才是真正的约束（`apply_slices` 只收紧不放松）——**两个口径必须对齐，否则「计划」就是假账**。现在计划、声明、生效三处同数（950），run ceiling 1700 → 2050s。
 
 ### 3.5 第四次波 `foodnames-video4`：还是差一口气——Actor 在**自建渲染器**
 
-950s 切片下，Actor 又被砍（22:29:56，第 35 轮迭代）。读它的最后六轮才发现真因：
-**它不是在写代码，它在 guest 里搭浏览器渲染**（iter 36 写 `fn_drive.py`、
-iter 37 跑它、iter 38 改 `--formats` 参数、iter 39 再跑）——为了**验证** D2–D5。
+950s 切片下，Actor 又被砍（22:29:56，第 35 轮迭代）。读它的最后六轮才发现真因：**它不是在写代码，它在 guest 里搭浏览器渲染**（iter 36 写 `fn_drive.py`、iter 37 跑它、iter 38 改 `--formats` 参数、iter 39 再跑）——为了**验证** D2–D5。
 
 而题面里明明写着「guest 里量不到 D2–D5，别去找不存在的门」。
 
-**教训**：题面给了「结论」（D2–D5 量不到），但没给「上界」（不许自建渲染器）。
-Actor 想自证，于是把切片烧在搭渲染器上。这正是「**上界必须写进 brief**」那条：
-切片吸收不了无界的任务。
+**教训**：题面给了「结论」（D2–D5 量不到），但没给「上界」（不许自建渲染器）。Actor 想自证，于是把切片烧在搭渲染器上。这正是「**上界必须写进 brief**」那条：切片吸收不了无界的任务。
 
 修法：WAVE BRIEF 里加三条**上界**（2026-10-21 实测写进 `curriculum-usine.yaml`）：
 
-1. **不许自建渲染器**（不许写 driver、不许拉 headless Chrome 去验 D2–D5）——
-   D2–D5 是合并后由工作区主人验的，Actor 的活是让 CSS/标记**达到 brief 里的数字**，
-   并在报告里写清每处改动满足哪个数字；
-2. **门禁跑法有上界**：`check_sentence_matches.mjs --all` 最多两次（改前一次、改后一次），
-   `pnpm verify` 最多一次——重跑同一道门不是新证据（实测一次 94s、另一次 158s，
-   四次就吃掉三分之一切片）；
+1. **不许自建渲染器**（不许写 driver、不许拉 headless Chrome 去验 D2–D5）——D2–D5 是合并后由工作区主人验的，Actor 的活是让 CSS/标记**达到 brief 里的数字**，并在报告里写清每处改动满足哪个数字；
+2. **门禁跑法有上界**：`check_sentence_matches.mjs --all` 最多两次（改前一次、改后一次），`pnpm verify` 最多一次——重跑同一道门不是新证据（实测一次 94s、另一次 158s，四次就吃掉三分之一切片）；
 3. **交付物有上界**：`tools/foodnames/` 下最多三个文件改动（构建器、样式表、一个测试文件）。
 
 ### 3.6 第五波 `foodnames-video5`：**落地**（真提交）
 
-出题席 22:43:07 交卷（网关超时拖了 9 分钟，`infra_pause_secs: 520`，实际作答只用 20.5s），
-题面把三条上界原样带进去了（`NO SELF-BUILT RENDERER` / `BOUND THE GATE RUNS` /
-`AT MOST THREE FILES`），项目 id 是 `foodnames-d1-hero`。
+出题席 22:43:07 交卷（网关超时拖了 9 分钟，`infra_pause_secs: 520`，实际作答只用 20.5s），题面把三条上界原样带进去了（`NO SELF-BUILT RENDERER` / `BOUND THE GATE RUNS` /`AT MOST THREE FILES`），项目 id 是 `foodnames-d1-hero`。
 
 Actor 席这次**没有自建渲染器**，改成按数据普查 + 按数字施工：
 
@@ -144,12 +117,9 @@ Actor 席这次**没有自建渲染器**，改成按数据普查 + 按数字施�
 tag: theatre/wave-1
 ```
 
-落地后本地复验：**句子门 144/144 逐词一致，退出码 0**（原 54 处不一致）；
-版式门（DOM 层）**12 期 0 条不达标**（原 954 条）。
+落地后本地复验：**句子门 144/144 逐词一致，退出码 0**（原 54 处不一致）；版式门（DOM 层）**12 期 0 条不达标**（原 954 条）。
 
-波次还留下了 4 个记忆件（`garage/memory-snapshots/wave-001/`），其中 `project_foodnames.md`
-把病灶抽成了可复用的类别（「任何卡拉OK句子行都会犯这个错」），并给出两条实测更正——
-下面那条就是它抓出来的。
+波次还留下了 4 个记忆件（`garage/memory-snapshots/wave-001/`），其中 `project_foodnames.md` 把病灶抽成了可复用的类别（「任何卡拉OK句子行都会犯这个错」），并给出两条实测更正——下面那条就是它抓出来的。
 
 ## 三之二、合并带进来的下游回归：韩语补丁（工作区主人抓到的）
 
@@ -160,9 +130,7 @@ PATCH-RULE BINDING PROBLEMS:
   orphan rule .kC2A4 is defined but worn by no glyph
 ```
 
-**病因**：波次把韩语在视频侧改成了 `.cv` 融合渐变，理由写在代码注释里——
-「补丁类 `.k####` 的 background-position 是按**海报**字号实测的；视频的主角词被拟合到另一个
-字号，补丁必然错位 → 视频一律走 `.cv`」。
+**病因**：波次把韩语在视频侧改成了 `.cv` 融合渐变，理由写在代码注释里——「补丁类 `.k####` 的 background-position 是按**海报**字号实测的；视频的主角词被拟合到另一个字号，补丁必然错位 → 视频一律走 `.cv`」。
 
 **这个前提是错的。** 补丁用的是**百分比**定位：
 
@@ -170,23 +138,16 @@ PATCH-RULE BINDING PROBLEMS:
 .kC2A4 { background-position: 0.0% 100.0%, 0 0; background-size: 100.0% 38.7%, 100% 100%; }
 ```
 
-而测量页自己写着「（advance × line-height），**任意 font-size 可迁移**」
-（`packages/poster/src/measure_korean.ts`）。所以「字号变了补丁就错位」不成立。
+而测量页自己写着「（advance × line-height），**任意 font-size 可迁移**」（`packages/poster/src/measure_korean.ts`）。所以「字号变了补丁就错位」不成立。
 
 **代价有两处，都很实**：
 
-1. 注入 `video_src.html` 的 `.k####` 规则变成「无人穿戴的孤儿规则」，
-   `poster audit-charset` 当场红，**整条产线在第 12 步停住**——12 期一期都出不来；
+1. 注入 `video_src.html` 的 `.k####` 规则变成「无人穿戴的孤儿规则」，`poster audit-charset` 当场红，**整条产线在第 12 步停住**——12 期一期都出不来；
 2. 韩语丢掉页脚图例承诺的**元音/辅音分色**（整词只剩一条对角渐变），与图例自相矛盾。
 
-**修法**：视频侧继续用实测补丁，`.cv` 只留给数据里显式声明的**融合音节**
-（`ko_fused_syllables`，那才是没有补丁可用的场合）。另外把 `.ksyl` 的 `line-height` 留回
-**1.28**——补丁量在「advance × 1.28 行高」的盒子上，行高一改墨迹在盒里的相对位置就变
-（字号变了没关系，百分比会跟着缩放）。
+**修法**：视频侧继续用实测补丁，`.cv` 只留给数据里显式声明的**融合音节**（`ko_fused_syllables`，那才是没有补丁可用的场合）。另外把 `.ksyl` 的 `line-height` 留回 **1.28**——补丁量在「advance × 1.28 行高」的盒子上，行高一改墨迹在盒里的相对位置就变（字号变了没关系，百分比会跟着缩放）。
 
-**这一条是本轮最值钱的方法论**：合并门禁管不到 `tools/`（`vitest.config.ts` 的 include 只有
-`packages/*/test/**/*.test.ts`），所以「波次说它修好了」和「产线还能跑」是两件事。
-**只有把整条产线真跑一遍，才知道合并带进来了什么。**
+**这一条是本轮最值钱的方法论**：合并门禁管不到 `tools/`（`vitest.config.ts` 的 include 只有 `packages/*/test/**/*.test.ts`），所以「波次说它修好了」和「产线还能跑」是两件事。**只有把整条产线真跑一遍，才知道合并带进来了什么。**
 
 ## 三之三、guest 里那道结构门是**环境性红**（量到的不是缺陷）
 
@@ -196,19 +157,78 @@ PATCH-RULE BINDING PROBLEMS:
 仓库根多了 ["AppData","bin","evolution_project","work"]
 ```
 
-查下来：guest 的 seed 是「把 **usine 前缀**的 git-archive 解到 `/home/user`」，于是
-`packages/gate/test/layout.test.ts` 算出来的「仓库根」= `/home/user` = **HOME**，
-里面那四个目录是 **harness 自己的**（`bin` / `work` 是建机时的，`AppData` 是
-Windows 版 Node 跑 vitest 时自己长出来的）。
+查下来：guest 的 seed 是「把 **usine 前缀**的 git-archive 解到 `/home/user`」，于是 `packages/gate/test/layout.test.ts` 算出来的「仓库根」= `/home/user` = **HOME**，里面那四个目录是 **harness 自己的**（`bin` / `work` 是建机时的，`AppData` 是 Windows 版 Node 跑 vitest 时自己长出来的）。
 
-也就是说：这道门在 guest 里**量错了目录**——它把 harness 的家当当成了「内容产物」。
-真仓库里它是绿的（仓库根只有 `usine/ garage/ garage-ii/ theatre-ii/ théâtre/ config/ docs/`）。
+也就是说：这道门在 guest 里**量错了目录**——它把 harness 的家当当成了「内容产物」。真仓库里它是绿的（仓库根只有 `usine/ garage/ garage-ii/ theatre-ii/ théâtre/ config/ docs/`）。
 
-**代价**：Actor 拿它当自己的验收信号，绕着它耗掉十几次迭代；验证席也因为 `AppData`
-还在，连着 5 轮跑同一条命令（重复确认不是新证据）。
+**代价**：Actor 拿它当自己的验收信号，绕着它耗掉十几次迭代；验证席也因为 `AppData` 还在，连着 5 轮跑同一条命令（重复确认不是新证据）。
 
-**处置**：本轮不动这道门——它是「人手工维护的白名单」，动它的收益（省几轮迭代）远小于
-风险（把一条故意的门改成"对 guest 放行"）。记在这里，作为后续单独一件事。
+**处置**：本轮不动这道门——它是「人手工维护的白名单」，动它的收益（省几轮迭代）远小于风险（把一条故意的门改成"对 guest 放行"）。记在这里，作为后续单独一件事。
+
+## 三之四、量「之后」时发现：**尺子自己有缺陷**（隔行采样漏掉细线）
+
+第一轮「之后」测完：版式门 **13 条不达标**，全部是 `no_big_empty_band`，全部在 15.4%–15.6%（阈值 ≤15%）。差 0.4–0.6 个百分点。
+
+按纪律先查「这是我引入的，还是尺子的」——逐帧定位那条空带的位置：
+
+```
+ep05-chocolate / de-DE / 竖屏：
+  隔行采样（现在的口径）= 15.5%（297px，位于 y=1541..1838）
+  逐行扫描                =  9.7%
+```
+
+**根因**：页脚那条 1.5px 的分隔线渲染在 **y=1687（奇数行）**，而像素扫描是 `for (y = 0; y < H; y += 2)`——**只取偶数行**。于是那条细线整条没被看见，「细线上面 ~146px + 细线下面 ~149px」两段空气被并成一段 297px。
+
+原注释写的是「行按 2 抽样（空白带是连续行，2 倍抽样最多差 1 行误差）」——**这句话是错的**：误差不是 1 行，是**整条细线加它两侧的空气**，量级 ~150px。更糟的是这个假阳性会**随细线落在奇数行还是偶数行而翻转**：同一份版式，量出 297px 或 150px 都可能。
+
+**修法**：像素层改成**逐行扫**（`y += 1`）。代价是每帧多扫一半的行（实测多 ~0.3s）。
+
+**代价与纪律**：尺子换了，**两侧读数都得重测**——「之前」的 12 期（旧成片的帧还在盘上）与「之后」的 12 期都用新尺子各跑一遍，报告里写明旧读数作废的理由。
+
+**顺带否掉一条**：判据自己也写着「D6 注音对位偏移」早就被量尺子否掉了（0.0–1.4px）。连判据自己都会量错，这轮又量出来一次。
+
+## 三之五、渲染环境翻转把整条产线打断：**视口亏空**（Edge 144 的 headless 窗口比视口高 93px）
+
+第二轮「之后」重新生成 12 期，**12 期全部在第 14 步失败**（`poster verify-colors` 报 `grid not found`）。同一个提交、同一台机器、昨天还跑得通——所以先查「是不是我改的」。
+
+把「网格没找到」拆开量，链条是这样的：
+
+1. `verify-colors` 只找到 **4 条横线**（要 5 条：4 行格子 = 上下 5 条边），竖线 4 条全对；
+2. DOM 探针量到网格底边**几何上完全正确**（`.grid` 底边 1713px，画布 1754px）；
+3. 于是问题不在版式，在**出图**：新海报的左列在 **y=3322（=1661 CSS px）**处从纸色（247,242,230）变成底色（232,226,212）——**画布底部 93px 根本没被画上**。
+
+根因是 Chromium 系的一个坑：`--window-size=W,H` 给的是**窗口**尺寸，实际**视口**更矮。本机实测（两种浏览器各量一次，**四种窗口尺寸的亏空都一样**）：
+
+| 浏览器 | 版本 | 请求的窗口 | 实际视口 | 亏空 |
+|---|---|---|---|---|
+| **Edge（产线实际用的）** | 144.0.3719.82 | 1240×1754 | 1216×1661 | 宽度 24 / **高度 93** |
+| Chrome（产线没用到） | 155.0.8059.85 | 1240×1754 | 1224×1659 | 宽度 16 / 高度 95 |
+
+**产线用的到底是哪一个**：`platform.browserPath()` 实测输出 `edge: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`——候选表里 edge 排在 chrome 前面，`FEUILLE_BROWSER` 为空。**Chrome 155 确实是 10-20 08:23 自动升级的，但产线压根没用到它**（Edge 自 2026-01-20 装上 144.0.3719.82 之后没动过）。第一版归因写的是「Chrome 自动升级」，被这条实测推翻了。
+
+**破口不是内容回归，也跟浏览器升级无关**——两条决定性实验：
+
+1. **旧内容今天也坏**：拿 10-20 01:10 交付的那份 `index.html`（`foodnames-ep01-sushi/index.html`），用今天的 Edge、同一套参数、不带补偿重渲 → **底边同样被切**（y=3322 起是底色，网格底线 3425–3427 消失）。所以「换了新模板才坏」不成立。
+2. **同一份 HTML、同一枚二进制，10-20 渲得完整、今天渲不全**：旧交付的 `poster.png`底边是好的（`run.log` 里 `horizontal lines: [490, 1224, 1958, 2692, 3426]`，第 5 条在 1713 CSS px），而 Edge 二进制自 1 月起没换过、渲染参数也没换过——**翻转发生在渲染环境侧**（旧 12 期渲于 10-20 01:10–02:29，失败的重新生成在 10-21 21:06 之后），具体是显示/桌面会话/DPI 布局里的哪一项翻转了，**没定位到**。
+
+**为什么 10-20 那天没出事**：仓库里早就有这个坑的补丁——`packages/core/src/textlayer.ts`（视频帧走它）会**先探一次亏空再补窗口**；`packages/poster/src/render_page.ts`（Windows 专用的整页渲染器）也有一份，但**写死了常数 (24, 93)**——今天实测 Edge 144 恰好就是 (24, 93)，说明那个常数本来就是给这台机器的 Edge 探的。
+
+**而产线真正走的那条路没有补丁**：`packages/poster/src/render_poster.ts`（CLI 的 `poster render`）**原样把 `w,h` 塞进 `--window-size`**。于是：
+
+- 海报（1240×1754，2x）：底部 93 CSS px 被切 → 网格底边正好落在那儿 → `grid not found`；
+- 封面（1080×1920，1x）：底部 166px 被切；
+- 视频帧（走 textlayer）：**没事**——那条路早有补偿（实测帧的左右两列到底都是纸色）。
+
+**修法（不写死常数）**：`packages/core/src/platform.ts` 新增 `viewportDeficit(browser)`：渲一页只报 `innerHeight` / `clientWidth` 的探针页，量出差值，按浏览器路径 memoize；三个渲染口（`render_poster` /`render_page` / `measure_korean`）都改成**按实测亏空补窗口高度**，渲完把 PNG 裁回 `w*scale × h*scale`。
+
+两条细节是实测逼出来的：
+
+- **只补高度**。宽度也补的话，`--hide-scrollbars` 让排版宽度等于窗口宽，居中内容会被整体推开——海报网格的竖线从 `[101, 860, 1619, 2378]` 挪到 `[117, 876, 1635, 2394]`。
+- **韩语测量页也得补**：三音节词（例：초콜릿）的第三个音节正好落在被切掉的区间里，墨迹掩膜被切 → 量出来的连通域是残的。
+
+**修复的还原性（最硬的一条证据）**：用修好的渲染口重渲**旧期**的 `index.html`，得到的 PNG 与 10-20 交付的 `poster.png` **逐像素 AE = 0**（2480×3508 全部相同）。也就是说这个修复不是「画得更好看」，是**把 10-20 的行为精确还原**，而且不再依赖「那天的环境是不是这样」。
+
+**这一条属于「量到的缺陷」还是「环境」**：环境翻了（渲染环境的某一项状态变了），但**产线该扛住**——写死的常数迟早过期，过期那天不报错，只让画面「看起来矮了一点」。
 
 ## 四、B 线（harness2 × garage-ii）：它能改什么、改不到什么
 
@@ -216,54 +236,157 @@ Windows 版 Node 跑 vitest 时自己长出来的）。
 
 ### 4.1 这一格量的是什么
 
-`garage-ii/bench_usine.py` 加了 `foodnames-scene` 一格，判据是两条**结构无关**的
-静态事实（不认 class 名、不认 DOM 形状）：
+`garage-ii/bench_usine.py` 加了 `foodnames-scene` 一格，判据是两条**结构无关**的静态事实（不认 class 名、不认 DOM 形状）：
 
 1. 有没有一个元素的可见文字**恰好等于**那句旁白；
 2. 词形有没有**独立于**那句话成元素（「词只是句首的一个 token」不算）。
 
-夹具直接读产线的数据文件（`tools/foodnames/data/ep01-sushi.json`），不另抄一份——
-抄一份就会漂，漂了的夹具会让「判据失败」变成「夹具过期」。
+夹具直接读产线的数据文件（`tools/foodnames/data/ep01-sushi.json`），不另抄一份——抄一份就会漂，漂了的夹具会让「判据失败」变成「夹具过期」。
 
-这一格量的是**harness 有没有把这条产线的 house rule 教给智能体**：基准 harness 的
-`skills/` 里没有 foodnames 手册，所以智能体不知道「词是主角」「旁白句不许被改写」。
+这一格量的是**harness 有没有把这条产线的 house rule 教给智能体**：基准 harness 的 `skills/` 里没有 foodnames 手册，所以智能体不知道「词是主角」「旁白句不许被改写」。
 
 ### 4.2 B 线改不到已交付的成片（这一条必须讲清）
 
-harness2 演化的是 **harness 树**（systemprompt / guardrails / skills），也就是
-「智能体现场怎么搭一个场景」。而已交付的 12 期成片是 **`build_episode.mjs` 跑出来的
-代码产物**——B 线的杠杆够不着它。
+harness2 演化的是 **harness 树**（systemprompt / guardrails / skills），也就是「智能体现场怎么搭一个场景」。而已交付的 12 期成片是 **`build_episode.mjs` 跑出来的代码产物**——B 线的杠杆够不着它。
 
 所以两条线的分工是：
 
 - **A 线改记忆 + 改仓库代码** → 能直接改掉已交付成片的生成方式；
-- **B 线改 harness** → 改的是「智能体现场搭出来的场景 HTML」，
-  要落到已交付成片上，还得有人把 harness 里的版式知识搬进
-  `build_episode.mjs` / `templates/video_style.css`。
+- **B 线改 harness** → 改的是「智能体现场搭出来的场景 HTML」，要落到已交付成片上，还得有人把 harness 里的版式知识搬进 `build_episode.mjs` / `templates/video_style.css`。
 
 这不是「B 线没用」，是**两条线的杠杆不一样**，报告里不许含糊。
+
+### 4.3 B 线的实测读数（基准臂零分布）
+
+要谈「演化有没有用」，先得有**同树零分布**——同一棵 harness 树、同一道题、同一个模型，重复 rollout 的分数会在一个宽度里动。没有零分布，「提升」这个说法就没有依据。
+
+第一版基准臂（timeout 900s）**四条 rollout 全部被时钟砍掉**，零分布被污染，那一臂作废。重跑（timeout 1800s，tag `fn-base-t1800`，n=4）才作准：
+
+| 量 | 值 |
+|---|---|
+| 分数 | `[0.3333, 1, 1, 0]` |
+| 均值 | **0.5833** |
+| 极差 | **1.0**（从 0 到 1 满铺） |
+| 标准差 | 0.5 |
+| 失败率 | `delivered_scene_html` 0.25 / `scene_sentence_matches_voice` 0.5 /`scene_word_is_hero` 0.5 |
+
+**这个宽度本身就是结论的一半**：同一棵基准 harness、同一道题，四个 rollout 里有两期「词是主角」这一条就没做到。**B 线要量的不是「演化臂比基准臂高几分」，而是「演化能不能把这个宽度收窄」**——一个宽度 1.0 的基准，配上 n=1 的演化臂读数，任何差值都读不出东西。
+
+证据：`D:\coding\personal\garage-ii-result\arms\fn-base-t1800\foodnames-scene.json`。旧的失败臂（`arms/base-probe/`，n=0、「判据跑不成（不是零分）」）留着作 bug 证据。
+
+### 4.4 sweep 跑完了，但**一棵演化树都没产出**（三个原因叠在一起）
+
+`--phase sweep --split train --seed 7 --k 1 --only-domains foodnames --timeout 1800` 跑了 `base1` / `dom1` /`inv1` / `agg1` 四条 rollout，产物都在盘上，但**演化这一步是空的**：
+
+1. **四条 rollout 全部被时钟砍掉**（`exit_code=124`，事件流分别 399 / 187 / 449 / 119 行）。rollout 本身是有进展的（`base1` 把画面工程做完了：字体子集、12 语种卡片、韩语补丁实测都跑过），只是没在 1800s 内收尾。
+2. **两个候选的树改动等于零**：`pool/dom1/harness.diff` 与 `pool/inv1/harness.diff`**都是空文件**。原因写在决策记录里：`decisions/dom1.md` 写着「these files are off the editable surface and were not applied:scripts\README.md, skills\README.md」——候选改的是**可编辑面之外**的文件，引擎按规矩不采纳，于是树逐字节没变。
+3. **第二个候选被网关吃掉**：`decisions/inv1.md` 只有一行 `[inv1.a1] minimax/MiniMax-M3.1: HTTP 502: {"error":{"message":"relay: fetch failed"}}`。
+
+于是 `harnesses/{base,dom1,inv1,agg1}` 四棵树**逐字节相同**（17 个文件全哈希一致），`context/agg1/harness` 与基准树也相同——**这一轮 sweep 的产出是「回退后的基准树」**。按 `arms.py` 的零格规则，这种情况下 compare 会直接判「演化**没动这一格**（可编辑面内容逐字相同）——这一格是构造上的零」。
+
+**第四个原因（工具面）**：sweep 的最后一步崩在 `theatre-ii/harness2/core/schedule.py:294` 的 `import fcntl`——**POSIX 专属模块，Windows 上没有**。引擎是零补丁的 vendored fork，不能改；只能由适配层垫一层。（并发会话已经在 `garage-ii/posix_compat.py` 里垫了，本轮 sweep 起跑在那之前。）
+
+### 4.5 那就自己写一棵演化树，把 B 线的杠杆单独量一遍
+
+sweep 交不出树，**这一格就量不出「harness 树改了以后有没有用」**。于是按 bench 注释指明的方向手写一棵：**基准树 + 一份 foodnames 手册**（`skills/foodnames-scene/SKILL.md`），手册内容就是这条产线的两条 house rule（词是主角 / 旁白句不许改写）+ 交付物 + 自检口径。
+
+**这个「演化」是谁做的，必须说清楚**：树是**我手写的**，不是 harness2 的提议者产出的。所以这一格量的是「**harness 树里多一条针对这条产线的手册，能不能把这一格从 0.58 拉上去**」，**不是**「harness2 自演化有没有用」。后者这一轮没有证据——sweep 没交出树（§4.4）。
+
+树放在仓库外：`D:\coding\personal\garage-ii-result\trees\fn-evo-s1\foodnames-scene\`（基准树的引擎写回版 + 新手册；与基准树的差异经核对**只有行尾** CRLF↔LF，文本逐字相同）。
+
+### 4.6 手写演化树的读数：**没测出提升**，而且点在「时间」这一维上
+
+跑法（repeat 不需要 ack，compare 也不需要）：
+
+```powershell
+python garage-ii\run_usine_h2.py --phase repeat --root D:\coding\personal\garage-ii-result `
+  --tree D:\coding\personal\garage-ii-result\trees\fn-evo-s1 `
+  --repeats 4 --tag fn-evo-s1 --only-tasks foodnames-scene --arm-workers 4 --timeout 1800
+python garage-ii\run_usine_h2.py --phase compare --base-arm fn-base-t1800 --evolved-arm fn-evo-s1 `
+  --root D:\coding\personal\garage-ii-result
+```
+
+两臂用的是**同一道题、同一道判据、同一个模型、同一个 1800s 上限**（上限变了旧读数就作废），唯一的差别是树：基准树 vs 基准树 + 手写的 foodnames 手册。两臂的树签名不同（`d50a6a043d260dc4` vs `05d42c12679bdf33`），所以这一格**不是**「演化没动」的零格。
+
+**读数**：
+
+| 臂 | 4 次 rollout 的分数 | 均值 |
+|---|---|---|
+| 基准臂 `fn-base-t1800` | 0.3333 / **1.0** / **1.0** / 0.0 | 0.5833 |
+| 演化臂 `fn-evo-s1` | 0.0 / 0.3333 / 0.0 / 0.0 | 0.0833 |
+
+`compare` 给的判决：**Δ = −50.0，p = 0.99，演化臂「更差」**；它自己的汇总行写的是「1/1 格**有演化但分不开**（不显著或方向不对）——**不能**据此说演化带来了提升」。逐条失分率：`delivered_scene_html` 25% → 75%，另两条 50% → 100%。
+
+**但这个「更差」量到的到底是什么**——查退出码查出来了：**演化臂 4 条 rollout 全部 `exit 124`（`[timeout after 1800s]`）**，事件流全部停在一条没有结果的 `tool/call`（`usine_poster fit-diag`）上。基准臂 4 条里也有 1 条这样被掐（r4，0 分、什么都没交）、1 条被掐但交了探针页（r1，0.33），只有 r2/r3 在上限内跑完（各 1.0）。
+
+也就是说：**这一格比的不是「场景搭得好不好」，而是「在 1800s 上限内有没有跑完」**。手写手册让智能体去走工具面、按口径自检，**每一步更慢**，于是 4 条全撞上限。按「量到的到底是智能体还是我自己的环境/上限」的纪律，这一格**不能**写成「加手册让智能体变差」——它是**上限与手册的交互**，而上限是这一轮定的。
+
+**两条同样要说清的话**：
+
+1. **功效远远不够**：`arms.py` 自己算的数是——要把 +16.7 分的效应测出来需要 n=21，按「实跑建议 ×1.5」就是 **n≈32/臂**；现在 n=4。所以「读不出」是**本来就读不出**，不是「仔细读了也没发现」。
+2. **基准臂自己的零分布就横跨全量程**：同一棵树、同一道题、同一个模型，4 次 rollout给出 0 / 0.33 / 1 / 1（极差 1.0）。「没有零分布就没有『提升』这个说法」这条纪律，这一格又印证了一次。
+
+**这一格的结论**：手写的这份 foodnames 手册**没有**把这一格从 0.58 拉上去；本轮读数方向为负且不显著。下一轮要能真读，前提是**先把上限挪开**（提到跑得完的量级），再把 n 提到 32/臂——否则量的还是「谁先跑完」。
 
 ## 五、跑批过程中修掉的两个真缺陷
 
 ### 5.1 B 线：相对 run root 会让一次 rollout 静默死掉（`garage-ii/usine_adapter.py`）
 
-`--root` 传相对路径时，argv 里传给 `dsh_run.mjs` 的全是相对路径，而**子进程的 cwd 是
-workspace**（不是发起进程的工作目录）——任务文件被解析到
-`workspace\..\garage-ii-result\..`，读不到，rollout 当场死。
+`--root` 传相对路径时，argv 里传给 `dsh_run.mjs` 的全是相对路径，而**子进程的 cwd 是 workspace**（不是发起进程的工作目录）——任务文件被解析到 `workspace\..\garage-ii-result\..`，读不到，rollout 当场死。
 
-症状很有欺骗性：臂记录里写的是**「判据跑不成（不是零分）」**，而 run 目录里多出一层
-同名嵌套目录（`events.jsonl` 落在里面），看起来像「模型没干活」。
+症状很有欺骗性：臂记录里写的是**「判据跑不成（不是零分）」**，而 run 目录里多出一层同名嵌套目录（`events.jsonl` 落在里面），看起来像「模型没干活」。
 
-修法：run root 在适配层构造时就 `resolve()` 成绝对路径；离线自检
-（`garage-ii/smoke_dsh_bridge.py` 的 `[6b]`）钉住「传给 `dsh_run.mjs` 的路径全是绝对的」。
+修法：run root 在适配层构造时就 `resolve()` 成绝对路径；离线自检（`garage-ii/smoke_dsh_bridge.py` 的 `[6b]`）钉住「传给 `dsh_run.mjs` 的路径全是绝对的」。
 
 ### 5.2 B 线：repeat 相位与 sweep 相位用的不是同一把锁
 
-`_phase_sweep` 与 `_phase_reselect` 的锁在 `<root>/adapt/.sweep.lock`，
-而 `_phase_repeat` 的锁在 `<root>/.sweep.lock`——**两个不同的文件**。
-锁的本意是「同一个 root 上不许同时跑两个跑批」（产物会互相覆盖而且不报错），
-现在两个相位各锁各的，等于没锁到同一件事上。
+`_phase_sweep` 与 `_phase_reselect` 的锁在 `<root>/adapt/.sweep.lock`，而 `_phase_repeat` 的锁在 `<root>/.sweep.lock`——**两个不同的文件**。锁的本意是「同一个 root 上不许同时跑两个跑批」（产物会互相覆盖而且不报错），现在两个相位各锁各的，等于没锁到同一件事上。
 
 ## 六、结论
 
-（待填：见最后一节「结论与交付」）
+**问题**：RSIAgent（A 线）与 harness2（B 线）能不能改进 `usine`，让新生成的 `usine\examples\foodnames-ii-*` 解决旧成片的问题？
+
+### 6.1 A 线：能——而且改进是**真提交**，不是建议清单
+
+波 5 的产出是真提交（`6985542`，tag `theatre/wave-1`）：出题席出题 → Actor 改代码 → 验证席判 → 合并器合进仓库。改的是 D1–D5 五处真缺陷（画面句子被改写、词形不是主角、暗词看不清、高亮色不是品牌色、空白带过大）。
+
+同一套判据、同一批 12 期数据、12 语种 × 2 画幅 = 144 个组合：
+
+| 量 | 之前 | 之后 |
+|---|---|---|
+| 画面句子 != 配音句 | **54 处不一致** | **0**（144/144 逐词一致，句子门 exit 0） |
+| 版式不达标 | **954 条** | **0 条** |
+
+分项（每项按两画幅计）：`hero_prominence` 126 → 0、`token_readable` 288 → 0、`highlight_brand` 288 → 0、`no_big_empty_band` 144 → 0、`sentence_matches_voice` 108 → 0。
+
+**尺子换过两次，两侧都用新尺子重测**：① 像素层从隔行抽样改成逐行扫（原尺子漏掉 1.5px 的页脚细线，把两段空气并成一段——13 条里有 12 条是假阳性）；② 竖屏拟合框 960 → 800（最后那 1 条**真实**的空带 15.26% → 14.48%）。
+
+**成片**：12 期全部跑完、零失败，两画幅成片 + 海报 + 三版封面 + 旁白 + 床都在 `usine/examples/foodnames-ii-ep01-sushi … foodnames-ii-ep12-fries`。
+
+### 6.2 B 线：sweep 没演化出树；手写的演化树也**没测出提升**
+
+sweep 跑完但**没有产出任何演化树**（§4.4）：四个候选的树差异都是空文件（一个改了可编辑面之外的文件、一个被网关 502 吃掉、四条 rollout 全部超时）。按 `arms.py` 的零格规则，那一轮的 compare 只能判「演化**没动这一格**——构造上的零」。
+
+所以**「harness2 自演化有没有用」这一问，这一轮没有证据**。但「harness 树这个杠杆有没有用」可以单独量：手写一棵演化树（基准树 + 一份 foodnames 手册，§4.5），用同一道判据、同一道题、同一个模型、同一个 1800s 上限跑 n=4，与基准臂的零分布并排读。
+
+结果（§4.6）：基准臂 0.3333 / 1.0 / 1.0 / 0.0（均值 0.5833），演化臂 0.0 / 0.3333 / 0.0 / 0.0（均值 0.0833），**Δ = −50.0，p = 0.99**。判决是「演化臂更差」，而这一格量到的**其实是「在 1800s 上限内有没有跑完」**——演化臂 4 条全部 `exit 124`（被上限掐死），基准臂 4 条里也有 1 条同样被掐。**结论是「没测出提升」，不是「手册让智能体变差」**；而且功效本来就够不着（要把 +16.7 分测出来需要 n=21，实跑要 n≈32/臂，现在 n=4）。
+
+### 6.3 两条线的杠杆不一样，报告里不许含糊
+
+- **A 线改产线代码** → 直接决定已交付的 12 期成片（这一轮就是它交付的）。
+- **B 线改 harness 树** → 改的是「智能体现场怎么搭一个场景」。要落到已交付成片上，还得有人把 harness 里的版式知识搬进 `build_episode.mjs` / `templates/video_style.css`。
+
+### 6.4 这一轮顺带修掉的三个真缺陷
+
+1. **合并带进来的韩语回归**：波次把视频侧的韩语改成 `.cv` 融合渐变，代价是 `poster audit-charset` 当场红、**整条产线在第 12 步停住**，而且韩语丢掉页脚图例承诺的元音/辅音分色。修法：视频侧继续用实测补丁，`.cv` 只留给融合音节。
+2. **尺子自己的缺陷**：隔行抽样漏掉 1.5px 细线 → 13 条里 12 条是假阳性（详见 §三之四）。
+3. **渲染环境的视口亏空**：Edge 144 的 headless 窗口比视口高 93 CSS px，产线那条 `poster render` 从不补偿 → 画布底部 93px 渲成底色 → 12 期全卡在第 14 步（详见 §三之五）。
+
+### 6.5 这一轮**没有**解决的（写在明处）
+
+- **guest 里那道结构门是环境性红**——不是缺陷（§三之三），本轮决定不动它。
+- **B 线的 sweep 基础设施**：引擎是零补丁的 vendored fork，`fcntl` 只能在适配层垫；提议者这一轮交不出树（三个原因都在 §4.4），所以 B 线的「自演化」这一问仍然是空的。
+- **B 线的「harness 树这个杠杆」也没读出提升**：手写演化树 n=4 对基准 n=4，Δ = −50.0、p = 0.99，而 4 条 rollout 全被 1800s 上限掐死（§4.6）。这一格要能真读，前提是 **先把上限挪开**，再把 n 提到 32/臂——现在量到的是「谁先跑完」，不是「谁搭得更好」。
+- **渲染环境翻转的读数可比性**：新旧读数跨了一次渲染环境翻转（§三之五，旧 12 期渲于 10-20 01:10–02:29，之后就切了）。这一条**只可能影响**「最大空白带」那类纯像素几何判据；其余四类（不透明度、高亮色、句首词是否被改写、句子的逐词一致性）与浏览器无关——954 条里 810 条属于后者。另有一点已经查实：**这份文档第一版把破口归给「Chrome 155自动升级」，实测推翻了**（产线用的是 Edge 144，Chrome 压根没被调用）。
+- **渲染环境翻转的触发条件没定位到**：已知同一份 HTML、同一枚 Edge 二进制、同样的渲染参数，10-20 渲得完整、之后渲不全；翻转发生在显示/桌面会话/DPI 布局中的哪一项上，这一轮没查出来。修复改成**运行时实测亏空**之后就不再依赖它，但「什么变了」仍是一个悬案——它会再翻一次。
+
