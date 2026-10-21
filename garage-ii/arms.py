@@ -1057,7 +1057,9 @@ def rescore_arm(adapter, arm: Arm, runs_root: Path) -> Arm:
     重判后臂里的 `n` 与分布都会更新——**这正是改判据后必须做的事**，
     否则同一个臂里前半段用旧判据、后半段用新判据，分布是拼出来的，没意义。
     """
-    runs_root = Path(runs_root)
+    # **取绝对路径**：适配器构造时也解析了一次，两边必须指向同一个目录，
+    # 否则重判会去别处找 run 目录（2026-10-21 实测：相对路径会让整臂判成空）。
+    runs_root = Path(runs_root).resolve()
     out = Arm(
         tag=arm.tag,
         task_id=arm.task_id,

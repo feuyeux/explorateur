@@ -571,6 +571,42 @@ def _run_root_guard_ok() -> None:
         check("仓库外的 run root 放行", not errs, str(errs))
 
 
+def _absolute_paths_ok() -> None:
+    print("[6b] run root 取绝对路径（相对路径会静默毁掉一次 rollout）")
+    # 2026-10-21 实测踩过：`--root ..\garage-ii-result` 时，argv 里传给
+    # `dsh_run.mjs` 的全是相对路径，而**子进程的 cwd 是 workspace**——
+    # 任务文件被解析到 `workspace\..\garage-ii-result\..`，rollout 当场读不到。
+    # 症状是「判据跑不成（不是零分）」，run 目录里多出一层同名嵌套目录，
+    # 看起来像「模型没干活」，其实是路径拼错了。
+    adapter = UsineAdapter(runs_root=Path("relative-run-root"))
+    try:
+        check(
+            "相对 run root 被解析成绝对路径",
+            adapter.runs_root.is_absolute(),
+            str(adapter.runs_root),
+        )
+        run_dir = adapter._run_dir_for("t", "r")
+        workspace = run_dir / "workspace"
+        argv = adapter._agent_argv(
+            run_dir, workspace, run_dir / "task.txt", run_dir / "dsh-patch.yml"
+        )
+        paths = [
+            argv[i + 1] for i, a in enumerate(argv) if a in ("--cwd", "--task-file", "--out", "--patch")
+        ]
+        check(
+            "传给 dsh_run.mjs 的路径全是绝对的",
+            bool(paths) and all(Path(p).is_absolute() for p in paths),
+            str(paths),
+        )
+        check(
+            "子进程 cwd 是 workspace（所以相对路径必错）",
+            Path(argv[argv.index("--cwd") + 1]) == workspace,
+            argv[argv.index("--cwd") + 1],
+        )
+    finally:
+        adapter.close()
+
+
 def _launcher_ok() -> None:
     print("[7] 端到端：装配 → 执行 → 轨迹 → 判据（假执行器，不调模型）")
     # 用一个**假执行器**把整条链走通：装配 → 起「会话」→ 事件落盘 → 轨迹渲染 →
@@ -1782,6 +1818,7 @@ def main() -> int:
         _trajectory_ok,
         _checks_ok,
         _run_root_guard_ok,
+        _absolute_paths_ok,
         _launcher_ok,
         _engine_prompts_ok,
         _keep_base_ok,

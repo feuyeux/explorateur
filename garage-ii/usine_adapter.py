@@ -195,7 +195,17 @@ class UsineAdapter:
         max_tokens: int = 0,
         api: str = "anthropic-messages",
     ):
-        self.runs_root = Path(runs_root)
+        # **run root 一律取绝对路径**（2026-10-21 实测踩过）：
+        # `--root` 传相对路径时，`run_dir` / `task_file` / `--cwd` 会原样传成相对路径，
+        # 而子进程的 cwd 是 **workspace**（不是发起进程的工作目录）——于是
+        # `dsh_run.mjs` 把 `..\garage-ii-result\...\task.txt` 解析到
+        # `workspace\..\garage-ii-result\...`，读不到任务文件，rollout 当场死。
+        #
+        # 症状很有欺骗性：**臂记录里写的是「判据跑不成（不是零分）」**，
+        # 而 run 目录里多出一层同名嵌套目录（events.jsonl 落在里面），
+        # 看起来像「模型没干活」，其实是路径拼错了。在边界解析一次，
+        # 这一整类故障就没了。
+        self.runs_root = Path(runs_root).resolve()
         self.timeout = int(timeout)
         self.model = model or MINIMAX_MODEL
         self.provider = provider
@@ -422,11 +432,15 @@ class UsineAdapter:
             )
         return out
 
+    def _run_dir_for(self, task_id: str, run_id: str) -> Path:
+        """这一条 rollout 的 run 目录（**绝对路径**：run root 在构造时就解析过）。"""
+        return self.runs_root / task_id / run_id
+
     def _launch_one(
         self, task_id: str, run_id: str, install: Install, *, timeout: int | None = None
     ) -> Path:
         """跑一次 rollout：装配好的工作区 → dsh（SDK 客户端）→ 证据落盘。"""
-        run_dir = self.runs_root / task_id / run_id
+        run_dir = self._run_dir_for(task_id, run_id)
         # **整个 run 目录清掉，不只是 workspace**。
         #
         # 同一个 run_id 被重跑一次（进程被杀后重启、换了臂又跑回来）时，
@@ -475,6 +489,32 @@ class UsineAdapter:
         )
         return run_dir
 
+    def _agent_argv(
+        self, run_dir: Path, workspace: Path, task_file: Path, patch_file: Path
+    ) -> list[str]:
+        """起 `dsh_run.mjs` 的命令行。
+
+        **路径必须全是绝对的**：子进程的 cwd 是 workspace，而 workspace 在 run root
+        之下——相对路径会被解析到 `workspace\..\..\..` 去，读不到任务文件。
+        单独抽出来是为了让离线自检能直接检查这条（不必真起 node）。
+        """
+        return [
+            "node",
+            str(HERE / "dsh_run.mjs"),
+            "--cwd",
+            str(workspace),
+            "--task-file",
+            str(task_file),
+            "--out",
+            str(run_dir),
+            "--patch",
+            str(patch_file),
+            "--provider",
+            self.provider,
+            "--model",
+            self.model,
+        ]
+
     def _rollout_guard(self, task_id: str):
         """这一格的 rollout 要不要排队。
 
@@ -512,22 +552,7 @@ class UsineAdapter:
             api=self.api,
         )
 
-        argv = [
-            "node",
-            str(HERE / "dsh_run.mjs"),
-            "--cwd",
-            str(workspace),
-            "--task-file",
-            str(task_file),
-            "--out",
-            str(run_dir),
-            "--patch",
-            str(patch_file),
-            "--provider",
-            self.provider,
-            "--model",
-            self.model,
-        ]
+        argv = self._agent_argv(run_dir, workspace, task_file, patch_file)
         env = dict(os.environ)
         env.setdefault("ANTHROPIC_API_KEY", "relay-placeholder")
         # openai-completions 那一路的占位 key（真凭据只在中继进程内存里）。
