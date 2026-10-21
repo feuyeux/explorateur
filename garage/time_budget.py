@@ -35,12 +35,13 @@ Design
     so an operator sees "this wave will cost at most N minutes" before
     saying go.
 
-The standing rule: ``DEFAULT_RUN_CEILING_SECS`` is 1500 (twenty-five
-minutes, raised from ten on 2026-10-19 once the gateway's measured
-first-response latency made the old ceiling unreachable).  A run that would
-exceed it fails closed at preflight unless the operator passes an explicit
-``--run-ceiling-secs`` larger value (still recorded in the manifest — the
-ceiling is auditable, never implicit).
+The standing rule: ``DEFAULT_RUN_CEILING_SECS`` is 2000 (thirty-three
+minutes; 1500 on 2026-10-19 once the gateway's measured first-response
+latency made the ten-minute ceiling unreachable, then 1700 and 2000 on
+2026-10-21 as two seat slices proved too thin — see DEFAULT_SLICES).  A run
+that would exceed it fails closed at preflight unless the operator passes an
+explicit ``--run-ceiling-secs`` larger value (still recorded in the manifest —
+the ceiling is auditable, never implicit).
 """
 
 from __future__ import annotations
@@ -66,7 +67,7 @@ from pathlib import Path
 # guaranteed abort — so the standing rule follows the measurement.  Pass
 # --run-ceiling-secs explicitly to go lower or higher; it is always recorded
 # in the manifest, never implicit.
-DEFAULT_RUN_CEILING_SECS = 1700
+DEFAULT_RUN_CEILING_SECS = 2050
 
 # The DRS (Phase 2) run ceiling.  Phase 1 keeps the operator's twenty-eight
 # minutes; the DRS is a DIFFERENT job and does not fit in it — this is
@@ -180,9 +181,27 @@ DRS_RUN_CEILING_SECS = 2100
 # Phase-1 却压在 280s 上——那是**同一台机器的两种口径**。现在两边都是 400s。
 # 连带的是 run ceiling：席位合计 400+580+420+120 = 1520s，加 100s 余量 = 1620s，
 # 原来的 1500s 上限装不下 → 上限抬到 1700s（余量 80s）。
+# 2026-10-21（foodnames-video3 这一波）：**Actor 席**的 580s 切片又不够用了。
+# 实测：出题席 41s 一次答出（低档位生效），Actor 从 21:53:42 跑到 22:03:53，
+# 第 38 轮迭代时**已经把活干完了大半**——改好 build_episode.mjs、抽出共享判定源
+# hero_token.mjs、写完 sentence-tokens.test.mjs——正撞上紧急上限被杀，
+# **差一轮没写完收尾**。整波零产出（memory_bytes=0，projects=0）。
+#
+# 为什么不是「Actor 的活太大」：这一波的活是有上界的——2 个源文件 + 1 个测试文件
+# + 2 道门。切片吸收不了的是**波动**（38 轮 × 十几秒的往返，加两次跑门禁）。
+#
+# 切片是天花板不是地板：actor-usine.yaml 自己声明 wall_clock_secs: 950s，
+# 计划里的 580s 才是真正的约束——**两个口径必须对齐，否则「计划」就是假账**。
+# 现在计划给 950s，**与席位自己声明的数一字不差**：生效的天花板 = 计划 = 声明，
+# 三处同数（smoke 里有一条断言专门盯这个：生效 wall 必须等于计划切片）。
+# 刻意不取 900：DRS 那一侧的 Actor 切片也是 900s，两边同数会让「Phase 2 不继承
+# Phase 1 的分配」这条检查变成空话（见 smoke_time_budget 的那条断言）。
+#
+# 连带：席位合计 400+950+420+120 = 1890s，加 100s 余量 = 1990s，
+# run ceiling 抬到 2050s（余量 60s）。
 DEFAULT_SLICES = {
     "curriculum": 400,
-    "actor": 580,
+    "actor": 950,
     "verifier": 420,
     "merge": 120,
 }

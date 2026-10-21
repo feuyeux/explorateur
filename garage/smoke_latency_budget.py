@@ -42,9 +42,10 @@ HERE = Path(__file__).resolve().parent
 
 PASSED = 0
 
-# The Phase-1 slice plan (time_budget.DEFAULT_SLICES).
-PHASE1_SLICES = {"curriculum": 280, "actor": 580, "verifier": 420, "merge": 120}
-PHASE1_APPLIED = {"curriculum": 280, "actor": 580, "verifier": 420}
+# The Phase-1 slice plan (time_budget.DEFAULT_SLICES).  2026-10-21: curriculum
+# 280 → 400 (the seat's own declared wall), actor 580 → 950 (same reason).
+PHASE1_SLICES = {"curriculum": 400, "actor": 950, "verifier": 420, "merge": 120}
+PHASE1_APPLIED = {"curriculum": 400, "actor": 950, "verifier": 420}
 
 
 def check(name: str, ok: bool, detail: str = "") -> bool:
@@ -148,8 +149,9 @@ def test_high_latency_refuses(latency, run_usine) -> None:
         check("risk: the p50 is reported",
               curriculum["p50_secs"] == 393.0, str(curriculum))
         check("risk: the planned slice and the threshold are reported",
-              curriculum["planned_slice_secs"] == 280
-              and curriculum["threshold_secs"] == 168.0, str(curriculum))
+              curriculum["planned_slice_secs"] == PHASE1_SLICES["curriculum"]
+              and curriculum["threshold_secs"]
+              == 0.6 * PHASE1_SLICES["curriculum"], str(curriculum))
         check("risk: the actor seat is judged on its own total",
               report["seats"]["actor"]["verdict"] == "risk"
               and report["seats"]["actor"]["max_total_secs"] == 620.0,
@@ -160,7 +162,8 @@ def test_high_latency_refuses(latency, run_usine) -> None:
         check("risk: the reason names the seat, the max and the slice",
               "curriculum" in report["reason"]
               and "393.0s" in report["reason"]
-              and "280s" in report["reason"], report["reason"][:200])
+              and f"{PHASE1_SLICES['curriculum']}s" in report["reason"],
+              report["reason"][:200])
         check("risk: the reason says what to do",
               "reasoning_effort" in report["reason"]
               and "--run-ceiling-secs" in report["reason"]

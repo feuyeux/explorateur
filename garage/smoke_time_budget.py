@@ -120,14 +120,25 @@ def test_plan_fits_default_ceiling(tb) -> None:
     # 抬到 400s（对齐它自己声明的 wall_clock_secs 与 DRS 的同口径），
     # 席位合计 1520s + 100s 余量 = 1620s，原来的 1500s 装不下。
     # 依据：foodnames-video 那一波，出题席在 280s 切片上被杀，一题都没出。
-    check("default ceiling is twenty-eight minutes",
-          tb.DEFAULT_RUN_CEILING_SECS == 1700,
+    #
+    # 1700s → 2050s：Actor 席的 580s 又不够用了（foodnames-video3）。实测那一波
+    # Actor 跑到第 38 轮迭代、已经改好构建器、抽出共享判定源、写完回归测试，
+    # 22:03:53 撞上紧急上限被杀——**差一轮没写完收尾**。切片是天花板不是地板，
+    # 席位自己声明的 wall_clock_secs 是 950s，所以计划里的 580s 才是真正的约束。
+    check("default ceiling is thirty-four minutes",
+          tb.DEFAULT_RUN_CEILING_SECS == 2050,
           f"{tb.DEFAULT_RUN_CEILING_SECS}s")
     # 出题席的 Phase-1 切片必须 ≥ 它单次响应的实测中位数（211.5s）——
     # 比这个还短的切片不是预算，是抛硬币。
     check("the curriculum slice covers one median gateway round trip",
           tb.DEFAULT_SLICES["curriculum"] >= 400,
           str(tb.DEFAULT_SLICES["curriculum"]))
+    # **连续失败的席位**才该加时间：foodnames-video3 的 Actor 席在 580s 上被杀，
+    # 而它自己的 wall_clock_secs 声明是 950s。计划切片必须 ≥ 那个声明，
+    # 否则 apply_slices 会把席位按 580s 跑——「计划」就成了假账。
+    check("the actor slice is not tighter than the seat's own declared wall",
+          tb.DEFAULT_SLICES["actor"] >= 950,
+          str(tb.DEFAULT_SLICES["actor"]))
     check("every seat has a positive slice",
           all(value > 0 for value in plan.slices.values()),
           str(plan.slices))
