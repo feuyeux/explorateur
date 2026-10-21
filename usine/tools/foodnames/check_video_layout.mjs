@@ -288,7 +288,17 @@ function spawnChrome(args) {
 /**
  * 墨迹覆盖率 + 最大空白水平带。
  * 背景色取「出现最多的颜色」（画面绝大部分是纸色），墨迹 = 与背景色距离 > 阈值。
- * 行按 2 抽样（空白带是连续行，2 倍抽样最多差 1 行误差，记在报告里）。
+ *
+ * ⚠️ **行必须逐行扫，不能隔行抽样。**
+ * 2026-10-21 实测踩到的坑：原先按 `y += 2` 抽样（注释写「2 倍抽样最多差 1 行误差」——
+ * **这句话是错的**）。画面里的页脚分隔线只有 1.5px，落在**奇数行**时整条会被抽样漏掉，
+ * 于是「细线下面 ~149px + 细线上面 ~146px」两段空隙被并成一段 297px（15.5%），
+ * 判它「空掉一大块」——而那一帧的排版其实完全正常（同一帧逐行扫只有 9.7%）。
+ * 误差不是 1 行，是**整条细线 + 它两侧的空气**，量级 ~150px。
+ *
+ * 而且这个假阳性还会**随细线落在奇数行还是偶数行而翻转**：同一份版式，量出 297px 或 150px
+ * 都有可能——一把会自己变答案的尺子不能用来判对错。逐行扫没有这个问题，代价只是
+ * 多扫一倍的行（实测每帧多 ~0.3s）。
  */
 async function pixelMetrics(pngPath) {
   if (!existsSync(pngPath)) return null
@@ -315,7 +325,7 @@ async function pixelMetrics(pngPath) {
   }
   const rowInk = new Uint8Array(H)
   let inkPx = 0
-  for (let y = 0; y < H; y += 2) {
+  for (let y = 0; y < H; y++) {
     let row = 0
     for (let x = 0; x < W; x += 2) {
       const p = at(x, y)
@@ -329,12 +339,11 @@ async function pixelMetrics(pngPath) {
   for (let y = 0; y < H; y++) {
     if (rowInk[y]) { cur = 0 } else { cur++; if (cur > band) band = cur }
   }
-  const sampled = Math.ceil(H / 2)
   return {
-    ink_ratio: inkPx / (sampled * Math.ceil(W / 2)),
+    ink_ratio: inkPx / (H * Math.ceil(W / 2)),
     max_empty_band: band / H,
     bg: bg.map((v) => v.toString(16).padStart(2, '0')).join(''),
-    rows_sampled: sampled,
+    rows_sampled: H,
   }
 }
 
