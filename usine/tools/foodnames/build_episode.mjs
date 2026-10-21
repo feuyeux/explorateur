@@ -110,8 +110,16 @@ function wordHtml(w, { inline, text, wordHtmlOk = true, koPatches = true } = {})
     case 'ko':
     case 'kr': {
       const fused = new Set(w.ko_fused_syllables ?? [])
-      // 视频侧：补丁类 `.k####` 的 background-position 是按**海报**字号实测的；
-      // 视频的主角词被拟合到另一个字号（D2），补丁必然错位 → 视频一律走 `.cv` 融合渐变。
+      // 补丁 `.k####` 用的是**百分比**定位（background-position / background-size
+      // 全是 %，量的是 advance × line-height 的比例），测量页自己写明
+      // 「任意 font-size 可迁移」——所以视频把词拟合到别的字号（D2）后补丁照样对位。
+      //
+      // ⚠️ 2026-10-21 实测更正：先前这里写着「补丁是按海报字号实测的像素，视频一律走
+      // `.cv`」。那是**错的**（补丁是百分比），而且代价很实：① 注入 video_src.html 的
+      // `.k####` 规则变成「无人穿戴的孤儿规则」，`poster audit-charset` 当场红，
+      // 整条产线在第 12 步停住；② 韩语丢掉页脚图例承诺的元音/辅音分色。
+      // 前提一改，结论就反过来：视频继续用实测补丁，`.cv` 只留给**融合音节**
+      // （数据里显式声明的 ko_fused_syllables）——那才是没有补丁可用的场合。
       return [...t]
         .map((s) => (!koPatches || fused.has(s)
           ? `<span class="ksyl cv">${esc(s)}</span>`
@@ -254,7 +262,7 @@ function sentenceHtml(w) {
       to = i === span.b[0] ? span.b[1] : t.length
       if (to <= from) { from = null; to = null }
     }
-    const mid = from === null ? '' : wordHtml(w, { inline: true, text: t.slice(from, to), wordHtmlOk: false, koPatches: false })
+    const mid = from === null ? '' : wordHtml(w, { inline: true, text: t.slice(from, to), wordHtmlOk: false })
     const inner = from === null ? esc(t) : esc(t.slice(0, from)) + mid + esc(t.slice(to))
     return `<span class="tok ${mid ? tokKind(mid) : 'kt'}">${inner}</span>`
   }).join(' ')
@@ -353,7 +361,7 @@ const scenes = WORDS.map((w, i) => {
   // D2：词形是**自己一个元素**（不是句首 token），由 video_script.js 拟合到
   // ≥12% 帧高（竖屏 230px）或 ≥30% 帧宽（竖屏 324px）。
   // 注音（ruby 的 <rt>）包进 .annot：注音不是词形本身，量墨迹/量文字时都要排除。
-  const heroHtml = wordHtml(w, { inline: false, koPatches: false })
+  const heroHtml = wordHtml(w, { inline: false })
     .replace(/<rt>([\s\S]*?)<\/rt>/g, '<rt><span class="annot">$1</span></rt>')
   return `<!-- ${i + 1} ${w.locale} -->
 <section class="scene" id="sc-${w.locale}" data-lang="${w.locale}">

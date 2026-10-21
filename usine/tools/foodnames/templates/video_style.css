@@ -72,9 +72,12 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
 .t { color: transparent; }
 
 /* Korean: in-glyph patches measured on this project's own subset
-   (`feuille poster measure-korean 스 시` → verify 0 wrong px each). */
+   (`feuille poster measure-korean 스 시` → verify 0 wrong px each).
+   ⚠️ line-height 必须留 1.28：补丁的百分比定位是量在「advance × 1.28 行高」的
+   盒子上的，行高一改，盒子高度变、墨迹在盒里的相对位置就变，补丁错位。
+   主角词被拟合到别的字号没关系（百分比随字号缩放），行高变了才出事。 */
 .ksyl {
-  display: inline-block; line-height: 1.08;
+  display: inline-block; line-height: 1.28;
   color: transparent;
   -webkit-background-clip: text; background-clip: text;
   background-repeat: no-repeat;
