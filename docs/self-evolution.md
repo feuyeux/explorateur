@@ -198,6 +198,8 @@ python3 garage-ii/build_base_harness.py --check
 > 第一次是**看得见的红**：2026-10 加了第 11 个技能 `vocab-infographic` 之后，基准树还停在 10 个，于是 `--check` 报 `MISSING: skills/vocab-infographic/SKILL.md`，**所有 sweep 都被它挡住**。修法不是改闸，是跑一遍 `build_base_harness.py` 重新派生。
 >
 > 第二次是**看不见的红**：闸原来用 `read_text` 比，而 `read_text` 会把 CRLF 规整成 LF。于是「盘上是 CRLF」这件事闸看不见，而**树指纹哈希的是原始字节**——闸绿、指纹不同、测量前提悄悄不成立。修法两条：写的时候显式 `newline="\n"`；`--check` 改成比原始字节（`read_bytes() != expected`），现在会报 `STALE: systemprompt.md` 并 exit 1。**加闸之后要反向验证它真能红**，不然你只是加了一句注释。
+>
+> **还有一处同类残留（2026-10-21 本文档合并时核实，同日已把注释订正为实情）**：`garage-ii/usine_adapter.py` 的 `PLUGIN_SKILL_NAMES` 注释原先写着「份数从盘上派生」，**实际是硬编码的 10 个名字**，漏了 `vocab-infographic`——而盘上（`harness_base/skills/` 与 `usine/skills/`）已经是 11 个。它目前只被 `__all__` 导出、**没有调用点**，所以现在不造成故障；但若哪天真用它做「同名技能不许被改写」的比对，**新技能会被静默跳过**。同一文件里 `dsh_surface.frozen_skills()` 与 `build_base_harness.py` 的 `skill_names()` 都已经是「从盘上派生」的正确写法——**同一个概念留一份手抄常量，就是下一个漂移源**。订正时**没有**直接把第 11 个名字补进去：这个元组记的是「插件下发那一批」的历史名单，与「盘上现在有几个」是两件事，改名单要连带确认所有调用点能不能接受新语义——先把话说准，再决定要不要动数据。
 
 ### 1.2 基准（baseline）：为什么必须「同源」
 

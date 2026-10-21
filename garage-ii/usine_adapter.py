@@ -51,8 +51,16 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 BASE_HARNESS = HERE / "harness_base"
 
-#: 插件里那批技能名——基准树里带着它们（基准 harness 必须与被改进对象同源），份数从盘上派生；
-#: 所以「同名」本身不违规，**同名且内容不同**才违规（见 validate_tree）。
+#: 插件里那批技能名——**这是一份冻结的名单，不是从盘上派生的**（2026-10-21 核实）。
+#:
+#: 它只列到 10 个，缺第 11 个 `vocab-infographic`；而 `validate_tree` 判「同名技能」时
+#: 走的是 `_PLUGIN_SKILLS_DIR`（`usine/skills/` 的真实目录），**不读这个元组**，
+#: 所以这个缺口目前不影响那道闸。这个常量除 `__all__` 导出外没有调用点。
+#:
+#: 之所以留着不改：它记录的是**插件下发那一批**的历史名单，与「盘上现在有几个」是两件事。
+#: 但**别拿它当权威清单**——要枚举技能一律 `usine/skills/*/SKILL.md`（`frozen_skills()`
+#: 与 `build_base_harness` 都是这么做的）。真要让它与盘上同源，得先确认所有调用点都
+#: 接受"多出一个会自由改写的新技能"这个语义变化，而不是直接把第 11 个名字补进来。
 PLUGIN_SKILL_NAMES = (
     "bgm-bed",
     "character-rig",
