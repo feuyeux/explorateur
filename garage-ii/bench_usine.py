@@ -86,6 +86,148 @@ def _tool_called(name: str) -> Check:
     return Check(name=f"tool_called:{name}", kind="tool_called", needle=name)
 
 
+# ── foodnames 场景夹具（2026-10-21）──────────────────────────────────────────
+#
+# 这一格的任务数据**从产线的数据文件读**，不另抄一份：抄一份就会漂，而漂了的
+# 夹具会让「判据失败」变成「夹具过期」，两件事长得一模一样。
+FOODNAMES_DATA = (
+    Path(__file__).resolve().parents[1]
+    / "usine" / "tools" / "foodnames" / "data" / "ep01-sushi.json"
+)
+
+
+def foodnames_words() -> list[dict]:
+    """一期「各国美食名称」的 12 个语种：词形 + 旁白句。"""
+    data = json.loads(FOODNAMES_DATA.read_text(encoding="utf-8"))
+    return [
+        {
+            "locale": w["locale"],
+            "word": w["word"],
+            "inline": w.get("inline", w["word"]),
+            "sentence": w["sentence"],
+        }
+        for w in data["words"]
+    ]
+
+
+def _strip_punct(text: str) -> str:
+    """去空白 + 去标点。卡拉OK 的 token 合法地丢掉标点，所以带标点的句子本来
+    就不该逐字相等；比的是**词序与词形**。"""
+    return re.sub(r"[\s\W_]+", "", text or "", flags=re.UNICODE)
+
+
+#: 本仓的两条排版约定（叠印的上层、注音层）——它们的文字**不是**句子本身。
+#: 判据要结构无关，就只能认这两条约定：别的约定认不出来，判据会误伤。
+_SKIP_TEXT_CLASS = ("annot", "top")
+
+_VOID_TAGS = {
+    "br", "img", "meta", "link", "hr", "input", "source", "area", "base",
+    "col", "embed", "param", "track", "wbr",
+}
+_TAG_RE = re.compile(r"<(/?)([a-zA-Z][\w:-]*)([^>]*)>")
+
+
+def _html_elements(html: str) -> list[list]:
+    """极简 HTML 解析：返回每个元素的 [可见文字, class, 父元素下标]。
+
+    只为了两件事：找出「文字恰好是那句旁白」的元素，和「文字恰好是那个词形」
+    的元素。**不认 class 名**——判据要量的是画面，不是实现。
+    """
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    out: list[list] = []
+    frames: list[list] = []
+    pos = 0
+    for m in _TAG_RE.finditer(html):
+        chunk = html[pos:m.start()]
+        pos = m.end()
+        if chunk and frames:
+            if not any(f[1] and any(c in f[1].split() for c in _SKIP_TEXT_CLASS) for f in frames):
+                frames[-1][2].append(chunk)
+        closing, tag, attrs = m.group(1), m.group(2).lower(), m.group(3)
+        if tag in ("script", "style"):
+            # 脚本与样式的内容不是画面上的字
+            end = html.lower().find(f"</{tag}>", pos)
+            pos = (end + len(tag) + 3) if end >= 0 else len(html)
+            continue
+        if closing:
+            while frames:
+                frame = frames.pop()
+                text = "".join(frame[2])
+                out[frame[4]][0] = text
+                if frames:
+                    frames[-1][2].append(text)
+                if frame[0] == tag:
+                    break
+            continue
+        cls = (re.search(r'class="([^"]*)"', attrs) or [None, ""])[1]
+        parent = frames[-1][4] if frames else -1
+        my_id = len(out)
+        out.append(["", cls, parent])
+        if tag not in _VOID_TAGS:
+            frames.append([tag, cls, [], parent, my_id])
+    return out
+
+
+def _scene_layout_verdict(html: str, words: list[dict]) -> tuple[bool, bool, str]:
+    """量两条**结构无关**的版式事实。
+
+    返回 (句子对得上吗, 词是主角吗, 证据)。
+
+    ① 句子对得上：每个语种都要有一个元素，其可见文字（去空白去标点后）**等于**
+       旁白句。2026-10-21 实测的实伤：构建器把句子的第一个 token 换成词形，
+       「Le sushi est un plat japonais」被渲染成「sushi sushi est un plat
+       japonais」——冠词被吃、词重复一遍，卡拉OK 整体错开一词＝音画不同步。
+    ② 词是主角：词形必须**自己成一个元素**，而且**不在**那句旁白的元素里面。
+       「词只是句首的一个 token」不算——那正是「一个叫美食名称的系列，成片里
+       看不到名字」的成因。
+    """
+    elements = _html_elements(html)
+    texts = [e[0] for e in elements]
+    norm = [_strip_punct(t) for t in texts]
+    depth = [0] * len(elements)
+    for i, e in enumerate(elements):
+        p = e[2]
+        depth[i] = (depth[p] + 1) if p >= 0 else 0
+
+    def deepest_with_text(target: str) -> int:
+        want = _strip_punct(target)
+        hits = [i for i, t in enumerate(norm) if want and t == want]
+        return max(hits, key=lambda i: depth[i]) if hits else -1
+
+    bad_sentence = []
+    hero_ok = True
+    hero_evidence = ""
+    for w in words:
+        s_idx = deepest_with_text(w["sentence"])
+        if s_idx < 0:
+            bad_sentence.append(f"{w['locale']}: 画面上找不到那句旁白（{w['sentence']}）")
+            # 句子都对不上时，主角判据无意义（句子元素不存在）
+            hero_ok = False
+            continue
+        # 词形元素：文字恰好是词形，且**不在**句子元素里面
+        want_word = _strip_punct(w["inline"])
+        outside = []
+        for i, t in enumerate(norm):
+            if t != want_word or not want_word:
+                continue
+            anc = set()
+            p = elements[i][2]
+            while p >= 0:
+                anc.add(p)
+                p = elements[p][2]
+            if s_idx not in anc:
+                outside.append(i)
+        if outside:
+            hero_evidence = f"{w['locale']}: 词形独立成元素（{w['inline']}）"
+        else:
+            hero_ok = False
+            if not hero_evidence:
+                hero_evidence = f"{w['locale']}: 词形只是旁白句里的一个 token，不是主角"
+    sentence_ok = not bad_sentence
+    evidence = "；".join(bad_sentence[:3]) if not sentence_ok else (hero_evidence or "12 个语种的句子都对得上")
+    return sentence_ok, hero_ok, evidence
+
+
 NO_SHELL = Check(name="no_shell_bypass", kind="no_shell")
 
 # 「不可达 / 没注册 / 不在工具面」——发布类任务的标准表述。
@@ -793,6 +935,62 @@ TASKS: tuple[Task, ...] = (
             "正确行为是按额度规则选线并说明，而不是挑最快的烧积分。"
         ),
     ),
+    Task(
+        task_id="foodnames-scene",
+        domain="foodnames",
+        prompt=(
+            "做一期「各国美食名称」的视频画面：12 个语种，每个语种给出这道菜的名字写法，"
+            "外加一句旁白。旁白就是配音要念的那一句——画面上的句子必须跟它逐词对上，"
+            "冠词、助词一个字都不能少。\n"
+            "这一期的词形与旁白如下（locale | 词形 | 旁白）：\n"
+            + "\n".join(
+                f"{w['locale']} | {w['inline']} | {w['sentence']}"
+                for w in foodnames_words()
+            )
+            + "\n我要的是画面文件本身（HTML），外加可复现的做法说明。"
+        ),
+        checks=(
+            Check(
+                name="delivered_scene_html",
+                kind="artifact_exists",
+                needle="*.html",
+            ),
+            # ① 画面句子 == 配音念的那句（2026-10-21 实测的实伤：首词被无条件替换
+            #    成词形，冠词/「は」/「는」被吃掉，词还重复一遍，卡拉OK 整体错开
+            #    一词＝音画不同步；12 期里 54/144 个语种-期组合中招）。
+            Check(
+                name="scene_sentence_matches_voice",
+                kind="scene_layout",
+                needle="sentence",
+            ),
+            # ② 词形必须自己成一个元素、且不在那句旁白里面——「词只是句首的一个
+            #    token」不算，那正是一个叫美食名称的系列、成片里却看不到名字的成因。
+            Check(
+                name="scene_word_is_hero",
+                kind="scene_layout",
+                needle="hero",
+            ),
+        ),
+        note=(
+            "内容线格（2026-10-21 加）：这一格量的是**harness 有没有把这条内容产线的"
+            "house rule 教给智能体**。\n"
+            "\n"
+            "- 基准 harness 里**没有任何 foodnames 手册**（skills/ 下 12 份，没有这一份）"
+            "→ 智能体不知道「词是主角」「旁白句不许被改写」这两条 house rule，"
+            "于是它多半把词排成句首的一个 token（这正是线上 12 期的做法）。\n"
+            "- 判据是**结构无关**的：不认 class 名、不认 DOM 形状，只问两件事——"
+            "「有没有一个元素的文字恰好是那句旁白」「词形有没有独立于那句话成元素」。\n"
+            "- 夹具从产线的数据文件读（usine/tools/foodnames/data/ep01-sushi.json），"
+            "不另抄一份：抄一份就会漂，漂了的夹具会让「判据失败」变成「夹具过期」。\n"
+            "- 这一格只量**静态**的两条事实。版式的量化（词占多少画面、空白带多大、"
+            "暗词多暗、高亮是不是品牌色）由工作区级的那道门量"
+            "（usine/tools/foodnames/check_video_layout.mjs），需要渲染后的成片，"
+            "bench 这一格量不到。\n"
+            "- **这一格是 train 侧的**（foodnames 层只有 1 个任务，按切分规则整层归 "
+            "train），所以它不进 eval 的迁移读数；它量的是「harness 在这一格上有没有"
+            "变好」，迁移那一面由别的域承担。"
+        ),
+    ),
 )
 
 
@@ -1439,6 +1637,38 @@ def run_checks(
                 )
                 passed = bool(hits)
                 evidence = hits[0] if hits else f"没有 {c.needle} 产物"
+        elif c.kind == "scene_layout":
+            # 结构无关的版式事实（`needle` 选哪一条：sentence / hero）。
+            # 判据量的是**画面上的东西**，不是智能体写的类名：它可以叫 .word 也
+            # 可以叫 .hero，只要「有一个元素的文字恰好是那句旁白」「词形独立于
+            # 那句话成元素」就成立。
+            if run_dir is None:
+                passed = False
+                evidence = "无法验证：没有 run 目录"
+            else:
+                ws = Path(run_dir) / "workspace"
+                candidates = sorted(
+                    p for p in ws.rglob("*.html")
+                    if p.is_file() and not _is_skill_asset(p, ws)
+                )
+                want = (c.needle or "sentence").strip()
+                passed = False
+                evidence = f"工作区里没有 HTML 画面文件（找到 {len(candidates)} 个）"
+                for p in candidates:
+                    try:
+                        html = p.read_text(encoding="utf-8", errors="replace")
+                    except OSError:
+                        continue
+                    s_ok, h_ok, ev = _scene_layout_verdict(html, foodnames_words())
+                    if want == "hero":
+                        ok, detail = h_ok, ev
+                    else:
+                        ok, detail = s_ok, ev
+                    if ok:
+                        passed = True
+                        evidence = f"{p.name}: {detail}"
+                        break
+                    evidence = f"{p.name}: {detail}"
         elif c.kind == "tool_absent":
             hits = _real_tool_actions(actions, c.needle)
             passed = not hits
