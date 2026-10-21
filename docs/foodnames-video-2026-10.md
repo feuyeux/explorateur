@@ -37,7 +37,7 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 两处结构性改动（都先于跑批落地，否则 RSI 线路对这条产线**结构性不可达**）：
 
-1. **铺开闸**（`garage/spread.py` + `garage/config/spread.json`）：原先 `tools/` 全被归进 `other`，而 `other` 不在冷区名单 —— RSI 波次永远看不到 foodnames 这条产线。现在 `tools/ ` 是一等顶层单位，`package_priority` 里也有它。
+1. **铺开闸**（`garage/spread.py` + `garage/config/spread.json`）：原先 `tools/` 全被归进 `other`，而 `other` 不在冷区名单 —— RSI 波次永远看不到 foodnames 这条产线。现在 `tools/` 是一等顶层单位，`package_priority` 里也有它。
 2. **出题面**（`garage/config/roles-usine/curriculum-usine.yaml`）：TARGET MENU 加了 G 目标（foodnames 视频线），WAVE BRIEF 带上 D1–D5 的简报，**并写明「不要侦察，直接出题」**——出题席的切片装不下侦察。
 
 另外把出题席的**推理档位**从 `max` 降到 `low`，理由见下一节。
@@ -98,7 +98,7 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 ### 3.6 第五波 `foodnames-video5`：**落地**（真提交）
 
-出题席 22:43:07 交卷（网关超时拖了 9 分钟，`infra_pause_secs: 520`，实际作答只用 20.5s），题面把三条上界原样带进去了（`NO SELF-BUILT RENDERER` / `BOUND THE GATE RUNS` /`AT MOST THREE FILES`），项目 id 是 `foodnames-d1-hero`。
+出题席 22:43:07 交卷（网关超时拖了 9 分钟，`infra_pause_secs: 520`，实际作答只用 20.5s），题面把三条上界原样带进去了（`NO SELF-BUILT RENDERER` / `BOUND THE GATE RUNS` / `AT MOST THREE FILES`），项目 id 是 `foodnames-d1-hero`。
 
 Actor 席这次**没有自建渲染器**，改成按数据普查 + 按数字施工：
 
@@ -219,7 +219,7 @@ ep05-chocolate / de-DE / 竖屏：
 - 封面（1080×1920，1x）：底部 166px 被切；
 - 视频帧（走 textlayer）：**没事**——那条路早有补偿（实测帧的左右两列到底都是纸色）。
 
-**修法（不写死常数）**：`packages/core/src/platform.ts` 新增 `viewportDeficit(browser)`：渲一页只报 `innerHeight` / `clientWidth` 的探针页，量出差值，按浏览器路径 memoize；三个渲染口（`render_poster` /`render_page` / `measure_korean`）都改成**按实测亏空补窗口高度**，渲完把 PNG 裁回 `w*scale × h*scale`。
+**修法（不写死常数）**：`packages/core/src/platform.ts` 新增 `viewportDeficit(browser)`：渲一页只报 `innerHeight` / `clientWidth` 的探针页，量出差值，按浏览器路径 memoize；三个渲染口（`render_poster` / `render_page` / `measure_korean`）都改成**按实测亏空补窗口高度**，渲完把 PNG 裁回 `w*scale × h*scale`。
 
 两条细节是实测逼出来的：
 
@@ -230,9 +230,21 @@ ep05-chocolate / de-DE / 竖屏：
 
 **这一条属于「量到的缺陷」还是「环境」**：环境翻了（渲染环境的某一项状态变了），但**产线该扛住**——写死的常数迟早过期，过期那天不报错，只让画面「看起来矮了一点」。
 
+## 三之六、D1 的合并门禁：而且它**不是恒过的探针**（反向验证）
+
+合并门禁管不到 `tools/`（`vitest.config.ts` 的 include 只有 `packages/*/test/**/*.test.ts`），所以 D1（画面句子 != 配音句）**不会被任何现有门禁抓住**——这正是它当初能进仓库的原因。补法是 `usine/tools/foodnames/test/sentence_gate.test.ts`：它**不重实现一遍判定逻辑**（重实现的断言只能证明「我重写的那份逻辑自洽」），而是直接跑**真实构建器 + 真实离线门**（`check_sentence_matches.mjs --data …`），挑三期各带一类不同的坑（ep01 的冠词形态 / ep04 的韩语融合音节 / ep06 的「카레는」词缀在 token 内部）。
+
+但**恒过的探针等于没有探针**——所以这条门必须反向验证过。2026-10-22 实测：把 D1 的修法**撤掉**（`sentenceHtml()` 里把 token 序列改回「无条件把第一个 token 换成词形」，同时把构建期自检的基准也换成同一份序列，好让缺陷真的走到 HTML 里、由离线门来抓），离线门**当场红**：
+
+```
+画面：sushi sushi es un plato japonés
+配音：El sushi es un plato japonés
+（exit 1；同一批数据在修好时 exit 0）
+```
+
+还原后文件逐字节回到 HEAD，门重新变绿。**这一条是这道门能进合并门禁的前提**：一道从没红过的门，跟没有门是一回事。
+
 ## 四、B 线（harness2 × garage-ii）：它能改什么、改不到什么
-
-
 
 ### 4.1 这一格量的是什么
 
@@ -268,7 +280,7 @@ harness2 演化的是 **harness 树**（systemprompt / guardrails / skills），
 | 均值 | **0.5833** |
 | 极差 | **1.0**（从 0 到 1 满铺） |
 | 标准差 | 0.5 |
-| 失败率 | `delivered_scene_html` 0.25 / `scene_sentence_matches_voice` 0.5 /`scene_word_is_hero` 0.5 |
+| 失败率 | `delivered_scene_html` 0.25 / `scene_sentence_matches_voice` 0.5 / `scene_word_is_hero` 0.5 |
 
 **这个宽度本身就是结论的一半**：同一棵基准 harness、同一道题，四个 rollout 里有两期「词是主角」这一条就没做到。**B 线要量的不是「演化臂比基准臂高几分」，而是「演化能不能把这个宽度收窄」**——一个宽度 1.0 的基准，配上 n=1 的演化臂读数，任何差值都读不出东西。
 
@@ -276,7 +288,7 @@ harness2 演化的是 **harness 树**（systemprompt / guardrails / skills），
 
 ### 4.4 sweep 跑完了，但**一棵演化树都没产出**（三个原因叠在一起）
 
-`--phase sweep --split train --seed 7 --k 1 --only-domains foodnames --timeout 1800` 跑了 `base1` / `dom1` /`inv1` / `agg1` 四条 rollout，产物都在盘上，但**演化这一步是空的**：
+`--phase sweep --split train --seed 7 --k 1 --only-domains foodnames --timeout 1800` 跑了 `base1` / `dom1` / `inv1` / `agg1` 四条 rollout，产物都在盘上，但**演化这一步是空的**：
 
 1. **四条 rollout 全部被时钟砍掉**（`exit_code=124`，事件流分别 399 / 187 / 449 / 119 行）。rollout 本身是有进展的（`base1` 把画面工程做完了：字体子集、12 语种卡片、韩语补丁实测都跑过），只是没在 1800s 内收尾。
 2. **两个候选的树改动等于零**：`pool/dom1/harness.diff` 与 `pool/inv1/harness.diff`**都是空文件**。原因写在决策记录里：`decisions/dom1.md` 写着「these files are off the editable surface and were not applied:scripts\README.md, skills\README.md」——候选改的是**可编辑面之外**的文件，引擎按规矩不采纳，于是树逐字节没变。
