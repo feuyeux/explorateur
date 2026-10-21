@@ -44,7 +44,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['packages/*/test/**/*.test.ts'],
+          include: ['packages/*/test/**/*.test.ts', 'tools/foodnames/test/**/*.test.ts'],
           exclude: [...EDGE_FILES, '**/node_modules/**', '**/dist/**'],
           testTimeout: 30_000,
         },
