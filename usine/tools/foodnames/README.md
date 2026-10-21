@@ -10,7 +10,7 @@
 |---|---|
 | `data/epNN-<slug>.json` | 一期的全部内容事实源（12 语种的词形/来源标签/旁白句/转写/人设） |
 | `templates/` | 从第 01 期剥出来的 CSS 与自适应 JS（与期数无关的部分） |
-| `build_episode.mjs` | 数据 → `poster_src.html` / `video_src.html` /`voices.json` / `fonts.json` |
+| `build_episode.mjs` | 数据 → `poster_src.html` / `video_src.html` / `voices.json` / `fonts.json` |
 | `run_episode.mjs` | 一期从数据跑到「可发布」（含全部门禁与发布侧清单） |
 | `run_series.mjs` | 批量跑若干期（并发可调；任一期红即非零退出） |
 | `make_publish.mjs` | 发布侧产物：`facts.json`（事实表）+ `copy-*.md` + `manifest.json` |
@@ -34,6 +34,8 @@
 | `check_sentence_matches.mjs` | 画面句子 == 配音念的那句（去空白去标点后逐词比） | `node --import tsx tools/foodnames/check_sentence_matches.mjs --all` | **54/144 个语种-期组合不一致**（37%） |
 | `check_video_layout.mjs` | 主角占比 / 空白带 / 暗词不透明度 / 高亮色 / 注音对位 | `node --import tsx tools/foodnames/check_video_layout.mjs --out examples/foodnames-ep01-sushi` | 12 期合计 **954 条不达标** |
 
+**版式门的阈值**（写在 `check_video_layout.mjs` 的 `TH` 里，**量之前定的，不许事后挪**）：主角墨迹高 ≥ 画面高 12% **或**宽 ≥ 画面宽 30%；最大空白水平带 ≤ 画面高 15%；非当前 token 不透明度 ≥ 0.45；注音列与字心水平偏差 ≤ 3px；品牌色 `c9403a` / `2f5d9e` / `b8860b`。
+
 **D1（最重）：画面句子与配音不是同一句。** `build_episode.mjs` 为了给菜名上色，把句子的 **第一个 token** 无条件替换成词形。凡是句首不是那个词的语种——冠词（Le / El / Το）、日语助词「は」、韩语助词「는」——那个 token 被**吃掉**；词本身若在句子里还出现一次，就**重复**一遍：
 
 ```
@@ -43,7 +45,7 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 两条后果都致命：① **音画不同步**——卡拉OK 按 token 逐个亮，token 数没变但内容整体错开一词（念「Le」时画面亮的是「sushi」）；② 观众读到的句子语法是坏的。`verify-sync` 门**抓不到**它：那个门只数词数，不比词。
 
-**D2–D5（版式）**：视频里没有「菜名」这个主角（`.stage` 装的是整句，词只是句首的 token，词形墨迹只占画面高 4.5%–13.3%）；竖屏最大空白带 26%–30%；未唱到的 token 不透明度 0.18（几乎隐形）；当前词高亮是中性灰 `rgba(44,38,32,0.09)`，不在页脚图例承诺的三色（`#c9403a` / `#2f5d9e` /`#b8860b`）里。**海报是仓内的参照实现**——那里词就是主角。
+**D2–D5（版式）**：视频里没有「菜名」这个主角（`.stage` 装的是整句，词只是句首的 token，词形墨迹只占画面高 4.5%–13.3%）；竖屏最大空白带 26%–30%；未唱到的 token 不透明度 0.18（几乎隐形）；当前词高亮是中性灰 `rgba(44,38,32,0.09)`，不在页脚图例承诺的三色（`#c9403a` / `#2f5d9e` / `#b8860b`）里。**海报是仓内的参照实现**——那里词就是主角。
 
 > `check_video_layout.mjs` 的探针在**只留目标语种那一格**的副本上跑（`_vl_probe_*.html`
 > 留在期目录里便于复查），量的是**渲染后**的事实：实际盒子大小、实际不透明度、实际
@@ -116,7 +118,7 @@ pnpm exec tsx tools/foodnames/run_episode.mjs `
   --bgm-json examples/_beds/bed-a.wav.json
 ```
 
-产线按顺序跑，任一门禁红就**当场非零退出**（不留半成品）：生成源文件 → 字体子集 → 韩语补丁实测注入 → 海报 → 三版封面 → 门禁（字符子集 / 适配 / 逐格颜色 / 叠印配准）→ 配音 → 旁白实测 → 床位反推 → 双画幅成片 → 同步门 + 白帧门 → 发布侧（`facts.json` / `manifest.json` /`copy check` / `check-plan`）。
+产线按顺序跑，任一门禁红就**当场非零退出**（不留半成品）：生成源文件 → 字体子集 → 韩语补丁实测注入 → 海报 → 三版封面 → 门禁（字符子集 / 适配 / 逐格颜色 / 叠印配准）→ 配音 → 旁白实测 → 床位反推 → 双画幅成片 → 同步门 + 白帧门 → 发布侧（`facts.json` / `manifest.json` / `copy check` / `check-plan`）。
 
 ## 批量跑多期
 
@@ -181,7 +183,7 @@ node --import tsx tools/foodnames/run_series.mjs --eps 03 04 05 06 --jobs 2
 | jp | 纯元音假名 `.v`；带声母的 `.cv`（红蓝渐变）；长音符 ー `.n` |
 | ar / he / deva | 两行叠印：下层整词红，上层辅音 `.c`、母音字母/符号 `.t`（透明，让下层透出来） |
 | kr | 逐音节 `.ksyl k<码位>`，补丁几何由 `measure-korean` 实测注入（每期音节不同，不能跨期复用） |
-| sc | 逐字成列，注音在本字列里（`.zi` / `.hz` /`.annot`） |
+| sc | 逐字成列，注音在本字列里（`.zi` / `.hz` / `.annot`） |
 
 覆盖不了的（例：日语汉字词）用 `word_html` 直接写 HTML。
 
