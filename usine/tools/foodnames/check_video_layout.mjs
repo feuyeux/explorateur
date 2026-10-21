@@ -42,16 +42,11 @@ const REPORT = arg('report') ? resolve(arg('report')) : join(OUT, 'video_layout.
 const WANT = String(arg('formats', 'portrait,landscape')).split(',').map((s) => s.trim()).filter(Boolean)
 
 // ── 阈值（设计判据，不是「跑出来什么样就定成什么样」）──────────────────────────
-const TH = {
-  hero_height_ratio: 0.12, // 主角墨迹高 ≥ 画面高 12%（竖屏 ≈230px，横屏 ≈130px）
-  hero_width_ratio: 0.30, //  或 主角墨迹宽 ≥ 画面宽 30%（拉丁长词按宽度走）
-  max_empty_band: 0.15, //  最大空白水平带 ≤ 画面高 15%
-  other_token_opacity: 0.45, //  非当前 token 的最低不透明度
-  annot_offset_px: 3, //  注音列与字心的水平偏差
-}
-
-// ── 品牌色（页脚图例承诺的三色）──────────────────────────────────────────────
-const BRAND = ['c9403a', '2f5d9e', 'b8860b']
+//
+// **阈值与品牌色的唯一事实源是 `layout_rules.mjs`**——场景页面那道门
+// （`check_scene_tokens.mjs`）量的是同一组要求，两道门必须用同一份数字与同一套
+// 三色，否则「成片过了、手搭页面却没过」会变成一句没人查得出的口话。
+import { BRAND, TH } from './layout_rules.mjs'
 
 const FORMATS = {
   portrait: { key: 'portrait', fmt: 'v', w: 1080, h: 1920, dir: 'frames_v' },
