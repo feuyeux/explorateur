@@ -20,7 +20,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, createWriteStream } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -28,7 +28,17 @@ const PLUGIN_PKG = join(REPO, 'usine', 'packages', 'dsh-plugin', 'package.json')
 
 /** 从 dsh-plugin 包解析 dsh SDK —— 钉版跟插件走，不跟 PATH 上的全局 dsh 走。 */
 const requireFromPlugin = createRequire(PLUGIN_PKG)
-const SDK_ENTRY = requireFromPlugin.resolve('@deepseek-ai/dsh-sdk-client')
+// **必须转成 file:// URL**。`require.resolve()` 返回的是**平台路径**，在 Windows 上是
+// `D:\...\index.js`；把它直接喂给 `await import()` 会抛
+// `ERR_UNSUPPORTED_ESM_URL_SCHEME: Received protocol 'd:'`——ESM 加载器只认
+// file / data / node 三种 scheme，裸盘符不是其中之一。
+//
+// 这个缺陷让 2026-10-21 之前的**每一条** B 线 rollout 都死在这一行：
+// 磁盘上 21 个 run 目录一条轨迹都没有，而读数被记成「判据跑不成」——
+// 那是把**启动失败**说成**测量失败**。Linux/macOS 上 `require.resolve()` 返回
+// 绝对路径也是 `/...`，同样不是合法 URL，只是那边通常由调用方自己补 file://
+// 而没暴露出来；这里一次修干净。
+const SDK_ENTRY = pathToFileURL(requireFromPlugin.resolve('@deepseek-ai/dsh-sdk-client')).href
 const PLUGIN_DIST = join(REPO, 'usine', 'packages', 'dsh-plugin', 'dist', 'index.mjs')
 
 function arg(name, fallback = '') {

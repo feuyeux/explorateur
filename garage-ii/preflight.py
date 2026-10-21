@@ -186,7 +186,15 @@ def check_dsh() -> tuple[list[str], list[str]]:
             f"但它跟你真跑的 SDK 不是同一个版本"
         )
 
-    if not (os.environ.get("DSH_HOME") or (Path.home() / ".dsh")).exists():
+    # **两条分支的类型必须一致**。`os.environ.get(...)` 返回 `str | None`，而
+    # `Path.home() / ".dsh"` 是 `Path`——写成一个 `or` 表达式时，只要环境变量被设置，
+    # 整个表达式就是 `str`，后面那句 `.exists()` 当场 `AttributeError`。
+    #
+    # 2026-10-21 实测：`DSH_HOME` 一旦设在环境里，**整个 preflight 崩掉**。
+    # 这不是「警告没打出来」，是门禁本身挂死——而 preflight 是开跑前的唯一一道闸，
+    # 它崩了等于没有闸。所以这里先统一成 Path 再判。
+    dsh_home = Path(os.environ["DSH_HOME"]) if os.environ.get("DSH_HOME") else (Path.home() / ".dsh")
+    if not dsh_home.exists():
         warns.append(
             f"没找到 dsh home（$DSH_HOME 或 ~/.dsh）：profile 会自动初始化，"
             f"首次开跑前先确认 provider 已配好"

@@ -191,6 +191,10 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
+  // 这一组第一个用例要 `await loadPlugin()`——动态 import `dist/index.mjs`
+  // （esbuild 打的 12 包 bundle），冷启动比纯单测贵一个量级。超时预算统一在
+  // `vitest.config.ts` 的 `testTimeout` 里给，不在这里逐条写：这是同一类病
+  // （按需加载大模块），逐条加会漏。
   it("apply() 默认注册 17 个工具（version + 13 家族 + verify/quota/video-generation），publish 不在——发布不可达是设计不是报错", async () => {
     const plugin = await loadPlugin()
     const ctx = fakeCtx()

@@ -46,6 +46,7 @@ from dsh_substrate import (
     read_tree,
     render_canonical_events,
 )
+import task_split
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -199,7 +200,7 @@ class UsineAdapter:
         self.model = model or MINIMAX_MODEL
         self.provider = provider
         #: 线上协议（`anthropic-messages` / `openai-completions`）。同一个网关、
-        #: 同一个模型，两种协议下**墙钟差一倍多**——见 `make_patch` 的实测表。
+        #: 同一个模型，两种协议下**实际耗时差一倍多**——见 `make_patch` 的实测表。
         self.api = api
         self.only_tasks = list(only_tasks) if only_tasks else None
         # rollout 串行锁。harness2 的 agg 模式会并行跑 2 个候选 rollout，而
@@ -210,7 +211,7 @@ class UsineAdapter:
         # **只有会跑全量门禁的那一格需要串行**（2026-10-20 实测改的）：一律串行时，
         # 海报格那种 45 次工具调用的 rollout 要 13 分钟 × 12 次 ≈ 2.6 小时，
         # 而机器 CPU **76% 空闲**——瓶颈是模型 API 的往返，不是机器。
-        # 锁到「该串行的那一格」上，剩下的格子并发跑，墙钟从 2.6 小时降到 ~1 小时。
+        # 锁到「该串行的那一格」上，剩下的格子并发跑，实际耗时从 2.6 小时降到 ~1 小时。
         self._rollout_lock = threading.Lock()
         self._serial_tasks = _serial_tasks_needed()
         #: 中继只该起一个：并行 rollout 会同时调 `_ensure_relay`。
@@ -285,17 +286,47 @@ class UsineAdapter:
     # ── BenchmarkAdapter：任务面 ──────────────────────────────────────────────
 
     def tasks(self, split: str = "all") -> list[str]:
-        if split not in ("all", "train", "eval"):
-            raise ValueError(f"未知 split：{split}")
-        # v1 没有 train/eval 切分：任务集小到一次性跑完，切了反而让样本更小。
-        ids = [t.task_id for t in TASKS]
+        """按 split 取任务 id。**`train` / `test` 是真切分，不是空转。**
+
+        2026-10-21 之前这里写着「v1 没有 train/eval 切分：任务集小到一次性跑完，
+        切了反而让样本更小」——那句话作为**当时的判断**是诚实的，但它有两个后果：
+
+        1. `run_usine_h2.py` 传的 `split="all"` 让**提案者读到的失败轨迹与最终判分
+           的任务是同一批**。这是过拟合的定义，而且读数上不可见：两臂都在同一批题上，
+           你只会看到「分高」或「分低」，看不到「只在训练题上高」。
+        2. `split` 参数**收下了却完全忽略**（`all`/`train`/`eval` 返回同一批），
+           于是任何调用方以为切了，实际没切——静默的假承诺。
+
+        现在任务集扩到 24 个（6 层 × 4），每层 50/50 分层切分后每边每层 2 个，
+        切分才有统计意义（见 `task_split.py`）。切分**按领域分层、固定种子、只看
+        `Task.domain`**——不看任务内容、不看判据、不看历史分数（看分数就是按已知
+        结果挑题，那是有偏的）。
+
+        引擎侧的校验是齐的（`harness2/benchmarks/tasks.py:62` 的 `select()`），
+        这里直接复用它认得的格式，不另造一套。
+        """
+        all_ids = [t.task_id for t in TASKS]
+        ids = task_split.select(TASKS, split)
         if self.only_tasks:
             wanted = set(self.only_tasks)
-            unknown = wanted - set(ids)
+            unknown = wanted - set(all_ids)
             if unknown:
                 raise ValueError(f"未知任务：{sorted(unknown)}")
+            # **只按本 split 过滤**：`only_tasks` 指到别的 split 的任务时，
+            # 结果是空——那是对的（这个 split 里确实没有它），不是错误。
             ids = [t for t in ids if t in wanted]
         return ids
+
+    def split_coverage(self) -> dict:
+        """切分的可读摘要 + 指纹，进报告用。"""
+        data = task_split.make_split(TASKS)
+        return {
+            "seed": data["seed"],
+            "train": data["train"],
+            "test": data["test"],
+            "unsplit_domains": data["unsplit_domains"],
+            "digest": task_split.split_digest(TASKS, split_data=data),
+        }
 
     def domain_of(self, task_id: str) -> str:
         return task_by_id(task_id).domain

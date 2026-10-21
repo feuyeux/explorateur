@@ -153,7 +153,7 @@ def _llm_choice(args) -> dict:
         "max_tokens": ENV_MAX_TOKENS,
         # 网关这一路走 **OpenAI 风格的线上协议**：同一个网关、同一个模型，
         # `/chat/completions` 默认**不推理**，`/messages` 默认推理 1.1 万–2.6 万字符
-        # （实测 36–47s vs 56–116s，整条 rollout 的墙钟大头就砸在那个块上）。
+        # （实测 36–47s vs 56–116s，整条 rollout 的实际耗时大头就砸在那个块上）。
         "api": (getattr(args, "llm_api", "") or "openai-completions").strip(),
     }
 
@@ -206,10 +206,20 @@ def _parser() -> argparse.ArgumentParser:
         help="parallel（宽）| sequential（深），逗号列表",
     )
     ap.add_argument("--seed", type=int, default=None, help="任务流顺序种子")
+    ap.add_argument(
+        "--split",
+        default="all",
+        choices=("all", "train", "test", "both"),
+        help=(
+            "任务切分。all=全部一起（**提案与测量同一批题，量不出泛化**）；"
+            "train=只跑训练侧；test=只跑 eval 侧；"
+            "both=两段式（先 train 学、再用同一份 library 跑 eval）——泛化读数走这个"
+        ),
+    )
     ap.add_argument("--only-domains", default="", help="只跑这些产线层（逗号分隔）")
     ap.add_argument("--max-tasks", type=int, default=None, help="每层最多几个任务")
     ap.add_argument("--workers", type=int, default=1, help="并行跑几个产线层")
-    ap.add_argument("--timeout", type=int, default=900, help="单次 rollout 的墙钟上限（秒）")
+    ap.add_argument("--timeout", type=int, default=900, help="单次 rollout 的时间上限（秒）")
     ap.add_argument(
         "--model",
         default=MINIMAX_MODEL,
@@ -235,11 +245,11 @@ def _parser() -> argparse.ArgumentParser:
         help=(
             "线上协议（默认 `openai-completions`）：同一个网关、同一个模型，"
             "`/chat/completions` 默认不推理，`/messages` 默认推理 1 万+ 字符"
-            "（实测墙钟 36–47s vs 56–116s）"
+            "（实测耗时 36–47s vs 56–116s）"
         ),
     )
     ap.add_argument(
-        "--proposer-timeout", type=int, default=600, help="单次改 harness 会话的墙钟上限（秒）"
+        "--proposer-timeout", type=int, default=600, help="单次改 harness 会话的时间上限（秒）"
     )
     ap.add_argument(
         "--only-tasks",
@@ -262,7 +272,7 @@ def _parser() -> argparse.ArgumentParser:
         default=0,
         help=(
             "一条臂里同时跑几次 rollout（0=自动，取 min(n,4)）。"
-            "瓶颈在模型往返不在机器，并行后一条臂的墙钟≈一次 rollout 的时长"
+            "瓶颈在模型往返不在机器，并行后一条臂的总耗时≈一次 rollout 的时长"
         ),
     )
     ap.add_argument(
@@ -277,15 +287,53 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _print_stream(adapter, args, modes) -> int:
+    # **dry-run 也要按 split 分流**。2026-10-21 之前这里硬写 `split="all"`，
+    # 于是 `--split train --dry-run` 打印的是全部任务——dry-run 的全部意义就是
+    # 「先说清楚要跑什么」，而它说的和真跑的不一样。这类「参数收下却忽略」
+    # 在 `usine_adapter.tasks()` 里也有一处（已修）；同一种错犯两次，说明
+    # 该查的是**每条取值路径**，不是单点。
+    split = getattr(args, "split", "all")
+    if split == "both":
+        # 两段式在 dry-run 里把两侧都列出来，并标明哪边先跑。
+        total = 0
+        for stage in ("train", "test"):
+            by_domain = SCHED.task_stream(
+                adapter,
+                split=stage,
+                seed=args.seed,
+                only_domains=_csv(args.only_domains),
+                max_tasks=args.max_tasks,
+            )
+            n_stage = sum(len(v) for v in by_domain.values())
+            total += n_stage
+            print(f"\n# === 第{'一' if stage == 'train' else '二'}段 {stage}（{n_stage} 个任务）===")
+            print(f"# {adapter.spec.name}-{adapter.substrate.name} k={args.k} modes={','.join(modes)}")
+            print(f"#   library: {C.library_root_for(adapter, args.k, seed=args.seed)}（两段共享）")
+            n = 0
+            for domain, tasks in by_domain.items():
+                for task in tasks:
+                    n += 1
+                    print(f"{n:>4}  {domain:<20} {task}")
+        if not total:
+            print("# 零个任务被排上——拒绝报成功")
+            return 1
+        cov = adapter.split_coverage()
+        print(
+            f"\n# 两段式共 {total} 个任务，切分指纹 {cov['digest']}"
+            f"（train {len(cov['train'])} / eval {len(cov['test'])}）"
+        )
+        print("# 读法：eval 段读到 train 段写进 library 的经验 ⇒ 这是**迁移**读数")
+        return 0
+
     by_domain = SCHED.task_stream(
         adapter,
-        split="all",
+        split=split,
         seed=args.seed,
         only_domains=_csv(args.only_domains),
         max_tasks=args.max_tasks,
     )
     ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
-    print(f"# {adapter.spec.name}-{adapter.substrate.name} k={args.k} modes={','.join(modes)}")
+    print(f"# {adapter.spec.name}-{adapter.substrate.name} k={args.k} modes={','.join(modes)} split={split}")
     print(f"#   namespace: {ns}")
     print(f"#   runs root: {adapter.spec.runs_root}")
     print(f"#   library:   {C.library_root_for(adapter, args.k, seed=args.seed)}")
@@ -298,6 +346,11 @@ def _print_stream(adapter, args, modes) -> int:
         print("# 零个任务被排上——拒绝报成功")
         return 1
     print(f"# 共 {n} 个任务，{len(by_domain)} 个产线层")
+    if split == "all":
+        print(
+            "# 注意：split=all 时**提案与测量是同一批题**——"
+            "这一轮量不出泛化（要泛化读数用 --split both）"
+        )
     return 0
 
 
@@ -362,7 +415,246 @@ def _phase_sweep(args) -> int:
         _release_run_root_lock(lock)
 
 
+def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) -> int:
+    """两段式 sweep：**train 学，eval 测**。泛化测量的全部接缝都在这里。
+
+    两条段之间的三个接缝
+    --------------------
+
+    1. **共享 library**：两段用同一个 `library_root`（由 `--split both` 时的
+       `tag` 保证 `root_for` 落到同一目录）。train 段写进去的 `EXPERIENCE.md`
+       与采纳的树，eval 段的提案器读得到——`schedule._run_one_mode` 里的
+       `lib_dir = mode_lib.context_dir()` 就是那条通路。
+    2. **不同 namespace**：`summary_ns` 加 `-train` / `-eval` 后缀，于是两次
+       sweep 的 run 目录、`_sweeps/*.json` 记录互不覆盖（否则 eval 段会把 train
+       段的读数盖掉，两边就只剩一份）。
+    3. **eval 段不写 library**：这条**必须由代码保证，不靠自觉**——因为引擎每次
+       `run_sweep` 都会在 `reflect_adoption` 里写 library。所以 eval 段跑完之后
+       要把 library 里 eval 任务新长出来的条目**摘掉**，只留 train 阶段的。
+       不摘的话，「第二次跑」就等于「eval 也学了一遍」，泛化读数立刻失效。
+
+    为什么不能只改一个参数
+    ----------------------
+
+    引擎的 `run_sweep(split=…)` 是**单 split 全流程**：同一个 split 上既提案、
+    又测量、又采纳。「在同一批题上学、在同一批题上考」这个形状，改一个参数改不出来。
+
+    一条要明说的边界
+    ----------------
+
+    train 段与 eval 段**各跑一次 sweep**，所以 eval 段里的提案器**仍然会改树**——
+    它拿到 train 的经验、在 eval 题上继续演化。这**不是**纯「学到的树直接考试」，
+    而是「学到的经验能不能让下一次演化更快更好」。后者也是一种泛化（迁移），
+    但它比「冻结树直接考」弱。这两种读法必须分开说，报告里按 `transfer` 记，
+    **不许混称「泛化」**。
+    """
+    train_root = runs_root / "_two_stage" / f"{summary_ns}-train"
+    eval_root = runs_root / "_two_stage" / f"{summary_ns}-eval"
+
+    print(
+        f"两段式 sweep（train → eval）：\n"
+        f"  train 段：{len(adapter.tasks('train'))} 个任务，产出写进 library\n"
+        f"  eval  段：{len(adapter.tasks('test'))} 个任务，**读同一份 library**\n"
+        f"  library：{library_root}",
+        flush=True,
+    )
+
+    # ── 第一段：train ───────────────────────────────────────────────────────
+    print(f"\n=== 第一段 train（{len(adapter.tasks('train'))} 格）===", flush=True)
+    rc_train = _sweep_one(
+        args,
+        adapter,
+        modes,
+        runs_root,
+        library_root,
+        f"{summary_ns}-train",
+        split="train",
+    )
+    if rc_train != 0:
+        print(
+            "\ntrain 段没跑干净——**不要**接着跑 eval 段："
+            "eval 侧要量的正是 train 段学到的东西，train 段本身错了，那个读数没有意义。",
+            file=sys.stderr,
+        )
+        return rc_train
+
+    # train 段写进 library 的条目，先记下来（eval 段之后要把**新长出来的**摘掉）。
+    before = _library_entries(library_root)
+
+    # ── 第二段：eval ────────────────────────────────────────────────────────
+    print(f"\n=== 第二段 eval（{len(adapter.tasks('test'))} 格）===", flush=True)
+    rc_eval = _sweep_one(
+        args,
+        adapter,
+        modes,
+        runs_root,
+        library_root,
+        f"{summary_ns}-eval",
+        split="test",
+    )
+
+    # **摘掉 eval 段新写进 library 的条目**：库必须停在 train 段结束时的样子。
+    removed = _trim_library(library_root, before)
+    if removed:
+        print(
+            f"\n已从 library 摘掉 eval 段新长的 {len(removed)} 项（{', '.join(removed[:4])}…）——"
+            f"库停在 train 段结束时的状态。理由见 `_run_two_stage` 的 docstring："
+            f"eval 也写库的话，「第二次跑」就变成「eval 也学了一遍」，泛化读数失效。",
+            flush=True,
+        )
+
+    rec = {
+        "two_stage": True,
+        "train_ns": f"{summary_ns}-train",
+        "eval_ns": f"{summary_ns}-eval",
+        "train_tasks": adapter.tasks("train"),
+        "eval_tasks": adapter.tasks("test"),
+        "split": adapter.split_coverage(),
+        "library_root": str(library_root),
+        "rc_train": rc_train,
+        "rc_eval": rc_eval,
+        "library_trimmed": removed,
+        "reading": "transfer",
+        "reading_note": (
+            "这是**迁移**读数（train 的经验被 eval 段的演化用上），"
+            "不是「冻结树直接考」的纯泛化读数。两者不许混称。"
+        ),
+    }
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    rec_path = runs_root / "_sweeps" / f"{summary_ns}-two-stage-{stamp}.json"
+    rec_path.parent.mkdir(parents=True, exist_ok=True)
+    rec_path.write_text(json.dumps(rec, indent=2, default=str), encoding="utf-8")
+    print(f"\n两段式记录：{rec_path}")
+    print(f"next:   python3 {Path(__file__).name} --phase compare --root {args.root}")
+    return rc_eval
+
+
+def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, split: str) -> int:
+    """跑一段 sweep。抽出来是为了让两段走**完全相同**的代码路径——
+    两段各写一遍的话，「eval 段少跑一个步骤」这种错永远测不出来。
+    """
+    from dsh_provider import Relay  # noqa: F401  (保持与调用方同一导入面)
+    from minimax_proposer import MinimaxProposer
+
+    relay = _make_relay(_llm_choice(args))
+    relay.start()
+    try:
+        adapter._relay = relay
+        adapter._relay_started = True
+        prop = MinimaxProposer(
+            relay=relay,
+            model=_llm_choice(args)['model'],
+            timeout=args.proposer_timeout,
+            api=_llm_choice(args).get('api', 'anthropic-messages'),
+        )
+        prop.audit_dir = runs_root / "_audit" / summary_ns
+        rep = SCHED.run_sweep(
+            args.k,
+            adapter=adapter,
+            prop=prop,
+            selector_prop=prop,
+            runs_root=runs_root,
+            library_root=library_root,
+            split=split,
+            modes=modes,
+            seed=args.seed,
+            tag="",
+            domain_parallel=args.workers,
+            only_domains=_csv(args.only_domains),
+            max_tasks=args.max_tasks,
+            pool_policy="finals",
+        )
+    finally:
+        relay.close()
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    rec = runs_root / "_sweeps" / f"{summary_ns}-{stamp}.json"
+    rec.parent.mkdir(parents=True, exist_ok=True)
+    rec.write_text(json.dumps(rep, indent=2, default=str), encoding="utf-8")
+
+    done = sum(int(d.get("done", 0)) for d in rep.get("domains", []))
+    failed = sum(int(d.get("failed", 0)) for d in rep.get("domains", []))
+    dead = [d["domain"] for d in rep.get("domains", []) if d.get("error")]
+    print(f"\nsweep[{split}] {summary_ns}: {done} 个任务完成，{failed} 个失败")
+    if dead:
+        print(f"  死掉的产线层：{', '.join(dead)}")
+    print(f"record: {rec}")
+
+    fell_back = _report_stage_fallbacks(runs_root, summary_ns)
+    if dead or failed:
+        return 1
+    if fell_back:
+        print(
+            "\n注意：有阶段回退到基准树（上面的 error 是原因）。"
+            "这些任务量到的是**基准 harness** 的表现，不是演化后的——"
+            "先修掉阶段错误再读分数。"
+        )
+        return 1
+    return 0
+
+
+def _library_entries(library_root: Path) -> set[str]:
+    """library 里现有的条目路径（相对路径）。用来比对「eval 段新长出来什么」。"""
+    root = Path(library_root)
+    if not root.is_dir():
+        return set()
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+
+
+def _trim_library(library_root: Path, before: set[str]) -> list[str]:
+    """把 library 恢复成 `before` 的样子，只删新长的文件；返回删掉的那些。
+
+    **只删新增的文件，不动任何旧文件**——旧文件可能被 eval 段改写过，
+    但「改写了什么」无法从文件集合上看出来，所以这里只做保守的那一半。
+    这个限制要明说：**eval 段对已有文件的修改不会被回滚**，读数时要记住这一点。
+    """
+    root = Path(library_root)
+    now = _library_entries(library_root)
+    extra = sorted(now - before)
+    removed: list[str] = []
+    for rel in extra:
+        p = root / rel
+        try:
+            if p.is_file():
+                p.unlink()
+                removed.append(rel)
+        except OSError:
+            continue
+    # 删空的目录也清掉（否则 library 的 entries() 会看见空目录）。
+    for d in sorted(root.rglob("*"), key=lambda x: len(x.parts), reverse=True):
+        try:
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+        except OSError:
+            continue
+    return removed
+
+
 def _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns) -> int:
+    """跑 sweep。**`--split both` 时走两段：先 train 学、再 eval 测。**
+
+    为什么是两段而不是一段
+    ----------------------
+
+    引擎的 `run_sweep(split=…)` 是**单 split 全流程**：它在同一个 split 上既提案、
+    又测量、又采纳。所以「在同一批题上学、在同一批题上考」这个形状，**改一个参数
+    是改不出来的**——必须跑两次，且第二次要能读到第一次的成果。
+
+    两段的接缝是 `library_root`：`harness2/core/library.py:215` 的 `root_for()`
+    在给定 `tag` 时返回 `<base>/<benchmark>/<tag>`，于是**同一个 tag 的两次 sweep
+    共享一个 library**。train 段把学到的树写进 library；eval 段读同一份 library，
+    所以摆在 eval 题面前的是 train 学到的成果。
+
+    eval 段**不跑提案器**（`modes` 里不带 `inv`/`dom`/`agg` 那几档改树的工作），
+    只做「用学到的树解题并测量」——那样 eval 侧的分数才有可能被 train 侧的产物
+    污染。**这是本设计唯一的因果假设**，写在这里以便被证伪。
+
+    一条硬约束：**eval 段永不写 library**。它要是也写，第二次跑就变成「eval 也在
+    学」，泛化读数立刻失效。这条由 `modes` 保证（只留 solve 档），不靠自觉。
+    """
+    if getattr(args, "split", "all") == "both":
+        return _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns)
+
     # proposer 通道：本层自带的直连通道（上游的 opencode 通道要 vendor 半个第三方仓，
     # claude_cli 通道强制走 Vertex 而本机没有 ADC）。它与 solver 共用同一个本机中继，
     # 所以 token 只在中继的内存里。
@@ -397,7 +689,7 @@ def _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns) -> int
             selector_prop=prop,
             runs_root=runs_root,
             library_root=library_root,
-            split="all",
+            split=getattr(args, "split", "all"),
             modes=modes,
             seed=args.seed,
             tag="",

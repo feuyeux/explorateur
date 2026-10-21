@@ -324,7 +324,7 @@ def run_arm(
     （它们是分布的一部分）。新 rollout 的编号从已有条数往后接，run id 不撞车。
 
     **n 次 rollout 默认并行跑**（`workers`，默认 `min(n, 4)`）。串行时一条臂的
-    墙钟是 n 次 rollout 的**和**——实测单次 rollout 12–42 分钟，n=4 串行就是
+    总耗时是 n 次 rollout 的**和**——实测单次 rollout 12–42 分钟，n=4 串行就是
     50 分钟到 3 小时。瓶颈在模型往返，不在机器（`usine_adapter` 的
     `_rollout_guard` 早就写明「别的格子各自独占工作区，并发跑是安全的」），
     所以一条臂的时间成本应该是**一次** rollout 的时长，不是 n 倍。
@@ -913,6 +913,43 @@ def validate_needle(needle: str, corpus: dict[str, dict[str, list[str]]]) -> dic
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 
+def render_generalization(rows: Sequence[dict]) -> str:
+    """把 train / eval 两侧拆开读，挂在配对比较报告后面。
+
+    **为什么这个函数必须存在。** `compare_arms` 只看「这批任务的合并均值」，
+    它不知道这批任务分两批。于是最坏的结果读数上完全隐形：
+
+        训练题 0.6→0.9，没见过的题 0.6→0.5，合并均值 0.7 > 0.6 ⇒ 报告写「有提升」。
+
+    `generalization.overfit_report` 负责判，这里只负责渲染。**切分不可用时明确说
+    出来**，不能因为读不到切分就当泛化没问题。
+    """
+    try:
+        import task_split
+        from bench_usine import TASKS
+
+        from generalization import format_report, overfit_report
+    except Exception as exc:  # noqa: BLE001 - 报告层不该因为依赖缺失而崩
+        return f"\n> **泛化报告不可用**（{type(exc).__name__}: {exc}）——两侧没有拆开读。\n"
+
+    data = task_split.make_split(TASKS)
+    tr, te = set(data["train"]), set(data["test"])
+    # **只把两侧真有的格子送进去**：报告不许替没跑的任务编一个 0。
+    present = {r["task_id"] for r in rows}
+    rep = overfit_report(rows, train_ids=tr & present, test_ids=te & present)
+    digest = task_split.split_digest(TASKS, split_data=data)
+    return (
+        "\n### 泛化读法：train / eval 拆开\n\n"
+        f"切分指纹 `{digest}`（种子 {data['seed']}，"
+        f"train {len(tr)} / eval {len(te)} 格"
+        + (f"，未切分层 {data['unsplit_domains']}" if data["unsplit_domains"] else "")
+        + "）\n\n"
+        "```\n"
+        + format_report(rep)
+        + "\n```\n"
+    )
+
+
 def render_markdown_report(rows: Sequence[dict], *, base_tag: str, evolved_tag: str) -> str:
     """把比较结果渲染成 markdown（最终文档的数字由它产出，不手抄）。"""
     out: list[str] = []
@@ -1269,19 +1306,35 @@ def _main(argv: list[str] | None = None) -> int:
             if tag not in loaded:
                 print(f"没有这个臂：{tag}（现在有 {list(loaded)}）")
                 return 1
+        # **不许只比交集**。2026-10-20 实测踩到：两臂任务集不同时，`&` 让少掉的那几格
+        # 静默不参与比较，报告照样绿灯——那是把「有一格没测」说成「两臂一致」。
+        # 现在把差集单独列出来，并让退出码为 1（不完整就不许当结论）。
+        base_ids = set(loaded[args.base_arm])
+        evolved_ids = set(loaded[args.evolved_arm])
+        only_base = sorted(base_ids - evolved_ids)
+        only_evolved = sorted(evolved_ids - base_ids)
         rows = []
-        for task_id in sorted(set(loaded[args.base_arm]) & set(loaded[args.evolved_arm])):
+        for task_id in sorted(base_ids & evolved_ids):
             rows.append(compare_arms(loaded[args.base_arm][task_id], loaded[args.evolved_arm][task_id]))
+        if only_base or only_evolved:
+            print(
+                "**两臂任务集不同，比较不完整**："
+                + (f"只有基准臂有 {only_base}；" if only_base else "")
+                + (f"只有演化臂有 {only_evolved}" if only_evolved else "")
+            )
         if not rows:
             print("两个臂没有共同的任务")
             return 1
         md = render_markdown_report(rows, base_tag=args.base_arm, evolved_tag=args.evolved_arm)
+        # **泛化报告紧跟其后**：合并均值会掩盖「train 涨、eval 跌」，
+        # 所以只要切分可用就一定要把两侧拆开读（见 generalization.py 的说明）。
+        md += render_generalization(rows)
         print(md)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_text(md, encoding="utf-8")
             print(f"record: {args.out}")
-        return 0
+        return 1 if (only_base or only_evolved) else 0
 
     # corpus
     loaded = load_arms(args.arms_root)
