@@ -68,7 +68,6 @@ pnpm exec feuille publish check-plan $P\publish\manifest.json --root $P
 | 13 | 加 BGM 后旁白小 3 dB | `aformat` mono→stereo 走 swr，每声道 −3.01 dB | 显式 `pan=stereo\|c0=c0\|c1=c0` |
 | 14 | 装 playwright 后发布测试红 | `launchPersistentContext` 目录是第一个位置参数 | `(userDataDir, options)` |
 | 15 | `bgm gen` 请求 76s 只得 36s | 收流按 1× 实时睡，实际 0.5–0.6× | 按音频字节数收流，wall 上限 2.5×+30s |
-| 16 | 工具面里 `fit-diag` 空参调用**永不返回**，整条 rollout 的时间预算被烧光 | 缺参数就 `readFileSync(0)` 读 stdin；工具面里叶子**同进程**跑，stdin 是宿主那根永远不关的管道 | 边界层设 `FEUILLE_STDIN=off`；叶子缺参数立刻 exit 2 + 用法错，管道用法 `-` 显式保留 |
 
 ## 3 装库 / 真 key 之后才暴露的三个缺陷
 
@@ -233,6 +232,7 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 | 32 | 工具输出里混进宿主自己的日志 / JSON-RPC 帧 | 猴补 `process.stdout.write` 的**时间窗**捕获把窗口内的所有写都收走，宿主写与工具写不分 | 改用 `AsyncLocalStorage` 按**异步上下文**捕获，串行锁删掉；console 与 stdout/stderr 两个出口都盖（vitest 下 console 被测试框架接管，只盖 stdout 会漏） |
 | 33 | 会话日志只解出第一帧，后面的事件全丢 | 日志是多段 zstd 帧拼接，Node 的 `zstdDecompressSync` 只解第一帧 | 取证脚本逐帧解码；审批审计是 log-only（不进通知流），只能从会话日志拿 |
 | 34 | 改完 inject 纪律后**复查发现 systemPrompt 还在 inject 里**——宿主一缺它，17 个工具掉到 **0** 且不报错 | 同一个坑的第三个实例：只清了 `approval` / `skills`，没看清 `systemPrompt` 承载的只是纪律文本，17 个工具一个都不依赖它 | `inject` 只留 `tools`；纪律文本节改走 `ctx.inject(['systemPrompt'], …)`。真 cordis 实测：只 `provide('tools')` 时注册工具数 **0 → 17**，纪律节安静跳过；该对比进了 `plugin.test.ts` 的常驻断言（真 `new Context()`，不是假 ctx） |
+| 35 | 工具面里 `fit-diag` 空参调用**永不返回**，整条 rollout 的时间预算被烧光 | 缺参数就 `readFileSync(0)` 读 stdin；工具面里叶子**同进程**跑（`runMain` 直接 `await fn(argv)`），stdin 是宿主那根**永远不关**的管道 → 永久阻塞 | 边界层设 `FEUILLE_STDIN=off`；叶子缺参数/文件不存在立刻 exit 2 + 用法错，管道用法 `-` 显式保留，**CLI 那条路一个字没改**。2026-10-22 在 B 线跑批里实测：两轮 16 条 rollout 有 9 条卡在工具调用，8 条卡在这同一个调用上 |
 
 ## 附：`usine/人物宣传图.zip` —— 一个被登记下来的孤立大文件（不删）
 
