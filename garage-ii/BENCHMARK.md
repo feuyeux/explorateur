@@ -1429,7 +1429,19 @@ EOF
 
    **对表口径的一处更正（2026-10-20 21:2x）**：这张表原先的 RSIAgent 一栏用的是 `804s（bfs13）`，而 bfs13 是**一次死在验证席、什么都没交付**的波次，所以「一个候选从取证到验收」「整轮波次」两行只能写「——」。那是当时的事实。到 10-20 上午，`garage/` 侧已经跑出**完成且合并**的波次（`garage/README.md` §5.8：bfs17，754.7s / 1500s，合并出 `6e8665f`，门禁 exit 0 / 26.4s），所以两行的「——」不再成立，已改成实测值。**拿失败样本当对方基线，算出来的倍数没有意义**。
 
-## 19. 来源
+## 19. Windows 上的已知缺口：`read_tree` 的反斜杠键（2026-10-21 实测）
+
+在 Windows 主机上，`python garage-ii/smoke_dsh_bridge.py` 必红一项：**「技能落在 dsh 的 project-dsh 根」**——staging 目录里那 10 个技能都在，但期望值是空列表 `[]`。根因在**上游引擎**，不在本层：
+
+`theatre-ii/harness2/core/tree.py` 的 `read_tree` 用 `str(p.relative_to(d))` 算相对路径——**Windows 上得到的是反斜杠**（`skills\bgm-bed\SKILL.md`）；而 `SurfaceSpec.skill_dir="skills"` 对应的技能正则只认正斜杠（`skills/(...)/SKILL\.md`）。于是 `HT.skill_names()` 在 Windows 上恒返回空列表（`is_allowed` 之所以没拦住，是因为它内部先走了 `normalize_rel` 把 `\` 换成 `/`）。
+
+**为什么不能直接改上游**：`theatre-ii/` 是**零补丁**的 vendored fork（见 [../theatre-ii/PROVENANCE.md](../theatre-ii/PROVENANCE.md)）。修法只能落在**本层**：读树之后把键统一成正斜杠（`normalize_rel` 已是现成的语义），再交给引擎的枚举与比较函数。
+
+**影响面比这条 smoke 更宽**：凡是「按相对路径枚举技能名」的地方，在 Windows 上都拿不到名字（提案提示里的技能清单、`validate_tree` 的同名技能核对、`每个技能都被 always-on 点名` 那类检查）。**在 Windows 上读本线的任何数字之前，先确认这一条已修**——否则量到的是「找不到技能」的假象。
+
+**判别方法（别把平台缺陷当自己的回归）**：先看**被测文件与它的源码有没有被改过**——`git diff --stat -- <测试文件> <源码>` 为空即逐字节等于 HEAD；再把改动 stash 掉复跑同一用例。2026-10-21 实测：这一项在 HEAD 上**同样失败**（stash 对照，改动前后都是它），与当轮改动无关。同一台机器上还有一条同族的必红项在邻线：`usine/packages/core/test/textlayer.test.ts` 自己造 `fake-browser.sh` 再 `spawnSync`，Windows 报 `EFTYPE`（POSIX 夹具在 Windows 上不可执行）——`pnpm verify` 全量跑因此是 44 文件 / 561 过 / 8 跳 / **1 败**，那一败同样与改动无关。**门禁红了先做上面这两步对照，再决定是回滚还是往前修。**
+
+## 20. 来源
 
 - 任务与判据：`garage-ii/bench_usine.py`（本仓自建）
 - 引擎：`../theatre-ii/`（harness2 commit `1cfe254`）
