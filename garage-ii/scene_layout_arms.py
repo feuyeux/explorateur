@@ -49,6 +49,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -78,6 +79,61 @@ def criteria_stamp() -> str:
         h.update(p.read_bytes())
     h.update("|".join(CHECK_NAMES).encode("utf-8"))
     return h.hexdigest()[:16]
+
+
+# ── 启动失败：不是行为表现，是基础设施抖动 ─────────────────────────────────────
+def launch_failure(run_dir: Path) -> str:
+    """这条 rollout 是不是**根本没跑起来**，返回原因（空串 = 正常跑过了）。
+
+    签名：`diagnostics.json` 里有 error、`events.jsonl` 是空的、没有 `final.txt`。
+    2026-10-22 实测：机器上同时有 11 条 rollout 在跑（每条带约 10 个 node 进程），
+    dsh SDK 的 `initialize` 等不到 runtime 就 10 秒超时（`initialize timed out after
+    10000ms waiting for dsh profile "sdk"`）——**一条 rollout 一个事件都没产生**。
+    那种失败**不是被改进对象的行为表现**，两条纪律各管一半：
+
+    - 「判据失败是 None 不是零分」——启动失败不记 0 分（记 0 分等于说「它交了但
+      不达标」，那是伪造）；
+    - 「被杀/超时也要留下已经发生的事」——启动失败**没有已经发生的事**，所以它
+      不该被当成一条样本，它该被**重试**（重试启动不是重试行为，不改变测量）。
+
+    只重试**启动**失败：模型跑满时间上限被掐死、或智能体交了不合格的东西，
+    那些都不许重试——那是行为表现，重试它就是挑好结果。
+    """
+    run_dir = Path(run_dir)
+    if not run_dir.is_dir():
+        return "run 目录不存在"
+    diag = run_dir / "diagnostics.json"
+    events = run_dir / "events.jsonl"
+    final = run_dir / "final.txt"
+    if not diag.is_file():
+        return ""
+    if final.is_file():
+        return ""
+    if events.is_file() and events.stat().st_size > 0:
+        return ""
+    try:
+        err = json.loads(diag.read_text(encoding="utf-8")).get("error", "")
+    except (OSError, ValueError):
+        err = ""
+    return f"启动失败（一个事件都没产生）：{err or 'diagnostics.json 里有记录但没写原因'}"
+
+
+def _execute_with_retry(adapter, task_id: str, tree: Path, run_id: str, timeout: int | None, attempts: int = 3) -> Path:
+    """跑一条 rollout；**只有启动失败**才重试（退避 20s / 40s）。
+
+    重试仍然不成 → 抛异常 → `arms.one_roll` 记成 `score=None`（不是零分），
+    这条 rollout 不进分数分布。
+    """
+    last = ""
+    for attempt in range(attempts):
+        run_dir = adapter.execute(task_id, tree, run_id, timeout=timeout)
+        bad = launch_failure(run_dir)
+        if not bad:
+            return run_dir
+        last = bad
+        if attempt + 1 < attempts:
+            time.sleep(20 * (attempt + 1))
+    raise RuntimeError(f"启动失败，重试 {attempts} 次仍不成：{last}")
 
 
 # ── 判据本体 ──────────────────────────────────────────────────────────────────
@@ -119,6 +175,10 @@ def score_scene_layout(run_dir: Path, task_id: str) -> dict | None:
     """判这一条 rollout。返回 None = 判据跑不成（不是零分）。"""
     run_dir = Path(run_dir)
     if not run_dir.is_dir():
+        return None
+    bad = launch_failure(run_dir)
+    if bad:
+        # 启动失败不判 0 分：它没有产生任何行为，0 分等于伪造「交了但不合格」。
         return None
     ws = run_dir / "workspace"
     if not ws.is_dir():
@@ -241,6 +301,10 @@ def run_arm(adapter: UsineAdapter, *, tag: str, tree: Path, repeats: int, args) 
     out_dir = Path(args.root).resolve() / "arms" / tag
     out_dir.mkdir(parents=True, exist_ok=True)
     tree = _resolve_tree(tree)
+
+    def execute(task_id: str, tree_dir: Path, run_id: str) -> Path:
+        return _execute_with_retry(adapter, task_id, tree_dir, run_id, args.timeout)
+
     got = arms.run_arm(
         adapter,
         tree_for_task=lambda t: tree,
@@ -250,6 +314,7 @@ def run_arm(adapter: UsineAdapter, *, tag: str, tree: Path, repeats: int, args) 
         out_dir=out_dir,
         timeout=args.timeout,
         workers=args.arm_workers,
+        execute=execute,
     )
     return got[0]
 
