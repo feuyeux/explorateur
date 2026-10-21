@@ -52,6 +52,22 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 > 高亮色。它需要已渲染的成片（`examples/` 不入库），所以它**不在合并门禁里**；
 > `check_sentence_matches.mjs` 是纯文本、零浏览器，合并门禁与 guest 里都能跑。
 
+## 通用 karaoke 模板把这条产线的两条量化要求**教成了错的**（2026-10-22 实测）
+
+**别照抄通用模板的 `.tok` 规则**：通用技能 `skills/karaoke-video/assets/template/scenes.html` 第 25–27 行是
+
+```css
+.tok.dim   { opacity: 0.18; }
+.tok.sung  { opacity: 1; }
+.tok.cur   { opacity: 1; background: rgba(44, 38, 32, 0.09); }
+```
+
+而本产线的版式门要求的是**非当前 token 不透明度 ≥ 0.45**、**当前词高亮落在品牌三色里**——照抄模板做出来的画面，`check_video_layout.mjs` 的 `token_readable` 与 `highlight_brand` **必红**（这正是旧 12 期的 D2–D5 实伤，见上面那段）。
+
+**实测证据**：2026-10-22 在 RSI B 线（harness2 × garage-ii）的 rollout 工作区里逐条查了**基准臂** 4 条 rollout 的交付产物——**4/4 照抄了 `opacity: 0.18` 与中性灰 `rgba(44,38,32,0.09)`**；两臂工作区里装的那份模板（`.dsh/skills/karaoke-video/assets/template/scenes.html`）与仓内 `usine/skills/karaoke-video/assets/template/scenes.html` 的 sha256 相同。
+
+**正确口径**：暗词不透明度 ≥ 0.45；当前词高亮用 `--vowel` / `--cons` / `--gold`（`c9403a` / `2f5d9e` / `b8860b`），**不要**用主题默认的中性灰 `--cur-bg`。顺带记住一件事：**通用资产里一个量化阈值都没有**（`usine/skills/` 整棵树里 grep `12%` / `30%` / `墨迹` / `空白带` / `0.45` 全无）——12% / 30% / 15% / 0.45 这四个数字**只在本产线自己的门里**，只能从这里抄。
+
 ## 2026-10-21 的修复（RSI 波次 wave-1 落地）
 
 D1–D5 的修法是 **RSIAgent 波次自己写的**（出题席出题 → Actor 改 → 验证席判 → 合并成真提交 `6985542`，tag `theatre/wave-1`）。改动落在三个文件：
