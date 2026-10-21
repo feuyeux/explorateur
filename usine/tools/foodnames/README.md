@@ -19,12 +19,48 @@
 | `make_publish.mjs` | 发布侧产物：`facts.json`（事实表）+ `copy-*.md` + `manifest.json` |
 | `audit_copy_numbers.mjs` | 离线预检：发布词读者面的每个数字能否在事实表里找到出处 |
 | `check_fused_glyph.mjs` | 像素门：韩语融合音节必须渲成渐变字形，不能是实心色块 |
+| `check_sentence_matches.mjs` | **离线门**：画面上的句子必须与数据里的旁白句逐词一致（零浏览器，合并门禁可跑） |
+| `check_video_layout.mjs` | **版式门**：词形是不是主角、留白、暗词可读性、高亮是不是品牌色（注音对齐） |
 | `check_series_consistency.mjs` | 跨期一致性门（12 格 / 语种序 / 版式结构件 / 画幅与清单） |
 | `check_ep01_regression.mjs` | 第 01 期回归基准门（生成器重出 == 已交付手写版） |
 | `series_report.mjs` | 只读汇总：12 期实测产物一览 |
 | `patch_publish.mjs` | 一次性：修 worker 交回的发布词里的文件名/封面贴士硬伤 |
 | `measure_narration.mjs` | 旁白语音窗实测 + 时间线预算（成片前先量旁白再定床位） |
 | `extract_templates.mjs` | 一次性：把第 01 期手写源文件剥成模板（改模板时重跑） |
+
+## 两条视频门（2026-10-21 加）
+
+12 期已交付的成片有**五处可见缺陷**，两道门把它们变成可机检的数字：
+
+| 门 | 量什么 | 跑法 | 2026-10-21 实测（旧 12 期） |
+|---|---|---|---|
+| `check_sentence_matches.mjs` | 画面句子 == 配音念的那句（去空白去标点后逐词比） | `node --import tsx tools/foodnames/check_sentence_matches.mjs --all` | **54/144 个语种-期组合不一致**（37%） |
+| `check_video_layout.mjs` | 主角占比 / 空白带 / 暗词不透明度 / 高亮色 / 注音对位 | `node --import tsx tools/foodnames/check_video_layout.mjs --out examples/foodnames-ep01-sushi` | 12 期合计 **954 条不达标** |
+
+**D1（最重）：画面句子与配音不是同一句。** `build_episode.mjs` 为了给菜名上色，把句子的
+**第一个 token** 无条件替换成词形。凡是句首不是那个词的语种——冠词（Le / El / Το）、
+日语助词「は」、韩语助词「는」——那个 token 被**吃掉**；词本身若在句子里还出现一次，
+就**重复**一遍：
+
+```
+fr-FR  画面 "sushi sushi est un plat japonais"   配音 "Le sushi est un plat japonais"
+ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は中国から来た"
+```
+
+两条后果都致命：① **音画不同步**——卡拉OK 按 token 逐个亮，token 数没变但内容整体错开
+一词（念「Le」时画面亮的是「sushi」）；② 观众读到的句子语法是坏的。
+`verify-sync` 门**抓不到**它：那个门只数词数，不比词。
+
+**D2–D5（版式）**：视频里没有「菜名」这个主角（`.stage` 装的是整句，词只是句首的
+token，词形墨迹只占画面高 4.5%–13.3%）；竖屏最大空白带 26%–30%；未唱到的 token
+不透明度 0.18（几乎隐形）；当前词高亮是中性灰 `rgba(44,38,32,0.09)`，不在页脚图例
+承诺的三色（`#c9403a` / `#2f5d9e` / `#b8860b`）里。**海报是仓内的参照实现**——那里
+词就是主角。
+
+> `check_video_layout.mjs` 的探针在**只留目标语种那一格**的副本上跑（`_vl_probe_*.html`
+> 留在期目录里便于复查），量的是**渲染后**的事实：实际盒子大小、实际不透明度、实际
+> 高亮色。它需要已渲染的成片（`examples/` 不入库），所以它**不在合并门禁里**；
+> `check_sentence_matches.mjs` 是纯文本、零浏览器，合并门禁与 guest 里都能跑。
 
 ## 一期怎么跑
 
