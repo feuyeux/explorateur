@@ -53,12 +53,10 @@ from dsh_provider import (  # noqa: E402
     Relay,
     resolve_llm_endpoint,
 )
-from preflight import run_all  # noqa: E402
+from preflight import DEFAULT_ROOT, run_all  # noqa: E402
 from usine_adapter import UsineAdapter  # noqa: E402
 
 SWEEP_ACK = "RUN-USINE-H2-SWEEP"
-
-DEFAULT_ROOT = Path(os.environ.get("GARAGE_II_RUNS_DIR", Path.home() / ".cache" / "usine-h2"))
 
 
 def _csv(raw: str) -> tuple[str, ...]:

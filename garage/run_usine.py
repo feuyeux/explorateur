@@ -177,8 +177,13 @@ _HERE = Path(__file__).resolve().parent
 _EXPLORATEUR_ROOT = _HERE.parents[0]
 DEFAULT_THEATRE = _EXPLORATEUR_ROOT / "théâtre"
 DEFAULT_USINE_DIR = _EXPLORATEUR_ROOT / "usine"
+# 运行产物落位（AGENTS.md「运行产物落位」）：**仓库外**、且与 harness2 线路分开——
+#   RSIAgent（théâtre + garage）      → <explorateur 的同级>/garage-result
+#   harness2（theatre-ii + garage-ii） → <explorateur 的同级>/garage-ii-result
+# 仓库外是硬约束（dsh 的 project root 判定会让仓库内的 `.dsh/skills` 判到仓库根，
+# 候选技能一个都扫不到，且**不报错**）；分线落位是硬约束（两线的读数必须能分开翻账）。
 DEFAULT_RUNS_ROOT = (_EXPLORATEUR_ROOT.parents[0]
-                     / "theatre-usine-runs")
+                     / "garage-result")
 DEFAULT_LLM_CONFIG = _EXPLORATEUR_ROOT / "config" / ".env"
 DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # TS 迁移（usine P0-P8）后的门禁：pnpm verify（typecheck + vitest 全量）。
@@ -1951,7 +1956,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--root", default=str(DEFAULT_RUNS_ROOT),
         help=("run-lineage root, OUTSIDE every repository (endpoints.json "
-              "with live credentials is generated there)"))
+              f"with live credentials is generated there); default "
+              f"{DEFAULT_RUNS_ROOT}"))
     parser.add_argument("--usine-dir", default=str(DEFAULT_USINE_DIR))
     parser.add_argument(
         "--gate-argv", nargs="+", default=list(DEFAULT_GATE_ARGV),

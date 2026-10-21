@@ -47,13 +47,13 @@ from probe_curriculum_effort import one_arm  # noqa: E402
 EXPLORATEUR = HERE.parents[0]
 ACTOR_YAML = (EXPLORATEUR / "garage" / "config" / "roles-usine"
               / "actor-usine.yaml")
-DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "theatre-usine-runs"
+DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "garage-result"
                       / "bfs10-20261019" / "phase1" / "episodes" / "ep003"
                       / "actor" / "attempt_001" / "segment_000"
                       / "transcript.json")
 # bfs10's run directory is the date-stamped one; fall back to the plain name.
 if not DEFAULT_TRANSCRIPT.is_file():
-    DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "theatre-usine-runs"
+    DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "garage-result"
                           / "bfs10" / "phase1" / "episodes" / "ep003"
                           / "actor" / "attempt_001" / "segment_000"
                           / "transcript.json")

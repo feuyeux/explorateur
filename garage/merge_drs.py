@@ -25,9 +25,9 @@ land here" is a fact before the gate is paid for.
 Usage (théâtre venv):
     cd <explorateur>\\théâtre
     .\\.venv\\Scripts\\python.exe ..\\garage\\merge_drs.py --plan \\
-        --run-root D:\\coding\\personal\\theatre-usine-runs\\bfs16i\\phase2
+        --run-root D:\\coding\\personal\\garage-result\\bfs16i\\phase2
     .\\.venv\\Scripts\\python.exe ..\\garage\\merge_drs.py \\
-        --run-root D:\\coding\\personal\\theatre-usine-runs\\bfs16i\\phase2
+        --run-root D:\\coding\\personal\\garage-result\\bfs16i\\phase2
 """
 
 from __future__ import annotations

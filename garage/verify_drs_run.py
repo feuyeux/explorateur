@@ -25,7 +25,7 @@ a VM: it is a reader.
 Usage (théâtre venv):
     cd <explorateur>\\théâtre
     .\\.venv\\Scripts\\python.exe ..\\garage\\verify_drs_run.py \
-        --run-root D:\\coding\\personal\\theatre-usine-runs\\bfs16i
+        --run-root D:\\coding\\personal\\garage-result\\bfs16i
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ def _read_json(path: Path):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-root", required=True,
-                        help="the lineage root (…/theatre-usine-runs/<name>)")
+                        help="the lineage root (…/garage-result/<name>)")
     args = parser.parse_args()
     root = Path(args.run_root)
     phase2 = root / "phase2"

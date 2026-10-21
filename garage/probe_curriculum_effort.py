@@ -47,7 +47,7 @@ from measure_llm_latency import ENV_PATH, load_env, resolve  # noqa: E402
 EXPLORATEUR = HERE.parents[0]
 CURRICULUM_YAML = (EXPLORATEUR / "garage" / "config" / "roles-usine"
                    / "curriculum-usine.yaml")
-DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "theatre-usine-runs"
+DEFAULT_TRANSCRIPT = (EXPLORATEUR.parents[0] / "garage-result"
                       / "bfs5-20261019" / "phase1" / "curriculum"
                       / "wave_001" / "segment_000" / "transcript.json")
 SLUG = "fuyao-work"

@@ -38,6 +38,14 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 THEATRE_II = REPO / "theatre-ii"
 
+#: 默认 run root：**仓库外**、且与 RSIAgent 线路分开（AGENTS.md「运行产物落位」）。
+#:   RSIAgent（théâtre + garage）      → <explorateur 的同级>/garage-result
+#:   harness2（theatre-ii + garage-ii） → <explorateur 的同级>/garage-ii-result
+#: 仓库外是硬约束（见模块 docstring 第 4 条）；分线落位是硬约束——两线的读数
+#: 必须能分开翻账。`GARAGE_II_RUNS_DIR` 可覆盖（同一台机器上分线跑批时用）。
+DEFAULT_ROOT = Path(os.environ.get(
+    "GARAGE_II_RUNS_DIR", str(REPO.parent / "garage-ii-result")))
+
 #: run root 必须在仓库外。见模块 docstring 的第 4 条。
 def _inside_repo(p: Path) -> bool:
     try:
@@ -58,7 +66,7 @@ def check_run_root(run_root: Path) -> list[str]:
             f"run root {resolved} 在本仓库内：dsh 的 project root 是「最近的含 .git 的祖先，"
             f"没有就用 cwd」，仓库内的 run root 会让 .dsh/skills 被判到仓库根，"
             f"候选技能一个都扫不到（不报错，只是分数静默塌到基线）。"
-            f"把 run root 放到仓库外，例如 {Path.home() / '.cache' / 'usine-h2'}"
+            f"把 run root 放到仓库外，例如 {DEFAULT_ROOT}"
         )
     return errs
 
@@ -277,9 +285,10 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", type=Path, default=None, help="run root（默认 ~/.cache/usine-h2）")
+    ap.add_argument("--root", type=Path, default=None,
+                    help=f"run root（默认 {DEFAULT_ROOT}）")
     args = ap.parse_args(argv)
-    run_root = args.root or Path(os.environ.get("GARAGE_II_RUNS_DIR", Path.home() / ".cache" / "usine-h2"))
+    run_root = args.root or DEFAULT_ROOT
     errs, warns = run_all(run_root)
     for w in warns:
         print(f"warn: {w}")

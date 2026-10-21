@@ -54,7 +54,7 @@ from harness2.core import tree as HT  # noqa: E402
 
 from bench_usine import TASKS  # noqa: E402
 from dsh_substrate import DSH_SURFACE  # noqa: E402
-from preflight import run_all  # noqa: E402
+from preflight import DEFAULT_ROOT, run_all  # noqa: E402
 from usine_adapter import UsineAdapter  # noqa: E402
 
 COMPARE_ACK = "RUN-USINE-H2-COMPARE"
@@ -287,7 +287,7 @@ def _report(results: list[ArmResult], args, h2_dir: Path | None, memory_dir: Pat
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", type=Path, default=Path.home() / ".cache" / "usine-h2")
+    ap.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     ap.add_argument("--ack", default="")
     ap.add_argument("--arms", default=",".join(ARMS), help=f"要跑哪些臂（{','.join(ARMS)}）")
     ap.add_argument("--memory", type=Path, default=None, help="RSIAgent 冻结记忆语料目录")
