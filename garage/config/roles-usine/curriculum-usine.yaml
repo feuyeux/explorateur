@@ -16,20 +16,30 @@ look_ensemble: 1
 look_ensemble_temp: 0.8
 split_done_gate: true
 max_tokens: 65536
-# "max" is the measured faster arm on this gateway, not a guess.  A/B'd
-# 2026-10-19 with probe_curriculum_effort.py on the recorded first
-# wave-authoring call (5172 prompt tokens, same bytes both arms):
-# max answered in 51s, medium in 108s — medium burned 16695 completion
-# tokens to return LESS text (2896 chars) than max's 8225 tokens / 5625
-# chars.  So "lower effort is cheaper" is false here; do not retune this
-# knob from intuition.  Re-run the probe before changing it.
+# "max" was the measured faster arm on this gateway — **on 2026-10-19**.  A/B'd
+# with probe_curriculum_effort.py on the recorded first wave-authoring call
+# (5172 prompt tokens, same bytes both arms): max answered in 51s, medium in
+# 108s — medium burned 16695 completion tokens to return LESS text (2896 chars)
+# than max's 8225 tokens / 5625 chars.  So "lower effort is cheaper" is false
+# here; do not retune this knob from intuition.  Re-run the probe before
+# changing it.
 #
-# Caveat that outranks all of the above: first-response latency at the SAME
-# effort has been observed at 51s, 108s, 138.7s, 322s and >300s across runs.
-# The guard that matters is the run ceiling (now 1500s, see
-# time_budget.DEFAULT_RUN_CEILING_SECS) plus per-seat wall_clock_secs
-# slices (see time_budget.DEFAULT_SLICES) — not this line.
-reasoning_effort: "max"
+# **2026-10-21: the ladder inverted, so this line moved to "low".**  Same probe,
+# same bytes (the CURRENT curriculum brief: 24067-char system + 8412-char user):
+#   low → answered in 7.2s (prompt 7411 / completion 1883, answer 7471 chars,
+#          and the answer names the right target: "target G, D1 primary +
+#          D2–D5 fix direction")
+#   max → **no answer within 200s** (TimeoutError)
+# The live wave foodnames-video2 was on "max" and burned ~19 minutes of
+# APITimeoutError retries without the seat answering ONCE.  Same gateway, same
+# model, same request — only the effort knob differs.  "max" is not "better
+# thinking" here, it is the tier that no longer answers.
+#
+# The guard that matters is the run ceiling (now 1700s, see
+# time_budget.DEFAULT_RUN_CEILING_SECS) plus per-seat wall_clock_secs slices
+# (now 400s for the curriculum seat — see time_budget.DEFAULT_SLICES) — not
+# this line.
+reasoning_effort: "low"
 reasoning_max_tokens: 0
 reasoning_in_history: true
 temperature: 0.0
@@ -49,6 +59,9 @@ agent_decided_stop: true
 # 121s gateway round trip (APITimeoutError + retry) and died at
 # `safety_ceiling` before the model had answered once. A slice that cannot
 # cover one worst-case round trip is not a budget, it is a guaranteed abort.
+# (2026-10-21: the slice is now 400s — see time_budget.DEFAULT_SLICES.  The
+# sentence above still stands: the slice must cover one worst-case round trip,
+# and 2026-10-21 measured one at 200s+ on the "max" tier.)
 max_iters: 60
 max_nudges: 25
 # 400s, not less: bfs8 measured the full authoring arc — one worst-case
