@@ -201,3 +201,4 @@ node --import tsx tools/foodnames/run_series.mjs --eps 03 04 05 06 --jobs 2
 - edge-tts 的词边界**不带标点**（俄语 `Суши, японское блюдо` 的边界是 `Суши`），所以「tokens 拼得出句子」的校验要去标点后比。
 - 韩语的 script 键是 `kr`（不是 `ko`）——写错会静默走不到补丁分支，格子全黑。
 - PowerShell 里 `$U?lang=…` 里的 `?` 会被当三元运算符，整段吃掉。
+- **工具面里叶子不许读 stdin**（2026-10-22 实测事故，B 线跑批查出来的）：`poster fit-diag` / `poetry audio-profile` 缺参数时去读 stdin（`readFileSync(0)`），而 dsh 的工具面是**同进程**派发叶子（`dsh-plugin` 的 `runMain` 直接 `await fn(argv)`），stdin 是**宿主自己那根永远不关的管道** → `readFileSync(0)` **永久阻塞**，一条 rollout 的时间预算被整个烧光、什么也交不出来（实测两轮 16 条 rollout 里 9 条卡在工具调用，8 条卡在这**同一个**调用上；演化臂 4/4 全踩）。修法**掐在边界**、不改被测行为：工具面里没有可用的 stdin（`dsh-plugin` 的 `install()` 设 `FEUILLE_STDIN=off`），叶子缺参数或文件不存在 → **立刻 exit 2 + 用法错**；管道用法 `-` 显式保留，**CLI 那条路一个字没改**。钉子：叶子级 `packages/poster/test/fit_diag.test.ts`（空参 → 2、文件不存在 → 2、给了文件 → 0）+ 工具面级 `packages/dsh-plugin/test/plugin.test.ts`（吃构建产物、走真工具面调一次 `usine_poster fit-diag` 空参，断言**立刻** exit 2 而不是挂死）。

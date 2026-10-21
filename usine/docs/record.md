@@ -68,6 +68,7 @@ pnpm exec feuille publish check-plan $P\publish\manifest.json --root $P
 | 13 | 加 BGM 后旁白小 3 dB | `aformat` mono→stereo 走 swr，每声道 −3.01 dB | 显式 `pan=stereo\|c0=c0\|c1=c0` |
 | 14 | 装 playwright 后发布测试红 | `launchPersistentContext` 目录是第一个位置参数 | `(userDataDir, options)` |
 | 15 | `bgm gen` 请求 76s 只得 36s | 收流按 1× 实时睡，实际 0.5–0.6× | 按音频字节数收流，wall 上限 2.5×+30s |
+| 16 | 工具面里 `fit-diag` 空参调用**永不返回**，整条 rollout 的时间预算被烧光 | 缺参数就 `readFileSync(0)` 读 stdin；工具面里叶子**同进程**跑，stdin 是宿主那根永远不关的管道 | 边界层设 `FEUILLE_STDIN=off`；叶子缺参数立刻 exit 2 + 用法错，管道用法 `-` 显式保留 |
 
 ## 3 装库 / 真 key 之后才暴露的三个缺陷
 
