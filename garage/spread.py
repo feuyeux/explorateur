@@ -73,8 +73,16 @@ DEFAULT_PACKAGE_PRIORITY = (
     "dsh-plugin",
 )
 
-# packages/ 之外的三类顶层单位。
-TOP_LEVEL_UNITS = ("skills", "docs", "other")
+# packages/ 之外的三类顶层单位 + tools/。
+# 2026-10-21 实测补的 **tools/**：原先 tools/ 下的东西全被归进 ``other``，
+# 而 ``other`` 不在冷区名单里 → 铺开闸**看不见内容产线**。
+# 「各国美食名称」系列的整条产线（tools/foodnames/：构建器 + 模板 + 12 期数据 +
+# 一整套机检）就在 tools/ 下，于是它对 RSI 波次**结构性不可达**：波次永远碰不到它，
+# 它身上的缺陷也就永远没人修——这不是智能体偷懒，是规格造成的（同一个病根：
+# 分布文件里那句「把改进铺到产线各处」是空话，闸门才把它变成硬约束）。
+# 现在 tools/ 是一等顶层单位：能被冷区点名、能被连击禁入、也会在 RSI commit 里
+# 被单独记账。
+TOP_LEVEL_UNITS = ("skills", "docs", "tools", "other")
 
 # RSI commit 的 trailer。X-Theatre-Wave 是广度波次，X-Theatre-Drs 是深度递归，
 # 两者都不是普通的人写提交：只有 wave_merge._commit_candidate 会写这两个 trailer。
@@ -224,7 +232,8 @@ def classify_path(rel_path: str) -> str:
     * ``packages/<name>/...`` → ``<name>``（这就是一个「包」）
     * ``skills/...`` → ``skills``
     * ``docs/...`` → ``docs``
-    * 其余（package.json、src/、lessons/、tools/…）→ ``other``
+    * ``tools/...`` → ``tools``（内容产线：2026-10-21 起不再并进 other）
+    * 其余（package.json、src/、lessons/…）→ ``other``
     """
     parts = [part for part in str(rel_path).replace("\\", "/").split("/")
              if part and part != "."]
@@ -272,7 +281,7 @@ def read_rsi_commits(repo_dir: Path, limit: int = _LOG_LIMIT) -> list[dict]:
 
 
 def discover_packages(repo_dir: Path) -> list[str]:
-    """列出仓库真实存在的包（``packages/<name>/``）。
+    """列出仓库真实存在的包（``packages/<name>/``）+ 顶层单位（skills/docs/tools）。
 
     只认 **git 跟踪到的** 包：seed 是 ``git archive HEAD``，未跟踪的目录在 guest 里
     根本不存在，把它列进冷区等于给出一个 Agent 够不着的目标（实测：某个并发会话
@@ -280,6 +289,10 @@ def discover_packages(repo_dir: Path) -> list[str]:
 
     git 读不了时退回目录扫描，并在状态里如实说明（宁可少一个候选，
     也不能编一个目标出来）。
+
+    顶层单位（``skills/`` ``docs/`` ``tools/``）同样要列进来：它们现在是**一等单位**
+    （见 ``TOP_LEVEL_UNITS`` 的注释）——不列，冷区就永远点不到它们的名字，
+    「内容产线对波次结构性不可达」这个病就治不好。
     """
     names: set = set()
     try:
@@ -294,6 +307,17 @@ def discover_packages(repo_dir: Path) -> list[str]:
                      if part]
             if len(parts) >= 2 and parts[0] == "packages":
                 names.add(parts[1])
+    # 顶层单位：git 跟踪到文件才算在（口径与包一致）
+    for unit in ("skills", "docs", "tools"):
+        try:
+            raw_unit = _git(repo_dir, ["ls-files", "-z", "--", unit])
+        except SpreadError:
+            raw_unit = ""
+        if raw_unit.strip("\0"):
+            names.add(unit)
+        elif not raw and (Path(repo_dir) / unit).is_dir():
+            # git 读不了时的兜底：目录在就算（宁可少一个候选）
+            names.add(unit)
     if names:
         return sorted(names)
     root = Path(repo_dir) / "packages"
@@ -410,7 +434,7 @@ def build_spread_state(repo_dir: Path, config: SpreadConfig | None = None,
 
 def _package_path(unit: str) -> str:
     """包在仓库里的相对路径（顶层单位没有 packages/ 前缀）。"""
-    if unit in ("skills", "docs", "other"):
+    if unit in ("skills", "docs", "tools", "other"):
         return unit
     return f"packages/{unit}"
 

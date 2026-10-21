@@ -65,7 +65,7 @@ max_nudges: 25
 # own declared wall — the seat silently ran on 280s and lost the DRS
 # curriculum to a 344s timed-out first response (the gateway's tail reaches
 # 322s at the same effort, and a stalled request IS charged to the seat's
-# wall clock).  400s >= 322s (worst first response) + 2x40s (tail rounds).
+# time limit).  400s >= 322s (worst first response) + 2x40s (tail rounds).
 # Phase 1 is unaffected: its own slice is 280s, so apply_slices clamps this
 # seat back down to 280s for the breadth wave.
 wall_clock_secs: 400
@@ -183,6 +183,86 @@ system_extra: |
   F. packages/core/src (31 files, 544 KB) - the real pipeline. EXPENSIVE:
      name one module (scene parsing, timeline math, audio composition,
      manifest building) and read only that.
+  G. tools/foodnames/ (the 'food names in twelve languages' series line) -
+     the only CONTENT line in the repo that ships finished episodes
+     (12 delivered, 12 locales each).  Its parts:
+       G1. build_episode.mjs (~360 lines) - the data -> scene generator.
+           It emits poster_src.html / video_src.html / voices.json / fonts.json.
+       G2. templates/video_style.css (117 lines) - the video scene layout.
+       G3. templates/video_script.js (34 lines) - the fit + karaoke state
+           machine that runs in the page.
+       G4. templates/poster_style.css (152 lines) - the POSTER layout, which
+           is the in-repo reference implementation of what a good scene looks
+           like (there the word IS the hero).
+       G5. tools/foodnames/check_sentence_matches.mjs - the offline gate for
+           the defect below (it is the acceptance criterion; do NOT edit it).
   Guard rails for every target: approval-gated tools keep failing closed,
   publish stays unreachable unless config.publish === true, red-line suites
   may be extended but never relaxed.
+
+  WAVE BRIEF (2026-10-21, measured on the 12 delivered episodes) - the target
+  area for THIS wave is G.  Read it as the curriculum's own finding: the
+  'food names' video line ships 12 finished episodes and every one of them has
+  the same five visible defects.  The numbers below are measurements, not
+  opinions; they come from the two gates in tools/foodnames/.
+
+  D1  THE SENTENCE ON SCREEN IS NOT THE SENTENCE IN THE AUDIO  (worst).
+      build_episode.mjs replaces the FIRST token of every sentence with the
+      word form, so that the food name can be coloured.  Whenever the first
+      token is not exactly the word form, that token is EATEN - and if the
+      word also occurs later in the sentence, it is DUPLICATED:
+        fr-FR  screen "sushi sushi est un plat japonais"  audio "Le sushi est un plat japonais"
+        es-ES  screen "sushi sushi es un plato japones"   audio "El sushi es un plato japones"
+        el-GR  screen "sushisushi einai iapwniko piato"    audio "To sushi einai iapwniko piato"
+        ja-JP  screen "cha-cha ha ... kita"                audio "cha wa ... kita"   (the topic
+               particle is lost with the token)
+        ko-KR  screen "cha Jung-gu seo wa-yeot-seo-yo"     audio "cha-neun ..."      (same)
+      Measured: 54 of the 144 locale-episode combinations are affected (37%).
+      Two consequences, both fatal: (a) the karaoke highlight is off by one
+      word for the whole sentence - the audio says "Le" while the screen
+      lights up "sushi"; (b) the sentence the viewer reads is ungrammatical.
+      The existing verify-sync gate does NOT catch it: it counts words, it
+      does not compare them.
+      FIX DIRECTION: give the word its colour on the token that really is the
+      word; never change the token sequence itself.
+      ACCEPTANCE (offline, zero browser, the gate must exit 0):
+        node --import tsx tools/foodnames/check_sentence_matches.mjs --all
+
+  D2  THE FOOD NAME IS NOT THE HERO OF THE VIDEO.  The scene's stage holds
+      the whole sentence and the name is only its first token, so a series
+      called 'food names in twelve languages' never shows the name.
+      Measured (portrait 1080x1920): the name's ink is 4.5%-13.3% of the
+      frame height.  The poster gets this right (the name is the hero there);
+      the video does not.  Criterion: the name must be an element of its own
+      and take at least 12% of the frame height (or 30% of its width, for
+      long words that are width-bound).
+
+  D3  THE FRAME IS MOSTLY EMPTY.  Measured: the largest empty horizontal
+      band is 26%-30% of the frame height (top and bottom of the portrait
+      frame).  Criterion: at most 15%.
+
+  D4  THE WORDS YOU HAVE NOT REACHED YET ARE INVISIBLE.  .tok.dim is
+      opacity 0.18.  Criterion: at least 0.45.
+
+  D5  THE HIGHLIGHT IS A NEUTRAL GREY, NOT ONE OF THE THREE BRAND COLOURS.
+      Measured: rgba(44, 38, 32, 0.09).  The footer's own legend promises
+      exactly three colours (vowel #c9403a, consonant #2f5d9e, tone #b8860b).
+      Criterion: the current token's highlight must be one of those three.
+
+  The gates that measure D2-D5 are in tools/foodnames/check_video_layout.mjs.
+  They need a RENDERED episode, which the guest does not have (usine/examples/
+  is not tracked), so D2-D5 are verified after the merge by whoever owns the
+  workspace; D1 is the gate the Actor can and must run itself.  Say this
+  split explicitly in the instruction you author - an instruction that claims
+  all five are checkable in the guest teaches the Actor to look for a gate
+  that is not there, and it will burn its slice proving that.
+
+  WAVE SHAPE FOR THIS TARGET: one source file plus one test, both under
+  tools/foodnames/ (that is the ONE directory this project may touch).  The
+  scene's markup lives in build_episode.mjs and its look lives in
+  templates/video_style.css; the fit and the karaoke state machine live in
+  templates/video_script.js.  A change that only rewrites the CSS cannot fix
+  D1, and a change that only rewrites the builder cannot fix D4/D5 - so one
+  project that touches build_episode.mjs AND templates/video_style.css is
+  the natural shape.  Keep the 12 data files (tools/foodnames/data/*.json)
+  untouched: they are the content, and the gates compare against them.

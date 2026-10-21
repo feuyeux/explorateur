@@ -52,7 +52,7 @@ PASSED = 0
 # from there, and the smoke asserts the two agree.
 PACKAGE_ORDER = [
     "core", "karaoke", "poster", "poetry", "storyteller",
-    "copy", "bgm", "publish", "cli", "gate", "dsh-plugin",
+    "copy", "bgm", "publish", "cli", "gate", "tools", "dsh-plugin",
 ]
 
 
@@ -118,6 +118,13 @@ def _new_repo(root: Path, packages: list) -> Path:
     repo.mkdir(parents=True)
     _git(repo, "init", "-q")
     for name in packages:
+        # 「tools」是**顶层单位**（真仓库里是 tools/foodnames/，不是 packages/tools/），
+        # 夹具必须照着真布局造，否则「顶层单位」这条分支在烟测里根本没被走到。
+        if name in ("skills", "docs", "tools"):
+            unit = repo / name
+            unit.mkdir(parents=True, exist_ok=True)
+            (unit / "README.md").write_text("# %s\n" % name, encoding="utf-8")
+            continue
         package = repo / "packages" / name
         package.mkdir(parents=True, exist_ok=True)
         (package / "package.json").write_text(
