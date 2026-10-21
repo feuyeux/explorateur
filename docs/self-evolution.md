@@ -2408,6 +2408,30 @@ A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还�
 
 **点亮这一格需要什么**：只要把 `--project-budget` 调大。预算数的是**项目**，而 curriculum 每波派 1 个（`curriculum-usine.yaml:107` 的 `AT MOST 1 project`），所以 `--project-budget 3` 会跑出 3 个波次、每波 1 个 episode（`ep001`…`ep003`），`lineage/memory` 跨波累计——`ep002` 起跑时读到的就是 `ep001` 写下的记忆。**机制不需要任何改动**，缺的只是一次真跑。
 
+**但「跨项目迁移」与「负迁移」是两个问题。** 后者光靠单条谱系答不了：`transfer_check.py` 读的是同一批项目**前后**的表现，而不同波次干的是不同的活、难度不受控——「后一波更差」既可能是记忆有害，也可能只是那道题更难。所以它自己在 docstring 里就拒绝对此下结论。
+
+要判**负迁移**只有一条正路：**同一道题，有记忆 vs 无记忆**。`garage/memory_control.py` 就是这一层：
+
+```sh
+# 有记忆臂：把上一轮学到的记忆注入
+python3 garage/run_usine.py --run-name <名>-seed  --project-budget 3 --memory-seed <记忆目录> --execute RUN-USINE-PHASE1-WAVES
+# 无记忆臂：同样的题、同样的配置，不注入
+python3 garage/run_usine.py --run-name <名>-plain --project-budget 3 --execute RUN-USINE-PHASE1-WAVES
+
+# 两臂对照
+python3 garage/memory_control.py --arm seed=../garage-result/<名>-seed --arm plain=../garage-result/<名>-plain
+```
+
+它有三条**先验检查**，任一条不过就拒判（非零退出）：
+
+1. **两臂起点必须不同**——一侧有记忆、一侧没有。若起跑状态一样，差里没有「记忆」这个变量，判 `no_control`。归类**按实际起跑状态，不信标签**：`--arm seed=` 贴错是常见手误，工具若信标签，一次手误就会把「记忆有用」报成「记忆有害」，而读报告的人无从发现。
+2. **题面必须对得上**——按 `project.md` 的 sha256 逐位比，对不上判 `not_paired`。题不一样时「后一个更差」什么都说明不了。
+3. **`harmful` 要比「平均分低」严**——必须是**变差的项目数 > 变好的项目数**。见到一个项目退化就喊「记忆有害」是最容易犯的错，那次退化完全可能只是运气。
+
+判决：`no_control` / `not_paired` / `harmful`（**这才是负迁移**）/ `helpful` / `no_effect` / `inconclusive`。`no_effect` 的措辞刻意留了余地：两臂完全相同时，「这题本来都会做（天花板）」与「写下的记忆没被读懂」**分不开**，不许据此说「记忆无用」。
+
+> **⚠️ 目前还没有真读数**：`memory_control.py` 与它的 22 条门禁都经过离线验证（合成波次产物 + 5 类缺陷注入），**但两臂的真跑还没做**——那是要花钱的，按 `AGENTS.md` 第八节得喊跑才跑。也就是说：**工具齐了、判据被反向验证过了，而「负迁移有没有发生过」这个问题仍然没有答案**。别把工具的完成度当成结论。
+
 #### 这一节仍然测不到什么
 
 > **⚠️ 已知失效面 / 坑**
@@ -2727,6 +2751,8 @@ cd <explorateur>\théâtre
 | `smoke_latency_budget.py` | 改端点、`reasoning_effort`、切片计划 | 34 |
 | `smoke_spread.py` | 改 `config/spread.json` 或出题席的铺开约束 | 40 |
 | `smoke_memory_seed.py` | 改 `--memory-seed` 接缝或 DRS 的记忆基线 | 8 |
+| `smoke_memory_control.py` | 改 `memory_control.py` 的判决逻辑（负迁移判据） | 22 |
+| `smoke_transfer.py` | 改 `transfer_check.py` 的跨波接续判据 | 20 |
 
 **合并器在门禁绿之后会自动跑 `smoke_agent_surface.py`**（L3 面，见 §10），所以它不在人工清单里——**它红 = 候选作废**，不是提醒。
 
@@ -2768,11 +2794,15 @@ python3 garage-ii/run_usine_h2.py --phase sweep --ack RUN-USINE-H2-SWEEP --k 1
 #     比 2) 贵一倍：两批任务各跑一次 sweep。只跑 2) 的话量不出泛化（见 §6.8）。
 python3 garage-ii/run_usine_h2.py --phase sweep --ack RUN-USINE-H2-SWEEP --k 1 --split both
 
-# 3) 机械判据（判据失败 = None，不是零分）
-python3 garage-ii/run_usine_h2.py --phase judge
+# 3) 机械判据（判据失败 = None，不是零分）。**judge/report 要带跑 sweep 时
+#    同一个 --split**：两段式的产物落 `adapt/<ns>-train/` 与 `adapt/<ns>-eval/`，
+#    judge 按侧分别判、分别落 `judge/<ns>-train.json` / `judge/<ns>-eval.json`——
+#    两侧不许合并成一个均值（合并正是过拟合隐形的那条通路）。缺一侧 = 退 1，
+#    「只测到 train 侧」不许当完整的泛化读数。
+python3 garage-ii/run_usine_h2.py --phase judge --split both
 
-# 4) 汇总
-python3 garage-ii/run_usine_h2.py --phase report
+# 4) 汇总（同样带 --split；两段式渲染两份、标题带侧别）
+python3 garage-ii/run_usine_h2.py --phase report --split both
 ```
 
 **`--split` 的四个取值**（`--dry-run` 不花钱，可以先看分流对不对）：
@@ -2805,7 +2835,7 @@ PATH 上的 `dsh` CLI 只做**软**检查（`check_dsh`）：真跑的路径是 
 
 ```sh
 python3 garage-ii/smoke_dsh_bridge.py          # 17 段接缝自检
-python3 garage-ii/smoke_split.py               # 切分与泛化判读（29 条）
+python3 garage-ii/smoke_split.py               # 切分与泛化判读（38 条）
 python3 garage-ii/build_base_harness.py --check  # 基准树漂移闸
 python3 garage-ii/preflight.py                   # 开跑前自检
 python3 garage-ii/browser_shim.py                # 浏览器垫片自检（断言不拉起 SecurityAgent）
