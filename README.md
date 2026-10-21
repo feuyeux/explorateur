@@ -50,7 +50,117 @@ pnpm feuille <组> <命令>                     # CLI（表驱动路由，未知
 
 ## 二、两条 RSI 线路
 
-`usine` 除了人工演进，还由两台**自进化引擎**改进。两条线路都只对 `usine` 做单向安全改进，都不构成子项目间依赖，**改的东西不一样**：
+`usine` 除了人工演进，还由两台**自进化引擎**改进。两条线路都只对 `usine` 做单向安全改进，都不构成子项目间依赖，**改的东西不一样**。
+
+### 原理图
+
+图例沿用 [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md) 的颜色语义：蓝＝编排控制面，琥珀＝沙箱内受限执行体，红＝隔离域，深红＝封禁路径，灰＝中性容器；虚线＝逻辑/反馈边，不是进程调用。
+
+```mermaid
+flowchart TB
+    %% ── 目标物：同一个智能体的两个部位 ────────────────────────────
+    subgraph TARGET["usine/ —— 被改进对象"]
+        HANDS["智能体的「手」<br/>dsh-plugin：工具面 / 请求 schema<br/>拒答卡 / 审批文案 / skills howto"]
+        MIND["智能体的「指令」<br/>系统提示 / 红线 / 长期记忆<br/>工具指引 / 十份技能手册"]
+        CODE["产线本体<br/>core · karaoke · poster · poetry<br/>storyteller · copy · bgm · publish · cli · gate"]
+    end
+
+    %% ── 线路一：RSIAgent 改产品代码 ───────────────────────────────
+    subgraph L1["线路一 · RSIAgent（théâtre/ + garage/）—— 改产品代码，产物是一条 git 提交"]
+        D1["distribution-usine.md<br/>改进面许可 + 护栏"]
+        F1["开跑闸<br/>8-gram 围栏 · 时延预检 · 铺开闸"]
+        CU1["Curriculum 出题席<br/>立题：brief 必须有上界"]
+        AC1["Actor 席<br/>guest_env worktree（git archive HEAD 种子）"]
+        CAP1["capture 剪枝<br/>node_modules / dist 不入档"]
+        VF1["Verifier 席<br/>文件级回滚 · 必须出版报告<br/>没有报告 = 整波失败"]
+        MEM1["记忆蒸馏<br/>lineage/memory 跨波累积"]
+        WM1["wave_merge 合并管线<br/>漂移闸 → 规范同步闸 → pnpm verify<br/>→ 产线健康分"]
+        CMT1["一候选一 commit + 一 wave 一 tag<br/>X-Theatre-Wave / X-Theatre-Drs"]
+        DIST1["dist/index.mjs 重建"]
+    end
+
+    D1 --> F1 --> CU1 --> AC1 --> CAP1 --> VF1
+    VF1 -->|"PASS 或 FAIL 都蒸馏"| MEM1
+    VF1 -->|"只有 PASS 进合并"| WM1 --> CMT1 --> DIST1
+    MEM1 -.->|"--memory-seed：下一波站在这棵树上"| CU1
+    CMT1 -.->|"新 HEAD：围栏与铺开状态重算"| F1
+    DIST1 --> HANDS
+    CMT1 --> CODE
+
+    %% ── 线路二：harness2 改使用方式 ───────────────────────────────
+    subgraph L2["线路二 · harness2（theatre-ii/ + garage-ii/）—— 改使用方式，产物是一棵 harness 树"]
+        BH2["build_base_harness.py<br/>从真实插件派生 c1..c8 + 漂移闸"]
+        BT2["harness_base/<br/>systemprompt · guardrails · memory<br/>tool_guidance · 10 skills"]
+        TK2["任务集 + 机械判据<br/>技能加载 · 页面规格 · 走产线 · 交付 · 不绕行"]
+        EX2["dsh SDK 客户端（真执行器）<br/>每 rollout 独立工作区 · events.jsonl 边跑边落盘"]
+        RB2["基准 rollout × n<br/>同树零分布"]
+        PR2["提案会话 inv / dom 改树<br/>KEEP_BASE / OUT_OF_SCOPE 也是正当答案"]
+        AG2["AGG 合成候选树"]
+        RE2["候选树 rollout × n"]
+        AR2["arms.py<br/>配对比较 + 单侧精确置换检验<br/>Δ>0 且 p≤0.1 才算「测出提升」"]
+        TD2["tree_discipline.py<br/>纪律留存旁证轴（不进检验）"]
+        XP2["experience<br/>cue / lesson / evidence / confidence"]
+    end
+
+    BH2 --> BT2 --> TK2
+    TK2 --> RB2 --> EX2
+    TK2 --> PR2 --> AG2 --> RE2 --> EX2
+    RB2 --> AR2
+    RE2 --> AR2
+    AG2 -.-> TD2
+    AG2 --> XP2
+    XP2 -.->|"喂给下一轮提案者"| PR2
+    BT2 -.->|"装配：c1–c4→AGENTS.md，c6→.dsh/skills"| MIND
+    EX2 -.->|"用工具面干活"| HANDS
+
+    %% ── 两条线路共同的边界 ────────────────────────────────────────
+    RO["run root：仓库外，两线分放<br/>../garage-result/ · ../garage-ii-result/"]
+    PRE["preflight（只读、零成本）→ ack token → 用户喊跑才跑"]
+    PUB["发布 / 登录：永不自动（默认不注册）"]
+    GATE["机械闸（全在模型之外）<br/>8-gram 围栏 · 漂移闸 · 规范同步闸<br/>pnpm verify 真树门禁 · 产线健康分"]
+
+    PRE -.-> CU1
+    PRE -.-> RB2
+    MEM1 -.-> RO
+    AR2 -.-> RO
+    PUB -.-> HANDS
+    GATE -.-> F1
+    GATE -.-> WM1
+
+    classDef ctrl fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
+    classDef sandbox fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef isolated fill:#fff1f2,stroke:#e11d48,color:#881337
+    classDef banned fill:#b71c1c,stroke:#7f0000,color:#ffffff
+    classDef neutral fill:#f8fafc,stroke:#334155,color:#0f172a
+
+    class D1,F1,CU1,WM1,AR2,PRE,TD2 ctrl
+    class BH2,BT2,TK2 ctrl
+    class AC1,EX2 sandbox
+    class VF1 isolated
+    class PUB banned
+    class HANDS,MIND,CODE,CMT1,DIST1,MEM1,CAP1,RB2,PR2,AG2,RE2,XP2,RO,GATE neutral
+```
+
+读图要点：
+
+- **两条线改的是同一个智能体的两个部位**：线路一改「手」（工具面、schema、拒答卡、howto），线路二改「指令」（系统提示、红线、记忆、技能手册）。这就是它们不能互相替代、也不能直接比高低的原因。
+- **只有线路一有「合并」这一步**，产物是可逐字复查的 git 提交；线路二的产物是一棵树，验收必须让智能体把活真干一遍再判分，所以墙钟差一个量级（一次成功波次约 12–13 分钟，一轮 sweep 约 85 分钟）。
+- **反馈边不同**：线路一靠 `--memory-seed` 把上一波蒸馏出的记忆喂给下一波的出题席；线路二靠 `experience` 记录把上一轮的教训喂给下一轮的提案者。累积物不复位，跨轮才有「进化」可言。
+- **所有机械判定都在模型之外**：围栏、漂移闸、规范同步闸、真树门禁、健康分都会直接作废候选，不靠模型自述；发布路径在工具面上根本不存在，不是靠提示词劝阻。纪律留存轴是唯一只看不拦的一条——它报出「演化顺手删了纪律」，但不参与判决。
+- **两边的起点都不是手抄的**：线路一的种子是 `git archive HEAD`，线路二的基准树从 `usine/packages/dsh-plugin` 派生并带双向漂移闸——基准一漂，读数就没有意义。
+
+这些机械判定各自拦什么、失败时长什么样：
+
+| 闸 | 拦什么 | 失败表现 |
+|---|---|---|
+| 8-gram 围栏 | 改进方向与受审计面出现逐字重叠 | 改 `distribution-usine.md` 的措辞，不改围栏 |
+| 时延 / 时间预算 | 单次自进化超出墙钟或历史时延过高 | 默认拒跑；超时为独立终态、退出码 3 |
+| 漂移闸（CRLF 折叠） | 工作树既不等于基线也不等于候选 | 整条候选 `drift` 跳过 |
+| 规范同步闸 | 改了被规范的代码却没同批更新规范 | `spec_sync_rejected`，点名两侧路径 |
+| 真树门禁 | `pnpm verify` 红 | `gate_rejected`，整案丢弃（假的 PASS 进不了仓库） |
+| 产线健康分 | 任一 `packages/eval` 指标变坏 | `health_rejected`，工具自己坏了只记 notice |
+| 纪律留存轴 | 演化顺手删掉或改写纪律条目 | 旁证轴报出差异；**产物判据看不见这类退化** |
+| 发布红线 | 任何发布 / 登录路径 | 工具面默认不注册，VM 门面在执行前拒绝 |
 
 | | 第一条 | 第二条 |
 |---|---|---|
