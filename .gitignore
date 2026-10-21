@@ -82,3 +82,5 @@ endpoints.json
 # 下面两条是兜底：根一旦被指进仓库，产物（可能含凭据与大文件）不进索引
 garage-result/
 garage-ii-result/
+# RSI 夹具残留：garage/smoke_spread.py 的夹具曾用这个真名造顶层文件，1d550b2 把它当成真报告提交进了 usine/。夹具已改成中性名 NOTES.md，这里再兜一层。
+WORDING_CHANGE_REPORT.md

@@ -33,7 +33,7 @@ description: >
 | 1 | **一个名词或动词**（词 + 词性） | 中央主体与词表无从谈起；一次只做一个词 |
 | 2 | **逐词核对清单过审**：12 语种译文 + 注音/转写由 LLM 现翻，用户逐词确认后才能进提示词 | 错译 / 错拼写会直接烙进图里，生图模型不会替你校对 |
 | 3 | **中央主体画面描述**：该词画成什么（叶子=单片叶特写；飞翔=展翅的鸟；攀爬=藤蔓绕杆） | 生图模型自行发挥，多次生图主体漂移 |
-| 4 | **主题**：5 套之一；不指定时跑 `skills/match_theme.py <词>` 自动推荐，向用户报备 | 颜色漂移，幂等性破功 |
+| 4 | **主题**：5 套之一；不指定时跑 `pnpm feuille theme match <词>` 自动推荐，向用户报备 | 颜色漂移，幂等性破功 |
 | 5 | **图像模型与画幅**：默认 3:2 横版；用哪个用户级图像 skill 出图 | Stage 2 无从执行 |
 
 词形与注音规则（Stage 1 现翻时逐条适用）：
@@ -77,12 +77,9 @@ description: >
 - **Stage 2 重跑**：PNG 已存在时先报备再重新出图。生图模型非确定性，同一
   提示词两次出图不会逐字节一致——本线的幂等不靠文件字节，靠提示词 §8 红线
   逐条可对账；所以提示词是唯一值得锁定的产物。
-- **双副本同步契约**：`assets/example/strawberry/prompt.md`（技能资产）与
-  `usine/prompts/strawberry-vocab-infographic/prompt.md`（活实例）**逐字节
-  一致**，机检在 `usine/scripts/verify_skill_scripts.py`。改任一份后必须
-  同步另一份并跑机检；文件内的路径引用一律写 usine 根相对路径
-  （`skills/theme-tokens.css`），不写 markdown 相对链接——两份文件目录深度
-  不同，相对链接必有一份断。
+- **落位（AGENTS.md「内容产物落位」）**：本轮的提示词草稿写到项目根下的 `prompts/<word>-vocab-infographic/prompt.md`——项目根是 `usine/examples/<项目名>/`（不入库）。**不要写进 `usine/` 顶层**。唯一的例外是随 git 版本化的模板与样例，它们在 `assets/template/` 与 `assets/example/`。
+- **样例不是活实例**：`assets/example/` 下是**冻住的参考稿**（`strawberry` + 九大艺术系列 9 个词，各含横竖两版），逐字核过，起草后拿它逐项对账。**它们与任何活实例之间没有同步义务**——曾经有一条「双副本必须逐字节一致、机检在 `verify_skill_scripts.py`」的约定，而那个脚本已随 Python 退役删除、草稿也已迁出仓库，所以那条约定在 2026-10-21 一并撤掉。**别为了满足一条不存在的机检去改文件。**
+- **为什么这 9 个词进了 assets 而不是 examples**：它们是**已过审的系列样例**（九大艺术，2026-10-13 人审过），会被反复拿来对账，性质是「以后还会被复用」⇒ 按落位口径属资产、随 git 版本化。一次性的下一轮新词仍走 `examples/<项目名>/`，不入库。这批文件原先堆在 `usine/prompts/` 顶层（AGENTS.md 里明令禁止的第三处），2026-10-21 按上图口径归位，**内容一字未改**。
 
 ## 边界
 
@@ -103,17 +100,12 @@ description: >
 
 拥有模块：（无）
 
-本 skill 是纯说明书：模板 + 工作样例 + 流程约定，没有任何 `src/feuille` 模块。
-主题色事实源在 `skills/theme-tokens.css`，主题推荐在 `skills/match_theme.py`；
-事实源见 `usine/ownership.json`，由 `verify_skills.py` 与本段双向机检。
+本 skill 是纯说明书：模板 + 工作样例 + 流程约定，没有任何 `src/feuille` 模块。主题色事实源在 `skills/theme-tokens.css`，主题推荐走 `pnpm feuille theme match <词>`（`@feuille/core/themes`；它的前身 `skills/match_theme.py` 已升包退役）。事实源见 `usine/ownership.json`，由 `packages/gate` 的归属对账机检。
 
 ## Resources
 
-- `assets/template/prompt_template.md` — 提示词骨架（布局 / 着色 / 红线全钉死，
-  含全部占位符与填写说明）
-- `assets/example/strawberry/prompt.md` — 完整工作样例（草莓，逐字核过），
-  起草后逐项对账用；与 `prompts/strawberry-vocab-infographic/prompt.md`
-  逐字节同步（见「复用幂等」）
-- `theme-tokens.css`（in `skills/`）— 5 套主题 token，颜色的唯一事实源
-- `match_theme.py`（in `skills/`）— 按词自动推荐主题
+- `assets/template/prompt_template.md` — 提示词骨架（布局 / 着色 / 红线全钉死，含全部占位符与填写说明）
+- `assets/example/` — 冻住的参考稿：`strawberry/`（草莓）+ 九大艺术（`01_painting` / `02_sculpture` / `03_architecture` / `04_music` / `05_literature` / `06_dance` / `07_theatre` / `08_cinema` / `09_video-games`），每词 `prompt.md`（横版）+ `prompt_vertical.md`（竖版），起草后逐项对账用
+- `skills/theme-tokens.css` — 5 套主题 token，颜色的唯一事实源
+- `pnpm feuille theme match <词>` — 按词自动推荐主题（`@feuille/core/themes`）
 - `languages/*/manifest.json` — 语种集合与 order/tier 的事实源

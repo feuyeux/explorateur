@@ -4,7 +4,7 @@
 纪律与改动总清单见 `PROVENANCE.md`；本文只讲「为什么」。
 这些教训的**生产消费方**是适配层传输层 `garage/guest_env.py`
 （worktree guest 的 bash 发现 / PATH 自管 / MSYS_NO_PATHCONV / python3 shim
-全部按本文病根 4–6 落地；机制见 `ARCHITECTURE.md` §5）。
+全部按本文病根 4–6 落地；机制见 [../docs/self-evolution.md](../docs/self-evolution.md) §2.3）。
 
 ## 原则
 

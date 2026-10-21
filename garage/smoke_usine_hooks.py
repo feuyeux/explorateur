@@ -32,43 +32,12 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-EXPLORATEUR = HERE.parents[0]
+from checks import bootstrap, check, info, record, summarise  # noqa: E402
 
-
-def _find_theatre() -> Path:
-    for candidate in sorted(EXPLORATEUR.iterdir()):
-        if ((candidate / "env" / "vm.py").is_file()
-                and (candidate / "explore" / "practice_loop.py").is_file()):
-            return candidate
-    raise SystemExit("the théâtre checkout (env/vm.py + explore/practice_loop.py) "
-                     "was not found under " + str(EXPLORATEUR))
-
-
-THEATRE = _find_theatre()
-sys.path.insert(0, str(THEATRE))
-sys.path.insert(0, str(HERE))
+THEATRE, HERE = bootstrap(__file__)
 
 import guest_env  # noqa: E402
 import usine_hooks  # noqa: E402
-
-RESULTS: list[tuple[str, str, str]] = []
-
-
-def record(status: str, name: str, detail: str = "") -> None:
-    RESULTS.append((status, name, detail))
-    line = f"{status} {name}"
-    if detail:
-        line += f" | {detail}"
-    print(line)
-
-
-def check(name: str, ok, detail: str = "") -> None:
-    record("PASS" if ok else "FAIL", name, "" if ok else str(detail)[:400])
-
-
-def info(name: str, detail: str) -> None:
-    record("INFO", name, detail)
 
 
 # ------------------------------------------------------------------ A: corpus
@@ -441,12 +410,19 @@ def test_live_guest() -> None:
             line.split("=", 1)
             for line in trace.stdout.splitlines()
             if line.startswith(("P=", "EXISTS=")))
+        # 最后一条曾写成 `env.drive_letter not in trace.stdout`——那比的是**裸字母**
+        # （本机 drive_letter='S'），于是 `EXISTS=False` 里的字母 S 把它判成「路径露了盘符」，
+        # 这条断言必然红而原因与盘符毫无关系（2026-10-21 实测，段内其余 45 项全绿）。
+        # 要断言的是「展开后的家目录不是 `S:/home/user` 那种盘符形式」，
+        # 所以只比**路径体**，且比 `S:` 这样带冒号的真实盘符形态。
+        paths_only = "\n".join(
+            v for k, v in body.items() if k == "P")
         check("backstop: platform login profiles do not resolve",
               trace.exit_code == 0
               and body.get("P") == "/home/user/.xhs_creator_profile"
               and body.get("EXISTS") == "False"
-              and env.drive_letter not in trace.stdout,
-              f"exit={trace.exit_code} body={body}")
+              and f"{env.drive_letter}:" not in paths_only,
+              f"exit={trace.exit_code} body={body} drive={env.drive_letter!r}")
 
         wrapped = usine_hooks.wrap_publish_blacklist(vm)
         trace = wrapped.run_script("bash", "printf actor-ok; pwd")
@@ -499,11 +475,7 @@ def main() -> int:
     test_corpus()
     test_publish_boundary()
     test_live_guest()
-    passes = sum(1 for status, _, _ in RESULTS if status == "PASS")
-    fails = sum(1 for status, _, _ in RESULTS if status == "FAIL")
-    infos = sum(1 for status, _, _ in RESULTS if status == "INFO")
-    print(f"\nsmoke_usine_hooks: {passes} PASS / {fails} FAIL / {infos} INFO")
-    return 1 if fails else 0
+    return summarise("smoke_usine_hooks")
 
 
 if __name__ == "__main__":

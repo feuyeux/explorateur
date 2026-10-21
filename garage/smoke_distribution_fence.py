@@ -32,22 +32,10 @@ import re
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-EXPLORATEUR = HERE.parents[0]
+from checks import RESULTS, bootstrap, check, counts, info, record  # noqa: E402
 
-
-def _find_theatre() -> Path:
-    for candidate in sorted(EXPLORATEUR.iterdir()):
-        if ((candidate / "env" / "vm.py").is_file()
-                and (candidate / "explore" / "practice_loop.py").is_file()):
-            return candidate
-    raise SystemExit("the théâtre checkout (env/vm.py + explore/practice_loop.py) "
-                     "was not found under " + str(EXPLORATEUR))
-
-
-THEATRE = _find_theatre()
-sys.path.insert(0, str(THEATRE))
-sys.path.insert(0, str(HERE))
+THEATRE, HERE = bootstrap(__file__)
+EXPLORATEUR = HERE.parent
 
 import run_usine    # noqa: E402
 import usine_hooks  # noqa: E402
@@ -55,24 +43,6 @@ import usine_hooks  # noqa: E402
 DISTRIBUTION = (HERE / "distribution-usine.md").read_text(
     encoding="utf-8").strip()
 USINE_DIR = EXPLORATEUR / "usine"
-
-RESULTS: list = []
-
-
-def record(status: str, name: str, detail: str = "") -> None:
-    RESULTS.append((status, name, detail))
-    line = f"{status} {name}"
-    if detail:
-        line += f" | {detail}"
-    print(line)
-
-
-def check(name: str, ok, detail: str = "") -> None:
-    record("PASS" if ok else "FAIL", name, "" if ok else str(detail)[:400])
-
-
-def info(name: str, detail: str) -> None:
-    record("INFO", name, detail)
 
 
 def _fresh_stats() -> dict:
@@ -207,11 +177,12 @@ def main() -> int:
     test_planted_collisions_raise(seeded_shingle)
     test_cjk_distribution_rejected()
     test_seven_word_echo_stays_clean()
-    passes = sum(1 for status, _, _ in RESULTS if status == "PASS")
-    fails = sum(1 for status, _, _ in RESULTS if status == "FAIL")
-    print(f"\n=== SMOKE distribution fence: {passes} PASS / {fails} FAIL "
+    # 行格式与别的 smoke 不同（带 `=== SMOKE` 前缀、分母是 total 而非 info 数），
+    # 所以数字走公共的 counts()，格式留在这里——换格式会让读日志的人以为读数变了。
+    passed, failed, _infos = counts()
+    print(f"\n=== SMOKE distribution fence: {passed} PASS / {failed} FAIL "
           f"/ {len(RESULTS)} total")
-    return 0 if fails == 0 else 1
+    return 0 if failed == 0 else 1
 
 
 if __name__ == "__main__":

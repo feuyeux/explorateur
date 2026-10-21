@@ -61,6 +61,8 @@
 `locale` = 目录名、`flag` 为对应区域指示符对、`fontCss` 以 `sans-serif` 兜底、
 `displayFontCss` 末尾整段接回原 `fontCss`。
 
+那个残留的 `scripts/verify_languages.py` 已于 2026-10-21 删除：`from feuille import data` 在 TS 化之后必然 `ModuleNotFoundError`，它从来没跑通过一次，留着只会让人以为「有个门禁在那儿」。**这一段是手动核对的清单，不是自动门禁**——如果哪天给它补机检，就写成 vitest 套并在此处改口。
+
 ## 与剧本 §0 `rtlLocales` 的关系
 
 `rtl` 在两处都有，**都要改**：

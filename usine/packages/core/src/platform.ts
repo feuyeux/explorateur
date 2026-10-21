@@ -18,6 +18,8 @@ import { existsSync, statSync } from 'node:fs'
 import { basename, delimiter, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
+import { FeuilleError } from './errors.js'
+
 // ---------------------------------------------------------------- 浏览器候选
 // (内核名, 路径或命令名)。**顺序即优先级**：edge 在 chrome 前（像素基线同源）。
 export const BROWSERS: readonly (readonly [string, string])[] = [
@@ -167,6 +169,27 @@ export function ffprobe(): string | null {
 /** ImageMagick 7（裁切安全拼图 / 对照图拼版用）。不收 `convert` 兜底，见模块头。 */
 export function magick(): string | null {
   return firstExisting(MAGICK_CANDIDATES)
+}
+
+/**
+ * 解析成功就返回路径，解析不到就**显式抛出**（带下一步）——调用方只想要路径、
+ * 不想自己写「拿到 null 该怎么办」时用它。
+ *
+ * 为什么这一条要收口在这里：`ffmpegBin()` 这种「取 resolver 结果 + 拿不到就抛」
+ * 的五行函数曾在本仓被抄了六份（bgm / karaoke ×2 / poetry ×2 / storyteller），
+ * 六份的报错文案各不相同，而行为一模一样。缺件是所有产线共同的失败模式，
+ * **它该只有一种说法**——否则改一句提示要改六个文件，改漏一个就有一处说旧话。
+ *
+ * `browser()` 不走这条路：它在无浏览器主机上是**合法状态**（渲染用例转 SKIP），
+ * 拿不到就该返回 null 让调用方决定，见 `missing()` 与 textlayer。
+ */
+export function requireTool(tool: string | null, what: string): string {
+  if (tool === null) {
+    throw new FeuilleError(
+      `缺 ${what}：请安装后重跑（@feuille/core platform 解析；外部可执行文件一律不写死路径，`
+      + '缺件清单见 platform.missing()）')
+  }
+  return tool
 }
 
 /** 缺哪些外部件——供报错与体检如实说「缺什么」。 */

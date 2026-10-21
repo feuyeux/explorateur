@@ -13,7 +13,7 @@
 
 1. **不回步上游**：需要新上游版本时开**新目录**重新 vendor，避免历史漂移。本目录**没有** `.git`——两条引擎线的目录都是普通目录，版本一律由外层 `explorateur` 仓库统一管理（`../théâtre/` 的内嵌 `.git` 已于 2026-10-21 删除，两线在此对齐）。
 2. **上游文件逐字节不变**：`harness2/`、`docs/`、`scripts/`、`tests/`、`LICENSE`、`pyproject.toml`、`MANIFEST.in`、`CONTRIBUTING.md`、`README.md` 全部逐字搬运，**零补丁**。本目录与上游的差异**只有两类**：
-   - **新增**本文件、`ARCHITECTURE.md`、`COMPARISON.md`（本 fork 自带的文档，不改上游任何一行）；
+   - **新增**本文件、`ARCHITECTURE.md`、`COMPARISON.md`（本 fork 自带的文档，不改上游任何一行）；其中 `ARCHITECTURE.md` 与 `COMPARISON.md` 的内容已于 2026-10-21 并入 [`../docs/self-evolution.md`](../docs/self-evolution.md) §3、§6.5，两处只留指针存根；
    - **未 vendor** 上游的三个目录（见下节）。
 3. **适配层不进来**：dsh 的接缝、usine 的任务与判据全在 `../garage-ii/`。本目录里**没有一行** usine 或 dsh 专属代码——引擎与桥接的边界不许模糊。
 
@@ -61,7 +61,7 @@ vendor 时对 `harness2/`、`docs/`、`scripts/`、`tests/` 与四个根文件�
 
 harness2 的可编辑面由 `harness2/core/tree.py` 的 `is_allowed()` 用**硬编码正则**定义：技能只认 `<skill_dir>/<name>/SKILL.md` 与 `<skill_dir>/<name>/scripts/<file>`。usine 的十份技能除了 `SKILL.md`，还带 `references/` 与 `assets/` 子目录——**这些不在可编辑面上**。
 
-后果：harness2 的 proposer 能改技能的 `SKILL.md` 正文与脚本，**改不了**技能引用的参考文档与素材。v1 接受这个缺口（不改上游代码，不制造两套真相），并把它记在 `../garage-ii/BENCHMARK.md` 的「测不到什么」一节里。若将来要补，正确的做法是**在本 fork 之上加一个带补丁清单的改动**（像 `../théâtre/PROVENANCE.md` 记的那 24 个文件那样），而不是在 `../garage-ii/` 里另造一套树语义。
+后果：harness2 的 proposer 能改技能的 `SKILL.md` 正文与脚本，**改不了**技能引用的参考文档与素材。v1 接受这个缺口（不改上游代码，不制造两套真相），并把它记在 `../docs/self-evolution.md` 的「测不到什么」一节里（§6.7）。若将来要补，正确的做法是**在本 fork 之上加一个带补丁清单的改动**（像 `../théâtre/PROVENANCE.md` 记的那 24 个文件那样），而不是在 `../garage-ii/` 里另造一套树语义。
 
 ## 来源
 

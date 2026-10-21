@@ -51,42 +51,15 @@ import tarfile
 import time
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-EXPLORATEUR = HERE.parents[0]
+from checks import bootstrap, check, record, summarise  # noqa: E402
+
+THEATRE, HERE = bootstrap(__file__)
 IS_WINDOWS = sys.platform == "win32"
-
-
-def _find_theatre() -> Path:
-    for candidate in sorted(EXPLORATEUR.iterdir()):
-        if ((candidate / "env" / "vm.py").is_file()
-                and (candidate / "explore" / "practice_loop.py").is_file()):
-            return candidate
-    raise SystemExit("the théâtre checkout (env/vm.py + explore/practice_loop.py) "
-                     "was not found under " + str(EXPLORATEUR))
-
-
-THEATRE = _find_theatre()
-sys.path.insert(0, str(THEATRE))
-sys.path.insert(0, str(HERE))
 
 import verifier_adapter  # noqa: E402  (imports guest_env + core.verifier_runtime)
 import guest_env  # noqa: E402
 from core import verifier_runtime  # noqa: E402
 from core.verifier_runtime import AgenticVerifierInfrastructureError  # noqa: E402
-
-RESULTS: list[tuple[str, str, str]] = []
-
-
-def record(status: str, name: str, detail: str = "") -> None:
-    RESULTS.append((status, name, detail))
-    line = f"{status} {name}"
-    if detail:
-        line += f" | {detail}"
-    print(line)
-
-
-def check(name: str, ok, detail: str = "") -> None:
-    record("PASS" if ok else "FAIL", name, "" if ok else str(detail)[:400])
 
 
 def _kill_sleeper_leak() -> None:
@@ -202,11 +175,15 @@ def test_executor_lifecycle() -> None:
               "hello-from-verifier" in trace.stdout
               and "__RSIAGENT_VERIFIER_MIRROR_READY_"
               not in trace.stdout)
+        # 最后一条曾写成 `env.drive_letter not in trace.stdout`——比的是**裸字母**
+        # （本机 drive_letter='S'），而输出里 `SCRATCH=` 这个词本身就含 S，
+        # 于是这条断言恒红，且红的原因与「路径露没露盘符」毫无关系（2026-10-21 实测，
+        # 段内其余 56 项全绿）。要断言的是「输出里的路径不是 `S:/home/user` 那种
+        # 盘符形式」，所以比带冒号的真实盘符形态。
         check("program: VERIFIER_SCRATCH canonical in output",
               " SCRATCH=/home/user/.verifier/rsiagent-verifier-"
               in trace.stdout
-              and (env.drive_letter if IS_WINDOWS else env.p)
-              not in trace.stdout,
+              and f"{env.drive_letter}:" not in trace.stdout,
               trace.stdout[-200:])
         check("program: cwd restored to /home/user",
               "/home/user\n[exit 0]" in trace.stdout, trace.stdout[-120:])
@@ -537,13 +514,8 @@ def main() -> None:
     # papered over here.
     test_install_and_prompts()
     test_executor_lifecycle()
-    passed = sum(1 for s, _, _ in RESULTS if s == "PASS")
-    failed = sum(1 for s, _, _ in RESULTS if s == "FAIL")
-    infos = sum(1 for s, _, _ in RESULTS if s == "INFO")
     print()
-    print(f"smoke_verifier_adapter: {passed} PASS / {failed} FAIL / "
-          f"{infos} INFO")
-    sys.exit(1 if failed else 0)
+    sys.exit(summarise("smoke_verifier_adapter"))
 
 
 if __name__ == "__main__":

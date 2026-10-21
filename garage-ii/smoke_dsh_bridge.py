@@ -38,6 +38,7 @@ from dsh_substrate import (  # noqa: E402
     DSH_SURFACE,
     DshSubstrate,
     compose_agents_md,
+    read_tree,
     render_events,
 )
 from preflight import check_run_root  # noqa: E402
@@ -57,7 +58,7 @@ def check(label: str, cond: bool, detail: str = "") -> None:
 def _surface_ok() -> None:
     print("[1] 基准 harness 树过校验")
     base = HERE / "harness_base"
-    tree = HT.read_tree(DSH_SURFACE, base)
+    tree = read_tree(DSH_SURFACE, base)
     check("树非空", bool(tree), f"{base} 读出来是空")
     try:
         census = HT.validate(
@@ -73,6 +74,35 @@ def _surface_ok() -> None:
         check("dsh 不变量通过", True)
     except ValueError as exc:
         check("dsh 不变量通过", False, str(exc)[:300])
+
+    # 反向验证：c5 / c8 的座位在这宿主上没开，写进去必须被拒（不是静默通过）。
+    # 这条闸存在的理由是**单点防御不够**：提案阶段已经挡掉了这两个前缀
+    # （`harness2/core/recursion.py:212-224`），但那是唯一一道。2026-10-21 实测
+    # 塞一个 `plugin/evil.ts` 能**静默通过** `validate_tree`——换执行器、手搓树、
+    # `--tree` 直接指过去，就没有第二道闸了。同时要证明**好数据仍放行**：
+    # `scripts/` 是开着的（c7），往里写不许被一起误伤。
+    for probe, want in (
+        ("plugin/evil.ts", False),
+        ("plugins/x.ts", False),
+        ("sub_agents/a/AGENT.md", False),
+        ("scripts/ok_helper.py", True),
+    ):
+        mutated = dict(tree)
+        mutated[probe] = "x\n"
+        try:
+            adapter.validate_tree(mutated)
+            got = True
+        except ValueError:
+            got = False
+        if want:
+            why = "" if got else "被拒了该放行的（c7 是开着的，别误伤）"
+        else:
+            why = "" if not got else "**静默通过了**——提示面说「整份提案被拒」，适配层必须也拒"
+        check(
+            f"可编辑面反向验证：{probe} {'放行' if want else '被拒'}",
+            got == want,
+            why,
+        )
 
     # 每个技能都必须被 always-on 正文点名（harness2 的规则：没点名的技能是死重）
     body = HT.always_on_text(DSH_SURFACE, tree)
@@ -95,7 +125,7 @@ def _materialise_ok() -> None:
 
         skill_dir = staged / DSH_SKILL_SUBDIR
         skills = sorted(p.parent.name for p in skill_dir.glob("*/SKILL.md"))
-        expected = sorted(HT.skill_names(DSH_SURFACE, HT.read_tree(DSH_SURFACE, base)))
+        expected = sorted(HT.skill_names(DSH_SURFACE, read_tree(DSH_SURFACE, base)))
         check("技能落在 dsh 的 project-dsh 根", skills == expected, f"{skills} vs {expected}")
         for name in skills:
             fm = (skill_dir / name / "SKILL.md").read_text(encoding="utf-8")[:600]
@@ -554,7 +584,7 @@ def _launcher_ok() -> None:
     try:
         with tempfile.TemporaryDirectory() as td:
             harness_dir = Path(td) / "harness"
-            HT.write_tree(DSH_SURFACE, HT.read_tree(DSH_SURFACE, HERE / "harness_base"), harness_dir)
+            HT.write_tree(DSH_SURFACE, read_tree(DSH_SURFACE, HERE / "harness_base"), harness_dir)
             run_dir = adapter.execute("routing-poster", harness_dir, "e2e-0")
 
         check("run 目录建出来了", run_dir.is_dir(), str(run_dir))
@@ -710,6 +740,26 @@ def _engine_prompts_ok() -> None:
         check("合成阶段的提示能生成", bool(agg.strip()) and "WHAT YOU CAN CHANGE" in agg)
     except Exception as exc:
         check("合成阶段的提示能生成", False, f"{type(exc).__name__}: {exc}")
+
+    # 冻结技能清单**必须是派生的**，不能手抄。
+    # 反例（2026-10-21 实测）：它原本写死「ten skills」+ 十个名字，而真盘上已经 11 个，
+    # 于是提示在**骗 proposer**——新技能被告知可自由改写，一改就被 `validate_tree` 拒。
+    # 断言直接比「提示里提到的名字集合」与「盘上的名字集合」，抄错了必然不等。
+    import dsh_surface as DS
+
+    on_disk = set(DS.frozen_skills())
+    text = P._SURFACE_TEXTS["dsh"].surface_md
+    check(
+        "冻结技能清单从盘上派生（不手抄）",
+        on_disk and all(n in text for n in on_disk),
+        f"盘上 {len(on_disk)} 个，提示里缺：{sorted(n for n in on_disk if n not in text)}",
+    )
+    # 份数也必须跟着派生走：漏改数字是同一类错，而它比漏名字更难被肉眼发现。
+    check(
+        "冻结技能的份数写法与盘上一致（不是写死的 ten）",
+        "The ten skills" not in text,
+        text[text.find("skills that ship") - 30 : text.find("skills that ship") + 20],
+    )
 
 
 def _keep_base_ok() -> None:

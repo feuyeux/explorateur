@@ -225,5 +225,5 @@ feuille：开工。范围：12 语种 × {海报， 成片×2， 发布词×3}�
 | 智能体怎么搭起来的：dsh 地基 / 插件层 / 红线双承载 / 验收面 | [dsh.md](dsh.md) |
 | 结构 / ①–⑬ 流程 / 工具链 / 渲染不变量 / 发布规则 | [reference.md](reference.md) |
 | 一次真跑的 12 语种数字、坑位表、三个后置缺陷 | [record.md](record.md) |
-| 10 个 skill 的路由与完成定义 | [../skills/README.md](../skills/README.md) |
+| 11 个 skill 的路由与完成定义 | [../skills/README.md](../skills/README.md) |
 | 22 条纪律与工程约定（权威） | [../AGENTS.md](../AGENTS.md) |

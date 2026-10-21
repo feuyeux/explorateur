@@ -20,22 +20,63 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from harness2.core import prompts as P
 
-#: 插件自带、**被冻结**的那十份技能：改写它们会被 `usine_adapter.validate_tree` 拒掉
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+#: 插件自带、**被冻结**的技能：改写它们会被 `usine_adapter.validate_tree` 拒掉
 #: （dsh 的技能注册表按 rank 合并，项目根会静默盖掉插件那份，于是分不清是 harness
 #: 变好还是技能被换掉了）。proposer 必须知道这件事，否则第一枪就浪费在改技能上。
-FROZEN_SKILLS = (
-    "bgm-bed",
-    "character-rig",
-    "karaoke-video",
-    "lesson-scene",
-    "multilingual-video-poetry",
-    "multilingual-video-publishing",
-    "one-page-poster",
-    "publish-copy",
-    "storyteller-video",
-    "video-generation",
+#:
+#: **从盘上派生，不手抄**：这份清单原本是手写的十项，2026-10 加了第 11 个技能之后
+#: 它既漏了新人、又仍然声称"十份"，而 `validate_tree` 是按目录判的（现在 11 个）——
+#: 于是**提示在骗 proposer**：它被告知新技能可自由改写，一改就被拒。
+#: 与 `usine_adapter` 用同一个源（`usine/skills/*/SKILL.md`）。
+def frozen_skills() -> tuple[str, ...]:
+    skills_dir = REPO / "usine" / "skills"
+    return tuple(sorted(p.parent.name for p in skills_dir.glob("*/SKILL.md")))
+
+
+_EN = {
+    1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+    7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+}
+
+
+def _frozen_paragraph() -> str:
+    names = frozen_skills()
+    # 提示面正文是**英文**的，所以份数也用英文数词（写「十一」会读成乱码）。
+    count_en = _EN.get(len(names), str(len(names)))
+    listed = ",\n".join(f"`{n}`" for n in names)
+    return (
+        f"The {count_en} skills that ship with the production-line plugin are FROZEN. "
+        f"Rewriting one of\n{listed}\n"
+        "is REJECTED: the skill registry merges by rank, the project root\n"
+        "silently overrides the plugin's copy, and then nobody can tell whether the harness got\n"
+        "better or the skill was swapped. If one of those workflows needs a new procedure, add a\n"
+        "NEW skill with a NEW name instead."
+    )
+
+
+#: **这是历史手抄版的原文，故意留着**：`surface_md` 里若出现这段文字，说明有人把派生
+#: 逻辑改回了手抄（或 `_frozen_paragraph()` 的替换没生效），`smoke_dsh_bridge.py` 的
+#: 「冻结技能清单从盘上派生（不手抄）」那条断言会因此 FAIL。它里面的「ten skills」和
+#: 十个名字**不是笔误，是那版手抄的真值**——不要跟着盘上的 11 个去改它，改了它就不再
+#: 是「旧值」这个判据锚点了。
+_FROZEN_PLACEHOLDER = (
+    "The ten skills that ship with the production-line plugin are FROZEN. Rewriting one of\n"
+    "`bgm-bed`, `character-rig`, `karaoke-video`, `lesson-scene`, `multilingual-video-poetry`,\n"
+    "`multilingual-video-publishing`, `one-page-poster`, `publish-copy`, `storyteller-video`,\n"
+    "`video-generation` is REJECTED: the skill registry merges by rank, the project root\n"
+    "silently overrides the plugin's copy, and then nobody can tell whether the harness got\n"
+    "better or the skill was swapped. If one of those workflows needs a new procedure, add a\n"
+    "NEW skill with a NEW name instead."
 )
 
 _SURFACE_DSH = """\
@@ -164,10 +205,10 @@ def _surface_text() -> P._SurfaceText:
         "(`systemprompt.md` or `guardrails.md`): write that trigger line in the same edit.",
     )
     return P._SurfaceText(
-        surface_md=_SURFACE_DSH,
+        surface_md=_SURFACE_DSH.replace(_FROZEN_PLACEHOLDER, _frozen_paragraph()),
         inv=inv,
         dom=dom,
-        tts_surface=_SURFACE_DSH,
+        tts_surface=_SURFACE_DSH.replace(_FROZEN_PLACEHOLDER, _frozen_paragraph()),
     )
 
 
@@ -176,4 +217,4 @@ def register() -> None:
     P._SURFACE_TEXTS.setdefault("dsh", _surface_text())
 
 
-__all__ = ["register", "FROZEN_SKILLS"]
+__all__ = ["register", "frozen_skills"]

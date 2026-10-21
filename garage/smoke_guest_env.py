@@ -37,44 +37,31 @@ import sys
 import time
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-EXPLORATEUR = HERE.parents[0]
+from checks import (  # noqa: E402
+    RESULTS,
+    bootstrap,
+    counts,
+    info,
+    record,
+)
 
-
-def _find_theatre() -> Path:
-    for candidate in sorted(EXPLORATEUR.iterdir()):
-        if ((candidate / "env" / "vm.py").is_file()
-                and (candidate / "explore" / "practice_loop.py").is_file()):
-            return candidate
-    raise SystemExit("the théâtre checkout (env/vm.py + explore/practice_loop.py) "
-                     "was not found under " + str(EXPLORATEUR))
-
-
-THEATRE = _find_theatre()
-sys.path.insert(0, str(THEATRE))
-sys.path.insert(0, str(HERE))
+THEATRE, HERE = bootstrap(__file__)
+EXPLORATEUR = HERE.parent
 
 import guest_env  # noqa: E402  (needs the théâtre root on sys.path first)
 
 IS_WINDOWS = guest_env.IS_WINDOWS
 
-RESULTS: list[tuple[str, str, str]] = []
-
-
-def record(status: str, name: str, detail: str = "") -> None:
-    RESULTS.append((status, name, detail))
-    line = f"{status} {name}"
-    if detail:
-        line += f" | {detail}"
-    print(line)
-
 
 def check(name: str, ok: bool, detail: str = "") -> None:
+    """这个脚本的 `check` **故意与别处不同**：detail 成功时也打，且不截断。
+
+    本文件的断言大多是「某某路径/盘符/家目录」这类**身份核对**，detail 就是
+    被核对的那个值——只在失败时打会让人无法从日志判断「通过时它到底等于什么」。
+    而别处那些 smoke 的 detail 常常是几千字的轨迹片段，成功时打反而淹掉汇总。
+    同名不同契约时，正确的收敛是分开（见 `checks` 的模块注释）。
+    """
     record("PASS" if ok else "FAIL", name, detail)
-
-
-def info(name: str, detail: str) -> None:
-    record("INFO", name, detail)
 
 
 def leak_in(text: str, env) -> str:
@@ -448,13 +435,12 @@ def main() -> int:
         guest_env.close_all_live()
 
     print("-" * 72)
-    fails = [r for r in RESULTS if r[0] == "FAIL"]
-    passes = [r for r in RESULTS if r[0] == "PASS"]
-    infos = [r for r in RESULTS if r[0] == "INFO"]
-    print(f"SUMMARY: {len(passes)} passed, {len(fails)} failed, {len(infos)} info")
-    for status, name, detail in fails:
-        print(f"  FAILED: {name} | {detail}")
-    return 1 if fails else 0
+    passed, failed, infos = counts()
+    print(f"SUMMARY: {passed} passed, {failed} failed, {infos} info")
+    for status, name, detail in RESULTS:
+        if status == "FAIL":
+            print(f"  FAILED: {name} | {detail}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

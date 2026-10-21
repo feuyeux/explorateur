@@ -67,11 +67,7 @@ options:
 
 /** 外部可执行文件经 @feuille/core platform 解析（懒解析，barrel 导入永不炸）。 */
 function ffmpegBin(): string {
-  const got = platform.ffmpeg()
-  if (!got) {
-    throw new FeuilleError('找不到 ffmpeg：请安装后重跑（@feuille/core platform 解析）')
-  }
-  return got
+  return platform.requireTool(platform.ffmpeg(), 'ffmpeg')
 }
 
 /** argparse 同款解析：全部旗标都带值（`--k v` / `--k=v` 皆收，后者覆盖）；

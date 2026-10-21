@@ -143,9 +143,40 @@ BASH_CANDIDATES = (
 # speaks the same dialect as the guest; then the BSD system rm, which honours
 # the immutable flag just as GNU rm does. PATH is deliberately NOT consulted —
 # see find_rm().
+#
+# On Windows the git-bash `rm` is the only one that exists, and its install
+# drive is NOT fixed: this host has Git at `D:\Program Files\Git`, so the
+# historical hardcoded `C:\Program Files\Git` candidate list found nothing and
+# `find_rm()` failed closed (measured 2026-10-21).  Deriving it from the `git`
+# on PATH is NOT a PATH fallback of the *tool we return*: `git` only tells us
+# where its own prefix is; the returned `rm` is still an absolute path inside
+# that prefix, and `find_rm()` still refuses when the file is absent.  A
+# PATH-resolved `git` that lies about its prefix cannot manufacture an `rm`
+# that passes the `is_file()` check.
+def _git_bash_rm_candidates() -> list[str]:
+    """Absolute `rm.exe` paths under whatever git prefix is installed here."""
+    out: list[str] = []
+    for prog in ("git", "git.exe"):
+        found = shutil.which(prog)
+        if not found:
+            continue
+        # <prefix>/cmd/git.exe -> <prefix>;  also try <prefix>/bin/git.exe
+        prefix = Path(found).resolve().parent.parent
+        for sub in ("usr/bin", "bin", "usr/local/bin"):
+            cand = prefix / sub / "rm.exe"
+            if str(cand) not in out:
+                out.append(str(cand))
+        break
+    # Conventional install roots last, so a non-PATH but standard install works.
+    for root in (r"C:\Program Files\Git", r"C:\Program Files (x86)\Git"):
+        cand = str(Path(root) / "usr" / "bin" / "rm.exe")
+        if cand not in out:
+            out.append(cand)
+    return out
+
+
 _RM_CANDIDATES = (
-    ([r"C:\Program Files\Git\usr\bin\rm.exe",
-      r"C:\Windows\System32\rm.exe"] if IS_WINDOWS
+    (_git_bash_rm_candidates() + [r"C:\Windows\System32\rm.exe"] if IS_WINDOWS
      else ["/opt/homebrew/opt/coreutils/libexec/gnubin/rm",
            "/usr/local/opt/coreutils/libexec/gnubin/rm",
            "/bin/rm", "/usr/bin/rm"]))

@@ -34,7 +34,7 @@ SKILLS_DIR = USINE / "skills"
 BASE = HERE / "harness_base"
 
 # c4 工具指引里除了「有哪些工具」，还要写「怎么选」。这张表是路由层：
-# 十个技能各自负责哪一段产线，模型据此决定先看哪个技能、调用哪个工具。
+# 每个技能各自负责哪一段产线，模型据此决定先看哪个技能、调用哪个工具。
 # 路由写错比工具描述写错更致命——工具描述模型能自己读，路由要人教。
 TOOL_ROUTING: dict[str, str] = {
     "usine_version": "只读自检：@feuille/core 版本号。无副作用，可随时调。",
@@ -60,11 +60,11 @@ TOOL_ROUTING: dict[str, str] = {
 # 它在工具面上「不可达」，所以工具指引必须写清：模型看不到它，也不许用 shell 绕。
 UNREGISTERED_TOOLS = ("usine_publish",)
 
-SYSTEM_PROMPT = """# feuille usine 产线智能体（dsh）
+SYSTEM_PROMPT_TEMPLATE = """# feuille usine 产线智能体（dsh）
 
 你运行的是 feuille usine 的视频产线工具面，工作区是当前目录。你有两条产线资产：
 
-- **技能（skills）**：十份可复用的工序手册（`one-page-poster` / `karaoke-video` / `multilingual-video-poetry` / `bgm-bed` / `lesson-scene` / `character-rig` / `publish-copy` / `multilingual-video-publishing` / `storyteller-video` / `video-generation`）。用 `skill` 工具按需加载，**不要凭记忆复述工序**——手册里有精确的子命令、门禁判据和验收口径。
+- **技能（skills）**：{count}份可复用的工序手册（{names}）。用 `skill` 工具按需加载，**不要凭记忆复述工序**——手册里有精确的子命令、门禁判据和验收口径。
 - **工具（tools）**：产线的机器可执行面，全部是进程内直调，退出码与 `feuille` CLI 同口径（0=过，1=不过/出错，2=用法错误）。
 
 工作方式：
@@ -75,6 +75,31 @@ SYSTEM_PROMPT = """# feuille usine 产线智能体（dsh）
 4. 交付物写进当前工作区的项目目录，不写 Desktop/Downloads/临时目录。
 5. 拿不准就查工具面或技能，不要用 shell 绕开工具——工具面外的路径没有验收口径。
 """
+
+
+def _cn_count(n: int) -> str:
+    """技能份数的中文写法（正文读起来像人写的，不是 `11`.join）。"""
+    words = {
+        1: "一", 2: "两", 3: "三", 4: "四", 5: "五", 6: "六",
+        7: "七", 8: "八", 9: "九", 10: "十", 11: "十一", 12: "十二",
+    }
+    return words.get(n, str(n))
+
+
+def system_prompt() -> str:
+    """系统提示——**技能清单从盘上派生，不手抄**。
+
+    这条曾经是手抄的（"十份"+ 十个名字），于是 2026-10 加了第 11 个技能
+    `vocab-infographic` 之后：基准树里有了这个技能目录，但系统提示一个字都没提它，
+    **智能体永远不会知道要去加载它**——引擎的 `validate_tree` 把这种叫作
+    "an untriggered skill is dead weight" 并当场拒掉。手抄的清单必然漂，
+    所以这里与 `skill_names()` 用同一个源。
+    """
+    names = skill_names()
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        count=_cn_count(len(names)),
+        names=" / ".join(f"`{n}`" for n in names),
+    )
 
 MEMORY_CHANNEL = """# 长期记忆
 
@@ -246,7 +271,7 @@ def check_skill_assets() -> list[str]:
 def build() -> dict[str, str]:
     """返回 rel -> content 的完整基准树。"""
     tree: dict[str, str] = {}
-    tree["systemprompt.md"] = SYSTEM_PROMPT
+    tree["systemprompt.md"] = system_prompt()
     tree["guardrails.md"] = read_discipline()
     tree["LongTermMEMORY.md"] = MEMORY_CHANNEL
     tree["tool_descriptions/tool_guidance.md"] = render_tool_guidance()
@@ -291,7 +316,14 @@ def main() -> int:
             if not p.is_file():
                 print(f"MISSING: {rel}", file=sys.stderr)
                 return 1
-            if p.read_text(encoding="utf-8") != content:
+            # **按原始字节比，不按 read_text 比**：`read_text` 会把 CRLF 规整成 LF，
+            # 于是「盘上是 CRLF、源头是 LF」这种漂移**查不出来**——而它恰好是最阴的
+            # 一种：`runmark.fingerprint` 哈希原始字节，CRLF 的树指纹和 LF 的不是同一个，
+            # 但 `--phase repeat` 正是拿指纹证明「这几臂用的是同一棵树」。
+            # 实测（2026-10-21）：同一棵树，LF 指纹 `5daf28eeeeba17c3`，
+            # 一个文件转 CRLF 后 `02de066aa7f7c0bb`。
+            expected = content.encode("utf-8")
+            if p.read_bytes() != expected:
                 print(f"STALE: {rel}", file=sys.stderr)
                 return 1
         print(f"base harness OK: {len(tree)} files, no drift")
@@ -300,7 +332,12 @@ def main() -> int:
     for rel, content in tree.items():
         p = BASE / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        # **必须显式 newline="\n"**：`Path.write_text` 走平台默认换行，Windows 上会写成
+        # CRLF，而入库的那份是 LF。而 `runmark.fingerprint` 哈希的是**原始字节**——
+        # 于是同一个 commit 在两台机器上会得到**不同的树指纹**，`--phase repeat`
+        # 拿它证明「这几臂用的是同一棵树」，一跨平台就不成立（虽然 `--check` 用的
+        # read_text 会把 CRLF 规整成 LF，所以**闸不会红**：这是最阴的那种不一致）。
+        p.write_text(content, encoding="utf-8", newline="\n")
     print(f"base harness written: {len(tree)} files -> {BASE}")
     return 0
 

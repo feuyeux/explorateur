@@ -211,6 +211,23 @@ def _component_index(staged: Path, pattern: str) -> str:
     )
 
 
+def read_tree(surface, path) -> dict[str, str]:
+    """`HT.read_tree` 的唯一入口——**读完之后把键统一成正斜杠**。
+
+    为什么必须包一层：引擎的 `read_tree` 用 `str(p.relative_to(d))` 算相对路径，
+    **Windows 上得到的是反斜杠**（`skills\\bgm-bed\\SKILL.md`）；而技能正则只认正斜杠
+    （`skills/(...)/SKILL\\.md`）。于是 `HT.skill_names()` 在 Windows 上**恒返回空列表**，
+    而 `is_allowed` 因为内部先走 `normalize_rel` 不会拦住——**树读得进来，名字一个都数不出**。
+    影响面不是一条 smoke：提案提示里的技能清单、`validate_tree` 的同名技能核对、
+    「每个技能都被 always-on 点名」全都拿不到名字。（`garage-ii/BENCHMARK.md` §19 记的
+    就是这个缺口，本节补的正是它写下的修法。）
+
+    **修在本层，不改上游**：`theatre-ii/` 是零补丁的 vendored fork。
+    """
+    tree = HT.read_tree(surface, Path(path))
+    return {HT.normalize_rel(k): v for k, v in tree.items()}
+
+
 def dsh_skill_names(tree: Mapping[str, str]) -> list[str]:
     return HT.skill_names(DSH_SURFACE, dict(tree))
 

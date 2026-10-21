@@ -19,7 +19,7 @@
 本机已经找不到了。所以今天 rsi 臂仍然拿不到语料，原因是「没保留」，不是「没产出」。
 本脚本因此：
 
-- `--arm rsi --memory <dir>` 接受一份外部记忆语料（引擎那侧产出后喂进来）；
+- `--arms rsi --memory <dir>` 接受一份外部记忆语料（引擎那侧产出后喂进来）；
 - 没给 `--memory` 时，rsi 臂**照跑**，但报告里那一栏标成「记忆语料缺席」——
   **不许拿一个空记忆的分数去说 RSIAgent 不行**。空记忆那一栏测的是「什么都没有」，
   不是「RSIAgent 的记忆没用」。
@@ -28,7 +28,7 @@
 
     python3 garage-ii/compare_rsiagent.py --dry-run
     python3 garage-ii/compare_rsiagent.py --ack RUN-USINE-H2-COMPARE
-    python3 garage-ii/compare_rsiagent.py --arm rsi --memory /path/to/frozen/memory \\
+    python3 garage-ii/compare_rsiagent.py --arms rsi --memory /path/to/frozen/memory \\
         --ack RUN-USINE-H2-COMPARE
 """
 
@@ -53,7 +53,7 @@ for p in (str(REPO / "theatre-ii"), str(HERE)):
 from harness2.core import tree as HT  # noqa: E402
 
 from bench_usine import TASKS  # noqa: E402
-from dsh_substrate import DSH_SURFACE  # noqa: E402
+from dsh_substrate import DSH_SURFACE, read_tree  # noqa: E402
 from preflight import DEFAULT_ROOT, run_all  # noqa: E402
 from usine_adapter import UsineAdapter  # noqa: E402
 
@@ -150,14 +150,14 @@ def _memory_section(memory_dir: Path) -> str:
 
 def _arm_tree(arm: str, base: Path, h2_dir: Path | None, memory_dir: Path | None) -> tuple[dict, list[str]]:
     """造出这一臂的 harness 树。返回 (树, 这一臂用了哪些通道)。"""
-    tree = HT.read_tree(DSH_SURFACE, base)
+    tree = read_tree(DSH_SURFACE, base)
     channels: list[str] = []
 
     if arm == "h2":
         if h2_dir is None:
             channels.append("（h2 臂退化：没找到被选中的 harness 树，等同基线）")
         else:
-            tree = HT.read_tree(DSH_SURFACE, h2_dir)
+            tree = read_tree(DSH_SURFACE, h2_dir)
             channels.append("harness 树（AGENTS.md 四节 + 技能 + 脚本）")
 
     if arm == "rsi":

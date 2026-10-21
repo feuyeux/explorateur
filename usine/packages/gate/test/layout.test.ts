@@ -38,7 +38,50 @@ const ALLOWED_ROOT_DIRS = new Set([
   'theatre-ii',   // harness2 引擎（vendor）
   'théâtre',      // RSIAgent 引擎（vendored fork）
   'config',       // 环境样例与本地配置（.env 由 .gitignore 兜底）
-  'plan',         // 规划文档
+  // 工作区级**入门读物**（`self-evolution.md`：两条 RSI 线路怎么实现、怎么读读数）。
+  // 它放仓库根是有理由的：读者是**第一次进这个仓库的人**，那时他还不知道该去
+  // `garage-ii/` 还是 `théâtre/` 翻——放在子项目里等于要求先知道答案再去找问题。
+  // 注意这条判的是「它是不是一处放内容产物的新地方」，答案是不是：它装的是
+  // 文档，进 git，跟 `usine/docs/` 同类。**放行一个不是内容项目的地方，不等于
+  // 放宽落位口径**——同一次断言里必须证明别的目录照抓（见下面那条凿洞用例）。
+  'docs',
+])
+
+/**
+ * 允许出现在 **`usine/` 顶层**的目录。
+ *
+ * 上面那张表只扫仓库根，而 `usine/` 顶层是同一个错误更容易复发的地方——
+ * 2026-10-21 就在这里抓到 `usine/prompts/`：19 个入库文件、147.6 KB 的
+ * 词汇图鉴提示词草稿。它们**全部是内容产物**（每一份都是某一轮某个词的
+ * 提示词），按落位口径该进 `examples/`，而且其中草莓那份与
+ * `skills/vocab-infographic/assets/example/strawberry/prompt.md` **逐字节相同**
+ * ——同一份东西存了两遍，一遍入库一遍在 skill 里。
+ *
+ * 处置（同日完成）：草莓那份因逐字节重复直接删；另外 18 份（九大艺术 × 横竖两版）
+ * 是**已过审的系列样例**、会被反复对账，按落位口径属资产 ⇒ 移进
+ * `skills/vocab-infographic/assets/example/<词>/`，随 git 版本化，内容一字未改。
+ * 所以现在这个用例抓的是一个**已清掉的**位置：它留着是为了在下次又有人
+ * 「随手在项目根旁边建个 prompts/」时立刻响。
+ *
+ * 它之所以能长出来，正是因为本文件当时**只看仓库根**。只看一层等于只看
+ * 一条边界，而「随手在项目根旁边建个文件夹」这件事不认层级。
+ */
+const ALLOWED_USINE_DIRS = new Set([
+  'packages',     // 代码：十二包
+  'skills',       // SKILL 资产（含 assets/ 可复用资产，入库）
+  'examples',     // 内容项目产物（不入库）
+  'docs',         // 文档
+  'languages',    // 语种注册表（14 manifest）
+  'personas',     // 人设目录与 schema
+  'themes',       // 主题 token
+  'lessons',      // 课件数据
+  'tools',        // 开发期工具脚本
+  'node_modules', // 依赖（由 .gitignore 兜底；点目录规则管不着它）
+  // **例外，且只有这一个**：`packages/publish/test/publish.test.ts` 的证据目录
+  // （`build/publish-verify/`，两个 json）。它是**测试跑出来的**、被 .gitignore
+  // 兜住的运行证据，不是内容项目——放行它有据，放行一个「随手建的项目目录」
+  // 没据。这条判的是「它属于哪一类」，不是「名字好不好看」。
+  'build',
 ])
 
 /**
@@ -54,10 +97,22 @@ export function strayRootDirs(names: string[]): string[] {
     .sort()
 }
 
-function rootDirNames(): string[] {
-  return readdirSync(REPO, { withFileTypes: true })
+/** 同一条判断，用在 `usine/` 顶层。 */
+export function strayUsineDirs(names: string[]): string[] {
+  return names
+    .filter((n) => !n.startsWith('.'))
+    .filter((n) => !ALLOWED_USINE_DIRS.has(n))
+    .sort()
+}
+
+function dirNames(parent: string): string[] {
+  return readdirSync(parent, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => e.name)
+}
+
+function rootDirNames(): string[] {
+  return dirNames(REPO)
 }
 
 describe('内容产物落位（仓库根白名单）', () => {
@@ -82,6 +137,38 @@ describe('内容产物落位（仓库根白名单）', () => {
     // 误伤比漏抓更坏：一条会误报的门禁，人第二次就学会无视它。
     expect(strayRootDirs(['.git', '.venv', '.pytest_cache', '.DS_Store'])).toEqual([])
     expect(strayRootDirs([...ALLOWED_ROOT_DIRS])).toEqual([])
+  })
+})
+
+describe('内容产物落位（usine/ 顶层白名单）', () => {
+  test('usine/ 顶层没有第三处放内容的地方', () => {
+    const stray = strayUsineDirs(dirNames(USINE))
+    expect(
+      stray,
+      `usine/ 顶层多了 ${JSON.stringify(stray)}——内容项目只允许两处：`
+      + 'usine/skills/<skill>/assets/（可复用资产，入库）或 '
+      + 'usine/examples/<项目名>/（内容产物，不入库）。见 AGENTS.md「内容产物落位」。',
+    ).toEqual([])
+  })
+
+  test('凿洞必被抓：usine/prompts 这种顶层项目当场 FAIL', () => {
+    // 反向验证（纪律 2）：喂的就是 2026-10-21 真实抓到的那个名字。
+    expect(strayUsineDirs(['packages', 'skills', 'prompts'])).toEqual(['prompts'])
+    expect(strayUsineDirs(['packages', 'prompts', 'chess-12lang']))
+      .toEqual(['chess-12lang', 'prompts'])
+  })
+
+  test('点目录与依赖目录不误伤', () => {
+    expect(strayUsineDirs(['.venv', '.pytest_cache', 'node_modules'])).toEqual([])
+    expect(strayUsineDirs([...ALLOWED_USINE_DIRS])).toEqual([])
+  })
+
+  test('跑测试长出来的 build/ 证据目录不误伤，但别的项目目录照抓', () => {
+    // `build/` 是 publish.test.ts 的运行证据（.gitignore 兜住）；它被放行是
+    // 因为它**属于测试证据这一类**，不是因为闸放宽了。同一次断言里必须证明
+    // 「放行 build 不等于放行一切」——否则这条白名单就成了补丁清单。
+    expect(strayUsineDirs(['build'])).toEqual([])
+    expect(strayUsineDirs(['build', 'prompts'])).toEqual(['prompts'])
   })
 })
 

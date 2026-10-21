@@ -87,9 +87,7 @@ function splitLines(text: string): string[] {
 }
 
 function ffmpegBin(): string {
-  const got = platform.ffmpeg()
-  if (!got) throw new FeuilleError('找不到 ffmpeg（feuille.platform 解析）；装好后重跑')
-  return got
+  return platform.requireTool(platform.ffmpeg(), 'ffmpeg')
 }
 
 // ============================================================

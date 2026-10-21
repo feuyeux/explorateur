@@ -8,10 +8,15 @@
 - **Purpose**: 作为 `explorateur/usine`（feuille 多语种视频生产线）的 RSI 执行骨架。
   适配层（`garage/`）负责环境嫁接（v1 于 2026-10-16 建成并假 LLM 干跑
   12/12 全绿；2026-10-18 P9 真作用力改造后，现行运行手册见
-  [../garage/README.md](../garage/README.md)）；本目录内代码
+  [../docs/self-evolution.md](../docs/self-evolution.md) §2、§8.2）；本目录内代码
   保持可向上游回步。fork 文档集：PROVENANCE（本文件，
   纪律与补丁清单）、PORTING-NOTES（跨平台病根）、ADAPTATION（实现相对设计稿的
-  偏离）、ARCHITECTURE（机制与图表）；上游 `README.md` 与 `docs/` 冻结不动。
+  偏离）；**ARCHITECTURE（机制与图表）已于 2026-10-21 并入
+  [../docs/self-evolution.md](../docs/self-evolution.md) §2，只留指针存根**；
+  本目录 `docs/` 是 **fork 自建**的（`guide.md`
+  人机交互指南 + `reference.md` 上游文档合订 + 论文 PDF + 历史导出哈希清单）——
+  上游 `docs/` 的多篇 markdown 在 2026-10-19 的重构（`8baded4`）里已合并进
+  `reference.md`，**不是「冻结不动」**（原本文那么写，与磁盘事实相反）。
 
 ## 纪律
 
@@ -57,8 +62,9 @@
 | `tests/test_llm_endpoint.py`（新） | 逐模型端点路由 7 测试：无映射→默认 OpenRouter 逐字节不变；坏 JSON/缺文件 fail-closed；映射生效时逐模型独立客户端 |
 | `tests/test_llm_transport_pause.py` | 上游文件增补 5 测试：持久 outage 超限升级为终态（不再无限暂停）；`llm_infra_max_pauses=0` 保留旧的无限等待；SDK timeout 显式有界；并发下 provider 计数不丢；401 为终态不可恢复（对照 402 可恢复）——平台无关 |
 
-补丁面合计（对上游 `4d7ef43`）：24 个跟踪文件 ±798/648 行（含 README/docs 链接重排与冻结文档迁出）+
-3 个新测试文件（`tests/posix_guest.py` 326 行帮手；`tests/test_llm_endpoint.py` 7 测试；`tests/test_llm_transport_pause.py` 增补 5 测试）。
+补丁面合计（对上游 `4d7ef43`）：**24 个跟踪文件 ±798/648 行**（含 README/docs 链接重排与上游文档合订进 `reference.md`）+ 3 个新测试文件（`tests/posix_guest.py` **129 行**帮手；`tests/test_llm_endpoint.py` 112 行 / 7 测试；`tests/test_llm_transport_pause.py` 398 行 / 增补 5 测试）。
+
+> **这两个数现在没法在本仓复算，读的时候要知道**：上游 `4d7ef43` 是 vendored 快照的基线，而本目录**没有自己的 `.git`**（纪律 1），所以 `git diff 4d7ef43` 在这里不成立。`±798/648` 是 fork 当时量下并记录在此的数，之后每次改 fork 文件它只会更旧。**要更新它，唯一的办法是拿一份干净的 `4d7ef43` 出来做 diff**——不要凭感觉改数字。（`posix_guest.py` 原写 326 行，实测 129 行，2026-10-21 更正；行数变了而没人改这一行，正是「手抄派生的数」的典型下场。）
 
 ## 已知的 POSIX-only 面（刻意不移植）
 

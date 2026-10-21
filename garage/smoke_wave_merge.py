@@ -33,43 +33,12 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-EXPLORATEUR = HERE.parents[0]
+from checks import bootstrap, check, info, record, summarise  # noqa: E402
 
-
-def _find_theatre() -> Path:
-    for candidate in sorted(EXPLORATEUR.iterdir()):
-        if ((candidate / "env" / "vm.py").is_file()
-                and (candidate / "explore" / "practice_loop.py").is_file()):
-            return candidate
-    raise SystemExit("the théâtre checkout (env/vm.py + explore/practice_loop.py) "
-                     "was not found under " + str(EXPLORATEUR))
-
-
-THEATRE = _find_theatre()
-sys.path.insert(0, str(THEATRE))
-sys.path.insert(0, str(HERE))
+THEATRE, HERE = bootstrap(__file__)
 
 import wave_merge  # noqa: E402
 from explore.provisioning import _symlink_digest  # noqa: E402
-
-RESULTS: list[tuple[str, str, str]] = []
-
-
-def record(status: str, name: str, detail: str = "") -> None:
-    RESULTS.append((status, name, detail))
-    line = f"{status} {name}"
-    if detail:
-        line += f" | {detail}"
-    print(line)
-
-
-def check(name: str, ok, detail: str = "") -> None:
-    record("PASS" if ok else "FAIL", name, "" if ok else str(detail)[:400])
-
-
-def info(name: str, detail: str) -> None:
-    record("INFO", name, detail)
 
 
 def expect_raise(name: str, callable_, *args, **kwargs) -> None:
@@ -1514,16 +1483,8 @@ def main() -> int:
     test_drs_fail_and_plan()
     test_spec_sync_and_memory()
     test_health_and_l3_gates()
-    passed = sum(1 for status, _, _ in RESULTS if status == "PASS")
-    failed = sum(1 for status, _, _ in RESULTS if status == "FAIL")
-    infos = sum(1 for status, _, _ in RESULTS if status == "INFO")
-    print(f"\nsmoke_wave_merge: {passed} PASS / {failed} FAIL / {infos} INFO")
-    if failed:
-        for status, name, detail in RESULTS:
-            if status == "FAIL":
-                print(f"  FAIL {name} | {detail}")
-        return 1
-    return 0
+    print()
+    return summarise("smoke_wave_merge", list_failures=True)
 
 
 if __name__ == "__main__":

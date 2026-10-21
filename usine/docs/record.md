@@ -207,24 +207,13 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 
 **钉版**：`@deepseek-ai/*` 钉 **0.2.1-rc.2**；真宿主 runtime 实测同为 **0.2.1-rc.2**（`preflight` 第 ② 道机械检查当场核，不一致就红）。
 
-**门禁**：`pnpm -s typecheck` 退出码 0；`pnpm -s verify` **43 文件 / 563 测试全绿**（改动前后各跑一次，测试数同数——本轮只改写断言口径，没有偷偷加宽判据）。
+**门禁**：`pnpm -s typecheck` 退出码 0；`pnpm -s verify` **43 文件 / 563 测试全绿**（改动前后各跑一次，测试数同数——本轮只改写断言口径，没有偷偷加宽判据）。**这是 2026-10-20 当天的读数，不是现值**：现值看 `record.md` 最新一节或直接跑 `pnpm verify`。
 
 **插件自测**：`packages/dsh-plugin/test/` 两套件 **44/44 绿**（`plugin.test.ts` 23 例 + `plugin-parity.test.ts` 21 例）。
 
 **preflight（零 LLM）**：**4/4 绿**——产物自足加载 / dsh 钉版一致 / 宿主起得来 / 插件真挂上（装配清单新鲜 + 工具面 17 个逐字相符）。
 
-**host-run（真宿主实跑，MiniMax-M3.1-Flash）**：**5/5 绿**，会话 `session-2d9aa970df7d4134901cee237cb7c185`。会话日志逐帧解码后取到 12 条关键事件：
-
-| seq | 事件 | 关键内容 |
-|---|---|---|
-| 13 / 14 | `tool/call` → `tool/result` | `usine_version` 返回 `{"ok":true,"status":"ok",…}`——统一契约在真宿主里生效 |
-| 15 / 16 | `tool/call` → `tool/result` | `usine_verify` 真跑 typecheck + vitest：43 文件 / 563 测试全绿，`detail.exit_code=0` |
-| 20 / 21 | `tool/call` → `tool/result` | `usine_quota` 只读额度查询（video 线 100%） |
-| 25 | `tool/call` | `usine_video_generation` `action=submit`——模型**真发起**（不是「应该会发起」） |
-| 26 | `approval/asked` | `toolName=usine_video_generation`，reason 是完整中文审批卡（模型 / 提示词 / 画幅 / 时长 / 分辨率 / 预估消耗） |
-| 27 | `approval/decided` | `outcome="rejected"`——工具体**一行没执行** |
-| 28 | `tool/result` | `isError=true`，内容是 dsh 原生文案 `Error: the user rejected tool "usine_video_generation"`（不是插件自述的 status） |
-| 32 / 33 | `tool/call` → `tool/result` | `grep` 复核门禁输出 |
+**host-run（真宿主实跑，MiniMax-M3.1-Flash）**：**5/5 绿**，会话 `session-2d9aa970df7d4134901cee237cb7c185`。会话日志逐帧解码后取到 12 条关键事件——**逐条表格在 [dsh.md §8.1](dsh.md#81-2026-10-20-真宿主实跑结果55-通过)**，此处不再抄第二份：同一份证据写两处，改一处忘一处就成了「两边都像真的」。本节只记这一轮**独有**的数字与结论。
 
 **全程无 `task_id`**：没有生成任务被提交、额度零消耗——这是红线在**派发层**成立的机械证据（批准之前工具体根本没跑过）。证据落 `docs/dsh-host-evidence.ndjson` + `docs/dsh-host-summary.json`。
 
@@ -243,3 +232,14 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 | 32 | 工具输出里混进宿主自己的日志 / JSON-RPC 帧 | 猴补 `process.stdout.write` 的**时间窗**捕获把窗口内的所有写都收走，宿主写与工具写不分 | 改用 `AsyncLocalStorage` 按**异步上下文**捕获，串行锁删掉；console 与 stdout/stderr 两个出口都盖（vitest 下 console 被测试框架接管，只盖 stdout 会漏） |
 | 33 | 会话日志只解出第一帧，后面的事件全丢 | 日志是多段 zstd 帧拼接，Node 的 `zstdDecompressSync` 只解第一帧 | 取证脚本逐帧解码；审批审计是 log-only（不进通知流），只能从会话日志拿 |
 | 34 | 改完 inject 纪律后**复查发现 systemPrompt 还在 inject 里**——宿主一缺它，17 个工具掉到 **0** 且不报错 | 同一个坑的第三个实例：只清了 `approval` / `skills`，没看清 `systemPrompt` 承载的只是纪律文本，17 个工具一个都不依赖它 | `inject` 只留 `tools`；纪律文本节改走 `ctx.inject(['systemPrompt'], …)`。真 cordis 实测：只 `provide('tools')` 时注册工具数 **0 → 17**，纪律节安静跳过；该对比进了 `plugin.test.ts` 的常驻断言（真 `new Context()`，不是假 ctx） |
+
+## 附：`usine/人物宣传图.zip` —— 一个被登记下来的孤立大文件（不删）
+
+`usine/人物宣传图.zip` **32,074,712 字节**，2026-10-19 的 LFS 迁移提交 `37075a6`（`chore: 大文件（图片/音视频/压缩包）统一走 Git LFS`）把它以 LFS 对象入库（blob `64e85153`）。**它是那次迁移的副产物，不是任何一个流程的产物**：
+
+- `git grep 人物宣传图` 只命中它自己（二进制），**没有任何文本引用它**——没有 SKILL 指向它、没有测试读它、没有文档把它当样例。
+- 它不在 `usine/skills/*/assets/` 也不在 `usine/examples/`，所以按落位口径它**本来就不该在这个位置**。
+
+**为什么只登记不删**：它是**已入库的历史归档**，删它要重写 LFS 历史，而它既不挡门禁也不影响构建——为一个"看起来占地"的文件去动 LFS 历史，风险远大于收益。**这条记录的作用是让下一个人查到这里就知道它是什么、为什么还在**，而不是再花一次时间重新判断。
+
+真要清理，正确的做法是**在专门的一次提交里**删它并说明「移除 32 MB 无引用归档」，而不是顺手指掉。

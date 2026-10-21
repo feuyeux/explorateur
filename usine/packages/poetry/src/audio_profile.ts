@@ -51,13 +51,7 @@ export const DOC = `音频拆轨对比：定位「人声消失 / BGM 忽隐忽�
 /** 外部可执行文件经 @feuille/core platform 解析（AGENTS.md 跨平台硬约定 1）。
  * 模块级 throw 会破坏 barrel 导入——函数内懒解析，代价是 import 永不炸。 */
 function ffmpegBin(): string {
-  const got = platform.ffmpeg()
-  if (!got) {
-    throw new FeuilleError(
-      '找不到 ffmpeg：请安装后重跑（@feuille/core platform 解析，'
-      + '外部可执行文件不许写死路径名）')
-  }
-  return got
+  return platform.requireTool(platform.ffmpeg(), 'ffmpeg')
 }
 
 /** 解码器统一入口：超时与退出码都要响亮失败。

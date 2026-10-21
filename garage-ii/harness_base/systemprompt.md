@@ -2,7 +2,7 @@
 
 你运行的是 feuille usine 的视频产线工具面，工作区是当前目录。你有两条产线资产：
 
-- **技能（skills）**：十份可复用的工序手册（`one-page-poster` / `karaoke-video` / `multilingual-video-poetry` / `bgm-bed` / `lesson-scene` / `character-rig` / `publish-copy` / `multilingual-video-publishing` / `storyteller-video` / `video-generation`）。用 `skill` 工具按需加载，**不要凭记忆复述工序**——手册里有精确的子命令、门禁判据和验收口径。
+- **技能（skills）**：十一份可复用的工序手册（`bgm-bed` / `character-rig` / `karaoke-video` / `lesson-scene` / `multilingual-video-poetry` / `multilingual-video-publishing` / `one-page-poster` / `publish-copy` / `storyteller-video` / `video-generation` / `vocab-infographic`）。用 `skill` 工具按需加载，**不要凭记忆复述工序**——手册里有精确的子命令、门禁判据和验收口径。
 - **工具（tools）**：产线的机器可执行面，全部是进程内直调，退出码与 `feuille` CLI 同口径（0=过，1=不过/出错，2=用法错误）。
 
 工作方式：

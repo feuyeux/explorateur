@@ -119,9 +119,9 @@ feuille/
   languages/           语种注册表（14 manifest：字体栈/展示字体栈/国旗/书写方向/引号对）
   personas/            人设目录：28 人班底数据 + schema/声库/视觉/选角文档；
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
-  docs/                全部文档（工作流/工具链 + playbook 系列：发布/知乎/取数/渲染手册/经验总纲/坑总账）
+  docs/                全部文档：guide（上手）/ reference（结构与命令索引）/ record（决策与实测记录）/ dsh（宿主桥接）；两个 `dsh-host-*` 是**生成产物**（桥接实测的落盘证据），别当手写文档改
   examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；LFS 归档，绝不触碰）
-  skills/              自建 SKILL 资产（10 个：one-page-poster / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
+  skills/              自建 SKILL 资产（11 个：one-page-poster / vocab-infographic / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
 ```
 
 - 每个机制模块**同步带反向验证**（纪律 2）；逐帧像素判据保持可用（`-map 0:v`、基线按平台分桶）。

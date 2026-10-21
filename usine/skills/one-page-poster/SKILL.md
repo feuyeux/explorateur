@@ -51,6 +51,7 @@ directories.
 
 - 组装成片 → `karaoke-video`（单卡片）或 `storyteller-video`（多幕评书人物小传）
 - 实拍画面上烧字幕 → `multilingual-video-poetry`
+- 单个词的 12 语种词汇图鉴、画面由生图模型出（不走渲染）→ `vocab-infographic`
 - 写发布词 → `publish-copy`
 - 真的点发布 → `multilingual-video-publishing`
 - 多页文档 → docx / pptx / pdf 相关 skill

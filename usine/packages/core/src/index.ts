@@ -1,10 +1,10 @@
-// @feuille/core —— feuille 核心包入口（迁移目标位）
+// @feuille/core —— feuille 核心包入口
 //
-// P1 骨架：模块随 P2–P5 逐批迁入（platform / errors / ledger / framehash /
-// tts / audio / timeline / textlayer / compose / render / covers / manifest /
-// metrics / data / audit / rig / scenes / devices / persona）。
-// 权威门禁在迁移期仍是 Python 21 套；本包每迁入一个模块即配 vitest
-// 金样本 parity + 反向验证（纪律 2：加了新检查就要做反向验证）。
+// 模块按 P2–P5 分批迁入（platform / errors / ledger / framehash / tts / audio /
+// timeline / textlayer / compose / render / covers / manifest / metrics / data /
+// audit / rig / scenes / devices / persona）。**P0–P8 迁移已收官，Python 实现
+// 已退役删除**——权威门禁是 `pnpm verify`（typecheck + 全部 vitest），不存在
+// 「另一套 Python 门禁」了。各模块配金样本 parity + 反向验证（纪律 2）。
 
 export const VERSION = '0.1.0'
 

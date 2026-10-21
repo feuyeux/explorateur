@@ -18,9 +18,12 @@ explorateur/
 ├── theatre-ii/       harness2 引擎（vendored fork） ┐ 第二条 RSI 线路：改「harness 本身」
 ├── garage-ii/        该线路的桥接层                 ┘
 ├── config/           跨线路共享配置（env.sample 入库；.env 本地、永不入库）
+├── docs/             入门读物（`self-evolution.md`：自我进化怎么实现的，写给新手）
 ├── AGENTS.md         工作区级约束（agent 先读这个）
 └── README.md         本文件
 ```
+
+**第一次接触这个仓库？先读 [docs/self-evolution.md](docs/self-evolution.md)。** 它用零基础的语言把两条线路从头讲一遍：模型改的到底是什么、产物长什么样、哪几道闸会把它拒掉、以及**怎么才能相信"改完真的变好了"**（这一节比前面所有节都重要）。本文件与各子项目文档都假定你已经知道那些概念。
 
 **运行产物不在仓库里。** 两条线路各落一个仓库外目录（与本仓库同级）：`../garage-result/`（RSIAgent 线）、`../garage-ii-result/`（harness2 线）。原因与机检位置见 [AGENTS.md](AGENTS.md)「运行产物落位」。
 
@@ -39,7 +42,7 @@ feuille（法语：叶 / 一页）：课件与素材 → 多语种短视频，�
 | 门禁 | `pnpm verify` = typecheck + 全部 vitest 套件（含反向验证：坏数据必须 FAIL） |
 | 入口 | [README](usine/README.md) · [**AGENTS.md**](usine/AGENTS.md)（22 条纪律，权威）· [docs/](usine/docs/) |
 
-`usine/skills/` 下 10 个自建 SKILL 是本工程的内容能力入口，路由表见 [usine/skills/README.md](usine/skills/README.md)。**内容产物只允许落两处**：`usine/skills/<skill>/assets/`（可复用资产，入库）与 `usine/examples/<项目名>/`（内容产物，不入库）——机检在 `usine/packages/gate/test/layout.test.ts`。
+`usine/skills/` 下 11 个自建 SKILL 是本工程的内容能力入口，路由表见 [usine/skills/README.md](usine/skills/README.md)。**内容产物只允许落两处**：`usine/skills/<skill>/assets/`（可复用资产，入库）与 `usine/examples/<项目名>/`（内容产物，不入库）——机检在 `usine/packages/gate/test/layout.test.ts`。
 
 ```bash
 cd usine && pnpm install && pnpm verify     # 全量门禁
@@ -54,14 +57,14 @@ pnpm feuille <组> <命令>                     # CLI（表驱动路由，未知
 
 ### 原理图
 
-图例沿用 [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md) 的颜色语义：蓝＝编排控制面，琥珀＝沙箱内受限执行体，红＝隔离域，深红＝封禁路径，灰＝中性容器；虚线＝逻辑/反馈边，不是进程调用。
+图例沿用 [docs/self-evolution.md](docs/self-evolution.md) 的颜色语义：蓝＝编排控制面，琥珀＝沙箱内受限执行体，红＝隔离域，深红＝封禁路径，灰＝中性容器；虚线＝逻辑/反馈边，不是进程调用。
 
 ```mermaid
 flowchart TB
     %% ── 目标物：同一个智能体的两个部位 ────────────────────────────
     subgraph TARGET["usine/ —— 被改进对象"]
         HANDS["智能体的「手」<br/>dsh-plugin：工具面 / 请求 schema<br/>拒答卡 / 审批文案 / skills howto"]
-        MIND["智能体的「指令」<br/>系统提示 / 红线 / 长期记忆<br/>工具指引 / 十份技能手册"]
+        MIND["智能体的「指令」<br/>系统提示 / 红线 / 长期记忆<br/>工具指引 / 十一份技能手册"]
         CODE["产线本体<br/>core · karaoke · poster · poetry<br/>storyteller · copy · bgm · publish · cli · gate"]
     end
 
@@ -90,7 +93,7 @@ flowchart TB
     %% ── 线路二：harness2 改使用方式 ───────────────────────────────
     subgraph L2["线路二 · harness2（theatre-ii/ + garage-ii/）—— 改使用方式，产物是一棵 harness 树"]
         BH2["build_base_harness.py<br/>从真实插件派生 c1..c8 + 漂移闸"]
-        BT2["harness_base/<br/>systemprompt · guardrails · memory<br/>tool_guidance · 10 skills"]
+        BT2["harness_base/<br/>systemprompt · guardrails · memory<br/>tool_guidance · 11 skills"]
         TK2["任务集 + 机械判据<br/>技能加载 · 页面规格 · 走产线 · 交付 · 不绕行"]
         EX2["dsh SDK 客户端（真执行器）<br/>每 rollout 独立工作区 · events.jsonl 边跑边落盘"]
         RB2["基准 rollout × n<br/>同树零分布"]
@@ -171,9 +174,9 @@ flowchart TB
 | 验收 | 验证席判 PASS + 真树 `pnpm verify` 退出码 | 让智能体在候选 harness 下真跑任务，按机械判据判分，再与基准臂做单侧精确置换检验 |
 | 运行产物 | `../garage-result/` | `../garage-ii-result/` |
 
-第一条线路的入口：[garage/README.md](garage/README.md)（怎么跑一次 wave、怎么校验产物）· [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md)（机制与图表）· [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律）· [théâtre/ADAPTATION.md](théâtre/ADAPTATION.md)。
+第一条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §2、§8.2（机制与运行手册）· [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律）· [théâtre/ADAPTATION.md](théâtre/ADAPTATION.md)。
 
-第二条线路的入口：[garage-ii/README.md](garage-ii/README.md)（运行手册）· [garage-ii/BENCHMARK.md](garage-ii/BENCHMARK.md)（**对照协议与读数纪律**）· [garage-ii/EVOLUTION-PATHS.md](garage-ii/EVOLUTION-PATHS.md)（两条路径的产物对照）· [theatre-ii/COMPARISON.md](theatre-ii/COMPARISON.md)（引擎层对照）。
+第二条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §3–§8.3（机制、测量协议与运行手册）· [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（零补丁声明）· [garage-ii/LESSONS.md](garage-ii/LESSONS.md)（跨轮次方法论偏差）。
 
 ### 共有红线
 
@@ -182,14 +185,17 @@ flowchart TB
 - **运行产物落仓库外**，两线分开放（理由不是洁癖：dsh 的 project root 是「最近的含 `.git` 的祖先」，run root 落进仓库会让 `.dsh/skills` 判到仓库根、候选技能一个都扫不到，而且**不报错**）。
 - **基准 harness 与被改进对象同源**（`garage-ii/build_base_harness.py` 派生，带漂移闸）；判据失败是 `None` 不是零分；判据不进 harness 树。
 
-### 读数字之前的四条纪律
+### 读数字之前的纪律
 
-这几条都是踩出来的，完整实录在 [garage-ii/BENCHMARK.md](garage-ii/BENCHMARK.md)：
+读数纪律只有一份，在 [AGENTS.md 第九节](AGENTS.md)（18 条，每条都带实测出处）。这里不复述——**两份纪律必然漂移，而漂移的那份没人核对**。
+
+最要紧的三条，先记住再翻原文：
 
 1. **先看「阶段回退」再看分数**——提案阶段失败时引擎退回基准树继续跑，这一轮「看起来跑完了」，而分数量的是**没改过的基准**。
 2. **没有同树零分布，就没有「提升」这个说法**——四棵逐字相同的臂树实测跑出 80% / 100% / 100% / 100%。
 3. **换过工作区 / 题面 / 判据之后，旧读数一律作废**——基准工作区少装一个 `assets/` 就能让分数塌到基线。
-4. **判据的依据必须是被改进对象自己的文件**（手册、系统提示、工具指引），不是「我觉得更合理」；而且放宽往往更严。
+
+完整的踩坑实录（每轮的命令、数字、判决与「测不到什么」）在 [garage-ii/BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md)。
 
 ---
 
@@ -223,4 +229,4 @@ flowchart TB
 |---|---|---|
 | **工作区级** | 本文件 + [AGENTS.md](AGENTS.md) | 子项目索引、跨线路约束、产物落位、agent 行为规则 |
 | **项目级** | 各子项目 `README.md` | 这是什么、怎么构建、怎么跑测试、目录树 |
-| **专题** | `usine/docs/`、`garage*/README.md`、`theatre*/ARCHITECTURE.md` | 架构、运行手册、实测记录、对照协议 |
+| **专题** | [docs/self-evolution.md](docs/self-evolution.md)（自我进化总文档）· `usine/docs/` · `garage-ii/BENCH-APPENDIX-2026-10.md`（逐字归档）· `garage-ii/LESSONS.md` | 机制、运行手册、测量协议、实测记录、跨轮次方法论 |

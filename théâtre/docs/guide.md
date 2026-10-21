@@ -1,6 +1,6 @@
 # théâtre 使用指南：用最少的资源、最短的时间完成一次自我进化
 
-> 本文从**人机交互**视角回答两个问题：**作为人，怎么让这台机器替你改进 usine**；以及**怎么让一次自我进化花得最少、跑得最快**。机制与判据的权威文本不变：[garage/README.md](../../garage/README.md)（运行手册）、[ARCHITECTURE.md](../ARCHITECTURE.md)（机制与图表）、`run_usine.py` docstring（装配契约 13 条）。本文不重复它们，只讲你什么时候说话、说什么、钱和时间花在哪、哪些关口它必须停下等你。
+> 本文从**人机交互**视角回答两个问题：**作为人，怎么让这台机器替你改进 usine**；以及**怎么让一次自我进化花得最少、跑得最快**。机制与判据的权威文本不变：[../../docs/self-evolution.md](../../docs/self-evolution.md)（总文档：机制、运行手册、验收细则）、`run_usine.py` docstring（装配契约 13 条）。本文不重复它们，只讲你什么时候说话、说什么、钱和时间花在哪、哪些关口它必须停下等你。
 
 ## 1. 你面对的是什么
 
@@ -104,9 +104,9 @@
 
 | 想了解 | 读 |
 |---|---|
-| 怎么跑一次 wave、逐项前置、验收细则（权威） | [garage/README.md](../../garage/README.md) |
+| 怎么跑一次 wave、逐项前置、验收细则（权威） | [../../docs/self-evolution.md](../../docs/self-evolution.md) §8.2 · §9 |
 | 装配契约 13 条（权威全文） | `run_usine.py` 模块 docstring |
-| 引擎机制与图表 | [ARCHITECTURE.md](../ARCHITECTURE.md) |
+| 引擎机制与图表 | [../../docs/self-evolution.md](../../docs/self-evolution.md) §2 |
 | 改进方向与护栏（Curriculum 的许可面） | [distribution-usine.md](../../garage/distribution-usine.md) |
 | fork 纪律 / 实现偏离 / 跨平台病根 | [PROVENANCE.md](../PROVENANCE.md) · [ADAPTATION.md](../ADAPTATION.md) · [PORTING-NOTES.md](../PORTING-NOTES.md) |
 | 真跑现场归档（含首测事故） | [garage/runs/](../../garage/runs/) |

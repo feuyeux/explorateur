@@ -23,7 +23,7 @@ flowchart LR
 
 智能体 = dsh 地基（第三方，npm 钉版）+ `@feuille/dsh-plugin`（唯一 Cordis 插件）。
 插件只做「feuille → dsh」集成：17 个 `usine_*` 工具（残余参数与 CLI 同口径）、纪律
-systemPrompt、审批挂点、10 个技能资产自动加载。`usine_video_generation` 每次强制审批
+systemPrompt、审批挂点、11 个技能资产自动加载。`usine_video_generation` 每次强制审批
 （fail-closed、单次有效）；`usine_publish` 默认**不注册**——发布不可达是工具面上没有。
 入口三挡：`pnpm --filter @feuille/dsh-plugin preflight | ask | ask 自检`。
 

@@ -7,7 +7,7 @@ harness2 的 benchmark 接缝是一组纯值/纯函数：`tasks` / `task_prompt`
 
 - **dsh**（执行器）——`DshSubstrate` 提供可编辑面与装配；本文件提供**启动体**：
   把装配好的工作区交给 `dsh --profile headless --json`，把事件流落盘。
-- **usine 的十份技能与十八个工具面**（被改进对象）——基准 harness 树由
+- **usine 的 11 份技能与十八个工具面**（被改进对象；份数以 `usine/skills/*/SKILL.md` 为准，本句不手抄）——基准 harness 树由
   `build_base_harness.py` 从真实插件派生，不手抄。
 
 关于**评测隔离**（RSIAgent §4.2 的那条纪律，harness2 侧同名同义）：本文件的
@@ -43,6 +43,7 @@ from dsh_substrate import (
     TRAJECTORY_MAX_CHARS,
     DshSubstrate,
     dsh_skill_names,
+    read_tree,
     render_canonical_events,
 )
 
@@ -50,7 +51,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 BASE_HARNESS = HERE / "harness_base"
 
-#: 插件里那十份技能名——基准树里带着它们（基准 harness 必须与被改进对象同源），
+#: 插件里那批技能名——基准树里带着它们（基准 harness 必须与被改进对象同源），份数从盘上派生；
 #: 所以「同名」本身不违规，**同名且内容不同**才违规（见 validate_tree）。
 PLUGIN_SKILL_NAMES = (
     "bgm-bed",
@@ -65,7 +66,7 @@ PLUGIN_SKILL_NAMES = (
     "video-generation",
 )
 
-#: 插件那十份技能的真实位置——同名技能的内容比对就是拿它当基准。
+#: 插件那批技能的真实位置——同名技能的内容比对就是拿它当基准。
 _PLUGIN_SKILLS_DIR = REPO / "usine" / "skills"
 
 #: `feuille` CLI 的真实位置。真实产线里它在 PATH 上（pnpm workspace），
@@ -314,7 +315,7 @@ class UsineAdapter:
         `runmark.fingerprint` 哈希目录里的全部文件，而引擎写回的树比基准树多
         两个 README 桩，于是内容逐字相同的两棵树目录指纹也不同。
         """
-        tree = HT.read_tree(DSH_SURFACE, Path(tree_dir))
+        tree = read_tree(DSH_SURFACE, Path(tree_dir))
         h = hashlib.sha1()
         for rel in sorted(tree):
             h.update(rel.encode("utf-8"))
@@ -362,7 +363,7 @@ class UsineAdapter:
         `harness_dir=None` 表示**未经修改的基准 harness**（harness2 的对照臂）。
         """
         src = Path(harness_dir) if harness_dir else self.base_harness()
-        tree = HT.read_tree(DSH_SURFACE, src)
+        tree = read_tree(DSH_SURFACE, src)
         if not tree:
             raise ValueError(f"{src} 读出来是空树：基准 harness 树坏了")
         self._ensure_relay()
@@ -593,7 +594,7 @@ class UsineAdapter:
         description、技能必须被点名、脚本必须存在……）由 `core/tree.py` 的 validate 负责，
         不在这里重复实现两套真相。
 
-        关于同名技能：基准树里带着插件那十份技能（基准 harness 必须与被改进对象同源），
+        关于同名技能：基准树里带着插件那批技能（基准 harness 必须与被改进对象同源），
         所以「同名」本身不违规——**同名且内容不同**才违规。dsh 的技能注册表按 rank 合并，
         项目根（rank 100）会盖掉插件的 custom 根（rank 300）：一份被改写的同名技能会
         **静默顶掉**插件里那份，于是分不清是 harness 变好还是技能被换掉了。这条闸把
@@ -623,6 +624,26 @@ class UsineAdapter:
         for rel, body in tree.items():
             if rel == DSH_SURFACE.always_on[0] and not body.strip():
                 errs.append(f"{rel} 是空的：它承载系统提示，空了等于没有系统提示")
+
+        # c5 / c8 的座位在这个宿主上根本没开（`allow_subagents=False`、
+        # `plugin_dir=None`）。提案阶段已经把这两个前缀的文件挡掉了
+        # （`harness2/core/recursion.py:212-224`：`read_tree` 收 `rejected`
+        # 列表，非空就整份提案 `continue` 掉）。**但那是单点防御**：
+        # 这里（适配层的树不变量）此前不查这两个前缀，于是 2026-10-21 实测
+        # 塞一个 `plugin/evil.ts` 进树会**静默通过** `validate_tree`——
+        # 提案阶段的闸一旦被绕过（换执行器、手搓树、`--tree` 直接指过去），
+        # 就没有第二道闸了。提示面对 proposer 说的是「整份提案被拒」，
+        # 那句话在提案阶段是真的；这里补的是同一个事实在适配层的机械形态。
+        for rel in tree:
+            head = rel.split("/", 1)[0]
+            if head in ("sub_agents", "subagents") or (
+                    head == "plugin" or head == "plugins"):
+                errs.append(
+                    f"`{rel}` 不在这个宿主的可编辑面上：c5 子智能体与 c8 插件在 dsh "
+                    f"上被宿主关掉了（`allow_subagents=False` / `plugin_dir=None`），"
+                    f"写进去也不会生效。要复用就用技能（`skills/<name>/SKILL.md`）"
+                    f"或脚本（`scripts/<name>.py`）"
+                )
 
         if errs:
             raise ValueError(" | ".join(errs))

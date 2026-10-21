@@ -3,8 +3,8 @@
 状态：v1 实现完成（2026-10-16）。本文件只记**实现相对设计稿的偏离与
 裁定**，是 v1 当时的记录——其中「usine 保持 Python」「uv 门禁」等表述随
 P7 TS 迁移与 P9 真作用力改造（2026-10-18）失效：现行门禁为 `pnpm verify`，
-现行机制与运行手册见 [../garage/README.md](../garage/README.md)。
-机制、图表与装配次序见 [ARCHITECTURE.md](ARCHITECTURE.md)；跨平台
+现行机制与运行手册见 [../docs/self-evolution.md](../docs/self-evolution.md)。
+机制、图表与装配次序见 [../docs/self-evolution.md](../docs/self-evolution.md) §2；跨平台
 补丁清单见 [PROVENANCE.md](PROVENANCE.md)；POSIX 病根见
 [PORTING-NOTES.md](PORTING-NOTES.md)。本文件的设计稿形态（v0）在 git 历史。
 
@@ -134,7 +134,7 @@ role YAML 的 `system_extra`。干跑实测：435 shingles × 447 源，零碰�
 usine 的 docs 清账门禁（`verify_docs.py` DEAD_PATTERNS）对 **usine 树内**
 `.md` 生效：`USINE_*` 环境变量拼写与 `usine-` 连字符词一律不得出现。适配层
 自己的标记（如 seed 解包回显 `USINE_SEED_RC`、合并事件 `USINE_WAVE_MERGED`）
-**只出现在 théâtre 侧文档**（本文件与 ARCHITECTURE.md，均在门禁与围栏之外）；
+**只出现在 théâtre 侧文档**（本文件与总文档，均在门禁与围栏之外）；
 usine 树内文档（含 [../usine/docs/reference.md](../usine/docs/reference.md)
 的 RSI 定位节）只写「VM 门面拒绝发布类命令」这类不含拼写的表述。
 
@@ -175,7 +175,7 @@ symlink 变更不合并、mode / exec-bit 变更不合并（拒绝如实记录�
 一候选一 commit（identity `theatre-rsi` + trailers），每波 tag
 `theatre/wave-N`，merge_report 落 run root；合并挂 `PHASE1_WAVE_COMPLETED`
 事件**同步**执行——门禁不绿，波不算完。机制与回滚事务见
-[ARCHITECTURE.md](ARCHITECTURE.md) §8。
+[../docs/self-evolution.md](../docs/self-evolution.md) §2.6。
 
 ## 11. v1 验收口径
 
@@ -186,14 +186,14 @@ symlink 变更不合并、mode / exec-bit 变更不合并（拒绝如实记录�
    两处失败均为**假脚本自身 bug**（续轮归座需倒序扫 history；CRLF 按底座
    真实字节断言）——接缝零 bug；全流程 115–128s、8 次 fake 调用严丝合缝、
    记忆 602 字节逐字节吻合、五里程碑事件、tag 落位、真 usine 未动（实录见
-   [ARCHITECTURE.md](ARCHITECTURE.md) §9）
+   [../docs/self-evolution.md](../docs/self-evolution.md) §2.6）
 4. 真 LLM wave 1（烧 MiniMax 额度）：**用户喊跑才跑**
 
 ## 12. 运维备注
 
 - **悬空 `Z:` 盘符**：历史 scratch 泄漏残留（`Z: => D:\.rsi-usine-vm\...`，
   目标目录已回收）。所有 VM 统一回落 `Y:`，行为一致；干跑期间保持不动，
-  收口时 `subst Z: /D` 摘除（教训入 [ARCHITECTURE.md](ARCHITECTURE.md) §5）。
+  收口时 `subst Z: /D` 摘除（教训入 [../docs/self-evolution.md](../docs/self-evolution.md) §2.3）。
 - **防休眠任务**：跑波次期间常驻（长跑不被系统睡眠打断），收口时停。
 - **run root 在仓库外**（RSIAgent 线落 `garage-result`，与 explorateur 同级；
   harness2 线另落 `garage-ii-result`）：events / result / corpus /

@@ -39,8 +39,28 @@ import os
 import sys
 from pathlib import Path
 
+from checks import THEATRE_MARKERS  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 EXPLORATEUR = HERE.parents[0]
+
+
+def _theatre_dirs() -> list[Path]:
+    """`théâtre` 检出，按机器判据找——**不是按目录名前缀**。
+
+    这里曾经写 `p.name.startswith("th")`，而 `theatre-ii/` 也以 th 开头、
+    且与 `théâtre/` 同级。两条线的目录谁先被 `iterdir` 列出谁赢，赢家若是
+    `theatre-ii`，`from config.runtime_paths import ...` 就报
+    `No module named 'config.runtime_paths'`（2026-10-21 实测）——
+    于是这条 smoke 红得跟它要检查的东西（usine 角色配置）毫无关系。
+    判据**真的取自** `checks.THEATRE_MARKERS`，不是抄一遍再声称「共用」。
+    """
+    return [
+        p for p in sorted(EXPLORATEUR.iterdir())
+        if p.is_dir()
+        and all(p.joinpath(*parts).is_file() for parts in THEATRE_MARKERS)
+    ]
+
 
 PASSED = 0
 
@@ -260,10 +280,9 @@ def test_drs_wiring_is_sound(ru) -> None:
     """
     garage = HERE
     sys.path.insert(0, str(garage))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
-        check("théâtre checkout present", False, "no th* directory")
+        check("théâtre checkout present", False, "no env/vm.py + explore/practice_loop.py")
         return
     sys.path.insert(0, str(theatre[0]))
     from config.runtime_paths import normalize_verifier_config_paths
@@ -310,8 +329,7 @@ def test_drs_wiring_is_sound(ru) -> None:
 def _load_phase1_curriculum(ru, garage):
     """Load the Phase-1 breadth curriculum seat on its own."""
     sys.path.insert(0, str(garage))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
         return None
     sys.path.insert(0, str(theatre[0]))
@@ -375,10 +393,9 @@ def test_real_usine_roles_pass(ru, tb) -> None:
     """The shipped role configs must satisfy both gates as committed."""
     garage = HERE
     sys.path.insert(0, str(garage))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
-        check("théâtre checkout present", False, "no th* directory")
+        check("théâtre checkout present", False, "no env/vm.py + explore/practice_loop.py")
         return
     sys.path.insert(0, str(theatre[0]))
     from config.runtime_paths import normalize_verifier_config_paths
@@ -418,10 +435,9 @@ def test_every_plan_slice_is_actually_effective(ru, tb) -> None:
     """
     garage = HERE
     sys.path.insert(0, str(garage))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
-        check("théâtre checkout present", False, "no th* directory")
+        check("théâtre checkout present", False, "no env/vm.py + explore/practice_loop.py")
         return
     sys.path.insert(0, str(theatre[0]))
     from config.runtime_paths import normalize_verifier_config_paths
@@ -481,10 +497,9 @@ def test_drs_seat_selection_is_phase_scoped(ru) -> None:
     """
     garage = HERE
     sys.path.insert(0, str(garage))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
-        check("théâtre checkout present", False, "no th* directory")
+        check("théâtre checkout present", False, "no env/vm.py + explore/practice_loop.py")
         return
     sys.path.insert(0, str(theatre[0]))
     from config.runtime_paths import normalize_verifier_config_paths
@@ -623,10 +638,9 @@ def test_drs_seed_gate_does_not_require_a_clean_worktree(ru) -> None:
     import tempfile
 
     sys.path.insert(0, str(HERE))
-    theatre = [p for p in EXPLORATEUR.iterdir()
-               if p.is_dir() and p.name.startswith("th")]
+    theatre = _theatre_dirs()
     if not theatre:
-        check("théâtre checkout present", False, "no th* directory")
+        check("théâtre checkout present", False, "no env/vm.py + explore/practice_loop.py")
         return
     sys.path.insert(0, str(theatre[0]))
     import wave_merge

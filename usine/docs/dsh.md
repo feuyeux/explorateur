@@ -192,7 +192,7 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 | seq | 事件 | 关键内容 |
 |---|---|---|
 | 13 / 14 | `tool/call` → `tool/result` | `usine_version` 返回 `{"ok":true,"status":"ok",…}`——统一契约在真宿主里生效 |
-| 15 / 16 | `tool/call` → `tool/result` | `usine_verify` 真跑 typecheck + vitest：43 文件 / 563 测试全绿，`detail.exit_code=0` |
+| 15 / 16 | `tool/call` → `tool/result` | `usine_verify` 真跑 typecheck + vitest：43 文件 / 563 测试全绿（**2026-10-20 当时的读数**，不是现值），`detail.exit_code=0` |
 | 20 / 21 | `tool/call` → `tool/result` | `usine_quota` 只读额度查询（video 线 100%） |
 | 25 | `tool/call` | `usine_video_generation` `action=submit`——**模型真发起**（不是「应该会发起」） |
 | 26 | `approval/asked` | `toolName=usine_video_generation`，reason 是完整中文审批卡（模型 / 提示词 / 画幅 / 时长 / 分辨率 / 预估消耗） |

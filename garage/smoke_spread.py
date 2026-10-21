@@ -158,9 +158,12 @@ def test_history_extracts_packages(spread) -> None:
         check("history: a commit without the trailer is not an RSI merge",
               state["history_commits"] == 1, str(state["history_commits"]))
         # A DRS commit carries its own trailer and its own unit name.
+        # 顶层文件的夹具名是**中性的**：这里只验「顶层文件被归成 other」，
+        # 用一个像真报告的名字会留下 `WORDING_CHANGE_REPORT.md` 这种假产物
+        # （曾经真的留下过，被当成真报告入库了一次）。
         _commit(repo, _wave_message(1, "Drs"), {
             "packages/karaoke/src/index.ts": "export const z = 3;\n",
-            "WORDING_CHANGE_REPORT.md": "one line\n",
+            "NOTES.md": "one line\n",
             "skills/video-generation/SKILL.md": "howto\n",
         })
         state = spread.build_spread_state(repo, spread.SpreadConfig())

@@ -18,7 +18,7 @@
 | `languages/` | 语种注册表：14 语种 manifest（字体栈 / 国旗 / 书写方向 / 引号对） |
 | `personas/` | 人设目录：28 人班底 + schema / 声库 / 视觉 / 选角文档 |
 | [docs/](docs/) | 全部文档（工作流/工具链 + playbook 系列） |
-| `skills/` | 自建 SKILL 资产（10 个，总路由见 [skills/README.md](skills/README.md)），机器侧以软链挂到 `~/.agents/skills/`（只放软链，不存实体） |
+| `skills/` | 自建 SKILL 资产（11 个，总路由见 [skills/README.md](skills/README.md)），机器侧以软链挂到 `~/.agents/skills/`（只放软链，不存实体） |
 | `examples/` | 内容项目产物示例（yiyezhiqiu 等：诗稿 / 文案 / 数据 / 设计稿 / H3 母版——母版不可再生） |
 
 ## packages/ 模块地图（三层归属）

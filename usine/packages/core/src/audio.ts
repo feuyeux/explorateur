@@ -11,17 +11,8 @@
 // `atrim` 只裁不补：amix 的输出止于最长行的**原始 mp3 尾**（非裁尾时长）。
 import { execFileSync } from "node:child_process"
 
-import { FeuilleError } from "./errors.js"
 import { pyFloat, roundHalfEven } from "./num.js"
-import { ffmpeg as resolveFfmpeg, ffprobe as resolveFfprobe } from "./platform.js"
-
-function requireTool(tool: string | null, what: string): string {
-  // resolver 拿不到就显式报缺，绝不退化「用系统默认」。
-  if (tool === null) {
-    throw new FeuilleError(`缺 ${what}（resolver 未找到；缺件清单见 platform.missing()）`)
-  }
-  return tool
-}
+import { ffmpeg as resolveFfmpeg, ffprobe as resolveFfprobe, requireTool } from "./platform.js"
 
 /** 构建 filter_complex 字符串（纯函数，供 composeTrack 与反向验证共用）。
  *

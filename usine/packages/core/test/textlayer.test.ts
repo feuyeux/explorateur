@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import sharp from "sharp"
 
 import { matteCombineBuffer } from "../src/imaging/matte.js"
-import { edgeScreenshot, page, resetDeficitCacheForTests } from "../src/textlayer.js"
+import { edgeScreenshot, page, resetDeficitCacheForTests, shotTarget } from "../src/textlayer.js"
 
 const tmpRoots: string[] = []
 function tmp(): string {
@@ -98,7 +98,31 @@ describe("matte 数学：合成夹具精确还原（verify_textlayer §1 移植�
 // 「退出码 0 + 不产出文件 + 不报错」的静默失败。用**假浏览器**把真实调用路径上的
 // 实参录下来，所以不需要真浏览器，也不受平台宽容度影响（真 Chrome 在 macOS 上可能
 // 容忍相对路径，那样用真浏览器验不出修前红）。
+//
+// 假浏览器是一段 `/bin/sh` 脚本：**Windows 上无法作为可执行文件被 spawn**
+// （CreateProcess 只跑 PE 镜像，`execFileSync` 直接 EFTYPE）。所以两条断言分开承载：
+// `shotTarget` 那条（两条不变式本身）**三系统都跑**；端到端那条只在能执行 sh 脚本的
+// 主机上跑，Windows 上如实 SKIP——**SKIP 不是 PASS**，报告里必须记为跳过。
 describe("截图输出路径：交给浏览器的 --screenshot 必须绝对（相对路径静默不落盘）", () => {
+  it("shotTarget：相对路径 → 绝对路径，且父目录被建出来（三系统都跑的不变式）", () => {
+    const d = tmp()
+    const cwd = process.cwd()
+    const workdir = join(d, "work")
+    mkdirSync(workdir, { recursive: true })
+    process.chdir(workdir)
+    let got: string
+    try {
+      got = shotTarget(join("out", "nested", "rel.png"))
+    } finally {
+      process.chdir(cwd)
+    }
+    // macOS 的 /var 是 /private/var 的软链，比对前先取真实 cwd（同下条用例）
+    const realWorkdir = resolve(workdir)
+    expect(isAbsolute(got)).toBe(true)
+    expect(got).toBe(join(realWorkdir, "out", "nested", "rel.png"))
+    expect(existsSync(join(realWorkdir, "out", "nested"))).toBe(true)
+  })
+
   /** 假浏览器：`--dump-dom` 回视口探针，`--screenshot=` 复制夹具 png 并把实参记下来。 */
   function fakeBrowser(dir: string, fixture: string, argvLog: string): string {
     const sh = join(dir, "fake-browser.sh")
@@ -120,44 +144,47 @@ describe("截图输出路径：交给浏览器的 --screenshot 必须绝对（�
     return sh
   }
 
-  it("相对 outPng → 浏览器收到绝对路径，父目录被建出来，文件真落盘", async () => {
-    const d = tmp()
-    const fixture = await sharp({
-      create: { width: 200, height: 100, channels: 3, background: "#336699" },
-    }).png().toBuffer()
-    const fixPath = join(d, "fixture.png")
-    writeFileSync(fixPath, fixture)
-    const argvLog = join(d, "argv.log")
-    const browser = fakeBrowser(d, fixPath, argvLog)
+  it.skipIf(process.platform === "win32")(
+    "相对 outPng → 浏览器收到绝对路径，父目录被建出来，文件真落盘",
+    async () => {
+      const d = tmp()
+      const fixture = await sharp({
+        create: { width: 200, height: 100, channels: 3, background: "#336699" },
+      }).png().toBuffer()
+      const fixPath = join(d, "fixture.png")
+      writeFileSync(fixPath, fixture)
+      const argvLog = join(d, "argv.log")
+      const browser = fakeBrowser(d, fixPath, argvLog)
 
-    // 关键：**相对**输出路径，且父目录一开始不存在（两条静默失败同时出现）
-    const cwd = process.cwd()
-    const workdir = join(d, "work")
-    mkdirSync(workdir, { recursive: true })
-    process.chdir(workdir)
-    // chdir 后取真实 cwd：macOS 的 /var 是 /private/var 的软链，process.cwd() 会给出
-    // 真实路径，直接拿 tmpdir() 的原始串比对会假红。
-    const realWorkdir = process.cwd()
-    let got: string
-    try {
-      got = await edgeScreenshot(page(200, 100, "<b>x</b>"), join("out", "rel.png"), {
-        width: 200, canvasH: 100, browser,
-      })
-    } finally {
-      process.chdir(cwd)
-    }
+      // 关键：**相对**输出路径，且父目录一开始不存在（两条静默失败同时出现）
+      const cwd = process.cwd()
+      const workdir = join(d, "work")
+      mkdirSync(workdir, { recursive: true })
+      process.chdir(workdir)
+      // chdir 后取真实 cwd：macOS 的 /var 是 /private/var 的软链，process.cwd() 会给出
+      // 真实路径，直接拿 tmpdir() 的原始串比对会假红。
+      const realWorkdir = process.cwd()
+      let got: string
+      try {
+        got = await edgeScreenshot(page(200, 100, "<b>x</b>"), join("out", "rel.png"), {
+          width: 200, canvasH: 100, browser,
+        })
+      } finally {
+        process.chdir(cwd)
+      }
 
-    // 1. 调用方拿到的是绝对路径
-    expect(isAbsolute(got)).toBe(true)
-    expect(got).toBe(join(realWorkdir, "out", "rel.png"))
-    // 2. 浏览器收到的 --screenshot 实参也是绝对路径（修前这里是 "out/rel.png"）
-    const passed = readFileSync(argvLog, "utf8").trim().split("\n")
-    expect(passed).toHaveLength(1)
-    expect(isAbsolute(passed[0]!)).toBe(true)
-    expect(passed[0]).toBe(got)
-    // 3. 父目录确实被建了，文件确实存在（不是「退出 0 就当真」）
-    expect(existsSync(got)).toBe(true)
-  })
+      // 1. 调用方拿到的是绝对路径
+      expect(isAbsolute(got)).toBe(true)
+      expect(got).toBe(join(realWorkdir, "out", "rel.png"))
+      // 2. 浏览器收到的 --screenshot 实参也是绝对路径（修前这里是 "out/rel.png"）
+      const passed = readFileSync(argvLog, "utf8").trim().split("\n")
+      expect(passed).toHaveLength(1)
+      expect(isAbsolute(passed[0]!)).toBe(true)
+      expect(passed[0]).toBe(got)
+      // 3. 父目录确实被建了，文件确实存在（不是「退出 0 就当真」）
+      expect(existsSync(got)).toBe(true)
+    },
+  )
 
   it("凿洞：rel 路径直接喂浏览器（修前写法）→ 实参不是绝对路径", () => {
     // 把修前的行为原样复现一遍：证明上面那条断言不是恒真。

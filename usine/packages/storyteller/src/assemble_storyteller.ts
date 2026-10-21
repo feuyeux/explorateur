@@ -25,11 +25,7 @@ import { FeuilleError, roundHalfEven, audio, platform } from '@feuille/core'
 type Cfg = Record<string, any>
 
 function ffmpegBin(): string {
-  const got = platform.ffmpeg()
-  if (!got) {
-    throw new FeuilleError('找不到 ffmpeg（feuille.platform 解析）')
-  }
-  return got
+  return platform.requireTool(platform.ffmpeg(), 'ffmpeg')
 }
 
 /** Python sh() 同款：失败/超时把尾部 stderr 报出来。 */

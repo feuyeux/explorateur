@@ -29,11 +29,7 @@ import { FeuilleError, audio, platform } from '@feuille/core'
 const FPS = 30
 
 function ffmpegBin(): string {
-  const got = platform.ffmpeg()
-  if (!got) {
-    throw new FeuilleError('找不到 ffmpeg（feuille.platform 解析；请安装后重跑）')
-  }
-  return got
+  return platform.requireTool(platform.ffmpeg(), 'ffmpeg')
 }
 
 /** Python sh() 同款：失败/超时把尾部 stderr 报出来（FeuilleError → stderr + 1）。 */

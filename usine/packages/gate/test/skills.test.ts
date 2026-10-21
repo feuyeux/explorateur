@@ -41,7 +41,12 @@ function parseSkill(path: string): [{ name: string; description: string }, strin
   // 切出 frontmatter 与正文。frontmatter 只解 name/description 两个键。
   // **永远返回两个键**（缺失时为空串）——门禁自己崩溃比门禁 FAIL 更糟：
   // 崩溃会让人以为「环境坏了」而跳过它，FAIL 才会被人修。
-  const text = readFileSync(path, 'utf-8')
+  //
+  // **CRLF 必须先归一**：正则按 `\n` 切分隔符，而 Windows 上的编辑器 / 脚本回写
+  // 很容易把文件变成 CRLF。不归一的表现不是「报错」而是「name 解出空串」——
+  // 2026-10-21 踩过一次：一份 CRLF 的 SKILL.md 让门禁报「声明的是 ""」，
+  // 而文件第一行的 `name:` 明明写得好好的，人只会去查那个字段。
+  const text = readFileSync(path, 'utf-8').replace(/\r\n/g, '\n')
   const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!m) return [{ name: '', description: '' }, text]
   const head = m[1]!
@@ -249,34 +254,53 @@ function checkSharedExampleAssets(): Row[] {
   // 手工约定没有机检兜底，改了漏了不会被发现，就成了
   // 「同一事实写在两处各自漂移」。README.md 豁免：各 skill 的 example
   // 目录各说各的事，本来就不该一致。
-  const byName = new Map<string, string[]>()
-  const walk = (dir: string) => {
+  //
+  // **按 skill 分桶，不按文件名全局配对**（2026-10-21 修）：本意是「同一个文件
+  // 被两个 skill 各存一份」，所以配对必须在**不同 skill 之间**做。原先的实现把
+  // 全树同名文件两两比，于是在 `vocab-infographic/assets/example/<词>/` 里
+  // 一比就炸——那 10 个词目录各自有 `prompt.md`，**内容本来就该各不相同**
+  // （每个词一张图鉴）。那是「同一类文件」，不是「同一份事实」。
+  //
+  // 而且**同一个 skill 内不配对**：一个 skill 的 example 可以按主题分很多子目录，
+  // 每份本来就不同。只有跨 skill 的同名文件才承诺「是同一份事实」。
+  const bySkill = new Map<string, Map<string, string[]>>()
+  const walk = (dir: string, acc: Map<string, string[]>) => {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
-      if (ent.isDirectory()) {
-        if (ent.name !== 'example') walk(join(dir, ent.name))
-      } else if (ent.isFile() && ent.name !== 'README.md') {
-        const list = byName.get(ent.name) ?? []
+      if (ent.isDirectory()) walk(join(dir, ent.name), acc)
+      else if (ent.isFile() && ent.name !== 'README.md') {
+        const list = acc.get(ent.name) ?? []
         list.push(join(dir, ent.name))
-        byName.set(ent.name, list)
+        acc.set(ent.name, list)
       }
     }
   }
   for (const d of skillDirs()) {
     const ex = join(SKILLS, basename(d), 'assets', 'example')
-    if (existsSync(ex)) walk(ex)
+    if (!existsSync(ex)) continue
+    const acc = new Map<string, string[]>()
+    walk(ex, acc)
+    bySkill.set(basename(d), acc)
   }
-  const shared = [...byName.entries()].filter(([, ps]) => ps.length > 1)
+  const groups: string[][] = []
+  const names = new Set<string>()
+  for (const acc of bySkill.values()) for (const n of acc.keys()) names.add(n)
+  for (const n of names) {
+    const across = [...bySkill.values()]
+      .map((acc) => acc.get(n)?.[0])
+      .filter((p): p is string => Boolean(p))
+    if (across.length > 1) groups.push(across)
+  }
   const drifted: string[] = []
-  for (const [fname, paths] of shared) {
+  for (const paths of groups) {
     const first = readFileSync(paths[0]!)
     for (const p of paths.slice(1)) {
       if (Buffer.compare(readFileSync(p), first) !== 0) {
-        drifted.push(`${fname}: ${relative(SKILLS, p)} 与 ${relative(SKILLS, paths[0]!)} 不一致`)
+        drifted.push(`${basename(p)}: ${relative(SKILLS, p)} 与 ${relative(SKILLS, paths[0]!)} 不一致`)
       }
     }
   }
   return [[!drifted.length,
-    `跨 skill 共享的 example 副本逐字节一致（${shared.length} 组共享文件）`
+    `跨 skill 共享的 example 副本逐字节一致（${groups.length} 组共享文件）`
     + (drifted.length ? `　**漂移 ${drifted}**` : '')]]
 }
 
