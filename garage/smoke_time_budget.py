@@ -14,7 +14,7 @@ deliberately offline — it spends no token and starts no VM:
     run — the budget module would be the thing that breaks the pipeline)
   * time_budget.plan_budget: an oversized or degenerate plan fails closed
     instead of silently running over its ceiling
-  * time_budget.apply_slices: every seat's wall clock is clamped to its
+  * time_budget.apply_slices: every seat's time limit is clamped to its
     slice, and an already-TIGHTER seat budget is never loosened
   * time_budget.WaveDeadline: reports remaining/expired and produces a stop
     reason naming the ceiling
@@ -116,9 +116,18 @@ def test_plan_fits_default_ceiling(tb) -> None:
     check("default slice plan fits the default ceiling", plan.fits,
           f"planned {plan.planned_total_secs}s <= "
           f"{plan.ceiling_secs}s (slack {plan.slack_secs}s)")
-    check("default ceiling is twenty-five minutes",
-          tb.DEFAULT_RUN_CEILING_SECS == 1500,
+    # 2026-10-21: 1500s → 1700s（二十八分钟）。出题席的 Phase-1 切片从 280s
+    # 抬到 400s（对齐它自己声明的 wall_clock_secs 与 DRS 的同口径），
+    # 席位合计 1520s + 100s 余量 = 1620s，原来的 1500s 装不下。
+    # 依据：foodnames-video 那一波，出题席在 280s 切片上被杀，一题都没出。
+    check("default ceiling is twenty-eight minutes",
+          tb.DEFAULT_RUN_CEILING_SECS == 1700,
           f"{tb.DEFAULT_RUN_CEILING_SECS}s")
+    # 出题席的 Phase-1 切片必须 ≥ 它单次响应的实测中位数（211.5s）——
+    # 比这个还短的切片不是预算，是抛硬币。
+    check("the curriculum slice covers one median gateway round trip",
+          tb.DEFAULT_SLICES["curriculum"] >= 400,
+          str(tb.DEFAULT_SLICES["curriculum"]))
     check("every seat has a positive slice",
           all(value > 0 for value in plan.slices.values()),
           str(plan.slices))
@@ -233,7 +242,7 @@ def test_drs_plan_is_its_own_allocation(tb) -> None:
 
     # The curriculum's FIRST response has been measured at 50.6s / 108.2s /
     # 138.7s / 322s / >300s at the same effort, and a stalled request IS
-    # charged to the seat's wall clock — bfs16d lost the curriculum seat that
+    # charged to the seat's time budget — bfs16d lost the curriculum seat that
     # way (344s spent on one timed-out first response against a 170s slice).
     check("the DRS curriculum slice covers the measured gateway tail",
           tb.DRS_SLICES["curriculum"] >= 322,
@@ -493,7 +502,7 @@ def test_drs_seat_selection_is_phase_scoped(ru) -> None:
 
     A seat-selection bug here is silent and expensive: the run would start,
     the brief would be unbounded, and the failure would only surface after
-    the Actor's whole wall clock.  So both directions are pinned.
+    the Actor's whole time budget.  So both directions are pinned.
     """
     garage = HERE
     sys.path.insert(0, str(garage))
@@ -549,7 +558,7 @@ def test_drs_fixture_capture_seeds_the_guest(ru) -> None:
 
     Measured 2026-10-20 (bfs16h): the DRS Actor's owned root held ONLY the
     Curriculum's two fixture files — no package.json, no packages/, no
-    source — and the Actor spent its wall clock hunting for a repository
+    source — and the Actor spent its time budget hunting for a repository
     that was not there.  Every DRS run before this died the same way, with
     an unchanged memory tree.
     """

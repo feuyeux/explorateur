@@ -66,8 +66,12 @@ max_nudges: 25
 # curriculum to a 344s timed-out first response (the gateway's tail reaches
 # 322s at the same effort, and a stalled request IS charged to the seat's
 # time limit).  400s >= 322s (worst first response) + 2x40s (tail rounds).
-# Phase 1 is unaffected: its own slice is 280s, so apply_slices clamps this
-# seat back down to 280s for the breadth wave.
+# Phase 1 is now 400s too (2026-10-21 measured: the foodnames-video wave lost
+# the curriculum seat on the old 280s slice — first response 207s + a second
+# round 74s, and not a single project was authored; the seat's own history has
+# a p50 of 211.5s. A slice shorter than the median single response is not a
+# budget, it is a coin flip).  The seat's declared 400s and the Phase-1 slice
+# are now the same number, so apply_slices no longer clamps it down.
 wall_clock_secs: 400
 history_keep_pairs: 80
 keep_chars: 500000
@@ -205,6 +209,14 @@ system_extra: |
   'food names' video line ships 12 finished episodes and every one of them has
   the same five visible defects.  The numbers below are measurements, not
   opinions; they come from the two gates in tools/foodnames/.
+
+  **DO NOT RECON.  Author this wave now.**  Everything you need is in this
+  brief: the target directory, the file names, the defects, the measured
+  numbers, the acceptance command.  The first program you write should be the
+  one that publishes the wave.  (2026-10-21 measured: the wave before this one
+  spent its whole curriculum slice on two recon programs - 207s for the first
+  response, 74s for the second - and died at the 280s slice having authored
+  nothing.  A recon round here buys nothing: the files are named below.)
 
   D1  THE SENTENCE ON SCREEN IS NOT THE SENTENCE IN THE AUDIO  (worst).
       build_episode.mjs replaces the FIRST token of every sentence with the

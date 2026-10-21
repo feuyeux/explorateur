@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""time_budget.py — one hard wall-clock ceiling per RSI run.
+"""time_budget.py — one hard time ceiling per RSI run.
 
 Why this module exists
 ----------------------
@@ -66,15 +66,15 @@ from pathlib import Path
 # guaranteed abort — so the standing rule follows the measurement.  Pass
 # --run-ceiling-secs explicitly to go lower or higher; it is always recorded
 # in the manifest, never implicit.
-DEFAULT_RUN_CEILING_SECS = 1500
+DEFAULT_RUN_CEILING_SECS = 1700
 
-# The DRS (Phase 2) run ceiling.  Phase 1 keeps the operator's twenty-five
+# The DRS (Phase 2) run ceiling.  Phase 1 keeps the operator's twenty-eight
 # minutes; the DRS is a DIFFERENT job and does not fit in it — this is
 # arithmetic, not taste.  Measured 2026-10-20 (bfs16 phase 2 / bfs16f):
 #
 #   * curriculum review : 152s of work, but its FIRST response alone has been
 #     measured at 50.6s / 108.2s / 138.7s / 322s / >300s at the same effort
-#     on this gateway, and a stall is charged to the seat's wall clock (the
+#     on this gateway, and a stall is charged to the seat's time budget (the
 #     bfs16d attempt lost the curriculum seat that way: 344s spent on one
 #     timed-out first response against a 170s slice).
 #   * actor              : 805s (bfs16f: 31 iterations, four deliverables,
@@ -97,7 +97,7 @@ DRS_RUN_CEILING_SECS = 2100
 # not targets; the engine charges only what it actually uses.
 #   curriculum : authoring one wave.  Authoring starts with one expensive
 #                first response (measured 50.6s..322s) and then runs cheap
-#                rounds: bfs5 measured 14 iterations in 204.6s of wall clock
+#                rounds: bfs5 measured 14 iterations in 204.6s of elapsed time
 #                with 0.3-0.5s of tool execution each, i.e. ~14.6s a
 #                round-trip.  So this slice buys one worst-case first
 #                response PLUS a realistic authoring tail.
@@ -119,11 +119,11 @@ DRS_RUN_CEILING_SECS = 2100
 # The accounting that fixes this split (measured, bfs10-bfs14 2026-10-19):
 #   * ONE project costs TWO Actor segments — the handoff segment (do the
 #     work) and the fresh-replay segment (a new context re-runs the
-#     candidate) — and the seat's wall clock is a BUDGET SHARED ACROSS
+#     candidate) — and the seat's time budget is a BUDGET SHARED ACROSS
 #     SEGMENTS (practice_loop.py: remaining_wall = wall_clock_secs -
 #     used_wall).  So the actor slice must cover BOTH segments, not one.
 #   * ONE wave runs its projects in parallel (max_parallel workers), so a
-#     wave of N projects costs ONE round of actor wall clock, not N.
+#     wave of N projects costs ONE round of actor time, not N.
 #   * bfs10's 6-project wave at 2-way parallelism needed 3 rounds of actor
 #     seats — 2100s of actor time inside a 1500s run.  The Curriculum's
 #     wave width is agent-owned (wave_width_agent_owned) and the engine has
@@ -170,8 +170,18 @@ DRS_RUN_CEILING_SECS = 2100
 # least one full worst-case round trip plus the work that follows it — the
 # runs that died were all killed by a slice expiring before the model had
 # answered once, never by the work being too large.
+#
+# 2026-10-21（foodnames-video 这一波）：出题席的 280s 切片**当场不够用**。
+# 实测：首响应 207s（网关慢尾）、第二轮 74s，席位在 280s 处被杀，**一题都没出**
+# （wave 状态 safety_ceiling，整波零产出）。时延预检早就写了同一件事：
+# 出题席 20 段历史的 p50 = 211.5s、max = 728.5s——**单次响应的中位数就吃掉了
+# 280s 切片的四分之三**，切片吸收不了这个波动。
+# 口径对齐 DRS：DRS 的出题席切片本来就是 400s（同一张网关、同一档位），
+# Phase-1 却压在 280s 上——那是**同一台机器的两种口径**。现在两边都是 400s。
+# 连带的是 run ceiling：席位合计 400+580+420+120 = 1520s，加 100s 余量 = 1620s，
+# 原来的 1500s 上限装不下 → 上限抬到 1700s（余量 80s）。
 DEFAULT_SLICES = {
-    "curriculum": 280,
+    "curriculum": 400,
     "actor": 580,
     "verifier": 420,
     "merge": 120,
@@ -200,7 +210,7 @@ DEFAULT_SLICES = {
 #
 # The curriculum slice carries the gateway's measured FIRST-RESPONSE tail
 # (up to 322s at the same effort, and a stalled request IS charged to the
-# seat's wall clock — the bfs16d attempt spent 344s on one timed-out first
+# seat's time budget — the bfs16d attempt spent 344s on one timed-out first
 # response and lost the curriculum seat against a 170s slice).
 #
 # Phase 2 does NOT merge into the usine tree: the serial core emits
