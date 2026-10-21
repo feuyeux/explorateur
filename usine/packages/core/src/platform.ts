@@ -14,9 +14,11 @@
 // - Python os.path.expanduser/expandvars → Node 无内建等价物，这里实现最小版：
 //   `~` 前缀展开 + `$VAR`/`${VAR}`/`%VAR%`（Windows 候选用 %USERNAME%）。
 // - shutil.which → PATH 逐目录扫描（Windows 加 PATHEXT 扩展名补全）。
-import { existsSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, delimiter, join, resolve } from 'node:path'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 
 import { FeuilleError } from './errors.js'
 
@@ -144,6 +146,83 @@ export function browser(only?: string): [string, string] | null {
 
 export function browserPath(only?: string): string | null {
   return browser(only)?.[1] ?? null
+}
+
+// ---------------------------------------------------------------- 视口亏空
+/**
+ * `--window-size=W,H` 给的是**窗口**尺寸，Chromium 的实际**视口**往往更矮：
+ * 2026-10-22 实测本机 Chrome 155，`innerHeight = 窗口高 − 95` CSS px。
+ * 差值随浏览器版本/机器变，**写死常数迟早过期**——过期那天不会报错，
+ * 只会把画布底部一整条渲成底色（画面看起来「只是矮了一点」）。
+ *
+ * 2026-10-20 Chrome 自动升级到 155 之后，foodnames 12 期全卡在
+ * `poster verify-colors` 的「grid not found」：海报网格的底边正好落在
+ * 被切掉的 95px 里。视频帧没中招（走 textlayer 那条路，它早有补偿）。
+ *
+ * **这里探一次、之后按浏览器路径 memoize**：探针页只报 `innerHeight` 与
+ * `document.documentElement.clientWidth`（后者是**排版宽度**，不含滚动条）。
+ *
+ * 为什么宽度那一项常常是 0：`innerWidth` 含滚动条、`clientWidth` 不含，
+ * 而 `--hide-scrollbars` 让排版宽度等于窗口宽——所以补偿宽度反而会把
+ * 居中内容整体推开（实测：窗口 +16 → 海报右移 8px，网格竖线从 101 变 117）。
+ * **只补高度**是稳的那条。
+ */
+export interface ViewportDeficit {
+  /** 要额外加到窗口宽度上的 px（排版宽度比窗口窄多少）。 */
+  width: number
+  /** 要额外加到窗口高度上的 px（视口比窗口矮多少）。 */
+  height: number
+}
+
+const viewportDeficitCache = new Map<string, ViewportDeficit>()
+
+/** 探针窗口尺寸：够大够小都试不出差别（实测 4 种尺寸的亏空完全相同）。 */
+const PROBE_W = 1080
+const PROBE_H = 300
+
+export function viewportDeficit(browser?: string | null): ViewportDeficit {
+  const b = browser ?? browserPath()
+  if (!b) return { width: 0, height: 0 }
+  const cached = viewportDeficitCache.get(b)
+  if (cached) return cached
+  const deficit: ViewportDeficit = { width: 0, height: 0 }
+  const dir = join(tmpdir(), `feuille-vp-probe-${process.pid}`)
+  const probe = join(dir, 'probe.html')
+  try {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      probe,
+      `<!doctype html><meta charset="utf-8"><title>VP</title>`
+      + `<script>document.title='VP '+window.innerHeight+'x'+document.documentElement.clientWidth</script>`,
+      'utf8',
+    )
+    const dom = execFileSync(
+      b,
+      ['--headless=new', '--disable-gpu', ...HEADLESS_FLAGS,
+        `--window-size=${PROBE_W},${PROBE_H}`, '--virtual-time-budget=800', '--dump-dom',
+        pathToFileURL(probe).href],
+      { timeout: 60_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+    const m = /<title>VP (\d+)x(\d+)<\/title>/.exec(dom)
+    if (m) {
+      deficit.height = Math.max(0, PROBE_H - Number.parseInt(m[1]!, 10))
+      deficit.width = Math.max(0, PROBE_W - Number.parseInt(m[2]!, 10))
+    }
+  } catch {
+    // 探不到就按「没有亏空」处理：渲染照常跑，最坏是底部少一条，
+    // **不许在这里抛**——浏览器探测失败不该把整条产线带崩。
+    deficit.width = 0
+    deficit.height = 0
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+  viewportDeficitCache.set(b, deficit)
+  return deficit
+}
+
+/** 测试用：清掉亏空缓存（换浏览器版本后要重新探）。 */
+export function resetViewportDeficitCacheForTests(): void {
+  viewportDeficitCache.clear()
 }
 
 /**

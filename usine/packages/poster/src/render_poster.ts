@@ -16,15 +16,16 @@
 // 另：`--force-device-scale-factor` 保留本入口自己的 $S（海报要 2x 出图），
 // textlayer 固定 1 是因为它要 png 尺寸严格等于窗口尺寸。
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import sharp from 'sharp'
 import { platform } from '@feuille/core'
 
 /** 兜底超时（秒）。与 karaoke 同量级：够渲完一页，也短到挂死时能响亮地失败。 */
 const RENDER_TIMEOUT_SECS = 180
 
-export function main(argv: string[]): number {
+export async function main(argv: string[]): Promise<number> {
   if (argv.length < 2) {
     console.error('usage: feuille poster render <in.html[?query]> <out.png> [css_width] [css_height] [scale]')
     return 2
@@ -55,12 +56,26 @@ export function main(argv: string[]): number {
     return 1
   }
 
+  // 视口亏空补偿：`--window-size` 给的是窗口尺寸，实际视口更矮（本机 Chrome 155
+  // 实测矮 95 CSS px）。不补这一下，画布底部一整条不会被画上——海报网格的底边
+  // 正好落在那儿，`poster verify-colors` 立刻报「grid not found」。
+  //
+  // 亏空是**探出来的**，不是写死的（浏览器自动升级就会变）。只补高度：宽度补了
+  // 会把居中内容整体推开（实测海报网格竖线从 101 挪到 117）。
+  // 补完把 PNG 裁回 w*scale × h*scale（内容锚在左上角）。
+  const deficit = platform.viewportDeficit(browser)
+  const wantW = Number(w) * Number(s)
+  const wantH = Number(h) * Number(s)
+
   const args = [
     '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
     '--no-sandbox', '--hide-scrollbars',
     '--virtual-time-budget=10000',
-    `--window-size=${w},${h}`, `--force-device-scale-factor=${s}`,
-    `--screenshot=${out}`, pathToFileURL(resolve(inArg)).href + qs,
+    `--window-size=${Number(w) + deficit.width},${Number(h) + deficit.height}`,
+    `--force-device-scale-factor=${s}`,
+    // 相对路径的 --screenshot 在 Windows 上会**静默失败**（退出 0、文件不落盘，
+    // Chrome 按自己的 cwd 解析路径）——统一给绝对路径。
+    `--screenshot=${resolve(out)}`, pathToFileURL(resolve(inArg)).href + qs,
   ]
   // timeout 是 spawnSync 自己的选项：三系统都有，不依赖外部 GNU coreutils。
   const r = spawnSync(browser, args, {
@@ -77,6 +92,16 @@ export function main(argv: string[]): number {
     console.error('关掉桌面浏览器后重试。')
     return 1
   }
-  console.log(`wrote ${out} (${Number(w) * Number(s)}x${Number(h) * Number(s)})`)
+  // 裁回画布尺寸（补亏空后 PNG 更大；内容锚在左上角，裁左上即可）。
+  const meta = await sharp(out).metadata()
+  if (meta.width !== wantW || meta.height !== wantH) {
+    if (meta.width! < wantW || meta.height! < wantH) {
+      console.error(`渲染结果比画布还小：(${meta.width}, ${meta.height}) < (${wantW}, ${wantH})——视口亏空补偿没兜住`)
+      return 1
+    }
+    const buf = await sharp(out).extract({ left: 0, top: 0, width: wantW, height: wantH }).png().toBuffer()
+    writeFileSync(out, buf)
+  }
+  console.log(`wrote ${out} (${wantW}x${wantH})`)
   return 0
 }

@@ -532,11 +532,18 @@ ${DUMP_RECTS_JS}
 let CHROME = '' // main 里解析（模块级可变，镜像 Python global）
 
 /** 参数与 library 的 `textlayer._shot_args` 对齐（实测过的组合）。
- * ⚠ 不要加 --user-data-dir：macOS + Edge 上带它图能出来但进程永不退出。 */
+ * ⚠ 不要加 --user-data-dir：macOS + Edge 上带它图能出来但进程永不退出。
+ *
+ * **窗口高度要补视口亏空**（core/platform.ts 的 viewportDeficit，实测值随浏览器
+ * 版本变）：不补的话，实际视口比请求的窗口矮一截，**多音节测量页的末尾音节
+ * 会掉出视口**——它的墨迹掩膜被切，量出来的连通域就是残的（2026-10-22 实测：
+ * Chrome 155 的亏空是 95 CSS px，三音节词（例：초콜릿）的第三个音节正好在
+ * 被切掉的区间里）。页面本身不变，DOM rect 仍然正确；补的是**窗口**。 */
 function renderChrome(url: string, w: number, h: number, out: string | null, dom = false): string {
+  const deficit = platform.viewportDeficit(CHROME || null)
   const args = [CHROME, '--headless=new', '--disable-gpu',
     ...platform.HEADLESS_FLAGS, '--no-sandbox',
-    '--virtual-time-budget=10000', `--window-size=${w},${h}`,
+    '--virtual-time-budget=10000', `--window-size=${w},${h + deficit.height}`,
     '--force-device-scale-factor=1', '--hide-scrollbars']
   if (dom) args.push('--dump-dom', url)
   else args.push(`--screenshot=${out}`, url)

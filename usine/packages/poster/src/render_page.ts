@@ -1,23 +1,28 @@
 // render_page.ts — Windows 渲染/倒 DOM 助手（Edge headless=new）。
 // （promoted from skills/one-page-poster/scripts/render_page.py，P5-7e 归流）
 //
-// 与 render_poster（macOS/Linux）成对；同样两件活，外加本机探明的 Windows Edge
-// quirk 补偿：
+// 与 render_poster（macOS/Linux）成对；同样两件活，外加 Windows 上探明的
+// 窗框开销补偿：
 //
-//   --window-size 自带常量窗框开销 (24, 93) CSS px（Win10 x64 Edge
-//   --headless=new，双倍尺寸探针：inner = window - 24/93；内容锚在设备
-//   (0,0)，底色带只出现在右/下）。把窗口放大开销量，再把 PNG 裁回
-//   w*scale x h*scale。新机器/新浏览器上要重新探：渲一页 CSS 尺寸恰为
-//   W x H 的实心底色探针页、--window-size=W,H、scale 1，量内容边界——
-//   不要在别的环境盲信这两个常数。
+//   --window-size 给的是**窗口**尺寸，实际**视口**更矮（本机 Chrome 155 实测
+//   矮 95 CSS px）。**这个差值随浏览器版本变，写死的常数会过期**——过期那天
+//   不报错，只会把画布底部一整条渲成底色（画面看起来「只是矮了一点」）。
+//   2026-10-20 Chrome 自动升级到 155 之后，foodnames 12 期全卡在
+//   `poster verify-colors` 的「grid not found」：海报网格的底边正好落在被
+//   切掉的那 95px 里。
+//
+//   现在改成**探出来的**（@feuille/core platform.viewportDeficit：渲一页只报
+//   innerHeight/clientWidth 的探针页，量出差值，按浏览器路径 memoize），
+//   窗口按差值放大、渲完把 PNG 裁回 w*scale × h*scale（内容锚在设备 (0,0)）。
+//   宽度那一项常常是 0（`--hide-scrollbars` 让排版宽度等于窗口宽），补了反而
+//   会把居中内容整体推开——**只补高度**是稳的那条。
 //
 // 另两个已处理的 Windows 坑：
 //   - --screenshot=<绝对路径> 才写文件：相对路径静默失败（退出 0、无文件）；
 //   - 任何 JS rect 探测（fit_diag/verify）必须挂在 document.fonts.ready 门后
 //     （+ 小 setTimeout），否则量到的是 fallback 字体度量（探针字体解码竞速）；
-//   - dump 走同一套窗框开销：传页面尺寸 + (24, 93)——如 1080×1440 的页传
-//     `dump index.html?verify=1 out.txt 1104 1533`——否则 DOM 比 PNG 小
-//     24/93 px，?verify=1 的每个词框都错位。
+//   - dump 走同一套补偿：传页面尺寸 + 实测亏空——否则 DOM 的视口比目标画布
+//     矮一截，?verify=1 的每个词框都错位。
 //
 // Usage（在海报项目目录里跑）：
 //   feuille poster page-dump dump <file.html> <out.txt> [w] [h]
@@ -55,7 +60,11 @@ function baseCmd(w: string, h: string): string[] {
 }
 
 function dumpDom(target: string, out: string, w = '1080', h = '1440'): number {
-  const cmd = [...baseCmd(w, h), '--dump-dom', fileUrl(target)]
+  // dump 的视口必须等于目标画布，否则页内量到的 rect 全部错位——
+  // 窗口按实测亏空放大，让视口正好落在 w×h。
+  const deficit = platform.viewportDeficit(chrome())
+  const cmd = [...baseCmd(String(Number(w) + deficit.width), String(Number(h) + deficit.height)),
+    '--dump-dom', fileUrl(target)]
   const r = spawnSync(cmd[0]!, cmd.slice(1), { timeout: 180000, encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })
   if (r.error) throw r.error // Python TimeoutExpired 同为响亮崩溃
   writeFileSync(out, r.stdout)
@@ -64,11 +73,12 @@ function dumpDom(target: string, out: string, w = '1080', h = '1440'): number {
 }
 
 async function render(target: string, query: string, out: string, w: string, h: string, scale: string): Promise<number> {
-  // 窗口按 (24, 93) 窗框开销放大，渲完裁回 w*scale x h*scale（内容锚在
-  // 设备 (0,0)，底色带只出现在右/下——探法见模块头）
+  // 窗口按**实测**视口亏空放大（探针在 core/platform.ts），渲完裁回
+  // w*scale x h*scale（内容锚在设备 (0,0)，底色带只出现在右/下）
   const url = fileUrl(target) + (query ? `?${query}` : '')
   const outAbs = resolve(out) // Windows + Edge：相对路径 --screenshot= 静默失败
-  const cmd = [...baseCmd(String(Number(w) + 24), String(Number(h) + 93)),
+  const deficit = platform.viewportDeficit(chrome())
+  const cmd = [...baseCmd(String(Number(w) + deficit.width), String(Number(h) + deficit.height)),
     `--force-device-scale-factor=${scale}`, `--screenshot=${outAbs}`, url]
   const r = spawnSync(cmd[0]!, cmd.slice(1), { timeout: 180000, stdio: 'ignore', maxBuffer: 64 * 1024 * 1024 })
   if (r.error) throw r.error

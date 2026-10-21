@@ -572,7 +572,7 @@ describe('headless 渲染旗标纪律（反向验证）', () => {
 })
 
 describe('render_poster 浏览器解析契约', () => {
-  it('CHROME_BIN 解析不到 → 显式报缺，不静默换浏览器', () => {
+  it('CHROME_BIN 解析不到 → 显式报缺，不静默换浏览器', async () => {
     const old = process.env['CHROME_BIN']
     // FEUILLE_BROWSER 在本用例里必须缺席（CHROME_BIN 才是被测来源），但
     // edge project 是 singleFork：所有文件共用一个 worker 进程，恢复时
@@ -586,7 +586,7 @@ describe('render_poster 浏览器解析契约', () => {
     const realErr = console.error
     console.error = (...a: unknown[]) => { errs.push(a.join(' ')) }
     try {
-      expect(poster.render_poster.main(['x.html', 'out.png'])).toBe(1)
+      expect(await poster.render_poster.main(['x.html', 'out.png'])).toBe(1)
     } finally {
       console.error = realErr
       if (old === undefined) delete process.env['CHROME_BIN']
@@ -613,7 +613,7 @@ describe('render e2e', () => {
       '<!DOCTYPE html><html><head><style>body{margin:0}</style></head><body>'
       + '<script>document.body.style.background = location.search.includes("fmt=P") ? "#00ff00" : "#ff0000"</script>'
       + '</body></html>', 'utf-8')
-    expect(poster.render_poster.main([`${src}?fmt=P`, out, '100', '100', '1'])).toBe(0)
+    expect(await poster.render_poster.main([`${src}?fmt=P`, out, '100', '100', '1'])).toBe(0)
     expect(existsSync(out)).toBe(true)
     const meta = await sharp(out).metadata()
     expect(meta.width).toBe(100)
@@ -622,6 +622,31 @@ describe('render e2e', () => {
     const px = await sharp(out).extract({ left: 50, top: 50, width: 1, height: 1 }).raw().toBuffer()
     expect(px[0]).toBeLessThan(100) // R
     expect(px[1]).toBeGreaterThan(200) // G
+  })
+
+  it(HAS_BROWSER
+    ? 'render_poster：画布底边必须真的被画上（视口亏空补偿）'
+    : '跳过：本机无 Chromium 系浏览器', { timeout: 180_000 }, async () => {
+    if (!HAS_BROWSER) return
+    // 回归钉子（2026-10-22）：`--window-size` 给的是窗口尺寸，实际视口更矮
+    // （本机 Chrome 155 实测矮 95 CSS px）。不补这一下，**画布底部一整条
+    // 不会被画上**——2026-10-20 Chrome 自动升级后，foodnames 12 期全卡在
+    // `poster verify-colors` 的「grid not found」（海报网格底边正好在被切掉的
+    // 那条里）。判据：页底 40px 的蓝色带必须出现在输出的最后 40 行里。
+    const src = join(d, 'band.html')
+    const out = join(d, 'band.png')
+    writeFileSync(src,
+      '<!DOCTYPE html><html><head><style>body{margin:0;background:#ffffff}'
+      + 'div.top{height:360px;background:#eeeeee}div.bot{height:40px;background:#0000ff}</style>'
+      + '</head><body><div class="top"></div><div class="bot"></div></body></html>', 'utf-8')
+    expect(await poster.render_poster.main([src, out, '400', '400', '1'])).toBe(0)
+    const meta = await sharp(out).metadata()
+    expect(meta.width).toBe(400)
+    expect(meta.height).toBe(400)
+    // 最后一行必须是蓝带（不是没被画上的底色）
+    const last = await sharp(out).extract({ left: 200, top: 399, width: 1, height: 1 }).raw().toBuffer()
+    expect(last[2]).toBeGreaterThan(200) // B
+    expect(last[0]).toBeLessThan(60)    // R
   })
 
   it(HAS_BROWSER
@@ -636,7 +661,7 @@ describe('render e2e', () => {
   })
 
   it(HAS_BROWSER
-    ? 'render_page render：窗框开销 (24,93) 补偿后裁回 w×h×scale 精确尺寸'
+    ? 'render_page render：按实测视口亏空补窗口高度后裁回 w×h×scale 精确尺寸'
     : '跳过：本机无 Chromium 系浏览器', { timeout: 180_000 }, async () => {
     if (!HAS_BROWSER) return
     const src = join(d, 'page.html')
