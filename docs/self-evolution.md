@@ -2836,6 +2836,7 @@ PATH 上的 `dsh` CLI 只做**软**检查（`check_dsh`）：真跑的路径是 
 ```sh
 python3 garage-ii/smoke_dsh_bridge.py          # 17 段接缝自检
 python3 garage-ii/smoke_split.py               # 切分与泛化判读（38 条）
+python3 garage-ii/smoke_two_stage.py           # eval 段不许往 library 写（10 条）
 python3 garage-ii/build_base_harness.py --check  # 基准树漂移闸
 python3 garage-ii/preflight.py                   # 开跑前自检
 python3 garage-ii/browser_shim.py                # 浏览器垫片自检（断言不拉起 SecurityAgent）
