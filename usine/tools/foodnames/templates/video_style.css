@@ -12,10 +12,17 @@
 html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidden; }
 
 /* ---------- karaoke token states (deterministic, set by JS) ---------- */
+/* D4: 没唱到的词也要看得见 —— 0.18 → 0.45（本文件 0.45 是下限，只能更亮） */
 .tok { border-radius: 0.14em; }
-.tok.dim   { opacity: 0.18; }
+.tok.dim   { opacity: 0.45; }
 .tok.sung  { opacity: 1; }
-.tok.cur   { opacity: 1; background: rgba(44, 38, 32, 0.09); }
+.tok.cur   { opacity: 1; }
+/* D5: 当前 token 的高亮只能是页脚图例承诺的三色（元音红/辅音蓝/声调金），
+   按 token 的字母种类挑：.kv = 含元音 → #c9403a，.kc = 只有辅音 → #2f5d9e，
+   .kt = 声调/不发音/汉字/假名 → #b8860b。底色用同色低透明度，字仍读得清。 */
+.tok.cur.kv { background: rgba(201, 64, 58, 0.18); }
+.tok.cur.kc { background: rgba(47, 93, 158, 0.18); }
+.tok.cur.kt { background: rgba(184, 134, 11, 0.18); }
 
 /* ---------- scene chrome ---------- */
 .scene {
@@ -30,7 +37,7 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
 .pageno { position: absolute; top: 52px; right: 90px; font-size: 21px; color: var(--mut); letter-spacing: 0.2em; }
 .headrule { border-bottom: 2.5px solid var(--ink); margin-top: 18px; }
 
-.langline { margin-top: 66px; display: flex; align-items: baseline; gap: 22px; }
+.langline { margin-top: 40px; display: flex; align-items: baseline; gap: 22px; }
 .langlabel { font-size: 40px; font-weight: 600; letter-spacing: 0.05em; }
 .langlabel small { font-size: 22px; color: var(--mut); letter-spacing: 0.16em; margin-left: 12px; font-weight: 500; }
 .natv { font-size: 30px; color: var(--mut); }
@@ -41,10 +48,19 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
   padding: 2px 15px; letter-spacing: .06em;
 }
 
-.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* D2: 词形是**自己一个元素**，字号由 video_script.js 按舞台框拟合；
+   line-height 压到 1.08 让墨迹尽量填满框（框高 ≈ 墨迹高的 1.3 倍）。 */
+.hero {
+  display: block; text-align: center; line-height: 1.08;
+  width: max-content;
+  margin: 0 auto; white-space: nowrap; color: var(--ink);
+}
+
+.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px 0; }
+.sentence { display: block; text-align: center; font-size: 40px; line-height: 1.5; color: var(--ink); }
 
 /* ---------- the big word (CSS lifted from the poster) ---------- */
-.word { white-space: nowrap; line-height: 1.28; }
+.word { line-height: 1.08; }
 .v { color: var(--vowel); }
 .c { color: var(--cons); }
 .n { color: var(--mut); }
@@ -58,24 +74,28 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
 /* Korean: in-glyph patches measured on this project's own subset
    (`feuille poster measure-korean 스 시` → verify 0 wrong px each). */
 .ksyl {
-  display: inline-block; line-height: 1.28;
+  display: inline-block; line-height: 1.08;
   color: transparent;
   -webkit-background-clip: text; background-clip: text;
   background-repeat: no-repeat;
 }
 {{KO_CSS}}
-{{KO_CSS}}
+/* (占位已上移，单处替换) */
+
 /* per-character columns (Chinese below / Japanese above);
-   annotation sizes ride on em so they scale with the fitted word */
+   annotation sizes ride on em so they scale with the fitted word.
+   D-note: .annot 不再左偏（margin-left 0.08em → 0），注音列与字心对齐。 */
 .zi { display: inline-flex; flex-direction: column; align-items: center; margin: 0 0.03em; vertical-align: top; }
 .hz { display: block; }
 .annot {
-  display: block; margin-top: 0.14em;
+  display: block; margin-top: 0.12em;
   font-size: 0.30em;
   font-family: "Food SC", "Noto Serif SC", serif;
-  font-weight: 600; letter-spacing: 0.08em;
-  text-align: center; margin-left: 0.08em;
+  font-weight: 600; letter-spacing: 0;
+  text-align: center; margin-left: 0; margin-right: 0;
 }
+rt { display: block; text-align: center; font-size: 0.30em; letter-spacing: 0.08em; color: var(--sub); }
+rt .annot { margin-top: 0; letter-spacing: 0; font-size: 1em; display: inline; }
 .wjp .zi { vertical-align: bottom; }
 
 /* script families */
@@ -102,7 +122,7 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
 
 /* ---------- translit ---------- */
 .translit {
-  margin-top: 30px; text-align: center;
+  margin-top: 22px; text-align: center;
   font-size: 44px; color: var(--sub);
   letter-spacing: 0.05em;
 }
@@ -110,20 +130,28 @@ html, body { background: #e8e2d4; width: 1920px; height: 1080px; overflow: hidde
 .translit .c { color: var(--cons); }
 .translit .n { color: var(--mut); }
 
-.footrule { border-bottom: 1.5px solid var(--line); margin-top: 40px; }
+.footrule { border-bottom: 1.5px solid var(--line); margin-top: 26px; }
 .footer { margin-top: 14px; display: flex; justify-content: space-between; font-size: 18px; color: var(--mut); letter-spacing: 0.14em; }
 
 /* ---------- portrait variant (?fmt=v): 1080x1920 ---------- */
+/* D3: 上下不许空掉一大块（最大空白水平带 ≤ 15% 帧高 = 288px）。
+   做法：整栏 space-between 均摊剩余空间 + 去掉大边距（130px 的语言行上边距、
+   44/40/30px 的块间边距都不再堆在上下），舞台不再是独占的弹性大块。 */
 html.vert, body.vert { width: 1080px; height: 1920px; }
-body.vert .scene { width: 1080px; height: 1920px; padding: 64px 60px 52px; }
-body.vert .brand { font-size: 24px; }
-body.vert .pageno { top: 64px; right: 60px; font-size: 24px; }
-body.vert .langline { margin-top: 130px; flex-direction: column; gap: 16px; align-items: flex-start; }
+body.vert .scene { width: 1080px; height: 1920px; padding: 66px 60px 60px; justify-content: space-between; }
+body.vert .brand { font-size: 26px; }
+body.vert .pageno { top: 66px; right: 60px; font-size: 26px; }
+body.vert .headrule { margin-top: 16px; }
+body.vert .langline { margin-top: 0; flex-direction: column; gap: 10px; align-items: flex-start; }
 body.vert .langlabel { font-size: 54px; }
 body.vert .langlabel small { font-size: 28px; }
 body.vert .natv { font-size: 34px; }
 body.vert .tag { font-size: 28px; }
-body.vert .badge { font-size: 32px; gap: 18px; flex-wrap: wrap; }
+body.vert .hero { margin: 0 auto; }
+body.vert .stage { flex: 0 0 auto; padding: 0; }
+body.vert .sentence { font-size: 46px; line-height: 1.5; }
+body.vert .badge { margin-top: 0; font-size: 32px; gap: 18px; flex-wrap: wrap; }
 body.vert .badge .pvoice { font-size: 24px; }
-body.vert .translit { font-size: 52px; margin-top: 44px; }
-body.vert .footer { font-size: 20px; }
+body.vert .translit { font-size: 52px; margin-top: 0; }
+body.vert .footrule { margin-top: 0; }
+body.vert .footer { font-size: 20px; margin-top: 0; }

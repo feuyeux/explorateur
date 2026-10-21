@@ -91,50 +91,50 @@ function spans(segs) {
 
 // ---------------------------------------------------------------- 各语种的词形 HTML
 /** 一格的「词」HTML（海报与视频共用同一份构造）。 */
-function wordHtml(w, { inline }) {
-  if (w.word_html) return w.word_html // 逃生口：自动规则覆盖不到的（如日语汉字词）
-  const text = inline ? (w.inline ?? w.word) : w.word
+function wordHtml(w, { inline, text, wordHtmlOk = true, koPatches = true } = {}) {
+  const natural = inline ? (w.inline ?? w.word) : w.word
+  const t = text ?? natural
+  if (wordHtmlOk && t === natural && w.word_html) return w.word_html // 逃生口：自动规则覆盖不到的（如日语汉字词）
   switch (w.script) {
     case 'sc': {
-      // 汉字逐字成列，注音在本字列里
-      const chars = w.zhuyin ?? []
-      return chars.map(([hz, annot], i) => {
-        const a = annot ? `<span class="annot">${annot}</span>` : ''
-        return `<span class="zi"><span class="hz">${esc(hz)}</span>${a}</span>`
-      }).join('')
+      // 汉字逐字成列，注音在本字列里（只有整词对得上时才有注音）
+      if (t === natural) {
+        const chars = w.zhuyin ?? []
+        return chars.map(([hz, annot]) => {
+          const a = annot ? `<span class="annot">${annot}</span>` : ''
+          return `<span class="zi"><span class="hz">${esc(hz)}</span>${a}</span>`
+        }).join('')
+      }
+      return `<span class="zi"><span class="hz">${esc(t)}</span></span>`
     }
     case 'ko':
     case 'kr': {
-      const syls = w.ko_syllables ?? []
-      // 融合音节（初声+中声笔画横接成一个连通域，矩形补丁拆不开）：
-      // 走 `.cv` 融合渐变整字降级，不生成 .k<码位> 补丁类。
-      // ⚠️ 哪些音节融合**必须实测**（measure-korean 会响亮报 LABEL FAIL），
-      //    在数据文件里用 ko_fused_syllables 显式声明，不在这里猜。
       const fused = new Set(w.ko_fused_syllables ?? [])
-      return syls
-        .map((s) => {
-          if (fused.has(s)) return `<span class="ksyl cv">${esc(s)}</span>`
-          return `<span class="ksyl k${s.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}">${esc(s)}</span>`
-        })
+      // 视频侧：补丁类 `.k####` 的 background-position 是按**海报**字号实测的；
+      // 视频的主角词被拟合到另一个字号（D2），补丁必然错位 → 视频一律走 `.cv` 融合渐变。
+      return [...t]
+        .map((s) => (!koPatches || fused.has(s)
+          ? `<span class="ksyl cv">${esc(s)}</span>`
+          : `<span class="ksyl k${s.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}">${esc(s)}</span>`))
         .join('')
     }
     case 'ar': {
-      const top = overlayRuns(text, (c) => AR_VOWEL.includes(c))
-      return `<span class="stack f-ar" dir="rtl"><span class="lay" dir="rtl" aria-hidden="true" style="color:var(--vowel)">${esc(text)}</span><span class="top" dir="rtl">${spans(top)}</span></span>`
+      const top = overlayRuns(t, (c) => AR_VOWEL.includes(c))
+      return `<span class="stack f-ar" dir="rtl"><span class="lay" dir="rtl" aria-hidden="true" style="color:var(--vowel)">${esc(t)}</span><span class="top" dir="rtl">${spans(top)}</span></span>`
     }
     case 'he': {
-      const top = overlayRuns(text, (c) => HE_VOWEL.includes(c))
-      return `<span class="stack f-he" dir="rtl"><span class="lay v" dir="rtl" aria-hidden="true">${esc(text)}</span><span class="top" dir="rtl">${spans(top)}</span></span>`
+      const top = overlayRuns(t, (c) => HE_VOWEL.includes(c))
+      return `<span class="stack f-he" dir="rtl"><span class="lay v" dir="rtl" aria-hidden="true">${esc(t)}</span><span class="top" dir="rtl">${spans(top)}</span></span>`
     }
     case 'deva': {
-      const top = overlayRuns(text, (c) => DEVA_MATRA.test(c))
-      return `<span class="stack f-deva"><span class="lay v" aria-hidden="true">${esc(text)}</span><span class="top">${spans(top)}</span></span>`
+      const top = overlayRuns(t, (c) => DEVA_MATRA.test(c))
+      return `<span class="stack f-deva"><span class="lay v" aria-hidden="true">${esc(t)}</span><span class="top">${spans(top)}</span></span>`
     }
-    case 'jp': return spans(kanaRuns(text))
-    case 'latin': return spans(runs(text, VOWELS.latin))
-    case 'cyrillic': return spans(runs(text, VOWELS.cyrillic))
-    case 'greek': return spans(runs(text, VOWELS.greek))
-    default: return esc(text)
+    case 'jp': return spans(kanaRuns(t))
+    case 'latin': return spans(runs(t, VOWELS.latin))
+    case 'cyrillic': return spans(runs(t, VOWELS.cyrillic))
+    case 'greek': return spans(runs(t, VOWELS.greek))
+    default: return esc(t)
   }
 }
 
@@ -154,6 +154,116 @@ function wordInlineStyle(w) {
 }
 function wordItalic(w) {
   return w.italic ? ' style="font-style:italic"' : ''
+}
+
+// ---------------------------------------------------------------- D1：句中的词形
+// 判据：画面句子必须与配音句**逐 token 相同**。旧实现无条件把第一个 token 换成词形，
+// 句首是冠词/助词（Le / El / Το / 카레는）时那个词被吃掉、词本身再重复一遍。
+// 现在只给「真的是这个词」的那一段上色：token 序列一个不动（不吃、不重复）。
+const fold = (s) => String(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+
+/** 在 token 序列里定位词形：返回半开区间 { a: [token, ch], b: [token, ch] }，找不到返回 null。 */
+function wordSpan(tokens, forms, script) {
+  const fs = [...new Set(forms.filter(Boolean).map((f) => String(f).trim()).filter(Boolean))]
+  // ① 整个 token 就是词形（忽略大小写与变音符号）
+  for (const f of fs) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (fold(tokens[i]) === fold(f)) return { a: [i, 0], b: [i, tokens[i].length] }
+    }
+  }
+  // ② 逐字流上找：每个原始字带自己的折叠形（NFD 会一变多，如韩语音节→字母、
+  //    天城文的元音符号），因此按「折叠串前缀」推进，而不是按单字相等。
+  const flat = []
+  tokens.forEach((t, i) => {
+    for (let k = 0; k < t.length; k++) flat.push({ c: t[k], f: fold(t[k]), ti: i, ki: k })
+    if (i < tokens.length - 1) flat.push({ c: ' ', f: ' ', ti: i, ki: t.length })
+  })
+  // 汉字/假名/谚文里词可以续在 token 内部（카레는 / カレーは / フライドポテトは），
+  // 拉丁/西里尔/希腊/阿拉伯/希伯来/天城文要求词在 token 边界收尾。
+  const noSpace = ['sc', 'jp', 'kr'].includes(script)
+  for (const f of fs) {
+    const target = fold(f)
+    for (let s = 0; s < flat.length; s++) {
+      if (s > 0 && flat[s - 1].c !== ' ') continue
+      let t = 0, q = s, ok = true
+      while (t < target.length) {
+        if (q >= flat.length) { ok = false; break }
+        const el = flat[q]
+        const atWordStart = t === 0 || target[t - 1] === ' '
+        if (target[t] === ' ') {
+          if (el.c === ' ') { t++; q++; continue }
+          ok = false; break
+        }
+        if (el.f && target.startsWith(el.f, t)) { t += el.f.length; q++; continue }
+        // 词首容忍流里多一个定冠词（القهوة vs قهوة）
+        if (atWordStart && script === 'ar' && el.f === 'ا' && flat[q + 1]?.f === 'ل') { q += 2; continue }
+        ok = false; break
+      }
+      if (!ok) continue
+      const nxt = flat[q]
+      if (nxt && nxt.c !== ' ' && !noSpace) continue
+      const a = [flat[s].ti, flat[s].ki]
+      const b = !nxt
+        ? [tokens.length - 1, tokens[tokens.length - 1].length]
+        : nxt.c === ' '
+          ? [nxt.ti, tokens[nxt.ti].length]
+          : [nxt.ti, nxt.ki]
+      return { a, b }
+    }
+  }
+  return null
+}
+
+/** 当前词的高亮按 token 的字母种类挑（D5：只能是品牌三色）。
+ *  含元音 → 元音红 #c9403a；只有辅音 → 辅音蓝 #2f5d9e；
+ *  声调/不发音/汉字/假名/整词素色 → 声调金 #b8860b。
+ *  注音层（.annot）不是 token 的字母，先剥掉再判。 */
+function tokKind(html) {
+  const bare = html.replace(/<span class="annot">[\s\S]*?<\/span>\s*<\/span>/g, '')
+  if (/class="[^"]*\bv\b/.test(bare)) return 'kv'
+  if (/class="[^"]*\bcv\b|class="[^"]*\bc\b/.test(bare)) return 'kc'
+  return 'kt'
+}
+
+/** HTML 的可见文字：跳过 .annot 与 .stack > .top（与门禁同口径）。 */
+function visibleText(html) {
+  const stack = []
+  let out = ''
+  for (const t of html.match(/<[^>]+>|[^<]+/g) ?? []) {
+    if (t.startsWith('</')) { stack.pop(); continue }
+    if (t.startsWith('<')) {
+      const cls = (t.match(/class="([^"]*)"/) ?? [, ''])[1].split(/\s+/).filter(Boolean)
+      const skip = cls.includes('annot') || (stack.some((s) => s.includes('stack')) && cls.includes('top'))
+      stack.push(skip ? '__skip__' : cls.join(' '))
+      continue
+    }
+    if (stack.includes('__skip__')) continue
+    out += t
+  }
+  return out
+}
+
+/** 一句 = 一段一个不动的 token 序列，只有词形那一段带逐字着色。 */
+function sentenceHtml(w) {
+  const span = wordSpan(w.tokens, [w.word, w.inline ?? w.word], w.script)
+  if (!span) console.error(`  ! ${w.locale}：句中未找到词形（句子保持素色，token 序列不变）`)
+  const html = w.tokens.map((t, i) => {
+    let from = null, to = null
+    if (span && i >= span.a[0] && i <= span.b[0]) {
+      from = i === span.a[0] ? span.a[1] : 0
+      to = i === span.b[0] ? span.b[1] : t.length
+      if (to <= from) { from = null; to = null }
+    }
+    const mid = from === null ? '' : wordHtml(w, { inline: true, text: t.slice(from, to), wordHtmlOk: false, koPatches: false })
+    const inner = from === null ? esc(t) : esc(t.slice(0, from)) + mid + esc(t.slice(to))
+    return `<span class="tok ${mid ? tokKind(mid) : 'kt'}">${inner}</span>`
+  }).join(' ')
+  // D1 自检：画面上的可见文字必须与 w.tokens 逐 token 相同（不吃、不重复）。
+  // 可见文字 = 去掉标签、去掉注音层 .annot、去掉叠印上层 .stack > .top。
+  if (visibleText(html) !== w.tokens.join(' ')) {
+    throw new Error(`${w.locale}：画面句子与 token 序列不一致\n  画面=${visibleText(html)}\n  tokens=${w.tokens.join(' ')}`)
+  }
+  return html
 }
 
 // ---------------------------------------------------------------- 数据读入与自检
@@ -240,19 +350,19 @@ const videoScript = readFileSync(join(TMPL, 'video_script.js'), 'utf8')
 
 const scenes = WORDS.map((w, i) => {
   const cls = wordBoxClass(w)
-  const inlineWord = wordHtml(w, { inline: true })
-  // 句中：第一个 token 是菜名（带逐字着色），其余 token 素色
-  const toks = w.tokens.map((t, ti) => {
-    if (ti === 0) return `<span class="tok">${inlineWord}</span>`
-    return `<span class="tok">${esc(t)}</span>`
-  }).join(' ')
+  // D2：词形是**自己一个元素**（不是句首 token），由 video_script.js 拟合到
+  // ≥12% 帧高（竖屏 230px）或 ≥30% 帧宽（竖屏 324px）。
+  // 注音（ruby 的 <rt>）包进 .annot：注音不是词形本身，量墨迹/量文字时都要排除。
+  const heroHtml = wordHtml(w, { inline: false, koPatches: false })
+    .replace(/<rt>([\s\S]*?)<\/rt>/g, '<rt><span class="annot">$1</span></rt>')
   return `<!-- ${i + 1} ${w.locale} -->
 <section class="scene" id="sc-${w.locale}" data-lang="${w.locale}">
   <div class="brand"><b>FOOD NAMES</b> · <span class="f-sc gold">${esc(data.title_zh)}</span> · IN TWELVE LANGUAGES</div>
   <div class="pageno">${String(i + 1).padStart(2, '0')} / 12</div>
   <div class="headrule"></div>
   <div class="langline"><span class="langlabel">${esc(w.label)}<small>${esc(w.label_en)}</small></span><span class="natv ${w.natv_class ?? ''}">${esc(w.natv)}</span><span class="tag">${esc(w.tag)}</span></div>
-  <div class="stage"><div class="word ${cls}" id="w-${w.locale}">${toks}</div></div>
+  <div class="hero word ${cls}" id="hero-${w.locale}" dir="auto"${wordInlineStyle(w)}${wordItalic(w)}>${heroHtml}</div>
+  <div class="stage"><div class="sentence" id="w-${w.locale}" dir="auto">${sentenceHtml(w)}</div></div>
   <div class="badge"><span class="pdot"></span><span class="pname ${w.persona_class ?? ''}">${esc(w.persona.name)}</span><span class="platin">${esc(w.persona.latin)}</span><span class="pvoice">${esc(w.locale)} · ${esc(w.voice_short)}</span></div>
   <div class="translit">${w.translit_html}</div>
   <div class="footrule"></div>
