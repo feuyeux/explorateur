@@ -131,8 +131,14 @@ export function inWindows(t: number, wins: ReadonlyArray<readonly [number, numbe
 }
 
 /** 读 stdin（管道/重定向时）；TTY 下返回空串不挂起（Python isatty 同款）。
- * 非管道场景的读失败（EAGAIN 等）按空串处理，与 Python stdin.read() 等 EOF 同效。 */
+ * 非管道场景的读失败（EAGAIN 等）按空串处理，与 Python stdin.read() 等 EOF 同效。
+ *
+ * **工具面里 stdin 不可用**（FEUILLE_STDIN=off，dsh-plugin 的 install() 设的）：
+ * 那里读的是宿主那根**永远不关**的管道，`readFileSync(0)` 会永久阻塞，把整条
+ * rollout 的时间预算烧光（2026-10-22 在 `poster fit-diag` 上实测到同类事故）。
+ * 所以工具面里直接当成「没有窗口参数」：量全曲曲线，不去碰 stdin。 */
 function readStdin(): string {
+  if (process.env['FEUILLE_STDIN'] === 'off') return ''
   if (process.stdin.isTTY) return ''
   try {
     return readFileSync(0, 'utf8')

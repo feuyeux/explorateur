@@ -618,3 +618,29 @@ describe("假 LLM 干跑：产线经工具面驱动，红线在 Hailuo 处置前
     expect(names(ctx)).not.toContain("usine_publish")
   }, 60_000)
 })
+
+// ---------------------------------------------------------------------------
+// 工具面不许让叶子挂在 stdin 上（2026-10-22 实测事故）
+// ---------------------------------------------------------------------------
+
+describe("工具面：stdin 不可用——缺参数要立刻失败，不许挂死", () => {
+  it("usine_poster fit-diag 空参：立刻 exit 2（不是永久阻塞）", async () => {
+    const plugin = await loadPlugin()
+    const ctx = fakeCtx()
+    plugin.apply(ctx)
+    const agent = { id: "fake-llm" }
+    const call = (name: string, args: unknown) => tool(ctx, name).execute(args, exec(agent))
+
+    // **旧实现在这里会永久阻塞**：叶子「不给文件参数就读 stdin」，而工具面里叶子是
+    // **同进程**跑的（runMain 直接 `await fn(argv)`），stdin 是宿主自己那根**永远
+    // 不关**的管道 → `readFileSync(0)` 不返回。2026-10-22 实测：B 线 4 条 rollout
+    // 的最后一个事件都是这条 fit-diag 的 tool/call（没有 tool/result），整条时间
+    // 预算烧光后被上限掐死——量到的是「工具面挂死」，不是「智能体搭得好不好」。
+    const r = (await call("usine_poster", { action: "fit-diag", argv: [] })) as
+      { ok: boolean; status: string; output: string; detail?: Record<string, unknown> }
+
+    expect(r.detail?.exit_code).toBe(2)
+    expect(r.status).toBe("invalid")
+    expect(r.output).toContain("usage")
+  }, 20_000)
+})

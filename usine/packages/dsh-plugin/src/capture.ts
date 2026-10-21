@@ -62,6 +62,13 @@ function install(): void {
   process.stderr.write = wrapStream(origErr) as typeof process.stderr.write
   console.log = wrapConsole(console.log.bind(console))
   console.error = wrapConsole(console.error.bind(console))
+  // **工具面里没有可用的 stdin**：叶子读到的是**宿主自己的 fd 0**——一根永远不关的
+  // 管道。于是「没给文件参数就去读 stdin」的叶子会**永久阻塞**：2026-10-22 实测，
+  // `poster fit-diag` 空参调用把 B 线 4 条 rollout 的时间预算全烧在这一个挂起的
+  // 工具调用上（最后被上限掐死，量到的全是「工具面挂死」）。
+  // 边界层把这件事说清楚：FEUILLE_STDIN=off ⇒ 叶子不许碰 stdin，缺参数就报用法错。
+  // **CLI 那条路不变**（管道用法照旧能读 stdin），掐掉的只是工具面这一侧。
+  process.env['FEUILLE_STDIN'] = 'off'
 }
 
 /**
