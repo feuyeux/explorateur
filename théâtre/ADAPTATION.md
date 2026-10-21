@@ -199,9 +199,7 @@ symlink 变更不合并、mode / exec-bit 变更不合并（拒绝如实记录�
   harness2 线另落 `garage-ii-result`）：events / result / corpus /
   endpoints.json / memory / waves / episodes 全在那里；explorateur 根
   `.gitignore` 兜底 `endpoints.json` 与两个结果根。
-- **théâtre/.git 入库裁定**（原 §7 未决项，已定）：磁盘保留（HEAD 即上游
-  commit），**绝不进 explorateur 索引**——`.gitignore` 规则 + 入库时暂移 +
-  暂存集 mode-160000 审计三层防线。
+- **théâtre/.git 裁定**（原 §7 未决项，2026-10-21 改为统一管理）：内嵌 `.git` 已**删除**，本目录与 `theatre-ii/` 一致——版本由外层 `explorateur` 仓库统一管理，不再维护第二份历史。删前核过三件事：磁盘 186 文件与外层索引逐字节一致（唯一落后项就是本条所在的 `ADAPTATION.md`，已先取外层版本）、无任何代码依赖内嵌仓库、上游 commit `4d7ef43` 是公开仓库可查的。`usine/packages/gate/test/layout.test.ts` 现在对这条做机械断言（vendored 引擎目录下出现 `.git` 即 FAIL）。
 
 ## 13. 未决（需用户裁定）
 

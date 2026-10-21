@@ -48,7 +48,7 @@ usine 侧（被改进对象）的架构文档见
 ## 1. 全景：一次波次在系统里的位置
 
 explorateur 工作区里住着三样东西：**usine 生产树**（RSI 的改进对象，git tracked）、
-**théâtre**（vendored RSIAgent 引擎，内嵌 `.git` 仅保留在磁盘、绝不进 explorateur 索引）、
+**théâtre**（vendored RSIAgent 引擎，与 `theatre-ii/` 一样是普通目录、版本由外层仓库统一管理）、
 **garage 适配层**（把引擎嫁接到生产树的编排代码）。所有运行产物落在
 **仓库外**的 run root；模型程序只活在 guest scratch 里。
 

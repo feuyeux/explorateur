@@ -66,10 +66,14 @@ one-unit-money-poster/
 # 模块自身不清理。它是运行时产物、可随时重跑再生，绝不入库
 *_vp_probe.html
 
-# ── RSI / théâtre（vendored RSIAgent fork）───────────────
-# 内嵌仓库目录：磁盘保留（其 HEAD 即上游 vendored commit），绝不进本仓库索引——
-# 防止 git 把 théâtre/ 折叠成 gitlink（mode 160000 空指针）
+# ── RSI 引擎线（vendored fork）──────────────────────────
+# 两条引擎线（théâtre/、theatre-ii/）都是**普通目录**，版本由本仓库统一管理，
+# 没有、也不该再有自己的 .git（2026-10-21 删掉了 théâtre/ 那份内嵌仓库）。
+# 下面两条是防御性兜底：万一谁在引擎目录里 git init / 重新 vendor 带进了内嵌仓，
+# 它绝不进本仓库索引——否则 git 会把该目录折叠成 gitlink（mode 160000 空指针）。
+# 门禁侧另有机械断言：usine/packages/gate/test/layout.test.ts 直接对磁盘查 .git。
 /théâtre/.git/
+/theatre-ii/.git/
 # RSI run root 生成的真网关凭据文件（run root 约定在仓库外；
 # 此规则兜底 --root 一旦指进仓库的失误，密钥永不入库）
 endpoints.json

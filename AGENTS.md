@@ -8,7 +8,7 @@
 | 目录 | 是什么 | 权威文档（冲突时以它为准） |
 |---|---|---|
 | `usine/` | feuille：多语种视频生产与发布可复用层（TS pnpm monorepo，12 包） | [usine/AGENTS.md](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）· [usine/README.md](usine/README.md) |
-| `théâtre/` | RSIAgent 引擎（vendored fork，内嵌 `.git` 磁盘保留、**绝不进本仓库索引**） | [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）· [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md) |
+| `théâtre/` | RSIAgent 引擎（vendored fork，**无内部 `.git`**，版本由本仓库统一管理） | [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）· [théâtre/ARCHITECTURE.md](théâtre/ARCHITECTURE.md) |
 | `garage/` | RSIAgent 线路的适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检 | [garage/README.md](garage/README.md)（运行手册）· `run_usine.py` 模块 docstring（装配契约，13 条，次序承重） |
 | `theatre-ii/` | harness2 引擎（vendored fork，Apache-2.0，**零补丁**） | [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（vendor 范围与已知缺口）· [theatre-ii/ARCHITECTURE.md](theatre-ii/ARCHITECTURE.md) |
 | `garage-ii/` | harness2 线路的桥接层：dsh 那一面 + usine 那一格 + 对照驱动 | [garage-ii/README.md](garage-ii/README.md)（运行手册）· [garage-ii/BENCHMARK.md](garage-ii/BENCHMARK.md)（**对照协议与读数纪律**） |

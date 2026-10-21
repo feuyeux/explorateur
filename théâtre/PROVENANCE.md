@@ -15,8 +15,7 @@
 
 ## 纪律
 
-1. **不回步上游**：`.git` 目录保留（HEAD 即上述 commit），但永不 fetch/pull/force 更新；
-   需要新上游版本时开**新目录**重新 vendor，避免历史漂移。
+1. **不回步上游**：本目录是**普通目录**，没有自己的 `.git`——版本一律由外层 `explorateur` 仓库统一管理（见下条）。永不 fetch/pull/force 更新；需要新上游版本时开**新目录**重新 vendor，避免历史漂移。
 2. **POSIX 行为逐字节不变**：所有跨平台补丁只允许两种形态——
    - `os.name` 分支：POSIX 侧原样保留，Windows 侧另行处理；
    - 无分支等价替换：在 POSIX 宿主上语义与传参完全一致（如 `os.path.normpath` →

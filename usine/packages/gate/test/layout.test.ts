@@ -15,7 +15,7 @@
 //
 // 全部是磁盘静态检查，不起浏览器、不跑产线（纪律 12）。
 import { describe, expect, test } from 'vitest'
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -82,5 +82,42 @@ describe('内容产物落位（仓库根白名单）', () => {
     // 误伤比漏抓更坏：一条会误报的门禁，人第二次就学会无视它。
     expect(strayRootDirs(['.git', '.venv', '.pytest_cache', '.DS_Store'])).toEqual([])
     expect(strayRootDirs([...ALLOWED_ROOT_DIRS])).toEqual([])
+  })
+})
+
+// ── vendored 引擎目录不得自带 .git ─────────────────────────────────────────
+//
+// 两条 RSI 线路的引擎（`théâtre/`、`theatre-ii/`）是**普通目录**：版本一律由
+// 外层 explorateur 仓库统一管理，不维护第二份历史。
+//
+// 为什么这条要进机械门禁：2026-10-21 之前 `théâtre/` 带着一份 32.6 MB 的内嵌
+// `.git`（HEAD 是 fork 后的上游快照），而同一轮的 `theatre-ii/` 没有——两条本该
+// 平行的引擎线在磁盘上并不对称，文档里的说法（`theatre-ii/PROVENANCE.md` 说
+// 「与 théâtre 的现状一致，它的 .git 也已被清掉」）与磁盘事实相反。
+// 这种偏差**不会自己报错**：内嵌 `.git` 只要存在，在它下面跑 git 命令就会
+// 静默读错历史（`git -C théâtre log` 读到的是上游那份，不是本仓库的改动），
+// 而 wrapper 一律看起来成功。所以得由门禁说出来。
+const ENGINE_DIRS = ['théâtre', 'theatre-ii'] as const
+
+/** 从引擎目录名里挑出**自带 .git** 的那些（纯函数，便于反向验证）。 */
+export function strayEngineRepos(names: string[], hasGit: (name: string) => boolean): string[] {
+  return names.filter(hasGit).sort()
+}
+
+describe('两线引擎的版本统一由外层仓库管理', () => {
+  test('引擎目录下没有自己的 .git', () => {
+    const stray = strayEngineRepos([...ENGINE_DIRS], (n) => existsSync(join(REPO, n, '.git')))
+    expect(
+      stray,
+      `引擎目录自带了 .git：${JSON.stringify(stray)}。两条引擎线都是普通目录，`
+      + '版本统一由外层 explorateur 仓库管理——内嵌仓库会让该目录下的 git 命令'
+      + '静默读到另一份历史。见 AGENTS.md 第一节与各 PROVENANCE.md 纪律第 1 条。',
+    ).toEqual([])
+  })
+
+  test('凿洞必被抓：自带 .git 的引擎目录当场 FAIL', () => {
+    // 反向验证（纪律 2）：断言必须真的能抓住违规，绿灯不能只证明「今天没违规」。
+    expect(strayEngineRepos(['théâtre', 'theatre-ii'], (n) => n === 'théâtre')).toEqual(['théâtre'])
+    expect(strayEngineRepos(['théâtre', 'theatre-ii'], () => false)).toEqual([])
   })
 })

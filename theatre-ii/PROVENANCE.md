@@ -11,7 +11,7 @@
 
 ## 纪律
 
-1. **不回步上游**：需要新上游版本时开**新目录**重新 vendor，避免历史漂移。本目录的 `.git` 不保留（与 `../théâtre/` 的现状一致——它的 `.git` 也已被清掉，PROVENANCE 里记的是意图不是现状）。
+1. **不回步上游**：需要新上游版本时开**新目录**重新 vendor，避免历史漂移。本目录**没有** `.git`——两条引擎线的目录都是普通目录，版本一律由外层 `explorateur` 仓库统一管理（`../théâtre/` 的内嵌 `.git` 已于 2026-10-21 删除，两线在此对齐）。
 2. **上游文件逐字节不变**：`harness2/`、`docs/`、`scripts/`、`tests/`、`LICENSE`、`pyproject.toml`、`MANIFEST.in`、`CONTRIBUTING.md`、`README.md` 全部逐字搬运，**零补丁**。本目录与上游的差异**只有两类**：
    - **新增**本文件、`ARCHITECTURE.md`、`COMPARISON.md`（本 fork 自带的文档，不改上游任何一行）；
    - **未 vendor** 上游的三个目录（见下节）。
