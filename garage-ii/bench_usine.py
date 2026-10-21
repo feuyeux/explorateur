@@ -195,14 +195,13 @@ def _scene_layout_verdict(html: str, words: list[dict]) -> tuple[bool, bool, str
         return max(hits, key=lambda i: depth[i]) if hits else -1
 
     bad_sentence = []
-    hero_ok = True
-    hero_evidence = ""
+    bad_hero = []
     for w in words:
         s_idx = deepest_with_text(w["sentence"])
         if s_idx < 0:
             bad_sentence.append(f"{w['locale']}: 画面上找不到那句旁白（{w['sentence']}）")
             # 句子都对不上时，主角判据无意义（句子元素不存在）
-            hero_ok = False
+            bad_hero.append(f"{w['locale']}: 句子本身就没对上，主角判据无从谈起")
             continue
         # 词形元素：文字恰好是词形，且**不在**句子元素里面
         want_word = _strip_punct(w["inline"])
@@ -217,14 +216,16 @@ def _scene_layout_verdict(html: str, words: list[dict]) -> tuple[bool, bool, str
                 p = elements[p][2]
             if s_idx not in anc:
                 outside.append(i)
-        if outside:
-            hero_evidence = f"{w['locale']}: 词形独立成元素（{w['inline']}）"
-        else:
-            hero_ok = False
-            if not hero_evidence:
-                hero_evidence = f"{w['locale']}: 词形只是旁白句里的一个 token，不是主角"
+        if not outside:
+            bad_hero.append(f"{w['locale']}: 词形只是旁白句里的一个 token，不是主角")
     sentence_ok = not bad_sentence
-    evidence = "；".join(bad_sentence[:3]) if not sentence_ok else (hero_evidence or "12 个语种的句子都对得上")
+    hero_ok = not bad_hero
+    if not sentence_ok:
+        evidence = "；".join(bad_sentence[:3])
+    elif not hero_ok:
+        evidence = "；".join(bad_hero[:3])
+    else:
+        evidence = f"12 个语种：句子都对得上，词形都独立成元素"
     return sentence_ok, hero_ok, evidence
 
 
