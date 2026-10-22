@@ -245,8 +245,8 @@ def section_generalization() -> None:
         flat_k1["why"][:80],
     )
     check(
-        "underpowered 给出修法（k≥3）",
-        "k≥3" in flat_k1["why"],
+        "underpowered 给出修法（两臂各 3 次）",
+        "3 次" in flat_k1["why"],
         flat_k1["why"][:80],
     )
     check(
@@ -388,6 +388,15 @@ def section_stage_ns() -> None:
         bool(fell),
         f"抓到 {fell}——缺陷形态正是「拿后缀目录名去找，恒空返回」",
     )
+    # **读不动 ≠ 没回退**：旧实现 `except (OSError, ValueError): continue`
+    # 会把它当成「这一格没有回退」，闸在这一格上静默失效。
+    (d / "summary.json").write_text("{ not json", encoding="utf-8")
+    fell = RUN._report_stage_fallbacks(root, ns)
+    check(
+        "回退闸把读不动的 summary 记作不完整（不是「没回退」）",
+        any("unreadable_summary" in item for item in fell),
+        str(fell),
+    )
     # 这条不是「好行为」的断言，是把闸的静默面**写进读数**：它对不存在的目录
     # 永远返回空。凡是给它传目录名的地方，都必须传 sweep 真落盘的那个。
     check(
@@ -396,8 +405,159 @@ def section_stage_ns() -> None:
     )
 
 
+def section_judge_completeness() -> None:
+    """judge 必须按切分逐格对账：**缺一格也是不完整**。
+
+    旧实现在一侧整个为空时只打印一行错误就 `continue`，而另一侧判成功已经
+    把 `judged` 加到 1，最后 `missing` 为空 ⇒ **退出码 0**。`--split both`
+    于是可以在 eval 侧一格都没有的情况下「成功」——那正是「缺测量被说成
+    测量过了」。这里反向验证四种形状：齐全、少一格、整侧为空、summary 读不动。
+    """
+    import json
+    import shutil
+    import tempfile
+
+    import run_usine_h2 as RUN
+
+    class _Task:
+        def __init__(self, tid):
+            self.task_id = tid
+            self.domain = "video"
+
+    class _Spec:
+        def __init__(self, root):
+            self.name = "usine-dsh"
+            self.runs_root = root
+
+    class _Sub:
+        name = "dsh"
+
+    class _Adapter:
+        def __init__(self, root):
+            self.spec = _Spec(root)
+            self.substrate = _Sub()
+
+        def tasks(self, split):
+            return ["t1", "t2", "e1", "e2"]
+
+        def split_coverage(self):
+            data = S.make_split([_Task(t) for t in ("t1", "t2", "e1", "e2")])
+            return {"train": data["train"], "test": data["test"],
+                    "unsplit_domains": data["unsplit_domains"]}
+
+    class _Args:
+        modes = "agg"
+        k = 1
+        seed = None
+        split = "both"
+
+    root = Path(tempfile.mkdtemp(prefix="smoke-judge-complete-"))
+    adapter = _Adapter(root)
+    args = _Args()
+    coverage = adapter.split_coverage()
+    expected = {"train": set(coverage["train"]),
+                "eval": set(coverage["test"]),
+                "all": set(adapter.tasks("all"))}
+    sides = RUN._stage_sides(adapter, args)
+    by_side = {side: ns for ns, side in sides}
+
+    def write_summary(ns, task, text=None):
+        d = root / "adapt" / ns / task
+        d.mkdir(parents=True, exist_ok=True)
+        payload = text if text is not None else json.dumps(
+            {"selections": {"agg": {"chosen_label": "agg1"}}})
+        (d / "summary.json").write_text(payload, encoding="utf-8")
+
+    def fill_all():
+        for ns, side in sides:
+            for task in expected[side]:
+                write_summary(ns, task)
+
+    fill_all()
+    orig_adapter = RUN._adapter
+    orig_judge = RUN.J.judge_selections
+    orig_write = RUN.J.write
+    orig_fallbacks = RUN._report_stage_fallbacks
+    try:
+        RUN._adapter = lambda _args: adapter
+        RUN.J.judge_selections = (
+            lambda _adapter, sels, parallel=4:
+            [type("R", (), {"graded": True})() for _ in sels])
+        RUN.J.write = lambda rows, out: out.parent.mkdir(parents=True,
+                                                        exist_ok=True)
+        RUN._report_stage_fallbacks = lambda _root, _ns: []
+
+        check("judge: 两侧齐全 → 退出 0", RUN._phase_judge(args) == 0)
+
+        eval_ns = by_side["eval"]
+        dropped = sorted(expected["eval"])[0]
+        (root / "adapt" / eval_ns / dropped / "summary.json").unlink()
+        check("judge: 一侧少一格 → 退出 1", RUN._phase_judge(args) == 1)
+        fill_all()
+
+        # **旧代码在这里退出 0**：eval 目录还在，但一个 summary 都没有。
+        for task in expected["eval"]:
+            (root / "adapt" / eval_ns / task / "summary.json").unlink()
+        check("judge: 整侧为空（目录还在）→ 退出 1", RUN._phase_judge(args) == 1)
+
+        fill_all()
+        write_summary(eval_ns, sorted(expected["eval"])[0], "{ not json")
+        check("judge: summary 读不动 → 退出 1", RUN._phase_judge(args) == 1)
+
+        fill_all()
+        write_summary(eval_ns, "z-old-task")
+        check("judge: 混入切分外的任务 → 退出 1（旧题面读数作废）",
+              RUN._phase_judge(args) == 1)
+        (root / "adapt" / eval_ns / "z-old-task" / "summary.json").unlink()
+
+        fill_all()
+        check("judge: 补齐之后回到退出 0", RUN._phase_judge(args) == 0)
+    finally:
+        RUN._adapter = orig_adapter
+        RUN.J.judge_selections = orig_judge
+        RUN.J.write = orig_write
+        RUN._report_stage_fallbacks = orig_fallbacks
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def section_adapter_contract() -> None:
+    """适配器的 `tasks()` / `split_coverage()` 契约必须由**真实对象**证明。
+
+    2026-10-22 实测踩到：给 `judge` 加逐格对账时，我按「`tasks()` 返回 Task
+    对象」写了 `task.task_id`，而真实 `UsineAdapter.tasks()` 返回的是**字符串
+    id**——fake adapter 也照着错契约写，离线自检全绿，真跑到 judge 才
+    AttributeError。**自检用 fake 时，fake 的契约必须与真实对象一致**。
+    """
+    import tempfile
+
+    from usine_adapter import UsineAdapter
+
+    root = Path(tempfile.mkdtemp(prefix="smoke-adapter-contract-"))
+    adapter = UsineAdapter(root)
+    try:
+        ids = adapter.tasks("all")
+        coverage = adapter.split_coverage()
+        check("adapter: tasks() 返回字符串 id（不是 Task 对象）",
+              bool(ids) and all(isinstance(item, str) for item in ids),
+              f"{type(ids[0]).__name__ if ids else 'empty'}")
+        check("adapter: split_coverage 的 train/test 覆盖全部任务且不重叠",
+              set(coverage["train"]) | set(coverage["test"]) == set(ids)
+              and not (set(coverage["train"]) & set(coverage["test"])),
+              f"train={len(coverage['train'])} test={len(coverage['test'])}")
+        check("adapter: split_coverage 带稳定指纹",
+              isinstance(coverage.get("digest"), str)
+              and len(coverage["digest"]) == 12,
+              str(coverage.get("digest")))
+    finally:
+        adapter.close()
+        import shutil
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main() -> int:
-    for fn in (section_split, section_select, section_generalization, section_wiring, section_stage_ns):
+    for fn in (section_split, section_select, section_generalization,
+               section_wiring, section_stage_ns,
+               section_adapter_contract, section_judge_completeness):
         fn()
 
     n_pass = sum(1 for _l, ok, _d in RESULTS if ok)

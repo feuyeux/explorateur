@@ -727,9 +727,9 @@ def _sweep_one(
         return 1
     if fell_back:
         print(
-            "\n注意：有阶段回退到基准树（上面的 error 是原因）。"
-            "这些任务量到的是**基准 harness** 的表现，不是演化后的——"
-            "先修掉阶段错误再读分数。"
+            "\n注意：有阶段回退到基准树，或有 summary 读不动（上面的 error 是原因）。"
+            "回退的任务量到的是**基准 harness** 的表现；读不动的格子则根本没被"
+            "这条闸看见——两种情况都不要当结论。"
         )
         if partial_blocks:
             return 1
@@ -869,9 +869,9 @@ def _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns) -> int
         return 1
     if fell_back:
         print(
-            "\n注意：有阶段回退到基准树（上面的 error 是原因）。"
-            "这些任务量到的是**基准 harness** 的表现，不是演化后的——"
-            "先修掉阶段错误再读分数。"
+            "\n注意：有阶段回退到基准树，或有 summary 读不动（上面的 error 是原因）。"
+            "回退的任务量到的是**基准 harness** 的表现；读不动的格子则根本没被"
+            "这条闸看见——两种情况都不要当结论。"
         )
         return 1
     return 0
@@ -886,7 +886,11 @@ def _report_stage_fallbacks(runs_root: Path, summary_ns: str) -> list[str]:
     for summary_path in sorted(ns_dir.glob("*/summary.json")):
         try:
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            # **读不动就是「不知道有没有回退」**：跳过它等于回退闸在这一格
+            # 上静默失效，而调用方会拿到一个空列表当作「没回退」。
+            print(f"  ! 读不动 {summary_path}：{exc}（记作不完整，不当作通过）")
+            out.append(f"{summary_path.parent.name}:unreadable_summary")
             continue
         for mode, blob in (summary.get("modes") or {}).items():
             for stage in blob.get("stages", []):
@@ -914,8 +918,20 @@ def _phase_judge(args) -> int:
     adapter = _adapter(args)
     modes = C.parse_modes(args.modes)
     sides = _stage_sides(adapter, args)
+    # **`adapter.tasks()` 返回的是任务 id（str），不是 Task 对象**；
+    # 切分要用 `split_coverage()`（适配器内部拿 TASKS 的 domain 分层）。
+    # 直接对 `tasks()` 的返回值取 `.task_id` 会在真实路径上 AttributeError。
+    coverage = adapter.split_coverage()
+    allowed = set(adapter.tasks("all"))
+    expected = {
+        "train": set(coverage["train"]) & allowed,
+        "eval": set(coverage["test"]) & allowed,
+        "all": allowed,
+    }
     judged = 0
     missing: list[tuple[str, str]] = []
+    incomplete: list[tuple[str, list[str]]] = []
+    unexpected: list[tuple[str, list[str]]] = []
     any_fell_back = False
     for ns, side in sides:
         ns_dir = adapter.spec.runs_root / "adapt" / ns
@@ -924,19 +940,53 @@ def _phase_judge(args) -> int:
             continue
 
         sels: list[dict] = []
+        seen_tasks: set[str] = set()
         for summary_path in sorted(ns_dir.glob("*/summary.json")):
+            task_id = summary_path.parent.name
             try:
                 summary = json.loads(summary_path.read_text(encoding="utf-8"))
             except (OSError, ValueError) as exc:
-                print(f"  ! 跳过读不动的 {summary_path}：{exc}")
+                # **读不动不是「没有回退」**：少了这一格，回退闸就看不见它。
+                print(f"  ! 读不动 {summary_path}：{exc}"
+                      f"（记作不完整，不当作通过）", file=sys.stderr)
                 continue
+            got = False
             for mode in modes:
                 sel = (summary.get("selections") or {}).get(mode)
                 if sel:
                     sels.append(sel)
+                    got = True
+            if got:
+                seen_tasks.add(task_id)
         if not sels:
             print(f"[{side}] 没有可判的选择记录（modes={modes}）：{ns_dir}", file=sys.stderr)
+            incomplete.append((side, sorted(expected.get(side, set()))))
             continue
+
+        # **一格有记录 ≠ 整侧完整**：只判到 3/11 格时，报告照样会打出
+        # 「有提升」而没人知道另外 8 格没测。`--split both` 的旧实现在一侧
+        # 整个为空时只打印一行错误就 continue，最后 `judged=1` 仍然退出 0
+        # ——那是把「缺一侧」说成「测完了」。这里按切分逐格对账。
+        absent = sorted(expected.get(side, set()) - seen_tasks)
+        extra = sorted(seen_tasks - expected.get(side, set()))
+        if absent:
+            print(
+                f"[{side}] 选择记录不完整：{len(seen_tasks & expected.get(side, set()))}"
+                f"/{len(expected.get(side, set()))} 格有记录，缺 "
+                f"{absent[:5]}{' …' if len(absent) > 5 else ''}",
+                file=sys.stderr,
+            )
+            incomplete.append((side, absent))
+        if extra:
+            # 盘上有切分里已经没有的任务：题面/切分换过而旧产物还在。
+            # 把它们算进读数等于拿两套题的分混在一起。
+            print(
+                f"[{side}] 盘上有不在当前切分里的任务："
+                f"{extra[:5]}{' …' if len(extra) > 5 else ''}"
+                f"（题面/切分换过？旧读数一律作废）",
+                file=sys.stderr,
+            )
+            unexpected.append((side, extra))
 
         rows = J.judge_selections(adapter, sels, parallel=4)
         out = adapter.spec.runs_root / "judge" / f"{ns}.json"
@@ -951,8 +1001,9 @@ def _phase_judge(args) -> int:
         fell_back = _report_stage_fallbacks(adapter.spec.runs_root, ns)
         if fell_back:
             print(
-                f"[{side}] 注意：有阶段回退到基准树。上面的分数量的是**基准 harness** 的表现，"
-                "不是演化后的——先修掉阶段错误再读分数。"
+                f"[{side}] 注意：有阶段回退到基准树，或有 summary 读不动。"
+                "回退的格量到的是**基准 harness** 的表现；读不动的格子根本没被"
+                "这条闸看见——两种情况都先修掉再读分数。"
             )
             any_fell_back = True
     for side, ns in missing:
@@ -961,10 +1012,24 @@ def _phase_judge(args) -> int:
             f"先跑 sweep（judge 与 sweep 要带同一个 --split）",
             file=sys.stderr,
         )
+    for side, absent in incomplete:
+        print(
+            f"[{side}] 判据不完整：还缺 {len(absent)} 格的选择记录"
+            f"（{absent[:5]}{' …' if len(absent) > 5 else ''}）——"
+            f"不许把缺测量说成测量过了",
+            file=sys.stderr,
+        )
+    for side, extra in unexpected:
+        print(
+            f"[{side}] 判据混入了不在当前切分里的任务："
+            f"{extra[:5]}{' …' if len(extra) > 5 else ''}——旧读数一律作废",
+            file=sys.stderr,
+        )
     # **`--split both` 缺一侧就不是完整的泛化读数**：只判到 train 侧时，
     # 没有任何证据表明它在没见过的题上不变差——这和 generalization.py 的
-    # `no_eval` 判决同一条纪律：缺测量不许当测量过了。
-    if missing or not judged or any_fell_back:
+    # `no_eval` 判决同一条纪律：缺测量不许当测量过了。缺一格同理，混入
+    # 切分外任务同理。
+    if missing or incomplete or unexpected or not judged or any_fell_back:
         return 1
     return 0
 

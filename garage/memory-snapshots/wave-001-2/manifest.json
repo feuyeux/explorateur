@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "unit": "wave-001-2",
+  "source": "D:\\coding\\personal\\garage-result\\foodnames-video5\\phase1\\memory",
+  "files": [
+    "README.md",
+    "machine_substrate.md",
+    "method_lessons.md",
+    "project_foodnames.md"
+  ],
+  "file_count": 4,
+  "bytes": 10533,
+  "tree_sha256": "0211bdcbaa318df1b8131cf33f19d0523b0a3c635593435a4d9e128760999c76",
+  "tree_sha256_note": "the engine's own tree hash (explore.memory_hash.tree_sha256, the same口径 explore.target_learning._memory_tree_sha256 uses); null means the engine was not importable here, so nothing was invented",
+  "recorded_at": "2026-10-21 23:07:11",
+  "collision": {
+    "base": "garage/memory-snapshots/wave-001",
+    "suffix": 2,
+    "recovered_from_commit": "01da48c5be160185399455341c9db77e4089739a",
+    "note": "2026-10-22 修撞名缺陷时按 git 历史拆出：这 4 个文件属于 foodnames-video5 那次 run 的快照，原先写进 wave-001/ 后又被后一次 run（pin-plain-20261022）的 manifest 覆盖，文件却留在原目录（盘上 8 个文件、manifest 只描述 3 个）。文件内容与 01da48c 逐字节相同；本次只移动文件并补回它自己的 manifest，没有改写任何记忆内容。"
+  }
+}

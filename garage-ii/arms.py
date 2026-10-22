@@ -86,14 +86,51 @@ def _criteria_stamp(adapter, task_id: str) -> str:
     """这一格用的判据的版本戳。
 
     判据一改，同一格的分就不能和旧的混着看。戳一样才说明是同一把尺子。
+
+    **失败必须响亮**：旧实现 `except Exception: return ""`，而 `--append`
+    只在「两边戳都非空且不等」时拒绝——于是戳算不出来（任务 id 不在
+    bench 里、适配器换了实现）时，两把尺子的分数会拼成一条分布，账面
+    完全看不出来。这正是「同一把尺子得由代码证明」要防的静默故障。
+    这里改成：适配器**没有**这个方法 → 返回空串（一次性运行不需要戳）；
+    有但算失败或算出空串 → 在烧第一次 rollout 之前就报错。
     """
     fn = getattr(adapter, "criteria_stamp", None)
-    if callable(fn):
-        try:
-            return str(fn(task_id))
-        except Exception:
-            return ""
-    return ""
+    if not callable(fn):
+        return ""
+    try:
+        raw = fn(task_id)
+    except Exception as exc:
+        raise RuntimeError(
+            f"criteria_stamp failed for task {task_id!r}: "
+            f"{type(exc).__name__}: {exc}. Refusing to run an arm whose "
+            f"ruler has no version stamp — an empty stamp would let --append "
+            f"mix two different criteria sets into one distribution") from exc
+    stamp = str(raw).strip() if raw is not None else ""
+    if not stamp:
+        raise RuntimeError(
+            f"criteria_stamp returned an empty stamp for task {task_id!r}. "
+            f"Refusing to run an arm whose ruler has no version stamp")
+    return stamp
+
+
+def _append_refusal(old: "Arm", tree_fingerprint: str,
+                    criteria: str) -> str | None:
+    """能不能把新 rollout 接在已有臂后面；不能时返回原因。**纯函数**。
+
+    三种拒绝，缺一条都会让「追加」变成静默拼分布：
+
+    * ``tree`` —— 树指纹变了：接的是另一棵树；
+    * ``criteria_changed`` —— 判据戳变了：用新尺子量旧数据；
+    * ``criteria_unstamped`` —— 任一侧没有戳：**无法证明是同一把尺子**。
+      旧实现没有这一条，空戳会直接放行。
+    """
+    if old.tree_fingerprint and old.tree_fingerprint != tree_fingerprint:
+        return "tree"
+    if not old.criteria or not criteria:
+        return "criteria_unstamped"
+    if old.criteria != criteria:
+        return "criteria_changed"
+    return None
 
 
 def _surface_signature(adapter, tree_dir: Path) -> str:
@@ -364,15 +401,24 @@ def run_arm(
                 # 「按 run 序号整份赋值」，不把前缀带上就会把已跑的那几条丢掉
                 # （2026-10-20 实测：smoke 抓到「追加到 5 次」只剩 4 条）。
                 prefix = list(old.rolls)
-                if old.tree_fingerprint and old.tree_fingerprint != arm.tree_fingerprint:
+                refusal = _append_refusal(old, arm.tree_fingerprint,
+                                          arm.criteria)
+                if refusal == "tree":
                     log(
                         f"  [{task_id}] **树的指纹变了**（{old.tree_fingerprint[:12]} → "
                         f"{arm.tree_fingerprint[:12]}）——追加的是另一棵树，不能接在一起"
                     )
                     continue
+                if refusal == "criteria_unstamped":
+                    log(
+                        f"  [{task_id}] **判据戳缺失**（旧={old.criteria!r}，"
+                        f"新={arm.criteria!r}）——无法证明是同一把尺子，拒绝追加。"
+                        "先让适配器给出非空 criteria_stamp，再 `arms.py rescore` 重判整条臂"
+                    )
+                    continue
                 # **判据换了不能追加**：那是「用新尺子量旧数据」，
                 # 拼出来的分布不是同一条。要换判据 → 先 `arms rescore` 重判整条臂。
-                if old.criteria and arm.criteria and old.criteria != arm.criteria:
+                if refusal == "criteria_changed":
                     log(
                         f"  [{task_id}] **判据换了**（{old.criteria[:8]} → "
                         f"{arm.criteria[:8]}）——追加会把两套判据的分数拼成一条分布。"
@@ -704,29 +750,39 @@ def compare_arms(base: Arm, evolved: Arm) -> dict:
 # ── 树来源 ────────────────────────────────────────────────────────────────────
 
 
+def _selected_label_or_none(task_dir: Path) -> str | None:
+    """引擎写的选择记录里的 ``chosen_label``；**没有记录就返回 None**。
+
+    不做 ``or "agg1"`` 的兜底：k≥2 时 agg1 只是候选之一，把没被采纳的树
+    当成演化结果，那一格就是假的。调用方自己决定「唯一候选」这种合法退路。
+    """
+    sel_dir = task_dir / "selection"
+    if not sel_dir.is_dir():
+        return None
+    for sel_json in sorted(sel_dir.glob("*/selection.json")):
+        if not _SELECTION_DIR_RE.fullmatch(sel_json.parent.name):
+            continue
+        try:
+            d = json.loads(sel_json.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        label = d.get("chosen_label") or ""
+        if label:
+            return label
+    return None
+
+
 def _selected_label(task_dir: Path) -> str:
     """这一格**被选中**的臂标签。
 
     k=1 时只有 `agg1`；k≥2 时引擎跑 `agg1..aggk`，由**盲选会话**挑一个。
     硬取 agg1 会抽错树——**抽错树 = 拿一条没被采纳的候选去代表演化结果**，
-    那比不测更糟。读不到选择记录就退回 agg1，并说明。
+    那比不测更糟。读不到选择记录就退回 agg1（调用方必须把这件事说出来）。
 
     只认 `selection/<aggN|cN>/selection.json` 这种**引擎写的**路径；备份目录
     （`agg3.before-reselect/`）不算——它是「重选之前长什么样」的证据。
     """
-    sel_dir = task_dir / "selection"
-    if sel_dir.is_dir():
-        for sel_json in sorted(sel_dir.glob("*/selection.json")):
-            if not _SELECTION_DIR_RE.fullmatch(sel_json.parent.name):
-                continue
-            try:
-                d = json.loads(sel_json.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                continue
-            label = d.get("chosen_label") or ""
-            if label:
-                return label
-    return "agg1"
+    return _selected_label_or_none(task_dir) or "agg1"
 
 
 _SELECTION_DIR_RE = re.compile(r"(?:agg|c)\d+")

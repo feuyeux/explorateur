@@ -2269,13 +2269,28 @@ def main(argv: list | None = None) -> int:
         usine_dir, gate_argv,
         allow_install=bool(args.gate_install) and not args.preflight)
 
+    # 记忆快照历史必须自洽再开跑：wave tag / 快照目录撞名曾经静默地把两条
+    # run root 的记忆树写进同一个 wave-001（盘上 8 个文件、manifest 只描述
+    # 3 个）。历史已经坏了的时候继续往上叠，会让「这一波的记忆是哪来的」
+    # 永久不可考——所以这里 fail-closed，修法是显式跑一次审计命令。
+    snapshot_root = wave_merge.memory_snapshot_root(ctx, merge_config)
+    snapshot_audit = (wave_merge.verify_memory_snapshots(snapshot_root)
+                      if snapshot_root is not None else None)
+    snapshot_problems = (snapshot_audit or {}).get("problems") or []
+
     corpus_path = run_root / "corpus_shingles.json"
     corpus_mode = "resume" if args.resume_completed_boundary else "fresh"
 
     if args.preflight:
         seed_preview = _build_seed(usine_dir, write_to=None)
+        if not gate_pre["ok"]:
+            status = "gate_preflight_failed"
+        elif snapshot_problems:
+            status = "memory_snapshot_audit_failed"
+        else:
+            status = "ready"
         payload = {
-            "status": "ready" if gate_pre["ok"] else "gate_preflight_failed",
+            "status": status,
             "phase": phase_label,
             "study_design": (
                 "target_conditioned_adaptation"
@@ -2323,6 +2338,7 @@ def main(argv: list | None = None) -> int:
             "gate": {"argv": list(gate_argv),
                      "timeout": float(args.gate_timeout)},
             "gate_preflight": gate_pre,
+            "memory_snapshot_audit": snapshot_audit,
             "llm_endpoints": {
                 "config": str(Path(args.llm_config).expanduser()),
                 "resolved": {slug: {"base_url": True, "api_key": True}
@@ -2348,7 +2364,8 @@ def main(argv: list | None = None) -> int:
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0 if (gate_pre["ok"] and ctx_budget["ok"]
-                     and not _latency_blocks(latency_report)) else 1
+                     and not _latency_blocks(latency_report)
+                     and not snapshot_problems) else 1
 
     expected_ack = EXECUTE_ACK if args.phase == "1" else EXECUTE_ACK_DRS
     if args.execute != expected_ack:
@@ -2359,6 +2376,15 @@ def main(argv: list | None = None) -> int:
             "destroy every merged candidate at verify time (fix the "
             "toolchain, or pass --gate-install for a missing tree): "
             + "; ".join(gate_pre["errors"]))
+    if snapshot_problems:
+        raise RuntimeError(
+            "memory snapshot audit failed — the repository's snapshot history "
+            "does not match its manifests, so a new wave's memory could not be "
+            "told apart from an older run's (fix the snapshot history first; "
+            "audit with `python3 garage/wave_merge.py "
+            "verify-memory-snapshots`): "
+            + "; ".join(f"{p['path']}: {p['kind']} ({p['detail']})"
+                        for p in snapshot_problems))
     if not ctx_budget["ok"]:
         raise RuntimeError(
             "context budget check failed — a seat whose own declarations "

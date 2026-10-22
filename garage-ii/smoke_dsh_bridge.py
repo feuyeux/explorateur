@@ -1371,6 +1371,129 @@ def _criteria_stamp_ok() -> None:
     missing = [n for n in UA._MATCHER_FUNCS if not hasattr(BU, n)]
     check("要哈希的匹配函数都在", not missing, f"缺：{missing}")
 
+    # **戳算不出来时不许静默返回空串**：空戳会让 --append 把两把尺子的
+    # 分数拼成一条分布（旧实现 `except Exception: return ""`）。
+    import arms as AR
+
+    class _Boom:
+        def criteria_stamp(self, task_id):
+            raise KeyError(task_id)
+
+    class _Empty:
+        def criteria_stamp(self, task_id):
+            return ""
+
+    class _NoStamp:
+        pass
+
+    for adapter, label in ((_Boom(), "抛异常"), (_Empty(), "返回空串")):
+        try:
+            AR._criteria_stamp(adapter, "no-such-task")
+        except RuntimeError:
+            ok = True
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            label += f"（错类型 {type(exc).__name__}）"
+        else:
+            ok = False
+        check(f"判据戳{label}时在烧钱前报错", ok, label)
+    check(
+        "适配器没有 criteria_stamp 时返回空串（一次性运行仍可跑）",
+        AR._criteria_stamp(_NoStamp(), "t") == "",
+        "把「没有戳」和「算戳失败」混成了一种",
+    )
+
+    def _arm(criteria, fingerprint="tree-a"):
+        return AR.Arm(tag="a", task_id="t", tree_fingerprint=fingerprint,
+                      tree_label="", criteria=criteria)
+
+    check(
+        "追加闸：任一侧空戳 = 拒绝（旧实现会放行）",
+        AR._append_refusal(_arm(""), "tree-a", "abc") == "criteria_unstamped"
+        and AR._append_refusal(_arm("abc"), "tree-a", "") == "criteria_unstamped",
+        "空戳被当成「同一把尺子」",
+    )
+    check(
+        "追加闸：树变了 / 判据变了 / 完全一致",
+        AR._append_refusal(_arm("abc", "tree-a"), "tree-b", "abc") == "tree"
+        and AR._append_refusal(_arm("abc"), "tree-a", "def") == "criteria_changed"
+        and AR._append_refusal(_arm("abc"), "tree-a", "abc") is None,
+        "三种情形的判定错了",
+    )
+
+
+def _generalization_reading_ok() -> None:
+    """[12f] 两段式读数必须抽**被盲选中的**树，且用真实 rollout 数算功效。
+
+    旧实现的两处静默错误：
+
+    * 硬取 `agg1`——k≥2 时真正被采纳的是盲选出来的另一个标签；
+    * 只读 `base1`，`p_value` 写死 1.0，却按 `--k` 报「判别能力够」——
+      k≥3 时报告会说「train 侧没有任何显著变化」，读起来像「测了没差别」。
+    """
+    print("[12f] 泛化读数：盲选树与真实功效")
+    import generalization as G
+    import generalization_reading as GR
+
+    class _FakeAdapter:
+        def __init__(self, scores):
+            self.scores = scores
+
+        def score(self, run_dir, task):
+            value = self.scores.get(run_dir.name)
+            return None if value is None else {"score": value}
+
+    with tempfile.TemporaryDirectory(prefix="h2-reading-") as tmp:
+        root = Path(tmp)
+        ns = "stage-train"
+        task = "routing-poster"
+        adapt = root / "adapt" / ns / task
+        (adapt / "selection" / "agg2").mkdir(parents=True)
+        (adapt / "selection" / "agg2" / "selection.json").write_text(
+            json.dumps({"chosen_label": "agg2"}), encoding="utf-8")
+        for label in ("base1", "base2", "base3", "agg1", "agg2"):
+            (root / task / ns / task / label).mkdir(parents=True)
+
+        adapter = _FakeAdapter({"base1": 0.6, "base2": 0.6, "base3": 0.8,
+                                "agg1": 0.9, "agg2": 1.0})
+        stage = GR.read_stage(adapter, root, ns)
+        row = stage[task]
+        check("读数：收齐 base1..basek（不是只读 base1）",
+              row["base_scores"] == [0.6, 0.6, 0.8] and row["base_labels"]
+              == ["base1", "base2", "base3"], row)
+        check("读数：抽的是 selection.json 里的 agg2，不是 agg1",
+              row["evolved_label"] == "agg2" and row["evolved_score"] == 1.0
+              and row["selection"] == "record", row)
+
+        # 多个 final 但**没有选择记录**：不许猜 agg1。
+        (adapt / "selection" / "agg2" / "selection.json").unlink()
+        row = GR.read_stage(adapter, root, ns)[task]
+        check("读数：多个 final 且无选择记录时判不出（不猜 agg1）",
+              row["evolved_label"] is None
+              and row["selection"] == "missing_selection", row)
+        # 唯一候选是合法退路，但要标明。
+        (root / task / ns / task / "agg2").rmdir()
+        row = GR.read_stage(adapter, root, ns)[task]
+        check("读数：只有唯一 final 时才用它，并标明 single_final",
+              row["evolved_label"] == "agg1"
+              and row["selection"] == "single_final", row)
+
+    check(
+        "功效：11 基准 vs 1 演化时最小 p=1/12（旧实现按 k=1 报 0.5）",
+        (lambda p: p["k_base"] == 11 and p["k_evolved"] == 1
+         and abs(p["min_p"] - round(1 / 12, 4)) < 1e-9
+         and p["adequate"] is True)(G._power_shortfall(
+            [{"task_id": "t", "base_n": 11, "evolved_n": 1}], {"t"}, 0.1)),
+        "不等样本量的功效被算错了",
+    )
+    check(
+        "功效：两臂各 1 次时最小 p=0.5，判不出",
+        (lambda p: abs(p["min_p"] - 0.5) < 1e-9 and p["adequate"] is False)(
+            G._power_shortfall(
+                [{"task_id": "t", "base_n": 1, "evolved_n": 1}], {"t"}, 0.1)),
+        "k=1 被算成了有判别能力",
+    )
+
 
 def _heredoc_ok() -> None:
     """[12e] heredoc 正文是**数据**，不是被执行过的命令。
@@ -1909,6 +2032,7 @@ def main() -> int:
         _arms_ok,
         _cli_entry_ok,
         _criteria_stamp_ok,
+        _generalization_reading_ok,
         _heredoc_ok,
     ):
         fn()

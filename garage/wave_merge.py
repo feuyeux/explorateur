@@ -63,6 +63,33 @@ Merge contract (v1)
   copied into ``garage/memory-snapshots/`` and committed, so the knowledge a
   wave produced is diffable and reviewable in the repository instead of living
   only in a run root outside it.
+* Collision-safe names.  Tag and snapshot names carry only ``unit + wave``,
+  while every run root starts at wave 1 — so two run roots WILL collide.  A
+  tag that already points at this wave's last commit is reused (idempotent); a
+  tag that points elsewhere gets the next free suffix (``theatre/wave-1-2``).
+  A snapshot directory is reused only when its files are byte-identical; a
+  different tree from another run root gets ``wave-001-2`` and both are kept;
+  a different tree from the SAME run root raises (it must be inspected, not
+  papered over).  Collisions are recorded in the report and the manifest, and
+  ``verify_memory_snapshots`` is the machine check.
+* Crash recovery.  A wave can die between its candidate commit and its tag, or
+  between the tag and the memory snapshot.  ``waves/wave_NNN/merge_progress.json``
+  records the base, every commit that landed, the tag and the snapshot as each
+  step completes.  The next invocation validates that every recorded commit
+  still exists and is an ancestor of HEAD, then finishes the tag and snapshot;
+  the report says ``resumed_from_progress`` and separates the whole wave's
+  ``commits`` from ``commits_made_this_run``.  A rewritten history, a changed
+  unit label or a changed tag prefix makes the journal unusable (fail-closed)
+  instead of tagging a commit that no longer belongs to this wave.
+* Serialized merges.  Two run roots can finish a wave at the same time against
+  the same repository.  The whole merge runs under an exclusive OS lock in the
+  git common dir (worktrees share the main repository's lock), so commits,
+  tags and snapshots cannot interleave.  The lock is released by the kernel
+  when a process dies, so there is no stale lock to clean by hand.  A second
+  merge waits up to ``RSIAGENT_MERGE_LOCK_TIMEOUT`` seconds (default 300; 0 =
+  try once) and then fails with the holder's pid/host; it re-checks the wave
+  report AFTER acquiring the lock, so a merge that finished while it waited is
+  a no-op rather than a duplicate commit.
 
 Notable limitation: merge rejections are not fed back into Curriculum's next
 wave rationale (stock renders outcome.md before the merge point); they are
@@ -81,6 +108,7 @@ import logging
 import os
 import pathlib
 import re
+import socket
 import stat as stat_module
 import subprocess
 import sys
@@ -728,19 +756,102 @@ def _commit_candidate(config: UsineMergeConfig, usine_dir, wave_index: int,
         .stdout.decode("utf-8", "replace").strip()
 
 
-def _ensure_wave_tag(config: UsineMergeConfig, usine_dir, wave_index: int,
-                     commits: list) -> dict:
-    tag = f"{config.tag_prefix}-{wave_index}"
-    probe = _git(["rev-parse", "-q", "--verify", f"refs/tags/{tag}"],
+#: 撞名时最多试多少个后缀（``<base>-2``、``-3``…）。给上限不是怕撞名，
+#: 是让「这个 clone 里已经有 1000 个同名 wave」变成一条明确的错误，而不是死循环。
+_TAG_SUFFIX_LIMIT = 1000
+
+
+def _tag_commit(usine_dir, tag: str) -> str | None:
+    """``tag`` 指向的提交；tag 不存在时返回 None（不抛，调用方要区分两者）。"""
+    probe = _git(["rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"],
                  cwd=usine_dir, check=False)
-    if probe.returncode == 0:
-        return {"tag": tag, "tag_created": False}
+    if probe.returncode != 0:
+        return None
+    return probe.stdout.decode("utf-8", "replace").strip() or None
+
+
+def _create_annotated_tag(config: UsineMergeConfig, usine_dir, tag: str,
+                          wave_index: int, commit_count: int) -> None:
     _git(["-c", f"user.name={config.identity[0]}",
           "-c", f"user.email={config.identity[1]}",
           "tag", "-a", tag, "-m",
           f"{config.commit_scope} {config.unit_label} {wave_index}: "
-          f"{len(commits)} candidate(s) merged"], cwd=usine_dir)
-    return {"tag": tag, "tag_created": True}
+          f"{commit_count} candidate(s) merged"], cwd=usine_dir)
+
+
+def _next_free_tag(config: UsineMergeConfig, usine_dir,
+                   wave_index: int) -> str:
+    """只读地算「这一波会创建哪个 tag 名」（plan 用，不建 tag）。"""
+    base = f"{config.tag_prefix}-{wave_index}"
+    for suffix in range(1, _TAG_SUFFIX_LIMIT + 1):
+        tag = base if suffix == 1 else f"{base}-{suffix}"
+        if _tag_commit(usine_dir, tag) is None:
+            return tag
+    raise UsineMergeError(
+        f"no free tag name under {base!r} after {_TAG_SUFFIX_LIMIT} suffixes")
+
+
+def _ensure_wave_tag(config: UsineMergeConfig, usine_dir, wave_index: int,
+                     commits: list) -> dict:
+    """给这一波打 tag——**绝不静默复用别的 run 的同名 tag**。
+
+    2026-10-22 实测的缺陷：两个 run root 的波次编号都从 1 开始，第二个 run
+    的 wave 1 会撞上已经存在、且指向另一条提交的 ``theatre/wave-1``。旧实现
+    探测到 tag 存在就直接返回 ``tag_created: False``，于是这一波合进来了却
+    **没有指向自己的 tag**，报告上还写着那个属于别人的 tag 名。
+
+    现在的判据分三种，全部写进报告：
+
+    * tag 不存在 → 创建，``tag_created: True``；
+    * tag 已存在且指向本波最后一个提交 → 幂等重跑，``tag_reused: True``；
+    * tag 已存在但指向别的提交 → 试 ``<base>-2``、``<base>-3``…，取第一个
+      空闲的，并把撞名对象记进 ``tag_collisions``。
+
+    tag 只活在创建它的 clone 里（见 ``_report_anchors``），所以换后缀不会
+    改写任何历史提交，也不会让两条 run 的账混在一起。
+    """
+    base = f"{config.tag_prefix}-{wave_index}"
+    collisions: list[dict] = []
+    for suffix in range(1, _TAG_SUFFIX_LIMIT + 1):
+        tag = base if suffix == 1 else f"{base}-{suffix}"
+        target = _tag_commit(usine_dir, tag)
+        if target is None:
+            try:
+                _create_annotated_tag(config, usine_dir, tag, wave_index,
+                                      len(commits))
+            except UsineMergeError:
+                # 探测与创建之间被另一个进程抢先：重新看一次，别把竞态
+                # 报成「git 坏了」。
+                target = _tag_commit(usine_dir, tag)
+                if target is None:
+                    raise
+                if commits and target == commits[-1]:
+                    info = {"tag": tag, "tag_created": False,
+                            "tag_reused": True, "tag_points_at": target}
+                    if suffix > 1:
+                        info["tag_base"] = base
+                        info["tag_collisions"] = collisions
+                    return info
+                collisions.append({"tag": tag, "points_at": target})
+                continue
+            info = {"tag": tag, "tag_created": True}
+            if suffix > 1:
+                info["tag_base"] = base
+                info["tag_collisions"] = collisions
+            return info
+        if commits and target == commits[-1]:
+            info = {"tag": tag, "tag_created": False,
+                    "tag_reused": True, "tag_points_at": target}
+            if suffix > 1:
+                info["tag_base"] = base
+                info["tag_collisions"] = collisions
+            return info
+        collisions.append({"tag": tag, "points_at": target})
+    raise UsineMergeError(
+        f"no free tag name under {base!r} after {_TAG_SUFFIX_LIMIT} suffixes; "
+        f"the clone already carries {len(collisions)} tag(s) for this wave "
+        f"index ({[c['tag'] for c in collisions[:3]]} …). Delete stale local "
+        f"tags or bump the wave index — do not reuse another run's tag")
 
 
 # --------------------------------------------------------------------- waves
@@ -882,6 +993,9 @@ def _report_anchors(commits: list[str], tag_info: dict) -> dict:
         "portable_trailer": "X-Theatre-Wave / X-Theatre-Drs (in the commit body)",
         "tag": {"name": tag_info.get("tag"),
                 "created": tag_info.get("tag_created"),
+                "reused": tag_info.get("tag_reused", False),
+                "base": tag_info.get("tag_base"),
+                "collisions": tag_info.get("tag_collisions", []),
                 "portable": False,
                 "note": "the tag lives only in the clone that created it; code "
                         "sync does not carry tags — roll back by commit sha"},
@@ -894,12 +1008,27 @@ def _render_md(report: dict) -> str:
              f"(prefix `{report['repo_prefix'] or '.'}`)",
              f"- base commit: `{report['base_commit']}`",
              f"- commits: {len(report['commits'])}"
+             + (f" ({report['commits_made_this_run']} made this run; "
+                f"**resumed from merge_progress.json**)"
+                if report.get("resumed_from_progress") else "")
              + (f", tag: `{report['tag']}`"
                 f"{' (created)' if report['tag_created'] else ' (pre-existing)'}"
                 f" [local only — roll back by commit sha]"
                 if report["tag"] else ", tag: none"),
              f"- gate argv: `{' '.join(report['gate_argv'])}`"
              f" ({report['gate_seconds_total']}s total)", ""]
+    if report.get("tag_collisions"):
+        lines.append(
+            f"> tag collision: `{report.get('tag_base')}` was already taken; "
+            f"this wave got `{report['tag']}`. Previous: "
+            + "、".join(f"`{item['tag']}` → `{item['points_at'][:12]}`"
+                       for item in report["tag_collisions"]))
+        lines.append("")
+    if report.get("already_in_tree"):
+        lines.append(
+            f"> already in the tree from an earlier attempt (no new commit): "
+            + "、".join(f"ep{index:03d}" for index in report["already_in_tree"]))
+        lines.append("")
     if report.get("skipped"):
         lines.append(f"> skipped: {report['skipped']}")
         lines.append("")
@@ -908,8 +1037,21 @@ def _render_md(report: dict) -> str:
         lines.append(f"- memory snapshot: `{snapshot['path']}` "
                      f"({snapshot['file_count']} record(s), "
                      f"{snapshot['bytes']}B, tree `{snapshot.get('tree_sha256')}`)")
+    elif snapshot.get("idempotent"):
+        lines.append(f"- memory snapshot: already present at `{snapshot['path']}` "
+                     f"(byte-identical; no second commit)")
+        if snapshot.get("existing_source"):
+            lines.append(f"  (that snapshot came from another run root: "
+                         f"`{snapshot['existing_source']}`)")
     elif snapshot.get("reason"):
         lines.append(f"- memory snapshot: none — {snapshot['reason']}")
+    if snapshot.get("collision"):
+        coll = snapshot["collision"]
+        lines.append(
+            f"- memory snapshot collision: `{coll['base']}` was already taken; "
+            f"this wave wrote `{snapshot['path']}` (suffix {coll['suffix']}). "
+            f"Skipped: "
+            + "、".join(f"`{item['path']}`" for item in coll["skipped"]))
     lines += ["| ep | project | outcome | decision | commit |",
               "|---|---|---|---|---|"]
     for entry in report["candidates"]:
@@ -1080,6 +1222,71 @@ def _read_memory_tree_files(source: pathlib.Path) -> dict[str, bytes]:
     return files
 
 
+#: 记忆快照目录撞名时最多试多少个后缀（``wave-001-2``、``-3``…）。
+_SNAPSHOT_SUFFIX_LIMIT = 1000
+
+
+def _snapshot_garage_rel(toplevel, snapshot_dir: str) -> str | None:
+    """``memory-snapshots/`` 的父目录（相对仓库根）；适配层不在仓库里时 None。"""
+    if snapshot_dir:
+        return snapshot_dir.strip("/")
+    garage_rel = os.path.relpath(str(pathlib.Path(__file__).resolve().parent),
+                                  str(toplevel))
+    return None if garage_rel.startswith("..") else garage_rel
+
+
+def memory_snapshot_root(ctx: dict, config: "UsineMergeConfig"
+                         ) -> pathlib.Path | None:
+    """这次运行会写进哪个 ``memory-snapshots/`` 根（只读，不建目录）。"""
+    garage_rel = _snapshot_garage_rel(ctx["toplevel"],
+                                      config.memory_snapshot_dir)
+    if garage_rel is None:
+        return None
+    return pathlib.Path(ctx["toplevel"]) / garage_rel / "memory-snapshots"
+
+
+def _snapshot_state(dest: pathlib.Path, files: dict[str, bytes],
+                    tree_hash: str | None) -> tuple[str, dict]:
+    """一个快照目录当前是什么状态：``absent`` / ``identical`` / ``different``。
+
+    ``identical`` 的判据是**文件集与字节都一致**，manifest 的哈希只是旁证：
+    只比 manifest 会漏掉「目录里有上一轮 run 留下的多余文件」这种形状
+    （2026-10-22 实测的 ``wave-001`` 就是 8 个文件、manifest 只描述 3 个）。
+    """
+    if not dest.exists():
+        return "absent", {}
+    if not dest.is_dir():
+        return "different", {"reason": "path exists but is not a directory"}
+    manifest_path = dest / "manifest.json"
+    on_disk = _read_memory_tree_files(dest)
+    on_disk.pop("manifest.json", None)
+    extra = sorted(set(on_disk) - set(files))
+    missing = sorted(set(files) - set(on_disk))
+    changed = sorted(name for name in set(on_disk) & set(files)
+                     if on_disk[name] != files[name])
+    detail: dict = {"extra": extra, "missing": missing, "changed": changed}
+    if not manifest_path.is_file():
+        detail["reason"] = "the directory carries no manifest.json"
+        return "different", detail
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        detail["reason"] = f"manifest.json is unreadable: {exc}"
+        return "different", detail
+    if not isinstance(manifest, dict):
+        detail["reason"] = "manifest.json is not an object"
+        return "different", detail
+    detail["manifest_source"] = str(manifest.get("source") or "")
+    detail["manifest_tree_sha256"] = manifest.get("tree_sha256")
+    same_bytes = not extra and not missing and not changed
+    same_hash = (tree_hash is None
+                 or manifest.get("tree_sha256") in (None, tree_hash))
+    if same_bytes and same_hash:
+        return "identical", detail
+    detail["reason"] = "the directory describes a different memory tree"
+    return "different", detail
+
+
 def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
                                 unit_label: str, index: int,
                                 snapshot_dir: str = "") -> dict:
@@ -1092,6 +1299,18 @@ def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
 
     提交是**单独一个**（``X-Theatre-Memory`` trailer），不混进候选提交——
     「一候选一 commit」那条规矩管的是代码候选，记忆快照不是候选。
+
+    **撞名纪律**（2026-10-22 修的静默缺陷）：快照名只有「单位 + 波次」，
+    而每个 run root 的波次编号都从 1 开始，于是两棵不同 run root 的记忆树
+    会写进同一个 ``wave-001/``——盘上 8 个文件，manifest 只描述 3 个，没有
+    任何一层会报。现在分四种处置：
+
+    * 目录不存在 → 正常写入；
+    * 目录已在且**文件集与字节完全一致** → 幂等重跑，不写、不提交；
+    * 目录已在但内容不同，且 manifest 记录的 ``source`` 不是本次 run root
+      → 换一个后缀（``wave-001-2``），两份都留着，撞名写进报告与 manifest；
+    * 内容不同但 ``source`` 相同 → **fail-closed**：同一个 run root 对同一波
+      产出了两棵不同记忆树，这必须先由人看清楚，不能靠加后缀掩盖。
     """
     source = lineage / "memory"
     files = _read_memory_tree_files(source)
@@ -1099,28 +1318,72 @@ def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
         return {"written": False,
                 "reason": "the lineage has no memory tree to snapshot yet"}
     toplevel = pathlib.Path(ctx["toplevel"])
-    if snapshot_dir:
-        garage_rel = snapshot_dir.strip("/")
+    garage_rel = _snapshot_garage_rel(toplevel, snapshot_dir)
+    if garage_rel is None:
+        # 适配层不在这个仓库里（另一种部署形态）——记下来，不硬塞。
+        return {"written": False,
+                "reason": f"the adaptation layer is outside the repository "
+                          f"({os.path.relpath(str(pathlib.Path(__file__).parent), str(toplevel))})"}
+    tree_hash = _memory_tree_hash(files)
+    base_rel = f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}"
+    collisions: list[dict] = []
+    rel = base_rel
+    dest = toplevel / rel
+    for suffix in range(1, _SNAPSHOT_SUFFIX_LIMIT + 1):
+        rel = base_rel if suffix == 1 else f"{base_rel}-{suffix}"
+        dest = toplevel / rel
+        state, detail = _snapshot_state(dest, files, tree_hash)
+        if state == "absent":
+            break
+        if state == "identical":
+            out = {"written": False,
+                   "reason": "already snapshotted: the memory tree on disk is "
+                             "byte-identical to this wave's",
+                   "idempotent": True,
+                   "path": rel,
+                   "source": str(source),
+                   "tree_sha256": tree_hash,
+                   "file_count": len(files),
+                   "bytes": sum(len(data) for data in files.values())}
+            existing_source = detail.get("manifest_source")
+            if existing_source and existing_source != str(source):
+                # 另一个 run root 产出了**逐字相同**的记忆树：不写第二份，
+                # 但把它的来源标出来，别让「复用」把两条 run 的存在抹掉。
+                out["existing_source"] = existing_source
+            return out
+        if detail.get("manifest_source") == str(source):
+            raise UsineMergeError(
+                f"memory snapshot {rel} already carries a DIFFERENT tree from "
+                f"the same run root ({source}): "
+                f"manifest={detail.get('manifest_tree_sha256')}, "
+                f"now={tree_hash}, extra={detail.get('extra')}, "
+                f"missing={detail.get('missing')}, changed={detail.get('changed')}. "
+                f"The same run root produced two memory trees for one wave — "
+                f"inspect before merging; do not let a suffix hide it. "
+                f"Any candidate commits already landed, but the merge report "
+                f"was NOT written: after resolving this, re-running sees "
+                f"already_merged candidates and retries the snapshot")
+        collisions.append({"path": rel, "state": state,
+                           "reason": detail.get("reason"),
+                           "manifest_source": detail.get("manifest_source")})
     else:
-        garage_rel = os.path.relpath(str(pathlib.Path(__file__).resolve().parent),
-                                      str(toplevel))
-        if garage_rel.startswith(".."):
-            # 适配层不在这个仓库里（另一种部署形态）——记下来，不硬塞。
-            return {"written": False,
-                    "reason": f"the adaptation layer is outside the repository "
-                              f"({garage_rel})"}
-    dest = toplevel / garage_rel / "memory-snapshots" / f"{unit_label}-{index:03d}"
+        raise UsineMergeError(
+            f"no free memory-snapshot name under {base_rel!r} after "
+            f"{_SNAPSHOT_SUFFIX_LIMIT} suffixes; the repository already "
+            f"carries {len(collisions)} colliding snapshot(s) "
+            f"({[c['path'] for c in collisions[:3]]} …)")
+
+    unit = pathlib.Path(rel).name
     dest.mkdir(parents=True, exist_ok=True)
     written = []
-    for rel, data in files.items():
-        target = dest / rel
+    for name, data in files.items():
+        target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-        written.append(rel)
-    tree_hash = _memory_tree_hash(files)
+        written.append(name)
     manifest = {
         "schema_version": 1,
-        "unit": f"{unit_label}-{index:03d}",
+        "unit": unit,
         "source": str(source),
         "files": sorted(written),
         "file_count": len(written),
@@ -1132,13 +1395,20 @@ def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
             "means the engine was not importable here, so nothing was invented"),
         "recorded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
+    if suffix > 1:
+        manifest["collision"] = {
+            "base": base_rel,
+            "suffix": suffix,
+            "skipped": collisions,
+            "note": ("snapshot names carry only unit+wave; a second run root "
+                     "starting at wave 1 collides with this one — the suffix "
+                     "keeps both trees instead of overwriting either"),
+        }
     (dest / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
-    rel_paths = [f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}/"
-                 f"{rel}" for rel in sorted(written)]
-    rel_paths.append(f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}/"
-                     "manifest.json")
+    rel_paths = [f"{rel}/{name}" for name in sorted(written)]
+    rel_paths.append(f"{rel}/manifest.json")
     _run_pathspec(["add", "-A"], toplevel, rel_paths)
     _git(["-c", "user.name=theatre-rsi",
           "-c", "user.email=theatre-rsi@explorateur.local",
@@ -1151,38 +1421,425 @@ def _snapshot_memory_into_repo(ctx: dict, lineage: pathlib.Path,
           f"X-Theatre-Memory: {unit_label}-{index}"], cwd=toplevel)
     sha = _git(["rev-parse", "HEAD"], cwd=toplevel) \
         .stdout.decode("utf-8", "replace").strip()
-    return {"written": True,
-            "path": f"{garage_rel}/memory-snapshots/{unit_label}-{index:03d}",
-            "tree_sha256": tree_hash,
-            "file_count": len(written),
-            "bytes": manifest["bytes"],
-            "commit": sha}
+    out = {"written": True,
+           "path": rel,
+           "tree_sha256": tree_hash,
+           "file_count": len(written),
+           "bytes": manifest["bytes"],
+           "commit": sha}
+    if suffix > 1:
+        out["collision"] = {"base": base_rel, "suffix": suffix,
+                            "skipped": collisions}
+    return out
+
+
+def verify_memory_snapshots(snapshot_root) -> dict:
+    """审计一个 ``memory-snapshots/`` 根：manifest 与盘上文件必须对得上。
+
+    这是撞名缺陷的机检版本。2026-10-22 的 ``wave-001`` 有 8 个文件、manifest
+    只描述 3 个（两条 run 写进了同一个目录），而当时的任何一层都不报。
+
+    返回 ``{"root", "snapshots", "problems", "hash_checked"}``；``problems``
+    每条是 ``{"path", "kind", "detail"}``。``hash_checked`` 为 False 表示这台
+    机器导不进引擎的哈希口径（此时**不做**哈希判定，也不假装通过）。
+    """
+    root = pathlib.Path(snapshot_root)
+    out = {"root": str(root), "snapshots": [], "problems": [],
+           "hash_checked": True}
+    if not root.is_dir():
+        return out
+    seen_units: dict[str, str] = {}
+    for dest in sorted(root.iterdir()):
+        if not dest.is_dir():
+            continue
+        rel = dest.relative_to(root).as_posix()
+        manifest_path = dest / "manifest.json"
+        on_disk = _read_memory_tree_files(dest)
+        on_disk.pop("manifest.json", None)
+        entry = {"path": rel, "files": len(on_disk)}
+        out["snapshots"].append(entry)
+        if not manifest_path.is_file():
+            out["problems"].append({
+                "path": rel, "kind": "missing_manifest",
+                "detail": "a snapshot directory must carry manifest.json"})
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            out["problems"].append({
+                "path": rel, "kind": "unreadable_manifest", "detail": str(exc)})
+            continue
+        if not isinstance(manifest, dict):
+            out["problems"].append({
+                "path": rel, "kind": "unreadable_manifest",
+                "detail": "manifest.json is not an object"})
+            continue
+        unit = manifest.get("unit")
+        if unit != dest.name:
+            out["problems"].append({
+                "path": rel, "kind": "unit_name_mismatch",
+                "detail": f"manifest unit={unit!r}, directory={dest.name!r}"})
+        if isinstance(unit, str):
+            if unit in seen_units:
+                out["problems"].append({
+                    "path": rel, "kind": "duplicate_unit",
+                    "detail": f"also claimed by {seen_units[unit]}"})
+            else:
+                seen_units[unit] = rel
+        listed = manifest.get("files")
+        if not isinstance(listed, list) or not all(
+                isinstance(name, str) for name in listed):
+            out["problems"].append({
+                "path": rel, "kind": "unreadable_manifest",
+                "detail": "manifest.files is not a list of strings"})
+            continue
+        extra = sorted(set(on_disk) - set(listed))
+        missing = sorted(set(listed) - set(on_disk))
+        if extra or missing:
+            out["problems"].append({
+                "path": rel, "kind": "file_set_mismatch",
+                "detail": f"extra={extra}, missing={missing}"})
+        if manifest.get("file_count") != len(listed):
+            out["problems"].append({
+                "path": rel, "kind": "manifest_count_mismatch",
+                "detail": f"file_count={manifest.get('file_count')!r}, "
+                          f"listed={len(listed)}"})
+        actual_bytes = {name: on_disk[name] for name in listed
+                        if name in on_disk}
+        if manifest.get("bytes") != sum(len(b) for b in actual_bytes.values()):
+            out["problems"].append({
+                "path": rel, "kind": "manifest_bytes_mismatch",
+                "detail": f"bytes={manifest.get('bytes')!r}, "
+                          f"on_disk={sum(len(b) for b in actual_bytes.values())}"})
+        actual_hash = _memory_tree_hash(actual_bytes) if actual_bytes else None
+        if actual_hash is None:
+            out["hash_checked"] = False
+        elif manifest.get("tree_sha256") != actual_hash:
+            out["problems"].append({
+                "path": rel, "kind": "tree_hash_mismatch",
+                "detail": f"manifest={manifest.get('tree_sha256')}, "
+                          f"recomputed={actual_hash}"})
+    return out
+
+
+def _merge_progress_path(lineage: pathlib.Path, wave_index: int) -> pathlib.Path:
+    return lineage / "waves" / f"wave_{wave_index:03d}" / "merge_progress.json"
+
+
+def _load_merge_progress(path: pathlib.Path, wave_index: int,
+                         config: "UsineMergeConfig", usine_dir) -> dict:
+    """读回一次未完成的合并进度；**不自洽就 fail-closed**。
+
+    进度日志存在的唯一理由是覆盖「提交已经落进仓库、tag 或记忆快照还没落」
+    的崩溃窗口。它必须由代码证明自己仍然指向这条历史：每个记录的提交都要
+    存在，且是当前 HEAD 的祖先；base 提交也一样。历史被改写（rebase/reset）
+    之后拿旧日志去补 tag，会把 tag 打到一条不存在的提交上。
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise UsineMergeError(
+            f"{path}: merge progress is unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise UsineMergeError(f"{path}: merge progress is not an object")
+    if payload.get("schema_version") != 1:
+        raise UsineMergeError(
+            f"{path}: unsupported merge-progress schema "
+            f"{payload.get('schema_version')!r}")
+    if payload.get("wave_index") != wave_index:
+        raise UsineMergeError(
+            f"{path}: progress is for wave {payload.get('wave_index')!r}, "
+            f"not {wave_index}")
+    if payload.get("unit_label") != config.unit_label:
+        raise UsineMergeError(
+            f"{path}: progress was written for unit "
+            f"{payload.get('unit_label')!r}, this merge is "
+            f"{config.unit_label!r}; refusing to mix a wave and a DRS run")
+    recorded_prefix = payload.get("tag_prefix")
+    if recorded_prefix and recorded_prefix != config.tag_prefix:
+        raise UsineMergeError(
+            f"{path}: progress was written with tag prefix "
+            f"{recorded_prefix!r}, this merge uses {config.tag_prefix!r}; "
+            f"changing the prefix mid-wave would tag the same commits twice")
+    commits = payload.get("commits")
+    if not isinstance(commits, list) or not all(
+            isinstance(sha, str) and sha for sha in commits):
+        raise UsineMergeError(f"{path}: progress.commits is not a list of shas")
+    head = _git(["rev-parse", "HEAD"], cwd=usine_dir) \
+        .stdout.decode("utf-8", "replace").strip()
+    for sha in commits:
+        exists = _git(["cat-file", "-e", f"{sha}^{{commit}}"],
+                      cwd=usine_dir, check=False)
+        if exists.returncode != 0:
+            raise UsineMergeError(
+                f"{path}: recorded commit {sha} no longer exists; the history "
+                f"this progress refers to was rewritten")
+        ancestor = _git(["merge-base", "--is-ancestor", sha, head],
+                        cwd=usine_dir, check=False)
+        if ancestor.returncode != 0:
+            raise UsineMergeError(
+                f"{path}: recorded commit {sha} is not an ancestor of HEAD "
+                f"({head[:12]}); refusing to recover a tag across a rewritten "
+                f"history")
+    base = payload.get("base_commit")
+    if base:
+        ancestor = _git(["merge-base", "--is-ancestor", base, head],
+                        cwd=usine_dir, check=False)
+        if ancestor.returncode != 0:
+            raise UsineMergeError(
+                f"{path}: recorded base {base} is not an ancestor of HEAD; "
+                f"the repository history was rewritten mid-wave")
+    return payload
+
+
+#: 合并是**仓库级**临界区：两个 run root 同时合并会把提交、tag 与快照交错在
+#: 一起。锁文件放在 git common dir（`--git-common-dir`，worktree 也指向主仓的
+#: .git），不进工作树；用 OS 排他锁，进程退出时自动释放——不会有需要人手清的
+#: stale lock。等待上限由环境变量控制；0 = 只试一次。
+_MERGE_LOCK_ENV = "RSIAGENT_MERGE_LOCK_TIMEOUT"
+_MERGE_LOCK_DEFAULT_TIMEOUT = 300.0
+_MERGE_LOCK_POLL_SECS = 0.25
+_MERGE_LOCK_NAME = "rsiagent-usine-merge.lock"
+
+
+def _merge_lock_timeout() -> float:
+    raw = os.environ.get(_MERGE_LOCK_ENV, "").strip()
+    if not raw:
+        return _MERGE_LOCK_DEFAULT_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise UsineMergeError(
+            f"{_MERGE_LOCK_ENV} must be a number of seconds, got {raw!r}") from exc
+    if value < 0:
+        raise UsineMergeError(f"{_MERGE_LOCK_ENV} must be >= 0, got {value}")
+    return value
+
+
+def _merge_lock_path(usine_dir) -> pathlib.Path:
+    """仓库级合并锁的路径（git common dir 下，不进工作树）。"""
+    out = _git(["rev-parse", "--git-common-dir"], cwd=usine_dir) \
+        .stdout.decode("utf-8", "replace").strip()
+    if not out:
+        raise UsineMergeError(
+            f"cannot resolve the git common dir of {usine_dir}")
+    path = pathlib.Path(out)
+    if not path.is_absolute():
+        # 在 usine 子树里 `--git-common-dir` 返回 `../.git`，相对的是 cwd。
+        path = pathlib.Path(usine_dir) / path
+    return path.resolve() / _MERGE_LOCK_NAME
+
+
+def _lock_fd_exclusive(fd: int) -> None:
+    """尝试拿排他锁；被占用时抛 `BlockingIOError`（跨平台）。"""
+    try:
+        import fcntl
+    except ImportError:  # Windows
+        import msvcrt
+
+        if os.fstat(fd).st_size == 0:
+            os.write(fd, b"\0")
+        os.lseek(fd, 0, 0)
+        try:
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            raise BlockingIOError("merge lock is held") from exc
+        return
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_fd(fd: int) -> None:
+    try:
+        import fcntl
+    except ImportError:  # Windows
+        import msvcrt
+
+        os.lseek(fd, 0, 0)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        return
+    fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def _read_lock_metadata(path: pathlib.Path) -> str:
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return "(unreadable)"
+    return raw[:400] or "(empty)"
+
+
+class _MergeLock:
+    """仓库级合并锁：OS 排他锁 + 一段用于诊断的持有者元数据。"""
+
+    def __init__(self, path: pathlib.Path, timeout: float, metadata: dict):
+        self.path = path
+        self.timeout = timeout
+        self.metadata = metadata
+        self.fd: int | None = None
+
+    def acquire(self) -> "_MergeLock":
+        deadline = time.monotonic() + self.timeout
+        while True:
+            fd = os.open(str(self.path), os.O_RDWR | os.O_CREAT, 0o644)
+            try:
+                _lock_fd_exclusive(fd)
+            except BlockingIOError:
+                os.close(fd)
+                if time.monotonic() >= deadline:
+                    raise UsineMergeError(
+                        f"another run holds the usine merge lock at "
+                        f"{self.path} (waited {self.timeout:g}s). Holder: "
+                        f"{_read_lock_metadata(self.path)}. Two run roots "
+                        f"merging into the same repository would interleave "
+                        f"commits/tags — wait for it, or set "
+                        f"{_MERGE_LOCK_ENV} and retry; merge_pending_waves "
+                        f"will pick this wave up on the next start")
+                time.sleep(_MERGE_LOCK_POLL_SECS)
+                continue
+            except OSError as exc:
+                os.close(fd)
+                raise UsineMergeError(
+                    f"could not lock the usine merge lock {self.path}: "
+                    f"{exc}") from exc
+            self.fd = fd
+            self._write_metadata()
+            return self
+
+    def _write_metadata(self) -> None:
+        blob = (json.dumps(self.metadata, ensure_ascii=False, sort_keys=True)
+                + "\n").encode("utf-8")
+        os.lseek(self.fd, 0, 0)
+        if os.name == "nt":
+            # Windows 的字节锁锁的是第 0 个字节；truncate 到 0 会动到锁区，
+            # 所以用定长填充覆盖，读的一方 strip 掉尾部空格。
+            os.write(self.fd, blob.ljust(1024, b" ")[:1024])
+        else:
+            os.ftruncate(self.fd, 0)
+            os.write(self.fd, blob)
+        try:
+            os.fsync(self.fd)
+        except OSError:
+            pass
+
+    def release(self) -> None:
+        if self.fd is None:
+            return
+        try:
+            _unlock_fd(self.fd)
+        finally:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self) -> "_MergeLock":
+        return self.acquire()
+
+    def __exit__(self, *_exc) -> None:
+        self.release()
+
+
+def _acquire_merge_lock(usine_dir, lineage: pathlib.Path,
+                        wave_index: int) -> _MergeLock:
+    metadata = {
+        "pid": os.getpid(),
+        "host": socket.gethostname(),
+        "acquired_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "lineage": str(lineage),
+        "wave_index": wave_index,
+        "usine_dir": str(usine_dir),
+    }
+    lock = _MergeLock(_merge_lock_path(usine_dir), _merge_lock_timeout(),
+                      metadata)
+    return lock.acquire()
+
+
+def _reported_wave(report_path: pathlib.Path, progress_path: pathlib.Path,
+                   wave_index: int) -> dict | None:
+    """这一波已经有报告了吗；有就返回它（并清掉残留的进度日志）。"""
+    if not report_path.is_file():
+        return None
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["skipped"] = "report_exists"
+    if progress_path.is_file():
+        # 报告是权威记录；上一次写完之后没来得及清掉的进度日志是残留。
+        progress_path.unlink(missing_ok=True)
+    log.info("wave %s already carries a merge report", wave_index)
+    return report
 
 
 def merge_wave(lineage_root, wave_index: int,
                config: UsineMergeConfig) -> dict:
-    """Merge one fully closed wave; idempotent (a reported wave is a no-op)."""
+    """Merge one fully closed wave; idempotent (a reported wave is a no-op).
+
+    The whole merge (preconditions -> commits -> tag -> snapshot -> report) runs
+    under a **repository-level** exclusive lock, so two run roots cannot
+    interleave commits and tags in the same repository.  The lock lives in the
+    git common dir and is an OS lock: a crashed process releases it
+    automatically (no stale lock to clean by hand).  A second merge waits up to
+    ``RSIAGENT_MERGE_LOCK_TIMEOUT`` seconds (default 300; 0 = try once), then
+    fails with the holder's metadata.
+    """
     lineage = pathlib.Path(lineage_root)
     wave_dir = lineage / "waves" / f"wave_{wave_index:03d}"
     report_path = wave_dir / "merge_report.json"
-    if report_path.is_file():
-        report = json.loads(report_path.read_text(encoding="utf-8"))
-        report["skipped"] = "report_exists"
-        log.info("wave %s already carries a merge report", wave_index)
+    progress_path = _merge_progress_path(lineage, wave_index)
+    report = _reported_wave(report_path, progress_path, wave_index)
+    if report is not None:
         return report
+    usine = pathlib.Path(config.usine_dir)
+    ctx = _repo_context(usine)
+    lock = _acquire_merge_lock(usine, lineage, wave_index)
+    try:
+        # 等锁期间另一个进程可能已经把这一波做完了：必须在**锁内**重查，
+        # 否则我们会拿一份过期的「报告不存在」去重复提交。
+        report = _reported_wave(report_path, progress_path, wave_index)
+        if report is not None:
+            return report
+        return _merge_wave_locked(lineage, wave_index, config, ctx, usine,
+                                  report_path, progress_path)
+    finally:
+        lock.release()
+
+
+def _merge_wave_locked(lineage: pathlib.Path, wave_index: int,
+                       config: UsineMergeConfig, ctx: dict, usine: pathlib.Path,
+                       report_path: pathlib.Path,
+                       progress_path: pathlib.Path) -> dict:
+    """`merge_wave` 的临界区；调用方必须已经持有仓库级合并锁。"""
+    wave_dir = lineage / "waves" / f"wave_{wave_index:03d}"
     outcomes = _wave_outcomes(lineage, wave_index)
     if not outcomes:
         raise UsineMergeError(
             f"wave {wave_index} has no closed episodes under {lineage}")
-    usine = pathlib.Path(config.usine_dir)
-    ctx = _repo_context(usine)
     base_commit = _assert_preconditions(ctx, usine)
+
+    resumed = (_load_merge_progress(progress_path, wave_index,
+                                    config, usine)
+               if progress_path.is_file() else None)
+    prior_commits = list((resumed or {}).get("commits") or [])
+    progress = {
+        "schema_version": 1,
+        "wave_index": wave_index,
+        "unit_label": config.unit_label,
+        "commit_scope": config.commit_scope,
+        "tag_prefix": config.tag_prefix,
+        "base_commit": (resumed or {}).get("base_commit") or base_commit,
+        "status": "started",
+        "commits": prior_commits,
+        "tag": (resumed or {}).get("tag"),
+        "memory_snapshot": (resumed or {}).get("memory_snapshot"),
+        "started_at": (resumed or {}).get("started_at")
+                      or time.strftime("%Y-%m-%d %H:%M:%S"),
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    _atomic_json(progress_path, progress)
 
     commits: list[str] = []
     gate_seconds = 0.0
     candidates: list[dict] = []
-    log.info("wave %s merge start: %d episode(s), base %s",
-             wave_index, len(outcomes), base_commit[:10])
+    log.info("wave %s merge start: %d episode(s), base %s%s",
+             wave_index, len(outcomes), base_commit[:10],
+             f", resuming {len(prior_commits)} recorded commit(s)"
+             if prior_commits else "")
     for outcome in outcomes:
         entry = {"project_index": outcome["project_index"],
                  "project_id": outcome["project_id"],
@@ -1378,6 +2035,10 @@ def merge_wave(lineage_root, wave_index: int,
             sha = _commit_candidate(config, usine, wave_index, outcome,
                                     delta, gate)
             commits.append(sha)
+            progress["commits"] = prior_commits + commits
+            progress["status"] = "committing"
+            progress["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            _atomic_json(progress_path, progress)
             entry["decision"] = "merged"
             entry["commit"] = sha
             log.info("ep%03d merged as %s", outcome["project_index"],
@@ -1388,28 +2049,54 @@ def merge_wave(lineage_root, wave_index: int,
             except UsineMergeError:
                 log.exception("rollback also failed; the usine tree is dirty")
             raise
-    tag_info = ({"tag": None, "tag_created": False} if not commits
-                else _ensure_wave_tag(config, usine, wave_index, commits))
+    all_commits = prior_commits + commits
+    tag_info = ({"tag": None, "tag_created": False} if not all_commits
+                else _ensure_wave_tag(config, usine, wave_index, all_commits))
+    progress["tag"] = tag_info
+    progress["status"] = "tagged"
+    progress["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    _atomic_json(progress_path, progress)
     # 记忆快照进仓库：记忆是唯一跨波次传递的东西，它必须在同一条提交流里
     # 可 review、可 diff。放在所有候选提交之后——树在那一刻是干净的。
-    memory_snapshot = ({"written": False, "reason": "no candidate was merged"}
-                       if not commits
-                       else _snapshot_memory_into_repo(
-                           ctx, lineage, config.unit_label, wave_index,
-                           config.memory_snapshot_dir))
+    #
+    # **`already_merged` / `merged_noop` 也算「候选已经在树里」**：崩溃重跑时
+    # 候选的字节已由上一次尝试提交，这一次没有新提交（`commits` 为空）。旧条件
+    # `if not commits` 会跳过快照，并在报告里写「no candidate was merged」——
+    # 那句话是假的，这一波的记忆于是永远进不了仓库。真正没进树的只有
+    # drift / gate 拒绝。
+    already_in_tree = [entry["project_index"] for entry in candidates
+                       if entry.get("decision") in {"merged_noop",
+                                                    "already_merged"}]
+    if not all_commits and not already_in_tree:
+        memory_snapshot = {"written": False,
+                           "reason": "no candidate reached the tree"}
+    else:
+        memory_snapshot = _snapshot_memory_into_repo(
+            ctx, lineage, config.unit_label, wave_index,
+            config.memory_snapshot_dir)
+    progress["memory_snapshot"] = memory_snapshot
+    progress["status"] = "done"
+    progress["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    _atomic_json(progress_path, progress)
     report = {"schema_version": 1, "wave_index": wave_index,
               "usine_dir": str(usine), "repo_toplevel": ctx["toplevel"],
               "repo_prefix": ctx["prefix"], "base_commit": base_commit,
               "gate_argv": [str(a) for a in config.gate_argv],
-              "commits": commits, "gate_seconds_total": round(gate_seconds, 1),
+              "commits": all_commits,
+              "commits_made_this_run": len(commits),
+              "resumed_from_progress": resumed is not None,
+              "gate_seconds_total": round(gate_seconds, 1),
+              "already_in_tree": already_in_tree,
               "candidates": candidates,
-              "anchors": _report_anchors(commits, tag_info),
+              "anchors": _report_anchors(all_commits, tag_info),
               "memory_snapshot": memory_snapshot,
               "ts": time.strftime("%Y-%m-%d %H:%M:%S"), **tag_info}
     _atomic_json(report_path, report)
     _atomic_text(wave_dir / "merge_report.md", _render_md(report))
-    log.info("wave %s merge done: %d commit(s), tag=%s",
-             wave_index, len(commits), report["tag"])
+    # 报告落盘之后进度日志就只是残留了；留着会让下一次误以为还有未完成的事。
+    progress_path.unlink(missing_ok=True)
+    log.info("wave %s merge done: %d commit(s) total (%d this run), tag=%s",
+             wave_index, len(all_commits), len(commits), report["tag"])
     return report
 
 
@@ -1523,7 +2210,8 @@ def plan_drs_run(lineage_root, config: UsineMergeConfig) -> dict:
     return {
         "schema_version": 1,
         "usine_dir": str(usine),
-        "tag": f"{drs_config.tag_prefix}-1",
+        # 只读预览：撞名时这里是**会真正创建的那个后缀 tag**，不是 base 名。
+        "tag": _next_free_tag(drs_config, usine, 1),
         "commit_scope": drs_config.commit_scope,
         "gate_argv": [str(a) for a in config.gate_argv],
         "episodes": episodes,
@@ -1653,3 +2341,46 @@ def wave_merge_event_sink(lineage_root, config: UsineMergeConfig,
                                entry["project_index"]: entry["decision"]
                                for entry in report.get("candidates", [])}})
     return sink
+
+
+# ----------------------------------------------------------------------- CLI
+
+def _main(argv: list[str] | None = None) -> int:
+    """`python3 garage/wave_merge.py verify-memory-snapshots [ROOT]`。
+
+    这是撞名缺陷的**机检入口**：manifest 与盘上文件对不上就退出 1。
+    默认根是适配层旁边的 ``memory-snapshots/``（真实布局），也给显式路径。
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(description="usine wave merge helpers")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    verify = sub.add_parser(
+        "verify-memory-snapshots",
+        help="审计 memory-snapshots/：manifest 与盘上文件必须对得上")
+    verify.add_argument(
+        "root", nargs="?", default=None,
+        help="快照根目录（默认是 garage/memory-snapshots/）")
+    verify.add_argument("--json", action="store_true", help="输出 JSON")
+    args = ap.parse_args(argv)
+    if args.cmd == "verify-memory-snapshots":
+        root = (pathlib.Path(args.root) if args.root
+                else pathlib.Path(__file__).resolve().parent / "memory-snapshots")
+        audit = verify_memory_snapshots(root)
+        if args.json:
+            print(json.dumps(audit, ensure_ascii=False, indent=2))
+        else:
+            print(f"memory snapshots: {len(audit['snapshots'])} under {audit['root']}")
+            if not audit["hash_checked"]:
+                print("  hash: NOT checked (the engine's memory_hash was not importable)")
+            for problem in audit["problems"]:
+                print(f"  FAIL {problem['path']}: {problem['kind']} — "
+                      f"{problem['detail']}")
+            if not audit["problems"]:
+                print("  all snapshots match their manifests")
+        return 1 if audit["problems"] else 0
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

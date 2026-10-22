@@ -121,32 +121,50 @@ def _min_achievable_p(n_base: int, n_evolved: int) -> float:
 def _power_shortfall(
     comparisons: list[dict], task_ids: set[str], p_threshold: float
 ) -> dict:
-    """这一侧的样本量够不够判出显著。返回 `{k, min_p, adequate, n_cells}`。
+    """这一侧的样本量够不够判出显著。返回 `{k, k_base, k_evolved, min_p, adequate, n_cells}`。
 
-    `k` 取每臂每格的 rollout 数：`compare_arms` 的行带 `base_n` / `evolved_n`
-    （取两臂较小值）。2026-10-22 实测踩到：这里原本只认 `n_rollouts`，而
-    `compare_arms` 的行没有这个字段 → 恒回退 k=1 → **n=11 的真读数被报成
-    「判别能力不够」的假警报**（n=3 那轮的 `no_train_signal` 判决也因此带着
-    一条错误的功效注脚）。缺所有字段时仍按 1 算——保守方向不变：把「不知道
-    几次」当 k=1，宁可说「判不出」也不要假装判得出。
+    每臂的 rollout 数可以不同（两段式 sweep 里基准有 ``base1..basek``，而演化
+    侧只有**被盲选中的那一次** rollout）。所以最小可达 p 必须按每一格的
+    ``(n_base, n_evolved)`` 分别算，再取**最差的那一格**——一格里分不开，
+    整体就不能声称有判别能力。
+
+    旧实现取 ``k = min(n_base, n_evolved)`` 再按两臂各 k 次算，在不等样本时
+    会低估判别能力（例如 11 个基准 rollout vs 1 个演化 rollout 的真实最小
+    p 是 1/C(12,1)=0.083，旧算法按 k=1 报成 0.5）。2026-10-22 修正。
+
+    缺所有样本字段时仍按 1 算——保守方向不变：把「不知道几次」当 k=1，
+    宁可说「判不出」也不要假装判得出。
     """
-    ks = []
+    mins: list[float] = []
+    base_ns: list[int] = []
+    evolved_ns: list[int] = []
     for r in comparisons:
         if r.get("task_id") not in task_ids or r.get("no_data"):
             continue
-        k = r.get("n_rollouts") or min(
-            int(r.get("base_n") or 1), int(r.get("evolved_n") or 1)
-        )
-        ks.append(int(k) if k else 1)
-    if not ks:
-        return {"k": 0, "min_p": 1.0, "adequate": False, "n_cells": 0}
-    k = min(ks)
-    min_p = _min_achievable_p(k, k)
+        raw_base, raw_evolved = r.get("base_n"), r.get("evolved_n")
+        if raw_base is None and raw_evolved is None:
+            k = int(r.get("n_rollouts") or 1) or 1
+            nb = ne = k
+        else:
+            nb = int(raw_base) if raw_base is not None else 0
+            ne = int(raw_evolved) if raw_evolved is not None else 0
+        base_ns.append(max(nb, 0))
+        evolved_ns.append(max(ne, 0))
+        if nb <= 0 or ne <= 0:
+            mins.append(1.0)
+        else:
+            mins.append(_min_achievable_p(nb, ne))
+    if not mins:
+        return {"k": 0, "k_base": 0, "k_evolved": 0, "min_p": 1.0,
+                "adequate": False, "n_cells": 0}
+    worst = max(mins)
     return {
-        "k": k,
-        "min_p": round(min_p, 4),
-        "adequate": min_p <= p_threshold,
-        "n_cells": len(ks),
+        "k": min(min(base_ns), min(evolved_ns)),
+        "k_base": min(base_ns),
+        "k_evolved": min(evolved_ns),
+        "min_p": round(worst, 4),
+        "adequate": worst <= p_threshold,
+        "n_cells": len(mins),
     }
 
 
@@ -209,10 +227,11 @@ def overfit_report(
         # 「这次跑法在数学上没有判别的能力」。措辞必须把这条说清楚并给出修法。
         verdict = "underpowered"
         why = (
-            f"**这批读数没有判别能力**：每臂每格只有 k={power['k']} 次 rollout，"
-            f"置换检验在完全分离时最小 p={power['min_p']}，越不过 p ≤ {P_THRESHOLD} 这条线。"
+            f"**这批读数没有判别能力**：最差的一格只有 base k={power['k_base']} / "
+            f"evolved k={power['k_evolved']} 次 rollout，置换检验在完全分离时最小 "
+            f"p={power['min_p']}，越不过 p ≤ {P_THRESHOLD} 这条线。"
             f"所以「没有显著变化」说的是**没能力判**，不是**确实没差别**。"
-            f"要看真信号得把每格 rollout 数提到 k≥3（k=3 时最小 p=0.05）。"
+            f"要看真信号得把两臂的 rollout 数提上去（两臂各 3 次时最小 p=0.05）。"
             f"逐格的 Δ 仍然可以看方向，但**不许据此下「有效/无效」的结论**。"
         )
     else:
@@ -258,8 +277,9 @@ def format_report(rep: dict) -> str:
     if p:
         tag = "够" if p.get("adequate") else "**不够**"
         lines.append(
-            f"  判别能力：k={p.get('k')}  完全分离时最小 p={p.get('min_p')}  "
-            f"（门槛 {P_THRESHOLD}）→ {tag}"
+            f"  判别能力：base k={p.get('k_base', p.get('k'))} / "
+            f"evolved k={p.get('k_evolved', p.get('k'))}  完全分离时最小 "
+            f"p={p.get('min_p')}（门槛 {P_THRESHOLD}）→ {tag}"
         )
         lines.append("")
     for side in ("train", "eval"):

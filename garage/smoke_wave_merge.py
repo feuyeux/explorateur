@@ -31,6 +31,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from pathlib import Path
 
 from checks import bootstrap, check, info, record, summarise  # noqa: E402
@@ -1469,6 +1470,465 @@ def test_health_and_l3_gates() -> None:
             os.environ["GARAGE_SPEC_SYNC_REGISTRY"] = saved_registry
 
 
+def test_collisions_and_snapshot_audit() -> None:
+    """两个 run root 都从 wave 1 开始时，不许静默共用 tag 或快照目录。
+
+    2026-10-22 实测的两处静默缺陷（docs/self-evolution.md §5.3(c)）：
+
+    * ``_ensure_wave_tag`` 探测到 ``theatre/wave-1`` 已存在就直接返回，
+      于是第二波合进来了却没有指向自己的 tag；
+    * 记忆快照目录名只有「单位 + 波次」，两棵 run root 的 wave 1 写进同一个
+      ``wave-001/``，盘上 8 个文件而 manifest 只描述 3 个。
+
+    这些断言在旧实现下会挂：旧 tag 路径拿到的是 ``theatre/wave-1`` 且
+    ``tag_created`` 为 False；旧快照路径会覆盖 ``wave-001/notes.md``。
+    """
+    # 1. tag 撞名：第二条 run 的 wave 1 拿到自己的后缀 tag。
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-tags-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        first = root / "run-a" / "lineage"
+        second = root / "run-b" / "lineage"
+        make_episode(first, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+        make_episode(second, "ep001", 1, 1, "p-b", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/a.txt": b"B-SIDE\n"}))
+        report_a = wave_merge.merge_wave(str(first), 1, config_for(usine))
+        report_b = wave_merge.merge_wave(str(second), 1, config_for(usine))
+        tags = git_read(usine, "tag", "-l").split()
+        check("collision: the first wave owns the base tag",
+              report_a["tag"] == "theatre/wave-1"
+              and report_a["tag_created"] is True, report_a.get("tag"))
+        check("collision: the second wave gets a suffix instead of reusing it",
+              report_b["tag"] == "theatre/wave-1-2"
+              and report_b["tag_created"] is True
+              and report_b.get("tag_base") == "theatre/wave-1", report_b.get("tag"))
+        check("collision: the report names the tag it collided with",
+              (report_b.get("tag_collisions") or [{}])[0].get("tag")
+              == "theatre/wave-1"
+              and (report_b.get("tag_collisions") or [{}])[0].get("points_at")
+              == report_a["commits"][-1], report_b.get("tag_collisions"))
+        check("collision: both tags exist and point at their own wave",
+              "theatre/wave-1" in tags and "theatre/wave-1-2" in tags
+              and git_read(usine, "rev-parse", "theatre/wave-1-2^{commit}").strip()
+              == report_b["commits"][-1], tags)
+
+        # 幂等重跑：tag 已经指向本波最后一个提交时，复用而不是再造一个。
+        config = config_for(usine)
+        reused = wave_merge._ensure_wave_tag(
+            config, usine, 1, [report_a["commits"][-1]])
+        check("collision: a tag already on this wave's commit is reused",
+              reused["tag"] == "theatre/wave-1"
+              and reused["tag_created"] is False
+              and reused.get("tag_reused") is True, reused)
+
+        # plan 也要报「真正会创建的那个名字」，而不是 base 名。
+        git_read(usine, "-c", "user.name=smoke", "-c", "user.email=smoke@local",
+                 "tag", "-a", "theatre/drs-1", "-m", "taken")
+        plan = wave_merge.plan_drs_run(str(second), config_for(usine))
+        check("collision: the DRS plan skips a taken tag name",
+              plan["tag"] == "theatre/drs-1-2", plan.get("tag"))
+
+    # 2. 记忆快照撞名：两份都保留，谁也不覆盖谁；审计能把旧式损坏抓出来。
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-snap-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        first = root / "run-a" / "lineage"
+        second = root / "run-b" / "lineage"
+        (first / "memory").mkdir(parents=True)
+        (first / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+        (second / "memory").mkdir(parents=True)
+        (second / "memory" / "notes.md").write_text("B\n", encoding="utf-8")
+        (second / "memory" / "craft").mkdir()
+        (second / "memory" / "craft" / "x.md").write_text(
+            "B-craft\n", encoding="utf-8")
+        make_episode(first, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+        make_episode(second, "ep001", 1, 1, "p-b", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/a.txt": b"B-SIDE\n"}))
+        report_a = wave_merge.merge_wave(str(first), 1, config_for(usine))
+        report_b = wave_merge.merge_wave(str(second), 1, config_for(usine))
+        snap_root = usine.parent / "garage" / "memory-snapshots"
+        snap_a = report_a["memory_snapshot"]
+        snap_b = report_b["memory_snapshot"]
+        first_dir = snap_root / "wave-001"
+        second_dir = snap_root / "wave-001-2"
+        check("snapshot: the first run writes wave-001",
+              snap_a.get("written") is True and first_dir.is_dir()
+              and (first_dir / "notes.md").read_text(encoding="utf-8") == "A\n",
+              snap_a)
+        check("snapshot: the second run gets a suffix, not an overwrite",
+              snap_b.get("written") is True
+              and (snap_b.get("collision") or {}).get("base")
+              == "garage/memory-snapshots/wave-001"
+              and second_dir.is_dir()
+              and (second_dir / "notes.md").read_text(encoding="utf-8") == "B\n",
+              snap_b)
+        check("snapshot: the first run's bytes were left alone",
+              (first_dir / "notes.md").read_text(encoding="utf-8") == "A\n"
+              and not (first_dir / "craft").exists(), "")
+        manifest_b = json.loads((second_dir / "manifest.json").read_text(
+            encoding="utf-8"))
+        check("snapshot: the suffixed manifest names itself and the collision",
+              manifest_b["unit"] == "wave-001-2"
+              and manifest_b["collision"]["base"].endswith("wave-001")
+              and manifest_b["files"] == ["craft/x.md", "notes.md"], manifest_b)
+        audit = wave_merge.verify_memory_snapshots(snap_root)
+        check("snapshot audit: two coherent snapshots, no problems",
+              len(audit["snapshots"]) == 2 and not audit["problems"],
+              audit)
+        check("snapshot audit: the engine hash was actually checked",
+              audit["hash_checked"] is True, audit)
+
+        # 旧式损坏：目录里多出 manifest 没描述的文件（wave-001 的实测形状）。
+        (first_dir / "leftover.md").write_text("stale\n", encoding="utf-8")
+        audit = wave_merge.verify_memory_snapshots(snap_root)
+        kinds = {(p["path"], p["kind"]) for p in audit["problems"]}
+        check("snapshot audit: an undescribed leftover file is a FAIL",
+              ("wave-001", "file_set_mismatch") in kinds, audit["problems"])
+        (first_dir / "leftover.md").unlink()
+
+        # 同源异内容：同一个 run root 对同一波产出两棵不同记忆树 → fail-closed。
+        ctx = wave_merge._repo_context(usine)
+        (first / "memory" / "notes.md").write_text("A2\n", encoding="utf-8")
+        head_before = git_read(usine, "rev-parse", "HEAD").strip()
+        expect_raise(
+            "snapshot: same run root + different tree fails closed",
+            wave_merge._snapshot_memory_into_repo,
+            ctx, first, "wave", 1, "garage")
+        check("snapshot: the fail-closed path did not overwrite the snapshot",
+              (first_dir / "notes.md").read_text(encoding="utf-8") == "A\n"
+              and git_read(usine, "rev-parse", "HEAD").strip() == head_before,
+              "")
+
+        # 内容没变就是幂等：不写第二份、不再提交一次。
+        (first / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+        again = wave_merge._snapshot_memory_into_repo(
+            ctx, first, "wave", 1, "garage")
+        check("snapshot: re-snapshotting the same tree is a no-op",
+              again.get("written") is False
+              and again.get("idempotent") is True
+              and again.get("path", "").endswith("wave-001")
+              and git_read(usine, "rev-parse", "HEAD").strip() == head_before,
+              again)
+
+        # 另一个 run root 产出**逐字相同**的记忆树：不写第二份，但别把
+        # 「是两条 run」这件事抹掉——报告里要能看见已有快照来自谁。
+        third = root / "run-c" / "lineage"
+        (third / "memory").mkdir(parents=True)
+        (third / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+        make_episode(third, "ep001", 1, 1, "p-c", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/c.txt": b"C-SIDE\n"}))
+        report_c = wave_merge.merge_wave(str(third), 1, config_for(usine))
+        snap_c = report_c["memory_snapshot"]
+        check("snapshot: byte-identical tree from another run root is reused",
+              snap_c.get("written") is False
+              and snap_c.get("idempotent") is True
+              and snap_c.get("existing_source") == str(first / "memory")
+              and not (snap_root / "wave-001-3").exists(), snap_c)
+
+
+    # 3. 崩溃重跑：候选字节已在树里（merged_noop），记忆仍要能进仓库。
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-resume-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        (lineage / "memory").mkdir(parents=True)
+        (lineage / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+        make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+        first = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        check("resume: the first attempt snapshots the memory",
+              (first.get("memory_snapshot") or {}).get("written") is True,
+              first.get("memory_snapshot"))
+        head = git_read(usine, "rev-parse", "HEAD").strip()
+        # 模拟「快照提交之后、报告落盘之前」崩溃：报告没了，代码与快照都在。
+        (lineage / "waves/wave_001/merge_report.json").unlink()
+        (lineage / "waves/wave_001/merge_report.md").unlink()
+        again = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        snap = again.get("memory_snapshot") or {}
+        check("resume: already-applied candidates are already_merged",
+              [e["decision"] for e in again["candidates"]]
+              == ["already_merged"] and again["commits"] == [],
+              again.get("candidates"))
+        check("resume: memory is still snapshotted (or found identical)",
+              snap.get("written") is True or snap.get("idempotent") is True,
+              snap)
+        check("resume: no second commit was made just to redo the snapshot",
+              git_read(usine, "rev-parse", "HEAD").strip() == head, head)
+
+
+def test_crash_recovery() -> None:
+    """提交已落、tag/快照未落时，下一次必须从进度日志把这一波收完。
+
+    这三条覆盖旧实现的三个洞：
+
+    * tag 步骤失败后，提交已经在仓库里，但**没有 tag、没有报告**——旧实现
+      下一次会把候选判成 `already_merged`，然后 `commits=[]`，tag 永远不补；
+    * 快照步骤失败后同理，记忆永远进不了仓库；
+    * 进度日志必须证明它指向的提交仍在当前历史里——rebase/reset 之后拿旧
+      日志补 tag，会把 tag 打到一条不存在的提交上。
+    """
+    original_tag = wave_merge._ensure_wave_tag
+    original_snapshot = wave_merge._snapshot_memory_into_repo
+
+    def fail(*_args, **_kwargs):
+        raise wave_merge.UsineMergeError("injected failure")
+
+    # A. 提交之后、tag 之前崩溃 → 下一次从日志补 tag。
+    try:
+        with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-crash-tag-") as tmp:
+            root = pathlib.Path(tmp)
+            usine = make_repo(root)
+            lineage = root / "lineage"
+            (lineage / "memory").mkdir(parents=True)
+            (lineage / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+            make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+            progress_path = lineage / "waves/wave_001/merge_progress.json"
+            report_path = lineage / "waves/wave_001/merge_report.json"
+
+            wave_merge._ensure_wave_tag = fail
+            expect_raise("crash: the tag-step failure propagates",
+                         wave_merge.merge_wave, str(lineage), 1,
+                         config_for(usine))
+            journal = json.loads(progress_path.read_text(encoding="utf-8"))
+            check("crash: the commit is in the journal",
+                  len(journal["commits"]) == 1
+                  and journal["status"] == "committing", journal)
+            check("crash: no report and no tag were written yet",
+                  not report_path.exists()
+                  and git_read(usine, "tag", "-l").strip() == "", "")
+
+            wave_merge._ensure_wave_tag = original_tag
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            check("crash: the retry says it resumed",
+                  report.get("resumed_from_progress") is True
+                  and report.get("commits_made_this_run") == 0
+                  and report["commits"] == journal["commits"], report)
+            check("crash: the tag is recovered at the recorded commit",
+                  git_read(usine, "rev-parse",
+                           "theatre/wave-1^{commit}").strip()
+                  == journal["commits"][0], git_read(usine, "tag", "-l"))
+            check("crash: the journal is cleared after the report",
+                  not progress_path.exists() and report_path.is_file(), "")
+            check("crash: the memory snapshot runs on the recovered wave",
+                  (report.get("memory_snapshot") or {}).get("written") is True,
+                  report.get("memory_snapshot"))
+    finally:
+        wave_merge._ensure_wave_tag = original_tag
+
+    # B. tag 之后、快照之前崩溃 → 下一次复用 tag 并补快照。
+    try:
+        with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-crash-snap-") as tmp:
+            root = pathlib.Path(tmp)
+            usine = make_repo(root)
+            lineage = root / "lineage"
+            (lineage / "memory").mkdir(parents=True)
+            (lineage / "memory" / "notes.md").write_text("A\n", encoding="utf-8")
+            make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+            progress_path = lineage / "waves/wave_001/merge_progress.json"
+            report_path = lineage / "waves/wave_001/merge_report.json"
+
+            wave_merge._snapshot_memory_into_repo = fail
+            expect_raise("crash: the snapshot-step failure propagates",
+                         wave_merge.merge_wave, str(lineage), 1,
+                         config_for(usine))
+            journal = json.loads(progress_path.read_text(encoding="utf-8"))
+            check("crash: the journal records that the tag landed",
+                  journal["status"] == "tagged"
+                  and (journal.get("tag") or {}).get("tag") == "theatre/wave-1",
+                  journal)
+            check("crash: the tag exists before the snapshot is retried",
+                  git_read(usine, "rev-parse",
+                           "theatre/wave-1^{commit}").strip()
+                  == journal["commits"][-1], "")
+
+            wave_merge._snapshot_memory_into_repo = original_snapshot
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            snap = report.get("memory_snapshot") or {}
+            check("crash: the retry reuses the tag instead of making a new one",
+                  report.get("resumed_from_progress") is True
+                  and report.get("tag_created") is False
+                  and report.get("tag_reused") is True, report.get("tag"))
+            check("crash: the snapshot is completed on retry",
+                  snap.get("written") is True, snap)
+            check("crash: the journal is cleared after the snapshot retry",
+                  not progress_path.exists() and report_path.is_file(), "")
+    finally:
+        wave_merge._snapshot_memory_into_repo = original_snapshot
+
+    # C. 日志指向的提交不在当前历史里 → fail-closed，不许猜。
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-crash-bad-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+        progress_path = lineage / "waves/wave_001/merge_progress.json"
+        progress_path.parent.mkdir(parents=True, exist_ok=True)
+        progress_path.write_text(json.dumps({
+            "schema_version": 1, "wave_index": 1, "unit_label": "wave",
+            "base_commit": git_read(usine, "rev-parse", "HEAD").strip(),
+            "commits": ["0" * 40], "status": "committing",
+        }), encoding="utf-8")
+        expect_raise("crash: a journal pointing at a missing commit fails closed",
+                     wave_merge.merge_wave, str(lineage), 1,
+                     config_for(usine))
+        check("crash: the bad journal did not produce a report",
+              not (lineage / "waves/wave_001/merge_report.json").exists(), "")
+
+        base = {"schema_version": 1, "wave_index": 1, "unit_label": "wave",
+                "base_commit": git_read(usine, "rev-parse", "HEAD").strip(),
+                "commits": [], "status": "started"}
+        progress_path.write_text(json.dumps(
+            dict(base, tag_prefix="other/wave")), encoding="utf-8")
+        expect_raise("crash: changing the tag prefix mid-wave fails closed",
+                     wave_merge.merge_wave, str(lineage), 1,
+                     config_for(usine))
+        progress_path.write_text(json.dumps(
+            dict(base, tag_prefix="theatre/wave", unit_label="drs")),
+            encoding="utf-8")
+        expect_raise("crash: a wave merge refuses a DRS journal",
+                     wave_merge.merge_wave, str(lineage), 1,
+                     config_for(usine))
+
+
+def test_merge_lock() -> None:
+    """仓库级合并锁：跨进程互斥，且等锁期间报告出现后不许重复提交。
+
+    两个 run root 同时把 wave 合进同一个仓库时，旧实现没有互斥：两边都通过
+    前置检查、各自提交，提交/tag/快照会交错，账面还都能写出报告。锁放在 git
+    common dir，用 OS 排他锁——进程崩溃时由内核释放，不会留下要人手清的
+    stale lock。
+    """
+    saved_timeout = os.environ.get("RSIAGENT_MERGE_LOCK_TIMEOUT")
+    try:
+        # A. 直接锁：另一个进程持有时，等待超时报错并带上持有者信息。
+        with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-lock-") as tmp:
+            root = pathlib.Path(tmp)
+            usine = make_repo(root)
+            lineage = root / "lineage"
+            lock_path = wave_merge._merge_lock_path(usine)
+            check("lock: the lock lives in the git dir, not the worktree",
+                  ".git" in lock_path.parts
+                  and lock_path.name == "rsiagent-usine-merge.lock",
+                  str(lock_path))
+
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(THEATRE) + os.pathsep + env.get("PYTHONPATH", "")
+            env["RSIAGENT_MERGE_LOCK_TIMEOUT"] = "5"
+            code = (
+                "import sys, time\n"
+                f"sys.path.insert(0, {str(HERE)!r})\n"
+                "import wave_merge as W\n"
+                "lock = W._acquire_merge_lock(sys.argv[1], "
+                "__import__('pathlib').Path(sys.argv[2]), 1)\n"
+                "print('locked', flush=True)\n"
+                "time.sleep(3)\n"
+                "lock.release()\n"
+            )
+            child = subprocess.Popen(  # noqa: S603
+                [sys.executable, "-c", code, str(usine), str(lineage)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=env)
+            try:
+                line = child.stdout.readline().strip()
+                check("lock: the child process took the repository lock",
+                      line == "locked", line or child.stderr.read()[:200])
+                os.environ["RSIAGENT_MERGE_LOCK_TIMEOUT"] = "0.2"
+                try:
+                    wave_merge._acquire_merge_lock(usine, lineage, 1)
+                except wave_merge.UsineMergeError as exc:
+                    held = "holds the usine merge lock" in str(exc)
+                    detail = str(exc)
+                except Exception as exc:  # noqa: BLE001
+                    held = False
+                    detail = f"wrong exception {type(exc).__name__}: {exc}"
+                else:
+                    held = False
+                    detail = "acquired a held lock"
+                check("lock: a held lock times out with the holder's metadata",
+                      held and "pid" in detail, detail[:240])
+            finally:
+                child.wait(timeout=15)
+                if child.stdout:
+                    child.stdout.close()
+                if child.stderr:
+                    child.stderr.close()
+            os.environ["RSIAGENT_MERGE_LOCK_TIMEOUT"] = "1"
+            lock = wave_merge._acquire_merge_lock(usine, lineage, 1)
+            lock.release()
+            check("lock: after the holder exits the lock is acquirable",
+                  True, "")
+
+        # B. 两个真合并并发：一个提交，另一个等锁后看到报告，不重复提交。
+        with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-lock2-") as tmp:
+            root = pathlib.Path(tmp)
+            usine = make_repo(root)
+            (usine / "slowgate.py").write_text(
+                "import time\n"
+                "time.sleep(1.5)\n"
+                "open('gate-ran-marker', 'a').write('ran\\n')\n",
+                encoding="utf-8")
+            lineage = root / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+            runner = root / "runner.py"
+            runner.write_text(
+                "import json, sys\n"
+                f"sys.path.insert(0, {str(HERE)!r})\n"
+                "import wave_merge as W\n"
+                "spec = json.loads(sys.argv[1])\n"
+                "cfg = W.UsineMergeConfig(usine_dir=spec['usine'], "
+                "gate_argv=tuple(spec['gate']), memory_snapshot_dir='garage')\n"
+                "r = W.merge_wave(spec['lineage'], 1, cfg)\n"
+                "print(json.dumps({'skipped': r.get('skipped'), "
+                "'commits': len(r.get('commits') or []), "
+                "'tag': r.get('tag')}))\n",
+                encoding="utf-8")
+            spec = json.dumps({"usine": str(usine), "lineage": str(lineage),
+                               "gate": [sys.executable, "slowgate.py"]})
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(THEATRE) + os.pathsep + env.get("PYTHONPATH", "")
+            env["RSIAGENT_MERGE_LOCK_TIMEOUT"] = "20"
+            first = subprocess.Popen(  # noqa: S603
+                [sys.executable, str(runner), spec],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=env)
+            lock_path = wave_merge._merge_lock_path(usine)
+            deadline = time.monotonic() + 10
+            while not lock_path.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            second = subprocess.Popen(  # noqa: S603
+                [sys.executable, str(runner), spec],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=env)
+            out_a, err_a = first.communicate(timeout=60)
+            out_b, err_b = second.communicate(timeout=60)
+            results = []
+            for out, err in ((out_a, err_a), (out_b, err_b)):
+                try:
+                    results.append(json.loads(out.strip().splitlines()[-1]))
+                except (IndexError, ValueError):
+                    results.append({"error": (err or out)[-300:]})
+            committed = [r for r in results
+                         if not r.get("skipped") and r.get("commits") == 1]
+            skipped = [r for r in results if r.get("skipped") == "report_exists"]
+            check("lock: concurrent merges commit exactly once",
+                  len(committed) == 1 and len(skipped) == 1, results)
+            heads = git_read(usine, "rev-list", "--count", "HEAD").strip()
+            tags = git_read(usine, "tag", "-l").split()
+            check("lock: no duplicate commit or tag from the second merge",
+                  heads == "2" and tags == ["theatre/wave-1"], (heads, tags))
+    finally:
+        if saved_timeout is None:
+            os.environ.pop("RSIAGENT_MERGE_LOCK_TIMEOUT", None)
+        else:
+            os.environ["RSIAGENT_MERGE_LOCK_TIMEOUT"] = saved_timeout
+
+
 def main() -> int:
     test_archives()
     test_merge_green()
@@ -1483,6 +1943,9 @@ def main() -> int:
     test_drs_fail_and_plan()
     test_spec_sync_and_memory()
     test_health_and_l3_gates()
+    test_collisions_and_snapshot_audit()
+    test_crash_recovery()
+    test_merge_lock()
     print()
     return summarise("smoke_wave_merge", list_failures=True)
 

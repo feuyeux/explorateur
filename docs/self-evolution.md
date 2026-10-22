@@ -586,7 +586,7 @@ flowchart TB
 6. **智能体面门（L3）**。门禁跑完 dist 已经重建，这时候验它比门禁之前更准。L3 冒烟红 → 回滚 → `decision = l3_rejected`：**改进没有到达智能体面，就不算改进。**
 7. **健康分门**。合并器在**应用候选之前**量一次基线、**应用之后**量一次候选，逐指标比：有指标变坏 → 回滚 → `decision = health_rejected`，报告里点名是哪个指标。这道闸问的是「更好了没有」，而门禁只防退化。
 
-七道全过 → `decision = merged`，写一候选一 commit（带 `X-Theatre-Wave` trailer）、每 wave 一个 annotated tag `theatre/wave-N`、写 `merge_report.json` 与 `.md`、发 `USINE_WAVE_MERGED` 事件。最后，**终态记忆树单独快照进仓库**（`garage/memory-snapshots/<unit>-<NNN>/`，带自己的 `manifest.json`，单独一个提交带 `X-Theatre-Memory` trailer）——记忆是唯一跨波次传递的东西，它必须能 review、能 diff，而不是只活在仓库外的 run root 里。
+七道全过 → `decision = merged`，写一候选一 commit（带 `X-Theatre-Wave` trailer）、每 wave 一个 annotated tag `theatre/wave-N`（撞名时取下一个空闲后缀，见 §5.3(c)）、写 `merge_report.json` 与 `.md`、发 `USINE_WAVE_MERGED` 事件。最后，**终态记忆树单独快照进仓库**（`garage/memory-snapshots/<unit>-<NNN>/`，带自己的 `manifest.json`，单独一个提交带 `X-Theatre-Memory` trailer）——记忆是唯一跨波次传递的东西，它必须能 review、能 diff，而不是只活在仓库外的 run root 里。**合并过程有进度日志**：开始先写 `waves/wave_NNN/merge_progress.json`（base、已落提交、tag、快照状态），每落一步就更新；中途崩溃后，下一次从它把 tag 与记忆快照补完，报告标 `resumed_from_progress` 并区分 `commits`（整波）与 `commits_made_this_run`。日志引用的提交必须存在且是 HEAD 的祖先；历史被 rebase/reset 改写、unit label 或 tag prefix 被中途改掉，一律 fail-closed。**整个合并（前置检查 → 提交 → tag → 快照 → 报告）在仓库级排他锁下执行**：锁文件在 git common dir（worktree 也指向主仓的 `.git`），是 OS 锁，进程崩溃时由内核释放，不留需要人手清的 stale lock；第二个 run root 等待 `RSIAGENT_MERGE_LOCK_TIMEOUT` 秒（默认 300，0 = 只试一次）后拿不到就报出持有者 pid/host，拿锁之后**重查报告**，等锁期间已完成的波次是无操作而不是重复提交。
 
 ```mermaid
 flowchart TD
@@ -738,7 +738,7 @@ flowchart TB
 - 种子目录必须存在且非空，否则开跑前 fail-closed（空记忆上的深度波次证明不了任何事）。
 - 预置在**引擎跑之前**完成，引擎自己的 `mkdir(exist_ok=True)` 不会动已放好的记录。
 
-记忆树还有第二条去处：**快照进仓库**。波次收口时把终态记忆树抄进 `garage/memory-snapshots/<unit>-<NNN>/`，配一份 `manifest.json`（文件数、字节数、树哈希、记录时间），**单独一个提交**（带 `X-Theatre-Memory` trailer），不混进候选提交——「一候选一 commit」那条规矩管的是代码候选，记忆快照不是候选。理由很直接：记忆是唯一跨波次传递的东西，它只住在仓库外的 run root 里的话，评审看不见、run root 一清就没了、变更不可 diff。
+记忆树还有第二条去处：**快照进仓库**。波次收口时把终态记忆树抄进 `garage/memory-snapshots/<unit>-<NNN>/`（撞名时加后缀 `-2`、`-3`…，同名不等于同一份内容，见 §5.3(c)），配一份 `manifest.json`（文件数、字节数、树哈希、记录时间），**单独一个提交**（带 `X-Theatre-Memory` trailer），不混进候选提交——「一候选一 commit」那条规矩管的是代码候选，记忆快照不是候选。理由很直接：记忆是唯一跨波次传递的东西，它只住在仓库外的 run root 里的话，评审看不见、run root 一清就没了、变更不可 diff。
 
 ```mermaid
 flowchart TB
@@ -1526,17 +1526,17 @@ flowchart TD
 - **没有零分布就没有「提升」**：同一棵基准 harness、同一道题，四棵臂树**逐字相同**，分数却是 **80% / 100% / 100% / 100%**——臂间差的第一嫌疑不是 harness 改了，是同一棵树重跑就会抖。
 - **`--k 1` 时无论 Δ 多大都判不出显著**：完全分离下的最小 p 是 `1/C(2k,k)`，k=1 时是 **0.5**，永远过不了 0.1。所以「读不出」是 `underpowered`（这次跑法没有判别能力），**不是**「演化没用」——这两句话必须分开，否则一次白跑会被记成一个负面结论。
 - **判据失败是 `None` 不是零分**，从分母剔除；汇总只统计判成功的，所以「平均分」的分母每臂可能不同——横向比均分之前先看判成功条数。
-- **train/eval 必须分侧读**：只看合并均值时，「学到可迁移的东西」「只在见过的题上变好（过拟合）」「学到的规矩在别处是错的（负迁移）」三者长得一模一样；负迁移甚至**不需要**跌幅超过涨幅就能把均值伪装成正数。判决按两侧显著性：train 涨 + eval 不涨 = `train_only`；eval 显著跌 = `harmful`（**train 涨多少都不抵**）；缺 eval 侧 = `no_eval`（不许当「泛化没问题」读）。
+- **train/eval 必须分侧读**：只看合并均值时，「学到可迁移的东西」「只在见过的题上变好（过拟合）」「学到的规矩在别处是错的（负迁移）」三者长得一模一样；负迁移甚至**不需要**跌幅超过涨幅就能把均值伪装成正数。判决按两侧显著性：train 涨 + eval 不涨 = `train_only`；eval 显著跌 = `harmful`（**train 涨多少都不抵**）；缺 eval 侧 = `no_eval`（不许当「泛化没问题」读）。**两段式产物里演化侧只有被盲选中的那一次 rollout**：`generalization_reading.py` 从 `selection/<aggN|cN>/selection.json` 取标签（k≥2 时硬取 `agg1` = 拿没被采纳的树代表演化），并把基准的 `base1..basek` 全部收齐做 1 vs k 的精确置换检验（k=11 时完全分离的最小 p=1/12≈0.083，是有判别能力的）；没有选择记录且盘上不止一个 final 时记「判不出」，不猜。**判别能力按真实 rollout 数算**，不是按 `--k` 声称——把 `p` 写死成 1.0 再按 k≥3 说「有能力判」，会让「没做检验」读成「测了没差别」。**判据不完整也是缺测量**：`judge` 按切分逐格对账，一侧整侧为空、少一格、`summary.json` 读不动、混入切分外的旧任务都退出 1（旧实现里 eval 目录还在但一格都没有时会退出 0）；阶段回退闸同样把读不动的 summary 记作不完整，不当作「没回退」。
 - **阶段回退会骗人**：提案阶段失败时引擎**退回基准树**继续跑，这一轮「看起来跑完了」，而最终被采纳的其实是**没改过的基准**——分数量的是基准不是演化后的。`sweep` / `judge` 会把回退打出来并以**退出码 1** 结束，看这一行就知道量的是谁。
 
 **(c) 静默故障族（账面绿而事实错）——原「十七个坑 + 跨轮次方法论」的浓缩**
 
 - **run root 落进仓库 → 分数静默塌到基线**：dsh 的 project root 判定是「最近含 `.git` 的祖先」，run root 落在仓库里，`.dsh/skills` 会被判到仓库根，候选技能一个都扫不到——**跑得动、跑得对、跑的是错的**。所以两条线的产物一律落**仓库外**、且分开放（`../garage-result/` 与 `../garage-ii-result/`）。
 - **量到「缺陷」之前先问一句：这是被改进对象的缺陷，还是我自己判据/环境的缺陷**：guest 里那道结构门把 harness 的家当成了「内容产物」（量错了目录，真仓库里它是绿的）；429/400 死在协议层不是模型；基准臂产物被后来的进程擦掉，判据照直判成「没交付」——那量的是进程管理。**不是「智能体不行」的，不要记成「智能体不行」。**
-- **自检只测内存里的对象等于没测**：新字段没进 `to_dict`（CLI 路径上判定从没生效）、compare 只比两臂交集（少一格照样绿灯）、`rescore` 指错参数会**静默擦掉一个臂还退出 0**。凡是「落盘 → 读回 → 判定」的逻辑，自检必须走那条真实路径。
+- **自检只测内存里的对象等于没测**：新字段没进 `to_dict`（CLI 路径上判定从没生效）、compare 只比两臂交集（少一格照样绿灯）、`rescore` 指错参数会**静默擦掉一个臂还退出 0**。凡是「落盘 → 读回 → 判定」的逻辑，自检必须走那条真实路径。**用 fake 时，fake 的契约也必须与真实对象一致**：2026-10-22 给 `judge` 加逐格对账时按「`tasks()` 返回 Task 对象」写了 `task.task_id`，fake 也照着错契约写，离线自检全绿，真跑到 judge 才 `AttributeError`——真实 `UsineAdapter.tasks()` 返回的是**字符串 id**，切分要用 `split_coverage()`。`smoke_split.py` 的 `section_adapter_contract` 现在直接拿真实适配器验这条契约。
 - **判据不许比被改进对象自己的文件更严**，而且**放宽往往更严**（基准抬高 ⇒ 演化要追的差距更小）；判据引用纪律要给「文件 + 行号 + 原文」，不要写会漂、会张冠李戴的编号。
 - **heredoc 正文不是命令**（`cat > x <<'EOF'` 到 `EOF` 之间是数据，shell 从不执行）；**清洗函数必须幂等**（断言直接比 `f(f(x)) == f(x)`，否则第二次调用会一路剥到结尾把真命令吃掉）。
-- **两处撞名，都尚未修**：① **tag 撞名不建也不报错**——`wave_merge._ensure_wave_tag` 探测到 `theatre/wave-1` 已存在就直接返回，于是 foodnames 那波合进来了却**没有指向自己的 tag**（仓库里 `theatre/wave-1` 仍指向 `eedaf73`）；② **记忆快照目录撞名**——快照名只有波次编号而每个 run root 都从 1 开始，两棵不同 run root 的记忆树写进了同一个 `wave-001/`（盘上 8 个文件，`manifest.json` 只描述 3 个），**没有任何一层会报这个**。
+- **同名不是幂等信号，撞名必须按内容判定**（A 线两处，2026-10-22 已修）：① **tag 撞名**——旧 `wave_merge._ensure_wave_tag` 探测到 `theatre/wave-1` 已存在就直接返回，于是 foodnames 那波合进来了却**没有指向自己的 tag**（当时仓库里 `theatre/wave-1` 仍指向 `eedaf73`）；现在分三种：指向本波最后一个提交 = 幂等复用，指向别的提交 = 取下一个空闲后缀（`theatre/wave-1-2`）并把撞名对象写进报告，后缀耗尽 = 明确报错。② **记忆快照目录撞名**——快照名只有「单位 + 波次」而每个 run root 都从 1 开始，两棵不同 run root 的记忆树写进了同一个 `wave-001/`（盘上 8 个文件，`manifest.json` 只描述 3 个），**当时没有任何一层会报**；现在同一份字节 = 幂等不写，不同 run root = 后缀 `wave-001-2` 且两份都留，同一个 run root 产出不同内容 = **fail-closed**。盘上那份 `wave-001` 已按 git 历史拆成 `wave-001`（pin-plain 那次）与 `wave-001-2`（foodnames-video5 那次，文件与 `01da48c` 逐字节相同）；机检入口是 `python3 garage/wave_merge.py verify-memory-snapshots`，`run_usine.py` 的 `--preflight` 与 `--execute` 都会读它，历史不自洽就不开跑。**崩溃重跑也别丢记忆**：全部候选已由上一次尝试提交时，这一次是 `already_merged`（没有新提交），记忆快照仍会写或复用——旧条件 `if not commits` 会让那一波的记忆永远进不了仓库，报告还写着「no candidate was merged」。**可跨层复用的教训**：任何名字派生自「波次/序号」的产物，都要假设另一个 run root 也从同一个序号开始；只判「名字存不存在」会让第二份静默覆盖或静默丢失。
 - **「量不到」不等于「达标」**：`minOpacity === null ? true` 让「只渲染当前词、其余全藏起来」的页面白拿一条通过——「量不到」有三种归宿，**没有一种叫通过**。**「被掐死」还分两种掐法**（提供方掐死 vs 我们自己的时间上限掐死），而作废**不是随机缺失**（被掐死的多半是「做得更多、正在挣扎」的，剔出分布对演化臂反保守）——所以读数要把作废条数一起报，并给出「作废当零分」的最坏情形。
 - **文档会过期、归因会骗人**：渲染破口的第一版归因写「Chrome 155 自动升级」，被实测推翻（产线用的是 Edge 144，Chrome 压根没被调用；真因是 headless 视口比窗口矮 93px，产线那条 `poster render` 从不补偿）。**指针**：`garage-ii/arms.py`、`garage-ii/tree_discipline.py`、`garage/wave_merge.py`、`garage/guest_env.py`、`garage/smoke_agent_surface.py`；[BENCH-APPENDIX §17](../garage-ii/BENCH-APPENDIX-2026-10.md)（最终判决与 14 条「测不到什么」）。
 
@@ -1584,7 +1584,7 @@ flowchart TB
         G1["garage/runs/<br/>脚本 · 日志 · 事件流<br/>门禁要读的那几个文件也在里头"]
     end
     subgraph RULE["规则层"]
-        R1["AGENTS.md 第九节：20 条顶层条目<br/>其中 18 条是读数纪律"]
+        R1["AGENTS.md 第九节：22 条顶层条目<br/>其中 20 条是读数纪律"]
         R2["usine/AGENTS.md：22 条产线纪律 + H3 铁律"]
     end
     M --> C1
@@ -1610,7 +1610,7 @@ flowchart TB
 ### 6.1 想动手改这套机器时，按这个顺序读
 
 1. **本文 §1**（六个词）→ **§5**（两个框架的收益与问题）——不读 §5 就动手，等于闭着眼睛改一把没有刻度的尺子。
-2. [`AGENTS.md`](../AGENTS.md) 第九节 —— **20 条顶层条目**（其中 **18 条**是粗体的「读数纪律」，另两条是「生成类命令默认不覆盖」与「用词纪律」），每条都带实测出处。**这是最浓缩的一份。**
+2. [`AGENTS.md`](../AGENTS.md) 第九节 —— **22 条顶层条目**（其中 **20 条**是「读数纪律」，另两条是「生成类命令默认不覆盖」与「用词纪律」），每条都带实测出处。**这是最浓缩的一份。**
 3. **本文 §5.3(c)**（静默故障族）—— 判据怎么修才不算调尺子、什么断言只是装饰、什么样的静默缺陷会让账面保持绿。
 4. [`garage-ii/BENCH-APPENDIX-2026-10.md`](../garage-ii/BENCH-APPENDIX-2026-10.md) —— 实测逐字归档；**§17 是最终判决与 14 条「测不到什么」，读数字前必读**。
 5. 各线的 `PROVENANCE` —— 改 vendored 引擎之前**必须**读。

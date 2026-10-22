@@ -492,7 +492,7 @@ class UsineAdapter:
     def _agent_argv(
         self, run_dir: Path, workspace: Path, task_file: Path, patch_file: Path
     ) -> list[str]:
-        """起 `dsh_run.mjs` 的命令行。
+        r"""起 `dsh_run.mjs` 的命令行。
 
         **路径必须全是绝对的**：子进程的 cwd 是 workspace，而 workspace 在 run root
         之下——相对路径会被解析到 `workspace\..\..\..` 去，读不到任务文件。
