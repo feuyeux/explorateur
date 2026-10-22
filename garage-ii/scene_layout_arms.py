@@ -170,6 +170,28 @@ def provider_failure(run_dir: Path) -> str:
     return ""
 
 
+def timeout_killed(run_dir: Path) -> bool:
+    """这条 rollout 是不是被**我们自己的时间上限**掐死的（`exit_code` = 124）。
+
+    为什么单独认这一种掐法：2026-10-22 第五轮，演化臂 r1（**提供方**掐死）与
+    r5（**我们自己的 5400s 上限**掐死）**结构完全相同**——都被掐在半路、盘上
+    只有没有 token 契约的 HTML 候选、判据证据都写着「量不到」——但处置不同：
+    r1 作废、r5 记 0 分。**该看的不是「谁掐的」，是「有没有可比的行为样本」**。
+
+    作废超时项是**反保守**的：手册让会话变长 ⇒ 更容易撞上限 ⇒ 把这些作废掉，
+    恰好把「用手册的代价」藏起来了。所以**判据代码不动**（`provider_failure`
+    认提供方掐死、超时掐死仍按行为表现记 0 分），另开一个相位把**另一种处置**
+    的读数算出来，两种一起报——这是**明写的未决项**，不是偷偷挑一个好看的数。
+    """
+    ec = Path(run_dir) / "exit_code"
+    if not ec.is_file():
+        return False
+    try:
+        return ec.read_text(encoding="utf-8").strip() == "124"
+    except OSError:  # pragma: no cover - 竞态
+        return False
+
+
 def _execute_with_retry(adapter, task_id: str, tree: Path, run_id: str, timeout: int | None, attempts: int = 3) -> Path:
     """跑一条 rollout；**只有启动失败**才重试（退避 20s / 40s）。
 
@@ -450,6 +472,36 @@ def _selftest_provider() -> int:
     return 0 if bad == 0 else 1
 
 
+def _selftest_timeout() -> int:
+    """**「被我们自己的时间上限掐死」**这条线的自检。
+
+    这条判定只服务于 `--phase altb`（另一种处置的读数），**不改主处置**——
+    主处置里超时掐死仍按行为表现记 0 分。钉子要在这里，否则「处置B」那个数
+    没人能复核。
+    """
+    import tempfile  # noqa: PLC0415
+
+    cases: list[tuple[str, dict[str, str], bool]] = [
+        ("被时间上限掐死（exit_code=124）", {"exit_code": "124\n"}, True),
+        ("正常跑完（exit_code=0）", {"exit_code": "0\n"}, False),
+        ("没有 exit_code（还没收尾）", {"events.jsonl": '{"a":1}\n'}, False),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, files, expect in cases:
+            d = Path(tmp) / name.replace(":", "_").replace("/", "_")
+            d.mkdir()
+            for fn, content in files.items():
+                (d / fn).write_text(content, encoding="utf-8")
+            hit = timeout_killed(d)
+            ok = hit == expect
+            print(f"  [{'ok' if ok else 'FAIL'}] {name} → {'被时间上限掐死' if hit else '不是'}")
+            if not ok:
+                bad += 1
+    print("自检（超时掐死）" + ("通过" if bad == 0 else f"失败 {bad} 条"))
+    return 0 if bad == 0 else 1
+
+
 # ── 重判：按臂记录里的 run 目录重判整条臂 ──────────────────────────────────────
 def rescore_arm(tag: str, args) -> arms.Arm:
     """按臂记录里的 run 目录**重判整条臂**。
@@ -532,7 +584,7 @@ def main(argv=None) -> int:
         help=f"solver 用的模型（默认 {MINIMAX_MODEL}；与 run_usine_h2 同一个默认值）",
     )
     ap.add_argument("--only-tasks", default=TASK_ID)
-    ap.add_argument("--phase", choices=("run", "compare", "both", "selftest", "rescore"), default="both")
+    ap.add_argument("--phase", choices=("run", "compare", "both", "selftest", "rescore", "altb"), default="both")
     ap.add_argument(
         "--arm",
         choices=("base", "evo", "both"),
@@ -542,11 +594,59 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.phase == "selftest":
-        return 0 if (_selftest() == 0 and _selftest_provider() == 0) else 1
+        return 0 if (_selftest() == 0 and _selftest_provider() == 0 and _selftest_timeout() == 0) else 1
 
     if args.phase == "rescore":
         for tag in (args.base_arm, args.evolved_arm):
             rescore_arm(tag, args)
+        return 0
+
+    if args.phase == "altb":
+        # 把「三种读数」一次算齐：主处置 / 处置B（超时掐死也作废）/ 最坏情形（作废当零分）
+        root = Path(args.root).resolve()
+
+        def load(tag: str) -> arms.Arm:
+            p = root / "arms" / tag / f"{TASK_ID}.json"
+            if not p.is_file():
+                raise SystemExit(f"没有臂记录：{p}")
+            return arms.Arm.from_dict(json.loads(p.read_text(encoding="utf-8")))
+
+        def split(arm: arms.Arm) -> tuple[list[float], list[float], list[float]]:
+            """返回三份分布：(主处置, 处置B, 最坏情形)。
+
+            - 主处置：臂自己的计入分（含被时间上限掐死、按行为表现记 0 分的那几条）；
+            - 处置B：再把「被时间上限掐死」的那几条剔出（它们视为作废）；
+            - 最坏情形：所有作废条一律当零分。
+            """
+            as_judged, altb, worst = [], [], []
+            for r in arm.rolls:
+                if r.score is None:
+                    worst.append(0.0)
+                    continue
+                as_judged.append(r.score)
+                worst.append(r.score)
+                if not timeout_killed(root / TASK_ID / r.run_id):
+                    altb.append(r.score)
+            return as_judged, altb, worst
+
+        base, evo = load(args.base_arm), load(args.evolved_arm)
+        bj, ba, bw = split(base)
+        ej, ea, ew = split(evo)
+
+        def report(label: str, b: list[float], e: list[float]) -> None:
+            print(label)
+            print(f"  base  {b}")
+            print(f"  evo   {e}")
+            if not b or not e:
+                print("  （样本不足，算不了）")
+                return
+            d = sum(e) / len(e) - sum(b) / len(b)
+            p = arms._exact_permutation_p(b, e)
+            print(f"  Δ = {d:.4f}  p = {p:.4f}  判据：{'通过' if d > 0 and p <= 0.1 else '不通过'}")
+
+        report("主处置（提供方掐死作废、超时掐死按行为表现记 0 分）", bj, ej)
+        report("处置B（被时间上限掐死、且没有可判交付的那几条也作废）", ba, ea)
+        report("最坏情形（所有作废条一律当零分）", bw, ew)
         return 0
 
     adapter = build_adapter(args)
