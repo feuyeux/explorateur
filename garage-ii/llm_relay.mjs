@@ -16,7 +16,7 @@
 // ── 推理税（2026-10-20 实测后加的）──────────────────────────────
 // 上游是 **带 thinking 的推理模型**。同一条 rollout 里，**19 次慢调用贡献了
 // 23.2 分钟里的绝大部分**——每次的 reasoning 块 9.6k–24.1k 字符，而**可见输出
-// 只有几百字符**。也就是说：墙钟的大头花在「模型自己想」上，不在它交付的东西上。
+// 只有几百字符**。也就是说：实际耗时的大头花在「模型自己想」上，不在它交付的东西上。
 //
 // 实测（同一硬任务、同一端点）：
 //   默认              94.3s   reasoning 9709 字符
@@ -26,7 +26,7 @@
 // ⚠️ **后来实测推翻了这条**：同一个硬任务、同一端点，`thinking:disabled`
 // 连测两次是 49.0s / 46.0s，而**不注入**那次是 24.9s——网关只是**不稳定**认这个
 // 参数，之前那次「13.1s / reasoning=0」是运气。**默认不注入**（请求体一个字节不改），
-// 要试就显式加 `--thinking-off`。真正把墙钟压下来的是**换协议**（见下）。
+// 要试就显式加 `--thinking-off`。真正把实际耗时压下来的是**换协议**（见下）。
 
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -141,7 +141,7 @@ const server = createServer((req, res) => {
       const ctype = upstream.headers.get('content-type') ?? 'application/json'
       // **流式必须透传**：网关的 `/chat/completions` 走 SSE（实测 200 + 增量 chunk）。
       // 把整个 body 缓冲下来再吐出去，客户端就拿不到「边生成边拿」的语义——
-      // 长回答会一直等到生成完才动，墙钟反而更差。
+      // 长回答会一直等到生成完才动，实际耗时反而更差。
       if (upstream.body && /text\/event-stream/i.test(ctype)) {
         res.writeHead(upstream.status, { 'content-type': ctype })
         const reader = upstream.body.getReader()

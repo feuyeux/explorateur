@@ -5,7 +5,7 @@
 这一轮就不许开跑。harness2 上游的 `harness2.preflight` 是给 jb/lab/wb 三格写的
 （它硬依赖 opencode 检出与那三格的 runner），对 dsh 这一格不适用——所以这里自己写一套。
 
-五条硬检查，每条都对应一个**真会烧钱或真会静默出错**的坑：
+七条硬检查，每条都对应一个**真会烧钱或真会静默出错**的坑：
 
 1. **基准 harness 在位且没漂移** —— 漂了就是拿一份过期基准去比，数字没有意义。
 2. **执行器就位**（SDK 客户端可解析 + 插件产物已构建）—— 缺一样就是**零工具面**，
@@ -21,6 +21,9 @@
    与否**，不是 harness 的好坏。
 6. **`feuille` CLI 在位**（2026-10-20 加）—— 手册通篇写 `feuille poster …`；
    PATH 上找不到它，智能体会判定「工具面没有包」而停手。真实产线里它在 PATH 上。
+7. **引擎 summary 写入的 flock 在本平台可跑**（2026-10-21 加）—— 引擎写
+   `summary.json` 用 `fcntl.flock`（POSIX 专属）。Windows 上没有这层垫的话，
+   rollout 真跑完了也**落不了盘**：12 格白烧约两小时才暴露（2026-10-21 实测）。
 
 PATH 上的 `dsh` CLI 只做**软**检查：真跑的路径是 SDK 客户端（`dsh_run.mjs`），
 CLI 已经不在执行路径上，为它拦下一轮是白花钱。
@@ -272,6 +275,42 @@ def check_feuille_cli() -> list[str]:
     return []
 
 
+def check_platform_compat() -> list[str]:
+    """引擎写 `summary.json` 用的 `fcntl.flock` 在本平台必须真的能跑。
+
+    为什么单独一条：2026-10-21 实测，Windows 宿主上 `--split both` 的 train 段
+    12 格 rollout **真跑了约两小时**（base1/agg1/inv1/dom1 全部完成、事件流全程
+    落盘），每一格最后死在 `_write_summary` 的 `import fcntl` 上——fcntl 是
+    POSIX 专属模块。12 格全部作废、token 白烧，而当时 preflight 是绿的：这条
+    检查不存在。引擎是零补丁 vendored fork，平台差由桥接层垫
+    （`garage-ii/posix_compat.py`；POSIX 上恒不装、不顶 stdlib）。
+
+    **走真实路径**：不是只 `import fcntl`，而是真锁一个临时文件再解锁——
+    与 `_write_summary` 的调用形状一致（同一个文件对象、LOCK_EX → LOCK_UN）。
+    """
+    errs: list[str] = []
+    try:
+        sys.path.insert(0, str(HERE))
+        import posix_compat
+
+        posix_compat.install()
+        import fcntl
+        import tempfile
+
+        probe = Path(tempfile.mkdtemp(prefix="fcntl-probe-")) / "summary.lock"
+        with open(probe, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            fcntl.flock(lf, fcntl.LOCK_UN)
+        shutil.rmtree(probe.parent, ignore_errors=True)
+    except Exception as exc:  # noqa: BLE001 - 平台差是环境问题，报出来让人修
+        errs.append(
+            f"引擎 summary 写入的 flock 在本平台跑不起来：{type(exc).__name__}: {exc}。"
+            "Windows 上由 garage-ii/posix_compat.py 垫（import posix_compat 后调 install()）；"
+            "POSIX 上 fcntl 是 stdlib，跑不起来说明 Python 安装有问题"
+        )
+    return errs
+
+
 def run_all(run_root: Path) -> tuple[list[str], list[str]]:
     errs: list[str] = []
     warns: list[str] = []
@@ -279,6 +318,7 @@ def run_all(run_root: Path) -> tuple[list[str], list[str]]:
     errs += check_base_harness()
     errs += check_workspace_assets()
     errs += check_feuille_cli()
+    errs += check_platform_compat()
     errs += check_run_root(run_root)
     x_errs, x_warns = check_executor()
     errs += x_errs

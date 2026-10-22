@@ -380,6 +380,183 @@ def main() -> int:
         out4.stdout.strip()[:150],
     )
 
+    # ── [9] 跨运行恢复：存档里的 evolution_project/ 能解回去 ────────────────
+    #
+    # 2026-10-22 的教训：上一轮把「fixture 随 guest 销毁」写成了结论，那是**没
+    # 查存档**。`_capture_wave_fixtures`（phase1_wave.py:313）在每个 episode 里
+    # 都留了 `fixtures/materials.tgz`，tar 顶层就是 `evolution_project/`。
+    #
+    # 所以这里造一个真 tgz、真解压、再让**引擎自己的** `_validate_wave_fixtures`
+    # 判——不是断言「我调了解压函数」。
+    import tarfile as _tarfile
+
+    restore_root = tmp / "restore"
+    archive_dir = restore_root / "ep001" / "fixtures"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    stage = tmp / "stage" / "evolution_project"
+    (stage / "tools" / "foodnames").mkdir(parents=True, exist_ok=True)
+    (stage / "tools" / "foodnames" / "build_episode.mjs").write_text(
+        "// fixture payload\n", encoding="utf-8")
+    tgz = archive_dir / "materials.tgz"
+    with _tarfile.open(tgz, "w:gz") as tar:
+        tar.add(stage, arcname="evolution_project")
+
+    # 假 vm：guest_to_host 把 canonical 映射到宿主目录，run_command 只回答
+    # 「有没有那个目录」——口径与引擎的 `test -d && 非空` 一致。
+    rs_script = tmp / "restore.py"
+    rs_script.write_text(
+        "\n".join([
+            "import sys",
+            f"sys.path.insert(0, {str(HERE)!r})",
+            f"sys.path.insert(0, {str(_THEATRE)!r})",
+            "import pathlib",
+            "import explore.phase1_wave as w",
+            "import pin_curriculum as P",
+            f"_DISK = pathlib.Path(r'{restore_root / 'guest'}')",
+            "class VM:",
+            # **必须模仿真对象**：WorktreeVM 只有 push_file / fetch_file，
+            # 没有 guest_to_host。加一个假映射方法会让测试全绿、真跑全红
+            # （2026-10-22 就这么栽过一次）。
+            "    def push_file(self, local, guest, attempts=3, timeout=3600):",
+            "        import shutil",
+            "        dst = _DISK / str(guest).lstrip('/')",
+            "        dst.parent.mkdir(parents=True, exist_ok=True)",
+            "        shutil.copyfile(local, dst)",
+            "        self._staged = dst",
+            "        return True, ''",
+            "    def run_command(self, cmd, timeout=60):",
+            # 真 guest 上这是两条不同的命令：解压那条 echo PHASE1_RESTORE_RC，
+            # 校验那条 echo PHASE1_WAVE_FIXTURE_RC。假 vm **必须按 cmd 分流**，
+            # 否则解压那条永远拿不到它要的回显，_restore_fixture 判失败。
+            "        if 'PHASE1_RESTORE_RC' in cmd:",
+            "            tgt = _DISK / 'home/user/evolution_wave/pinned-x'",
+            "            tgt.mkdir(parents=True, exist_ok=True)",
+            "            import tarfile as T",
+            "            staged = getattr(self, '_staged', None)",
+            "            if staged and pathlib.Path(staged).is_file():",
+            "                with T.open(staged, 'r:gz') as t:",
+            "                    t.extractall(tgt)",
+            "                return 'PHASE1_RESTORE_RC=0'",
+            "            return 'PHASE1_RESTORE_RC=1'",
+            # 引擎口径：目录在、且非空
+            "        tgt = _DISK / 'home/user/evolution_wave/pinned-x'",
+            "        ok = tgt.is_dir() and any(tgt.iterdir())",
+            "        return 'PHASE1_WAVE_FIXTURE_RC=' + ('0' if ok else '1')",
+            "vm = VM()",
+            "print('BEFORE:', P._fixture_present(w, vm, 'pinned-x') is False)",
+            f"ok = P._restore_fixture(w, vm, 'pinned-x', pathlib.Path(r'{archive_dir}'))",
+            "print('RESTORED:', ok is True)",
+            "print('AFTER:', P._fixture_present(w, vm, 'pinned-x') is True)",
+            "print('PAYLOAD:', (_DISK / 'home/user/evolution_wave/pinned-x/"
+            "evolution_project/tools/foodnames/build_episode.mjs').is_file())",
+            # 没有 --fixture-from 时必须返回 False，不许假装成功
+            "print('NO_ARG:', P._restore_fixture(w, vm, 'other', None) is False)",
+            # 存档不存在时同理
+            "print('NO_ARCHIVE:', P._restore_fixture(w, vm, 'other', "
+            f"pathlib.Path(r'{tmp / 'nope'}')) is False)",
+        ]),
+        encoding="utf-8",
+    )
+    out5 = subprocess.run(
+        [sys.executable, str(rs_script)],
+        capture_output=True, text=True, timeout=180,
+    )
+    check(
+        "恢复前引擎口径判缺失",
+        "BEFORE: True" in out5.stdout,
+        out5.stdout.strip()[:120] + out5.stderr.strip()[-150:],
+    )
+    check(
+        "存档能解回 WAVE_ROOT（_restore_fixture 返回 True）",
+        "RESTORED: True" in out5.stdout,
+        out5.stdout.strip()[:150],
+    )
+    check(
+        "恢复后引擎自己的口径判通过",
+        "AFTER: True" in out5.stdout,
+        out5.stdout.strip()[:150],
+    )
+    check(
+        "解出来的是真文件（不是只建了目录）",
+        "PAYLOAD: True" in out5.stdout,
+        out5.stdout.strip()[:150],
+    )
+    check(
+        "没给 --fixture-from 时返回 False（不假装成功）",
+        "NO_ARG: True" in out5.stdout,
+        out5.stdout.strip()[:150],
+    )
+    check(
+        "存档路径不存在时返回 False",
+        "NO_ARCHIVE: True" in out5.stdout,
+        out5.stdout.strip()[:150],
+    )
+
+    # **解压成功但引擎仍判不通过 → 必须返回 False。**
+    #
+    # 这条专治「自己说好了」：如果 `_restore_fixture` 解完就直接 `return True`
+    # 而不复用引擎的 `_validate_wave_fixtures`，那么「解出来的是空目录 / 引擎
+    # 因别的原因不认」这种情况会被当成恢复成功，然后 40 秒后炸在 `cp`。
+    # 造一个**只含空目录**的 tar：解压本身成功，但引擎的「目录在且非空」判不过。
+    empty_archive_dir = restore_root / "ep002" / "fixtures"
+    empty_archive_dir.mkdir(parents=True, exist_ok=True)
+    empty_stage = tmp / "emptystage" / "evolution_project"
+    empty_stage.mkdir(parents=True, exist_ok=True)
+    with _tarfile.open(empty_archive_dir / "materials.tgz", "w:gz") as tar:
+        tar.add(empty_stage, arcname="evolution_project")
+
+    eng_script = tmp / "enginejudges.py"
+    eng_script.write_text(
+        "\n".join([
+            "import sys",
+            f"sys.path.insert(0, {str(HERE)!r})",
+            f"sys.path.insert(0, {str(_THEATRE)!r})",
+            "import pathlib",
+            "import explore.phase1_wave as w",
+            "import pin_curriculum as P",
+            f"_DISK = pathlib.Path(r'{restore_root / 'guest2'}')",
+            "class VM:",
+            "    def push_file(self, local, guest, attempts=3, timeout=3600):",
+            "        import shutil",
+            "        dst = _DISK / str(guest).lstrip('/')",
+            "        dst.parent.mkdir(parents=True, exist_ok=True)",
+            "        shutil.copyfile(local, dst)",
+            "        self._staged = dst",
+            "        return True, ''",
+            "    def run_command(self, cmd, timeout=60):",
+            "        tgt = _DISK / 'home/user/evolution_wave/empty-x'",
+            "        if 'PHASE1_RESTORE_RC' in cmd:",
+            "            tgt.mkdir(parents=True, exist_ok=True)",
+            "            import tarfile as T",
+            "            staged = getattr(self, '_staged', None)",
+            "            if staged and pathlib.Path(staged).is_file():",
+            "                with T.open(staged, 'r:gz') as t:",
+            "                    t.extractall(tgt)",
+            "                return 'PHASE1_RESTORE_RC=0'",
+            "            return 'PHASE1_RESTORE_RC=1'",
+            # 引擎口径：**非空**才算有 fixture。tar 只装了一个空目录，
+            # 所以解完 tgt 里有一个名为 evolution_project 的空目录。
+            "        real = tgt / 'evolution_project'",
+            "        ok = real.is_dir() and any(real.iterdir())",
+            "        return 'PHASE1_WAVE_FIXTURE_RC=' + ('0' if ok else '1')",
+            "vm = VM()",
+            f"r = P._restore_fixture(w, vm, 'empty-x', "
+            f"pathlib.Path(r'{empty_archive_dir}'))",
+            "print('EMPTY_RESULT:', r)",
+            "print('DIR_EXISTS:', (_DISK / 'home/user/evolution_wave/empty-x').is_dir())",
+        ]),
+        encoding="utf-8",
+    )
+    out6 = subprocess.run(
+        [sys.executable, str(eng_script)],
+        capture_output=True, text=True, timeout=180,
+    )
+    check(
+        "解压成功但引擎判不过 → 返回 False（证明真复用了引擎判据）",
+        "EMPTY_RESULT: False" in out6.stdout,
+        out6.stdout.strip()[:150] + out6.stderr.strip()[-150:],
+    )
+
     n_pass = sum(1 for _l, ok, _d in RESULTS if ok)
     n_fail = len(RESULTS) - n_pass
     print("=" * 72)

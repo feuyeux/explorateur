@@ -12,7 +12,7 @@ temperature: 0.0
 primary_temperature: 1.0
 top_p: 1.0
 # 2026-10-19 (bfs15 postmortem): the Verifier seat is the ONLY hard gate of the
-# whole pipeline, and it died there on a WALL CLOCK, not on a judgment: bfs13
+# whole pipeline, and it died there on a TIME LIMIT, not on a judgment: bfs13
 # burned its whole 280s slice on 19 real probes and was killed by
 # `safety_ceiling` (core/loop.py: the emergency wall ceiling reached before the
 # agent published), with the report never written.  bfs12 died the same way at

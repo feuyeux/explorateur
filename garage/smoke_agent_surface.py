@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """smoke_agent_surface.py — L3「智能体面真验」的固化版。
 
-论文 §5 的判据是「改进是否真到达下游执行」。garage/README.md §二.3 把这件事
+论文 §5 的判据是「改进是否真到达下游执行」。../docs/self-evolution.md §10 把这件事
 定义成人工程序（dist 时间戳 → require 垫片 → 零成本 preflight → 真跑首任务 →
 机械核对 run-log），但它当时只以 2026-10-18 那次首测的**一次性脚本**存在
 （``runs/dsh-sdk-first-task-20261018/``），且路径硬编码到当时的 macOS 家目录，
@@ -223,7 +223,7 @@ def main() -> int:
     print(f"通过 {PASSED} 节")
     if SKIPPED:
         print(f"跳过 {len(SKIPPED)} 节（SKIP 不是 PASS）: {', '.join(SKIPPED)}")
-    print("\n注意：dsh 宿主 boot 与首任务真跑仍需人工执行（README §二.3 第 3-5 步），")
+    print("\n注意：dsh 宿主 boot 与首任务真跑仍需人工执行（../docs/self-evolution.md §10 的 L3 层第 3-5 步），")
     print("      本 smoke 只覆盖不烧 token 且不需要宿主的部分。")
     # 六节全部参与退出码：本脚本是 wave_merge 的 L3 闸，只打印不判决的节等于没有闸。
     return 0 if all(results) else 1

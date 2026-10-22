@@ -14,9 +14,10 @@
 
 **这一版测的是「通道」，不是「沉淀物质量」。** RSIAgent 那一臂的记忆语料要由
 `garage/`（RSIAgent 引擎那侧）真的跑出来才有意义。那边**已经跑出过产物**
-（`garage/README.md` §5.5–5.8：三条合并提交 + DRS 的 `memory_changed: true`），
+（`../docs/self-evolution.md` §7.1：三条合并提交 + DRS 的 `memory_changed: true`），
 **但那份记忆树只活在仓库外的 run root 里，没有入库、也没有导出成可挂载的语料目录**——
-本机已经找不到了。所以今天 rsi 臂仍然拿不到语料，原因是「没保留」，不是「没产出」。
+2026-10-21 盘上复核时三棵树都还在、都可读（§7.1），只是**仍然没有导出成可挂载的语料目录**。
+所以今天 rsi 臂仍然拿不到语料，原因是「没导出」，不是「没产出」。
 本脚本因此：
 
 - `--arms rsi --memory <dir>` 接受一份外部记忆语料（引擎那侧产出后喂进来）；
@@ -259,9 +260,10 @@ def _report(results: list[ArmResult], args, h2_dir: Path | None, memory_dir: Pat
     if memory_dir is None:
         lines.append(
             "> **读这张表之前必须知道**：rsi 臂没有记忆语料。RSIAgent 引擎那侧（`garage/`）"
-            "**已经跑出过产物**（`garage/README.md` §5.5–5.8：三条合并提交、DRS 的 "
+            "**已经跑出过产物**（`../docs/self-evolution.md` §7.1：三条合并提交、DRS 的 "
             "`memory_changed: true`），但那份记忆树只在仓库外的 run root 里，没入库、"
-            "也没导出成可挂载的语料目录——本机已找不到。所以 rsi 这一栏测的是「记忆缺席」，"
+            "也没导出成可挂载的语料目录——2026-10-21 盘上复核时三棵树都还在、都可读，"
+            "只是**仍然没有导出成语料目录**。所以 rsi 这一栏测的是「记忆缺席」，"
             "**不能**据此说 RSIAgent 对 dsh 智能体没用——它测的是另一个东西。"
             "要补这一栏：下一次 DRS 用 `--memory-seed <dir>` 把记忆树导出来，再 "
             "`--memory <dir>` 喂进来。"

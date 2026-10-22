@@ -123,14 +123,20 @@ def _power_shortfall(
 ) -> dict:
     """这一侧的样本量够不够判出显著。返回 `{k, min_p, adequate, n_cells}`。
 
-    `k` 从 `n_rollouts` 取（每臂每格的 rollout 数）；缺这个字段时按 1 算——
-    **保守方向**：把「不知道几次」当 k=1，宁可说「判不出」也不要假装判得出。
+    `k` 取每臂每格的 rollout 数：`compare_arms` 的行带 `base_n` / `evolved_n`
+    （取两臂较小值）。2026-10-22 实测踩到：这里原本只认 `n_rollouts`，而
+    `compare_arms` 的行没有这个字段 → 恒回退 k=1 → **n=11 的真读数被报成
+    「判别能力不够」的假警报**（n=3 那轮的 `no_train_signal` 判决也因此带着
+    一条错误的功效注脚）。缺所有字段时仍按 1 算——保守方向不变：把「不知道
+    几次」当 k=1，宁可说「判不出」也不要假装判得出。
     """
     ks = []
     for r in comparisons:
         if r.get("task_id") not in task_ids or r.get("no_data"):
             continue
-        k = r.get("n_rollouts")
+        k = r.get("n_rollouts") or min(
+            int(r.get("base_n") or 1), int(r.get("evolved_n") or 1)
+        )
         ks.append(int(k) if k else 1)
     if not ks:
         return {"k": 0, "min_p": 1.0, "adequate": False, "n_cells": 0}

@@ -35,7 +35,7 @@ max_tokens: 65536
 # model, same request — only the effort knob differs.  "max" is not "better
 # thinking" here, it is the tier that no longer answers.
 #
-# The guard that matters is the run ceiling (now 1700s, see
+# The guard that matters is the run ceiling (now 2050s, see
 # time_budget.DEFAULT_RUN_CEILING_SECS) plus per-seat wall_clock_secs slices
 # (now 400s for the curriculum seat — see time_budget.DEFAULT_SLICES) — not
 # this line.

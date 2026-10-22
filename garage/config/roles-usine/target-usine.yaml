@@ -28,7 +28,7 @@ top_p: 1.0
 # inspection — the forced verdict object the harness demands when the seat's
 # probe budget is spent.  That turn reads the evidence already gathered and
 # writes one JSON object; it is not a place to spend max-reasoning latency,
-# and every second it burns comes out of the same seat's wall clock.  The
+# and every second it burns comes out of the same seat's time budget.  The
 # agent's own turns run on verifier-usine.yaml's effort (the control profile
 # is the escalation/arbiter side), so this knob only moves the final demand.
 reasoning_effort: "low"

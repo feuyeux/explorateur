@@ -11,7 +11,7 @@
 | `théâtre/` | RSIAgent 引擎（vendored fork，**无内部 `.git`**，版本由本仓库统一管理） | [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）· 机制与图表 → [docs/self-evolution.md](docs/self-evolution.md) §2 |
 | `garage/` | RSIAgent 线路的适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检 | `run_usine.py` 模块 docstring（装配契约，13 条，次序承重）· 运行手册 / 验收 / 红线 → [docs/self-evolution.md](docs/self-evolution.md) §2、§8、§9、§11 |
 | `theatre-ii/` | harness2 引擎（vendored fork，Apache-2.0，**零补丁**） | [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（vendor 范围与已知缺口）· 机制与图表 → [docs/self-evolution.md](docs/self-evolution.md) §3 |
-| `garage-ii/` | harness2 线路的桥接层：dsh 那一面 + usine 那一格 + 对照驱动 | 桥接层 / 测量协议 / 产物对照 → [docs/self-evolution.md](docs/self-evolution.md) §3–§7 · 实测逐字归档仍在 [BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) · 跨轮次方法论仍在 [LESSONS.md](garage-ii/LESSONS.md) |
+| `garage-ii/` | harness2 线路的桥接层：dsh 那一面 + usine 那一格 + 对照驱动 | 桥接层 / 测量协议 / 产物对照 → [docs/self-evolution.md](docs/self-evolution.md) §3–§7 · 实测逐字归档仍在 [BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) · 跨轮次方法论在 [docs/self-evolution.md](docs/self-evolution.md) §12 |
 | `config/` | 跨线路共享配置。`env.sample` 入库，`.env` 本地且被根 `.gitignore` 兜底 | [config/env.sample](config/env.sample) 的注释即说明书 |
 
 **两条线路的引擎层不含任何 usine 专属代码**，桥接一律在适配层。改引擎前先读对应 PROVENANCE：`théâtre/` 是「补丁逐字节不变」，`theatre-ii/` 是「零补丁」。
@@ -81,19 +81,20 @@
 
 ## 九、RSI 读数纪律
 
-**两条路径的关系**：RSIAgent（`théâtre/`+`garage/`）改的是**记忆**，harness2（`theatre-ii/`+`garage-ii/`）改的是 **harness 本身**。引擎层对照、产物对照与可跑的三臂对照协议**已合并进 [docs/self-evolution.md](docs/self-evolution.md)**（§5–§7）——**读数字之前先读那一节的「测不到什么」**；逐字实测归档留在 [garage-ii/BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) §17，跨轮次方法论偏差留在 [garage-ii/LESSONS.md](garage-ii/LESSONS.md)。
+**两条路径的关系**：RSIAgent（`théâtre/`+`garage/`）改的是**记忆**，harness2（`theatre-ii/`+`garage-ii/`）改的是 **harness 本身**。引擎层对照、产物对照与可跑的三臂对照协议**已合并进 [docs/self-evolution.md](docs/self-evolution.md)**（§5–§7）——**读数字之前先读那一节的「测不到什么」**；逐字实测归档留在 [garage-ii/BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) §17，跨轮次方法论偏差在 [docs/self-evolution.md](docs/self-evolution.md) §12。
 
 - **两条路径共同的硬约束**：基准 harness 必须与被改进对象**同源**（`garage-ii/build_base_harness.py` 派生，带漂移闸）；运行产物落**仓库外** run root，且两线分开放（见第五节）；判据失败是 `None` 不是零分；判据不进 harness 树。
 - **演化结果先看「阶段回退」再看分数**：提案阶段失败时引擎会**退回基准树**继续跑，这一轮「看起来跑完了」，而最终被采纳的其实是**没改过的基准**——分数量的是基准，不是演化后的。`garage-ii` 的 sweep / judge 会把回退打出来并以**退出码 1** 结束。
 - **说「演化带来了提升」之前，先有同树零分布**：同一棵 harness 树、同一道题、同一模型，重复 rollout 的分数会在一个宽度里动——2026-10-20 实测：**四棵臂树逐字相同**，分数 80%/100%/100%/100%。没有零分布就没有「提升」这个说法。`garage-ii/arms.py` + `--phase repeat` / `--phase compare` 是这把尺子（判据：Δ > 0 **且** 单侧精确置换检验 p ≤ 0.1；零分布宽度只报不判）。
+- **说「泛化」之前，先有 train/eval 分侧读数**：2026-10-21 之前 `split` 参数收下却忽略——提案与判分同一批题，过拟合在读数上**结构上不可见**（train 涨、eval 跌，合并均值照样为正）。切分按产线层分层、固定种子（`garage-ii/task_split.py`），泛化读数走 `--split both` 两段式，判决按两侧显著性（`generalization.py`：train 涨 + eval 不涨 = `train_only`；eval 显著跌 = `harmful`，**train 涨多少都不抵**）。**两侧的记录与判据分开落盘，永不合并成一个均值**；缺 eval 侧 = `no_eval`，不许当「泛化没问题」读。A 线同族：记忆迁移要 `--project-budget ≥ 2` 才被观测过（`garage/transfer_check.py`），单项目波次的「held_out_generalization」只是标签。
 - **基准环境不健全时，任何读数都量不到 harness**：2026-10-20 实测，基准工作区**漏装了技能自带的 `assets/` 与 `references/`、PATH 上也没有 `feuille`**——技能手册指向不存在的模板，智能体于是（正确地）判定「工具面之外没有验收口径」而停手。**凡是换过工作区/题面/判据之后，旧读数一律作废**；`garage-ii/preflight.py` 的「装出来的工作区里技能资源在位」是这条的闸。
 - **自检只测内存里的对象，等于没测**：2026-10-20 实测，独立复查抓到三个**自查测不到**的缺陷——新字段没进 `to_dict`（于是 CLI 路径上的判定从来没生效）、compare 只比两臂的交集（少一格照样绿灯）、`rescore` 指错参数会**静默擦掉**一个臂还退出 0。**凡是「落盘 → 读回 → 判定」的逻辑，自检必须走那条真实路径**（落盘、CLI、错误参数三条都要有例）。
 - **判据不许比被改进对象自己的文件更严**：判据的依据必须是**被改进对象自己的文件**（手册、系统提示、工具指引），不是「我觉得更合理」；而且**放宽往往更严**（基准抬高 ⇒ 演化要追的差距更小）。
 - **量到「缺陷」之前先问一句：这是被改进对象的缺陷，还是我自己的判据/环境的缺陷**：2026-10-20 实测，基准臂 2 条 rollout 的产物被**后来的进程**擦掉（run 目录被重建），判据照直判成「没交付」——那量的是进程管理。**不是「智能体不行」的不要记成「智能体不行」**。
 - **跑批不许在跑批机器的主人身上留外部副作用**：冻结手册教的 `google-chrome --headless --dump-dom` **没有**本仓自己的 mock-keychain 旗标（`usine/packages/core/src/platform.ts` 明写「headless 渲染绝不碰用户钥匙串」）。跑批必须**在跑批边界把副作用掐掉**（浏览器垫片：每次启动都包上 `--use-mock-keychain --password-store=basic`），但**不许顺手改掉被测行为**，也**不许替用户动钥匙串**（ACL、删项、`security list-keychains` 一律不碰）。
 - **被杀/超时也要留下已经发生的事**：跑批的 rollout 可能跑十几分钟，事件流必须**边跑边落盘**（`garage-ii/dsh_run.mjs` append 写 `events.jsonl`）——「跑完才写」等于一次超时就零证据，而读数看着像「没做」。
-- **跑批要压时间，先查线上协议，再谈请求参数**：同一个网关、同一个模型，Anthropic 风格 `/messages` 与 OpenAI 风格 `/chat/completions` 两条路的**推理块差一个量级**，墙钟 56–116s vs 36–47s，而**墙钟的 59% 砸在那个块上**。请求参数在 `/messages` 那一路**网关不稳定认**（`thinking.budget_tokens=4096` 直接 400）——**别拿一次快读数当效果，A/B 连打三次再下结论**。换协议后同题同树实测：一条海报 rollout 42.1 分钟 → **18.7 分钟**（步数反而更多，省的是每次往返的时延）。
-- **一条臂的 n 次 rollout 要并行跑**：瓶颈在模型往返不在机器。2026-10-20 实测：n=4 串行 2 小时 48 分，并行后整条臂 = 最慢那条的墙钟。`arms.py` 的 `run_arm` 带 `workers`（CLI `--arm-workers`）。**但并行买到的是墙钟不是单条成本**——网关总吞吐不随并发变大，**读臂的耗时要当「并发下的墙钟」读**。
+- **跑批要压时间，先查线上协议，再谈请求参数**：同一个网关、同一个模型，Anthropic 风格 `/messages` 与 OpenAI 风格 `/chat/completions` 两条路的**推理块差一个量级**，实际耗时 56–116s vs 36–47s，而**耗时的 59% 砸在那个块上**。请求参数在 `/messages` 那一路**网关不稳定认**（`thinking.budget_tokens=4096` 直接 400）——**别拿一次快读数当效果，A/B 连打三次再下结论**。换协议后同题同树实测：一条海报 rollout 42.1 分钟 → **18.7 分钟**（步数反而更多，省的是每次往返的时延）。
+- **一条臂的 n 次 rollout 要并行跑**：瓶颈在模型往返不在机器。2026-10-20 实测：n=4 串行 2 小时 48 分，并行后整条臂 = 最慢那条的实际耗时。`arms.py` 的 `run_arm` 带 `workers`（CLI `--arm-workers`）。**但并行买到的是总耗时不是单条成本**——网关总吞吐不随并发变大，**读臂的耗时要当「并发下的总耗时」读**。
 - **判据引用纪律要给「文件 + 行号」，别写编号**：判据注释里写「红线第 5 条」，而 `guardrails.md` 的第 5 条其实是「验收诚实」，真正那条在 `systemprompt.md:14`——**编号会漂、也会张冠李戴**。引用纪律时把**文件名 + 行号 + 原文**一起写上。
 - **判据要分清「量」与「产」，也要认「程序位」**：判据抓的是「**绕开工具面做出来的东西**」，所以① 浏览器**在不在程序位上**才算执行（引号感知的切段，`grep -n 'a\|b'` 里那个 `|` 不是管道）；② 带**产物开关**（`--screenshot` / `--print-to-pdf`）才算「产」，`--dump-dom` 是「量」。
 - **产物判据覆盖不了「纪律有没有被改」，得另有一条树级轴**：演化提案在加技能时**顺手删掉了系统提示里的一条纪律**，产物照样交得出来、5 条产物判据照样不红。`garage-ii/tree_discipline.py` 量的是这个（树对树比对 `systemprompt.md` 与 `guardrails.md`，**不参与置换检验**，只作旁证）。
@@ -101,3 +102,4 @@
 - **清洗函数必须幂等，尤其当它在多个收口被调用**：剥 heredoc 的第一版把起头行原样保留，于是第二次调用找不到终止符、一路剥到结尾，把后面所有真命令吃掉。**幂等不是优点而是前提**；断言要直接比 `f(f(x)) == f(x)`。
 - **「修判据」与「调尺子」的分界是理由，不是效果**：有独立于结论的语义依据（如 heredoc 不是命令）才算**修错**；无论往哪边定都有据的（如探针算不算产）必须留成**明写的未决项**。**一格判据的结论能在 p=0.05 与 p=1.00 之间摆动时，它的 Δ 无论正负都不进判决**——正确定位是「待重造」，不是「已量到」。
 - 生成类命令默认不覆盖已有产物（显式 `--force` 才覆盖）；验收一律看退出码。
+- **用词纪律：不许出现「墙钟」（wall clock），改用人类日常说法**：「实际耗时 / 总耗时 / 时间上限 / 时间预算 / 限时」。2026-10-21 已把仓库自有代码与文档里的该词全部改写（含 `garage/config/roles-usine/*.yaml` 的 prompt 正文）。**这条改动动了 prompt 正文，因此 2026-10-21 之前的 RSI 读数按「换过题面」处理，一律作废**；`théâtre/`（vendored fork，补丁逐字节不变）与 `theatre-ii/`（零补丁）里的上游原文不动。

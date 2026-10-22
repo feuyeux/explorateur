@@ -219,7 +219,7 @@ def read_tree(surface, path) -> dict[str, str]:
     （`skills/(...)/SKILL\\.md`）。于是 `HT.skill_names()` 在 Windows 上**恒返回空列表**，
     而 `is_allowed` 因为内部先走 `normalize_rel` 不会拦住——**树读得进来，名字一个都数不出**。
     影响面不是一条 smoke：提案提示里的技能清单、`validate_tree` 的同名技能核对、
-    「每个技能都被 always-on 点名」全都拿不到名字。（`garage-ii/BENCHMARK.md` §19 记的
+    「每个技能都被 always-on 点名」全都拿不到名字。（`../docs/self-evolution.md` §3.2 的坑记的
     就是这个缺口，本节补的正是它写下的修法。）
 
     **修在本层，不改上游**：`theatre-ii/` 是零补丁的 vendored fork。

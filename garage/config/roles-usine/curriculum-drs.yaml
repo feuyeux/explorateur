@@ -17,7 +17,7 @@
 #     reconnaissance rounds looking for the whole set (it probed the guest
 #     filesystem, dumped the memory tree, walked packages/dsh-plugin, and
 #     dumped line ranges of both test suites) and never reached the edit.
-#   * The Actor's 900s wall clock expired -> "ACTOR phase ended at
+#   * The Actor's 900s time limit expired -> "ACTOR phase ended at
 #     emergency/infrastructure status safety_ceiling" -> the run ended with
 #     drs_delta.memory_changed = FALSE.  The memory tree was byte-identical
 #     to the Phase-1 baseline.  Five DRS attempts in a row died this way or
@@ -29,7 +29,7 @@
 # in the brief, and the DRS is the only phase that needs a different brief,
 # so the DRS gets its OWN curriculum seat.  Phase 1's seat is untouched.
 #
-# The seat contract, model lineup, reasoning effort and wall clock are
+# The seat contract, model lineup, reasoning effort and time limit are
 # identical to curriculum-usine.yaml; only `system_extra` differs.
 model: fuyao-work
 provider_order: []
@@ -49,7 +49,7 @@ max_tokens: 65536
 #
 # The caveat that outranks the knob: first-response latency at the SAME
 # effort has been measured at 50.6s / 108.2s / 138.7s / 322s / >300s, and a
-# stalled request IS charged to the seat's wall clock.  The guard that
+# stalled request IS charged to the seat's time budget.  The guard that
 # matters is the DRS run ceiling plus per-seat wall_clock_secs slices (see
 # garage/time_budget.DRS_SLICES), not this line.
 reasoning_effort: "max"
@@ -63,7 +63,7 @@ agent_decided_stop: true
 # 2000 iters / 86400s (a full day per wave) to 60 iters: the DRS buys
 # exactly ONE drill, and the drill's bound is in `system_extra` below.
 #
-# 400s wall clock: the DRS curriculum's first response carries the gateway's
+# 400s time limit: the DRS curriculum's first response carries the gateway's
 # measured worst-case tail (up to 322s at the same effort) plus a short
 # authoring tail.  A slice that cannot cover one worst-case round trip is
 # not a budget, it is a guaranteed abort — the bfs16d attempt lost the
@@ -100,7 +100,7 @@ system_extra: |
     brief whose scope is an open set — "every message in this category",
     "every refusal path you reworded", "adapt any other suite that quotes the
     old wording" are BANNED phrasings.  An open set is an unbounded task: the
-    Actor will spend its whole wall clock searching for the set instead of
+    Actor will spend its whole time budget searching for the set instead of
     changing anything, the episode will end without a submission, and the
     memory tree will be byte-identical to the one you started from.  Measured
     2026-10-20 (bfs16g): a brief with an open message set drove the Actor
@@ -117,7 +117,7 @@ system_extra: |
   - THE REPORT IS A TABLE, NOT AN ESSAY.  The handoff's report requirement
     must read: one line per changed message, at most 12 lines in total, no
     prose commentary.  A report requirement is a delivery cost the Actor pays
-    inside its wall clock; measured 2026-10-20, a per-message report with
+    inside its time budget; measured 2026-10-20, a per-message report with
     old text, new text, file, function and case names was a large part of
     why the Actor never reached the edit.
   - DEEPEN AN EXISTING MEMORY RECORD.  Name the memory file you are drilling

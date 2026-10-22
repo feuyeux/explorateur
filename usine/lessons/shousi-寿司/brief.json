@@ -1,0 +1,197 @@
+{
+  "sceneId": "shousi-寿司",
+  "title": "寿司 · 各国美食名称",
+  "goal": "TODO：一句话说清这课教什么",
+  "structure": "开场提议 → 1 轮一来一往 → 开心再会",
+  "description": "TODO：一句话说明这课与既有课的可对照差异（colors 色片 / numbers 字牌）",
+  "form": "dialogue",
+  "durationBudget": "20-55",
+  "noteFloor": 0,
+  "askBalance": "any",
+  "locales": [
+    "zh-CN",
+    "en-US",
+    "de-DE",
+    "fr-FR",
+    "es-ES",
+    "ru-RU",
+    "el-GR",
+    "hi-IN",
+    "ar-SA",
+    "he-IL",
+    "ja-JP",
+    "ko-KR"
+  ],
+  "lines": 7,
+  "tokens": [
+    {
+      "key": "寿司",
+      "chip": "#2f5d9e"
+    }
+  ],
+  "devices": {
+    "zh-CN": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "en-US": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "de-DE": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "fr-FR": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "es-ES": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "ru-RU": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "el-GR": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "hi-IN": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "ar-SA": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "he-IL": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "ja-JP": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    },
+    "ko-KR": {
+      "style": "tray",
+      "shape": "round",
+      "cellW": 112,
+      "cellH": 112,
+      "well": "#F5F3EE"
+    }
+  },
+  "roles": {
+    "A": {
+      "energy": "lively",
+      "note": "先问方 · 节奏引擎"
+    },
+    "B": {
+      "energy": "steady",
+      "note": "沉稳接题方 · 短问稳答"
+    }
+  },
+  "skeleton": [
+    {
+      "beat": "open",
+      "lines": 1
+    },
+    {
+      "beat": "reply",
+      "lines": 1
+    },
+    {
+      "beat": "round",
+      "lines": "rest",
+      "ask": "even",
+      "askBy": "A"
+    },
+    {
+      "beat": "summary",
+      "lines": 1
+    },
+    {
+      "beat": "bye",
+      "lines": 2
+    }
+  ],
+  "spec": {
+    "open.mood": "happy",
+    "open.pose": "bounce-in both-hands",
+    "reply.speakers": "B",
+    "reply.mood": "neutral",
+    "reply.pose": "nod",
+    "round.moodAsk": "happy",
+    "round.poseAsk": "point",
+    "round.moodReply": "neutral",
+    "round.poseReply": "palm-open",
+    "summary.mood": "happy",
+    "summary.pose": "jump-celebrate",
+    "bye.speakers": [
+      "B",
+      "A"
+    ],
+    "bye.mood": [
+      "encouraging",
+      "happy"
+    ],
+    "bye.pose": [
+      "wave",
+      "wave"
+    ]
+  },
+  "noteOn": {
+    "bye": [
+      "",
+      "exit"
+    ]
+  },
+  "stage": {
+    "zh-CN": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "en-US": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "de-DE": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "fr-FR": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "es-ES": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "ru-RU": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "el-GR": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "hi-IN": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "ar-SA": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "he-IL": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "ja-JP": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）",
+    "ko-KR": "TODO：这门课的舞台与道具（按语种自洽，不从中文直译）"
+  }
+}

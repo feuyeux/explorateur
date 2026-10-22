@@ -92,7 +92,7 @@ system_extra: |
   - EDIT BY ITERATION 5.  Recon in at most TWO programs: one that lists the
     file names and sizes you need, one that prints the bounded excerpts of
     the files you will edit.  Measured (bfs11): 11 recon turns preceded the
-    first edit, and the seat ran out of wall clock at the SECOND verify
+    first edit, and the seat ran out of elapsed time at the SECOND verify
     run with the edits already in place.  The instruction tells you which
     files to work on — read those and start editing.
   - SCOPE DOWN, DO NOT SEARCH.  If the instruction's scope is open — "every
@@ -107,7 +107,7 @@ system_extra: |
     2026-10-20 (bfs16g DRS): a brief with an open message set drove this
     seat through SEVENTEEN reconnaissance rounds — guest-path probes, a
     memory dump, a dsh-plugin tree walk, and line-range dumps of both test
-    suites — and the seat's 900s wall clock expired before the first edit.
+    suites — and the seat's 900s time limit expired before the first edit.
   - OUTPUT BUDGET: each of your programs must print LESS THAN 8000
     characters.  A program that dumps a whole file or a full test log into
     stdout pushed this seat's prompt to 57k tokens in one recorded run
@@ -120,7 +120,7 @@ system_extra: |
     gate must exit 0 before you declare done.  Browser-gated suites are
     skipped on this host by design (FEUILLE_BROWSER sentinel); SKIP is not
     PASS, do not count them as coverage.
-  - SUBMIT INSIDE YOUR BUDGET: this seat runs on a bounded wall-clock budget,
+  - SUBMIT INSIDE YOUR BUDGET: this seat runs on a bounded time budget,
     and if that budget expires before you publish your submission, the harness
     records NOTHING — the edits, the green gate and the probes you already ran
     are all discarded.  Work in this order: (1) the required code change,

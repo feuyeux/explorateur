@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -58,6 +59,37 @@ MAX_CANDIDATES_CHARS = 80_000
 
 #: 改完的 harness 树允许的最大字节数（护栏：一个「改」不是一次重写）。
 MAX_OUTPUT_CHARS = 200_000
+
+
+def _prune_stub_files(harness: Path) -> list[str]:
+    """Windows 平台垫：交回工作区之前，把 surface 声明的桩文件摘掉。
+
+    引擎 `harness_tree.read_tree` 对桩的跳过是**逐字串比较**（`rel in stubs`），
+    不做分隔符归一（`is_allowed` 做了，桩比较没有）。Windows 上
+    `Path.relative_to` 给出的是反斜杠路径——`skills\\README.md` 永远对不上
+    声明里的 `skills/README.md`，于是**引擎自己 seed 进提案工作区的桩**被当成
+    「面外文件」整单拒掉。2026-10-21 实测：Windows 上**每一个**提案（连
+    KEEP_BASE 在内）都因此 fell_back——13 格里 7 格 partial，6 格「ok」的
+    采纳其实全是基准树（`chosen_is_base: false` 只是标签，树内容与基准相同）。
+
+    引擎零补丁，这层平台差垫在桥接：交回前摘桩 = POSIX 上 read_tree 跳过桩的
+    同一语义。只在 Windows 摘；摘的是引擎 seed 的占位文件，模型对桩的编辑在
+    POSIX 上同样会被引擎忽略，所以这里丢掉它不改变任何平台的判定语义。
+    """
+    if sys.platform != "win32":
+        return []
+    from dsh_substrate import DSH_SURFACE
+
+    pruned: list[str] = []
+    for rel, _content in DSH_SURFACE.stubs:
+        p = Path(harness) / rel
+        try:
+            if p.is_file():
+                p.unlink()
+                pruned.append(rel)
+        except OSError:
+            continue
+    return pruned
 
 _FILE_BLOCK = re.compile(
     r"<<<FILE\s+([^\s<>]+)>?\s*\n(.*?)\n>>>FILE", re.S
@@ -769,7 +801,7 @@ class MinimaxProposer:
         两条路打的是**同一个网关、同一个模型**，差的只是协议：
         - `anthropic-messages`（旧的唯一路径）：`/v1/messages`，每次都吐
           1.1 万–2.6 万字符的 reasoning 块；
-        - `openai-completions`：`/v1/chat/completions`，默认不推理，墙钟约 1/3。
+        - `openai-completions`：`/v1/chat/completions`，默认不推理，实际耗时约为 1/3。
 
         两个真实的失败都发生在旧那一路（2026-10-20 19:5x 的 sweep）：
         `inv1` 的回复**在 5830 字节处截断**（传输层，重试两次都一样），
@@ -977,6 +1009,9 @@ class MinimaxProposer:
                         last = "证据目录里没有 harness/，无法回报「不改动」"
                         continue
                     oos = _is_out_of_scope(text)
+                    # Windows 桩垫：KEEP_BASE 交回的原树里也带着引擎 seed 的桩，
+                    # 不摘一样会被 read_tree 整单拒掉（见 _prune_stub_files）。
+                    _prune_stub_files(harness)
                     r = Reply(
                         label=label,
                         text=(
@@ -1053,6 +1088,10 @@ class MinimaxProposer:
                 p = harness / rel
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(body, encoding="utf-8")
+            # Windows 桩垫：引擎 seed 的桩文件（skills/README.md、scripts/README.md）
+            # 在 Windows 上逃不过 read_tree 的逐字桩比较，带着交回 = 整单被拒
+            # （见 _prune_stub_files 的实测记录）。摘掉再交。
+            _prune_stub_files(harness)
             # 引擎用 `<notes>…</notes>` 抠决策说明（`recursion._run_stage`），
             # 所以 text 里必须带这个标记。
             body = f"<notes>\n{notes}\n</notes>" if notes else text[:2000]

@@ -548,7 +548,7 @@ class WorktreeEnv:
         # no wave could ever merge.  Browserless makes platform.browser()
         # return null, which turns those specs into honest SKIPs instead.
         # Cost, stated plainly: the render path is not exercised during a
-        # wave (SKIP is not PASS — see garage/README.md).
+        # wave (SKIP is not PASS — see ../docs/self-evolution.md §10).
         self._disable_in_guest_browser()
 
     def _disable_in_guest_browser(self) -> None:

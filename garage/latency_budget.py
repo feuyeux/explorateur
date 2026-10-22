@@ -23,7 +23,7 @@ p50 / max，与本波**计划切片**比一比；历史 max 超过切片的某�
 ------------------------------
 引擎每跑完一个 seat segment，就在那个 segment 目录里写一个 ``result.json``，
 内容是 ``dataclasses.asdict(core.loop.LoopResult)``，其中 ``wall_secs`` 是该段
-**实测**墙钟。落盘位置（相对 run root）：
+**实测**耗时。落盘位置（相对 run root）：
 
 * ``curriculum/wave_<NNN>/segment_<NNN>/result.json``   → 出题席
   （``explore/phase1_wave.py:259`` 的 ``sink.save_result(...)``）
@@ -106,7 +106,7 @@ def _seat_of(relative: Path) -> str | None:
 
 
 def _read_wall_secs(path: Path) -> tuple[float | None, str]:
-    """读一份 segment result.json 里的实测墙钟。
+    """读一份 segment result.json 里的实测耗时。
 
     返回 ``(值, "")`` 或 ``(None, 原因)``。**不做静默兜底**：坏记录必须被点名，
     绝不能变成 0（0 会被读成「没有风险」）。
@@ -159,7 +159,7 @@ def _run_roots(runs_root: Path) -> list[Path]:
 
 
 def _collect_run(run_root: Path) -> tuple[dict, list]:
-    """扫一个 run root，收集每席的 segment 实测墙钟与每席合计。"""
+    """扫一个 run root，收集每席的 segment 实测耗时与每席合计。"""
     segments: dict = {}
     totals: dict = {}
     corrupt: list = []
@@ -224,7 +224,7 @@ def assess(*, runs_root: Path, slices: dict, applied: dict | None = None,
            allow_high_latency: bool = False) -> dict:
     """判定本波的高时延风险。
 
-    ``slices`` = 本波计划切片（seat → 秒），``applied`` = 装配后真正生效的席位墙钟
+    ``slices`` = 本波计划切片（seat → 秒），``applied`` = 装配后真正生效的席位实际耗时
     （切片是天花板，席位自己声明的更紧值不会被放松）。
 
     返回的载荷里：
@@ -303,7 +303,7 @@ def assess(*, runs_root: Path, slices: dict, applied: dict | None = None,
             "A slice absorbs variance only up to a point: one worst-case "
             "gateway round trip has been measured at 50.6s, 108.2s, 138.7s, "
             "322s and over 300s, and a stalled request is charged to the "
-            "seat's wall clock. Options: lower that seat's reasoning_effort, "
+            "seat's time budget. Options: lower that seat's reasoning_effort, "
             "move the seat to another endpoint, or raise the run ceiling "
             "(--run-ceiling-secs). To run anyway, pass --allow-high-latency; "
             "the risk is then recorded in the manifest."
@@ -315,7 +315,7 @@ def assess(*, runs_root: Path, slices: dict, applied: dict | None = None,
                   "the run ceiling and the per-seat slices remain the guard.")
     else:
         reason = ("measured latency history is within the planned slices "
-                  "(every judged seat's observed wall clock is at or under "
+                  "(every judged seat's observed elapsed time is at or under "
                   f"{config.risk_ratio:.0%} of its planned slice)")
 
     return {

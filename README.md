@@ -147,7 +147,7 @@ flowchart TB
 读图要点：
 
 - **两条线改的是同一个智能体的两个部位**：线路一改「手」（工具面、schema、拒答卡、howto），线路二改「指令」（系统提示、红线、记忆、技能手册）。这就是它们不能互相替代、也不能直接比高低的原因。
-- **只有线路一有「合并」这一步**，产物是可逐字复查的 git 提交；线路二的产物是一棵树，验收必须让智能体把活真干一遍再判分，所以墙钟差一个量级（一次成功波次约 12–13 分钟，一轮 sweep 约 85 分钟）。
+- **只有线路一有「合并」这一步**，产物是可逐字复查的 git 提交；线路二的产物是一棵树，验收必须让智能体把活真干一遍再判分，所以实际耗时差一个量级（一次成功波次约 12–13 分钟，一轮 sweep 约 85 分钟）。
 - **反馈边不同**：线路一靠 `--memory-seed` 把上一波蒸馏出的记忆喂给下一波的出题席；线路二靠 `experience` 记录把上一轮的教训喂给下一轮的提案者。累积物不复位，跨轮才有「进化」可言。
 - **所有机械判定都在模型之外**：围栏、漂移闸、规范同步闸、真树门禁、健康分都会直接作废候选，不靠模型自述；发布路径在工具面上根本不存在，不是靠提示词劝阻。纪律留存轴是唯一只看不拦的一条——它报出「演化顺手删了纪律」，但不参与判决。
 - **两边的起点都不是手抄的**：线路一的种子是 `git archive HEAD`，线路二的基准树从 `usine/packages/dsh-plugin` 派生并带双向漂移闸——基准一漂，读数就没有意义。
@@ -157,7 +157,7 @@ flowchart TB
 | 闸 | 拦什么 | 失败表现 |
 |---|---|---|
 | 8-gram 围栏 | 改进方向与受审计面出现逐字重叠 | 改 `distribution-usine.md` 的措辞，不改围栏 |
-| 时延 / 时间预算 | 单次自进化超出墙钟或历史时延过高 | 默认拒跑；超时为独立终态、退出码 3 |
+| 时延 / 时间预算 | 单次自进化超出时间上限或历史时延过高 | 默认拒跑；超时为独立终态、退出码 3 |
 | 漂移闸（CRLF 折叠） | 工作树既不等于基线也不等于候选 | 整条候选 `drift` 跳过 |
 | 规范同步闸 | 改了被规范的代码却没同批更新规范 | `spec_sync_rejected`，点名两侧路径 |
 | 真树门禁 | `pnpm verify` 红 | `gate_rejected`，整案丢弃（假的 PASS 进不了仓库） |
@@ -176,7 +176,7 @@ flowchart TB
 
 第一条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §2、§8.2（机制与运行手册）· [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律）· [théâtre/ADAPTATION.md](théâtre/ADAPTATION.md)。
 
-第二条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §3–§8.3（机制、测量协议与运行手册）· [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（零补丁声明）· [garage-ii/LESSONS.md](garage-ii/LESSONS.md)（跨轮次方法论偏差）。
+第二条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §3–§8.3（机制、测量协议与运行手册）· [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（零补丁声明）· [docs/self-evolution.md](docs/self-evolution.md) §12（跨轮次方法论偏差）。
 
 ### 共有红线
 
@@ -187,7 +187,7 @@ flowchart TB
 
 ### 读数字之前的纪律
 
-读数纪律只有一份，在 [AGENTS.md 第九节](AGENTS.md)（18 条，每条都带实测出处）。这里不复述——**两份纪律必然漂移，而漂移的那份没人核对**。
+读数纪律只有一份，在 [AGENTS.md 第九节](AGENTS.md)（20 条顶层条目，其中 18 条是粗体的「读数纪律」，每条都带实测出处）。这里不复述——**两份纪律必然漂移，而漂移的那份没人核对**。
 
 最要紧的三条，先记住再翻原文：
 
@@ -229,4 +229,4 @@ flowchart TB
 |---|---|---|
 | **工作区级** | 本文件 + [AGENTS.md](AGENTS.md) | 子项目索引、跨线路约束、产物落位、agent 行为规则 |
 | **项目级** | 各子项目 `README.md` | 这是什么、怎么构建、怎么跑测试、目录树 |
-| **专题** | [docs/self-evolution.md](docs/self-evolution.md)（自我进化总文档）· `usine/docs/` · `garage-ii/BENCH-APPENDIX-2026-10.md`（逐字归档）· `garage-ii/LESSONS.md` | 机制、运行手册、测量协议、实测记录、跨轮次方法论 |
+| **专题** | [docs/self-evolution.md](docs/self-evolution.md)（自我进化总文档）· `usine/docs/` · `garage-ii/BENCH-APPENDIX-2026-10.md`（逐字归档） | 机制、运行手册、测量协议、实测记录、跨轮次方法论、人机交互视角、真跑现场、上游论文对照与选型 |

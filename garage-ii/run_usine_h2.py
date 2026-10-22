@@ -45,6 +45,14 @@ from harness2.core import report as R  # noqa: E402
 from harness2.core import schedule as SCHED  # noqa: E402
 from harness2.core.proposer import Proposer  # noqa: E402
 
+# Windows 宿主上垫上引擎 `_write_summary` 要用的 fcntl（POSIX 专属模块）。
+# 2026-10-21 实测：不垫的话 sweep 的 12 格 rollout 真跑约两小时后，全死在
+# 写 summary.json 的 `import fcntl` 上（token 全白烧，而 preflight 当时是绿的）。
+# POSIX 上 install() 恒不装，stdlib 的 fcntl 不受影响。
+import posix_compat  # noqa: E402
+
+posix_compat.install()
+
 from dsh_provider import (  # noqa: E402
     ENV_CONTEXT_WINDOW,
     ENV_MAX_TOKENS,
@@ -130,8 +138,7 @@ def _acquire_run_root_lock(root: Path, key: str = ""):
 
     现在锁文件带上 key（命名空间名 / 臂名）：同 key 互斥，不同 key 各跑各的。
     锁是 run root 里的一个文件（`~/<root>/adapt/.sweep.<key>.lock`），内含 pid。
-    进程已经不在了（stale lock）就自动接管——**探活不许用会杀人的办法**
-    （见 `_pid_alive`：Windows 上 `os.kill(pid, 0)` 是 `TerminateProcess`）。
+    进程已经不在了（stale lock）就自动接管。
     """
     import os
 
@@ -381,8 +388,10 @@ def _print_stream(adapter, args, modes) -> int:
         max_tasks=args.max_tasks,
     )
     ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
+    tag = _stage_tag(split)
+    stage_ns = f"{ns}-{tag}" if tag else ns
     print(f"# {adapter.spec.name}-{adapter.substrate.name} k={args.k} modes={','.join(modes)} split={split}")
-    print(f"#   namespace: {ns}")
+    print(f"#   namespace: {stage_ns}")
     print(f"#   runs root: {adapter.spec.runs_root}")
     print(f"#   library:   {C.library_root_for(adapter, args.k, seed=args.seed)}")
     n = 0
@@ -475,9 +484,12 @@ def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) ->
        `tag` 保证 `root_for` 落到同一目录）。train 段写进去的 `EXPERIENCE.md`
        与采纳的树，eval 段的提案器读得到——`schedule._run_one_mode` 里的
        `lib_dir = mode_lib.context_dir()` 就是那条通路。
-    2. **不同 namespace**：`summary_ns` 加 `-train` / `-eval` 后缀，于是两次
-       sweep 的 run 目录、`_sweeps/*.json` 记录互不覆盖（否则 eval 段会把 train
-       段的读数盖掉，两边就只剩一份）。
+    2. **不同 namespace**：两段经 `_stage_tag` 各拿 `train` / `eval` 的引擎 tag，
+       于是 run 目录（`adapt/<ns>-train/`、`adapt/<ns>-eval/`）、`_sweeps/*.json`
+       记录互不覆盖（否则 eval 段会把 train 段的读数盖掉，两边就只剩一份），
+       且 `_report_stage_fallbacks` 找的就是这两个目录——**阶段回退闸在两段式下
+       必须活着**：找不到目录时它不报错，只是恒空返回，那是最隐蔽的假绿。
+       tag 与目录名必须从同一个函数派生（`_stage_tag`），两处各写一遍必漂移。
     3. **eval 段不写 library**：这条**必须由代码保证，不靠自觉**——因为引擎每次
        `run_sweep` 都会在 `reflect_adoption` 里写 library。所以 eval 段跑完之后
        要把 library 里 eval 任务新长出来的条目**摘掉**，只留 train 阶段的。
@@ -498,9 +510,6 @@ def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) ->
     但它比「冻结树直接考」弱。这两种读法必须分开说，报告里按 `transfer` 记，
     **不许混称「泛化」**。
     """
-    train_root = runs_root / "_two_stage" / f"{summary_ns}-train"
-    eval_root = runs_root / "_two_stage" / f"{summary_ns}-eval"
-
     print(
         f"两段式 sweep（train → eval）：\n"
         f"  train 段：{len(adapter.tasks('train'))} 个任务，产出写进 library\n"
@@ -517,13 +526,19 @@ def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) ->
         modes,
         runs_root,
         library_root,
-        f"{summary_ns}-train",
+        summary_ns,
         split="train",
+        # 两段式的门只拦**测量无效**（exception / 域死掉）。partial（演化跑了、
+        # 候选没交付）是完成的负读数——拦它等于要求「train 每格候选必须交付」
+        # 才许测泛化，k=1 的 rollout 随机性下 eval 段永远进不去。理由全文见
+        # `_sweep_one` 的 docstring。
+        partial_blocks=False,
     )
     if rc_train != 0:
         print(
-            "\ntrain 段没跑干净——**不要**接着跑 eval 段："
-            "eval 侧要量的正是 train 段学到的东西，train 段本身错了，那个读数没有意义。",
+            "\ntrain 段有**测量无效**的格子（exception / 域死掉）——**不要**接着跑"
+            " eval 段：eval 侧要量的正是 train 段学到的东西，train 段本身错了，"
+            "那个读数没有意义。（partial 不拦——那是完成的负读数，上面已逐格列出。）",
             file=sys.stderr,
         )
         return rc_train
@@ -539,8 +554,9 @@ def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) ->
         modes,
         runs_root,
         library_root,
-        f"{summary_ns}-eval",
+        summary_ns,
         split="test",
+        partial_blocks=False,
     )
 
     # **摘掉 eval 段新写进 library 的条目**：库必须停在 train 段结束时的样子。
@@ -579,13 +595,71 @@ def _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns) ->
     return rc_eval
 
 
-def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, split: str) -> int:
+def _stage_tag(split: str) -> str:
+    """split → 引擎 tag：**非 all 的 split 各自落带后缀的命名空间**。
+
+    引擎的 run 目录（`adapt/<ns>/<task>/`）由 `run_sweep(tag=…)` 里的 tag 决定。
+    2026-10-21 之前 `_sweep_one` 硬写 `tag=""`，于是 `--split both` 的 train 段与
+    eval 段**写进同一个** `adapt/<ns>/`——而 `_report_stage_fallbacks` 拿着带
+    `-train` / `-eval` 后缀的目录名去找，**永远找不到**：阶段回退闸在两段式下
+    静默失效（这类「账面绿」正是 §12.2 那种静默失败）。tag 与后缀必须从同一个
+    函数派生，两处各写一遍就会再漂移一次。
+    """
+    if split == "all":
+        return ""
+    if split == "train":
+        return "train"
+    if split == "test":
+        # 任务面的词是 test（引擎词汇表：all/train/test），读数侧的习惯词是 eval
+        # （`_run_two_stage` 的 `-eval` 后缀）。这里跟读数侧，保持记录一致。
+        return "eval"
+    raise ValueError(f"未知 split：{split!r}（只认 all / train / test / both）")
+
+
+def _stage_sides(adapter, args) -> list[tuple[str, str]]:
+    """judge / report / reselect 该看哪几侧：`(命名空间, 侧标签)` 列表。
+
+    命名空间与 sweep 落盘的目录**同一套派生**（`_stage_tag`）——`--split train`
+    的 sweep 落在 `adapt/<ns>-train/`，judge 就去那里找；`--split both` 两段都判，
+    **两侧分别出判据记录**（train 侧与 eval 侧不许合并成一个均值：合并正是
+    §6.8 里「过拟合在读数上隐形」的那条通路）。
+    """
+    base = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
+    split = getattr(args, "split", "all")
+    if split == "both":
+        return [(f"{base}-train", "train"), (f"{base}-eval", "eval")]
+    tag = _stage_tag(split)
+    side = {"": "all", "train": "train", "eval": "eval"}[tag]
+    return [(f"{base}-{tag}" if tag else base, side)]
+
+
+def _sweep_one(
+    args, adapter, modes, runs_root, library_root, summary_ns, *, split: str,
+    partial_blocks: bool = True,
+) -> int:
     """跑一段 sweep。抽出来是为了让两段走**完全相同**的代码路径——
     两段各写一遍的话，「eval 段少跑一个步骤」这种错永远测不出来。
+
+    `summary_ns` 是**不带段后缀**的基础命名空间；段后缀（`-train` / `-eval`）由
+    `split` 经 `_stage_tag` 派生，引擎 tag、记录文件、审计目录、回退闸全部用它。
+
+    **partial 与 exception 是两种东西**（2026-10-22 从实测里定下的口径）：
+
+    - `exception` = 这一格的测量**无效**（域死掉 / 任务级异常）——读数作废，
+      什么时候都必须拦；
+    - `partial` = 演化**跑完了**但候选没交付产物（选择失败）——那是**完成的负读数**，
+      不是无效测量。把 partial 也当「没跑干净」拦下 eval 段，等于要求
+      「train 侧每一格的候选都必须交付」才许测泛化——k=1 下候选交付本身有
+      rollout 随机性（2026-10-22 实测：同一条命令重跑，7 格 partial 里 3 格转 ok），
+      再叠上网关 502 的抖动，eval 段会**几乎永远进不去**。partial 不拦，但要
+      **说清楚**：它不进采纳库，train 侧读数里它就是「演化没交付」那一格。
+      `partial_blocks=True` 保留单段模式的旧行为（退出码 1 提醒人去看）。
     """
     from dsh_provider import Relay  # noqa: F401  (保持与调用方同一导入面)
     from minimax_proposer import MinimaxProposer
 
+    tag = _stage_tag(split)
+    stage_ns = f"{summary_ns}-{tag}" if tag else summary_ns
     relay = _make_relay(_llm_choice(args))
     relay.start()
     try:
@@ -597,7 +671,7 @@ def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, spl
             timeout=args.proposer_timeout,
             api=_llm_choice(args).get('api', 'anthropic-messages'),
         )
-        prop.audit_dir = runs_root / "_audit" / summary_ns
+        prop.audit_dir = runs_root / "_audit" / stage_ns
         rep = SCHED.run_sweep(
             args.k,
             adapter=adapter,
@@ -608,7 +682,7 @@ def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, spl
             split=split,
             modes=modes,
             seed=args.seed,
-            tag="",
+            tag=tag,
             domain_parallel=args.workers,
             only_domains=_csv(args.only_domains),
             max_tasks=args.max_tasks,
@@ -618,20 +692,38 @@ def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, spl
         relay.close()
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    rec = runs_root / "_sweeps" / f"{summary_ns}-{stamp}.json"
+    rec = runs_root / "_sweeps" / f"{stage_ns}-{stamp}.json"
     rec.parent.mkdir(parents=True, exist_ok=True)
     rec.write_text(json.dumps(rep, indent=2, default=str), encoding="utf-8")
 
     done = sum(int(d.get("done", 0)) for d in rep.get("domains", []))
     failed = sum(int(d.get("failed", 0)) for d in rep.get("domains", []))
     dead = [d["domain"] for d in rep.get("domains", []) if d.get("error")]
-    print(f"\nsweep[{split}] {summary_ns}: {done} 个任务完成，{failed} 个失败")
+    # 引擎的 `failed` 把 partial 和 exception 混在一起数；两段式的门只认
+    # exception（测量无效），partial 单独数出来说清楚。
+    statuses = [
+        (t.get("task"), t.get("status"))
+        for d in rep.get("domains", [])
+        for t in d.get("tasks", [])
+    ]
+    exceptions = sorted(t for t, st in statuses if st == "exception")
+    partials = sorted(t for t, st in statuses if st == "partial")
+    print(f"\nsweep[{split}] {stage_ns}: {done} 个任务完成，{failed} 个失败（partial {len(partials)} / exception {len(exceptions)}）")
     if dead:
         print(f"  死掉的产线层：{', '.join(dead)}")
+    if exceptions:
+        print(f"  exception（测量无效，必须拦）：{', '.join(exceptions)}")
+    if partials:
+        print(
+            f"  partial（演化跑了、候选没交付——**实质读数**，不进采纳库）：{', '.join(partials)}"
+        )
     print(f"record: {rec}")
 
-    fell_back = _report_stage_fallbacks(runs_root, summary_ns)
-    if dead or failed:
+    fell_back = _report_stage_fallbacks(runs_root, stage_ns)
+    # **测量无效的必须拦**：域死掉或任务级 exception，这一段没有可用的读数。
+    if dead or exceptions:
+        return 1
+    if partials and partial_blocks:
         return 1
     if fell_back:
         print(
@@ -639,7 +731,8 @@ def _sweep_one(args, adapter, modes, runs_root, library_root, summary_ns, *, spl
             "这些任务量到的是**基准 harness** 的表现，不是演化后的——"
             "先修掉阶段错误再读分数。"
         )
-        return 1
+        if partial_blocks:
+            return 1
     return 0
 
 
@@ -690,17 +783,19 @@ def _run_sweep(args, adapter, modes, runs_root, library_root, summary_ns) -> int
     又测量、又采纳。所以「在同一批题上学、在同一批题上考」这个形状，**改一个参数
     是改不出来的**——必须跑两次，且第二次要能读到第一次的成果。
 
-    两段的接缝是 `library_root`：`harness2/core/library.py:215` 的 `root_for()`
-    在给定 `tag` 时返回 `<base>/<benchmark>/<tag>`，于是**同一个 tag 的两次 sweep
-    共享一个 library**。train 段把学到的树写进 library；eval 段读同一份 library，
-    所以摆在 eval 题面前的是 train 学到的成果。
+    两段的接缝是 `library_root`：两次 sweep 拿到**同一个** `library_root`
+    （`_phase_sweep` 只算一次、两段共用），train 段把学到的树与 `EXPERIENCE.md`
+    写进 library；eval 段的提案器读同一份 library，所以摆在 eval 题面前的是
+    train 学到的成果。
 
-    eval 段**不跑提案器**（`modes` 里不带 `inv`/`dom`/`agg` 那几档改树的工作），
-    只做「用学到的树解题并测量」——那样 eval 侧的分数才有可能被 train 侧的产物
-    污染。**这是本设计唯一的因果假设**，写在这里以便被证伪。
+    一条要明说的边界：eval 段的提案器**仍然会改树**——它拿着 train 的经验、
+    在 eval 题上继续演化。所以两段式给的是**迁移**读数，不是「冻结树直接考」的
+    纯泛化读数，两者不许混称（docs/self-evolution.md §6.8）。
 
-    一条硬约束：**eval 段永不写 library**。它要是也写，第二次跑就变成「eval 也在
-    学」，泛化读数立刻失效。这条由 `modes` 保证（只留 solve 档），不靠自觉。
+    一条硬约束：**eval 段结束后 library 必须停在 train 段结束时的样子**。
+    引擎每次 `run_sweep` 都会在 `reflect_adoption` 里写 library——不摘掉的话，
+    「第二次跑」就变成「eval 也学了一遍」，泛化读数立刻失效。这条由
+    `_trim_library` 在代码里保证，不靠自觉。
     """
     if getattr(args, "split", "all") == "both":
         return _run_two_stage(args, adapter, modes, runs_root, library_root, summary_ns)
@@ -818,39 +913,58 @@ def _report_stage_fallbacks(runs_root: Path, summary_ns: str) -> list[str]:
 def _phase_judge(args) -> int:
     adapter = _adapter(args)
     modes = C.parse_modes(args.modes)
-    ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
-    ns_dir = adapter.spec.runs_root / "adapt" / ns
-    if not ns_dir.is_dir():
-        print(f"没有这个命名空间的产物：{ns_dir}；先跑 sweep", file=sys.stderr)
-        return 1
-
-    sels: list[dict] = []
-    for summary_path in sorted(ns_dir.glob("*/summary.json")):
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"  ! 跳过读不动的 {summary_path}：{exc}")
+    sides = _stage_sides(adapter, args)
+    judged = 0
+    missing: list[tuple[str, str]] = []
+    any_fell_back = False
+    for ns, side in sides:
+        ns_dir = adapter.spec.runs_root / "adapt" / ns
+        if not ns_dir.is_dir():
+            missing.append((side, ns))
             continue
-        for mode in modes:
-            sel = (summary.get("selections") or {}).get(mode)
-            if sel:
-                sels.append(sel)
-    if not sels:
-        print(f"没有可判的选择记录（modes={modes}）：{ns_dir}", file=sys.stderr)
-        return 1
 
-    rows = J.judge_selections(adapter, sels, parallel=4)
-    out = adapter.spec.runs_root / "judge" / f"{ns}.json"
-    J.write(rows, out)
-    graded = sum(1 for r in rows if r.graded)
-    print(f"判了 {len(rows)} 条，判成功 {graded} 条（判失败的**不算零分**，从分母里剔掉）")
-    print(f"record: {out}")
-    fell_back = _report_stage_fallbacks(adapter.spec.runs_root, ns)
-    if fell_back:
+        sels: list[dict] = []
+        for summary_path in sorted(ns_dir.glob("*/summary.json")):
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                print(f"  ! 跳过读不动的 {summary_path}：{exc}")
+                continue
+            for mode in modes:
+                sel = (summary.get("selections") or {}).get(mode)
+                if sel:
+                    sels.append(sel)
+        if not sels:
+            print(f"[{side}] 没有可判的选择记录（modes={modes}）：{ns_dir}", file=sys.stderr)
+            continue
+
+        rows = J.judge_selections(adapter, sels, parallel=4)
+        out = adapter.spec.runs_root / "judge" / f"{ns}.json"
+        J.write(rows, out)
+        graded = sum(1 for r in rows if r.graded)
         print(
-            "\n注意：有阶段回退到基准树。上面的分数量的是**基准 harness** 的表现，"
-            "不是演化后的——先修掉阶段错误再读分数。"
+            f"[{side}] 判了 {len(rows)} 条，判成功 {graded} 条"
+            "（判失败的**不算零分**，从分母里剔掉）"
         )
+        print(f"record: {out}")
+        judged += 1
+        fell_back = _report_stage_fallbacks(adapter.spec.runs_root, ns)
+        if fell_back:
+            print(
+                f"[{side}] 注意：有阶段回退到基准树。上面的分数量的是**基准 harness** 的表现，"
+                "不是演化后的——先修掉阶段错误再读分数。"
+            )
+            any_fell_back = True
+    for side, ns in missing:
+        print(
+            f"[{side}] 没有这个命名空间的产物：{adapter.spec.runs_root / 'adapt' / ns}；"
+            f"先跑 sweep（judge 与 sweep 要带同一个 --split）",
+            file=sys.stderr,
+        )
+    # **`--split both` 缺一侧就不是完整的泛化读数**：只判到 train 侧时，
+    # 没有任何证据表明它在没见过的题上不变差——这和 generalization.py 的
+    # `no_eval` 判决同一条纪律：缺测量不许当测量过了。
+    if missing or not judged or any_fell_back:
         return 1
     return 0
 
@@ -858,21 +972,26 @@ def _phase_judge(args) -> int:
 def _phase_report(args) -> int:
     adapter = _adapter(args)
     modes = C.parse_modes(args.modes)
-    ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
-    jpath = adapter.spec.runs_root / "judge" / f"{ns}.json"
-    if not jpath.is_file():
-        print(f"没有判据结果：{jpath}；先跑 judge", file=sys.stderr)
-        return 1
-    rows = [J.Scored(**{k: v for k, v in r.items() if k not in ("frac", "graded")}) for r in
-            json.loads(jpath.read_text(encoding="utf-8"))]
-    summaries = R.summarise(rows)
-    text = R.render(summaries, title="usine × dsh · harness 演化", bench=adapter.spec.name)
-    print(text)
-    out = adapter.spec.runs_root / "report" / f"{ns}.txt"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text, encoding="utf-8")
-    print(f"record: {out}")
-    return 0
+    sides = _stage_sides(adapter, args)
+    rendered = 0
+    for ns, side in sides:
+        jpath = adapter.spec.runs_root / "judge" / f"{ns}.json"
+        if not jpath.is_file():
+            print(f"[{side}] 没有判据结果：{jpath}；先跑 judge（--split {getattr(args, 'split', 'all')}）", file=sys.stderr)
+            continue
+        rows = [J.Scored(**{k: v for k, v in r.items() if k not in ("frac", "graded")}) for r in
+                json.loads(jpath.read_text(encoding="utf-8"))]
+        summaries = R.summarise(rows)
+        # **侧别写进标题**：train 侧与 eval 侧是两个分离的测量，报告不许长得像同一个。
+        title = "usine × dsh · harness 演化" + (f"（{side} 侧）" if side != "all" else "")
+        text = R.render(summaries, title=title, bench=adapter.spec.name)
+        print(text)
+        out = adapter.spec.runs_root / "report" / f"{ns}.txt"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        print(f"record: {out}")
+        rendered += 1
+    return 0 if rendered == len(sides) else 1
 
 
 def _phase_repeat(args) -> int:
@@ -1064,10 +1183,22 @@ def _phase_reselect(args) -> int:
     from minimax_proposer import MinimaxProposer
 
     adapter = _adapter(args)
-    ns = SCHED.ns(adapter.spec.name, adapter.substrate.name, "agg", args.k, seed=args.seed)
+    sides = _stage_sides(adapter, args)
+    if len(sides) > 1:
+        print(
+            "reselect 不支持 --split both：两段的选择各有各的候选池，"
+            "请对每段分别跑 --split train / --split test",
+            file=sys.stderr,
+        )
+        return 1
+    ns, _side = sides[0]
     ns_dir = adapter.spec.runs_root / "adapt" / ns
     if not ns_dir.is_dir():
-        print(f"没有这个命名空间的产物：{ns_dir}；先跑 sweep", file=sys.stderr)
+        print(
+            f"没有这个命名空间的产物：{ns_dir}；先跑 sweep"
+            f"（reselect 与 sweep 要带同一个 --split）",
+            file=sys.stderr,
+        )
         return 1
     tasks = [t for t in adapter.tasks("all") if (ns_dir / t).is_dir()]
     if args.only_tasks:

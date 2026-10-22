@@ -13,7 +13,7 @@
 
 1. **不回步上游**：需要新上游版本时开**新目录**重新 vendor，避免历史漂移。本目录**没有** `.git`——两条引擎线的目录都是普通目录，版本一律由外层 `explorateur` 仓库统一管理（`../théâtre/` 的内嵌 `.git` 已于 2026-10-21 删除，两线在此对齐）。
 2. **上游文件逐字节不变**：`harness2/`、`docs/`、`scripts/`、`tests/`、`LICENSE`、`pyproject.toml`、`MANIFEST.in`、`CONTRIBUTING.md`、`README.md` 全部逐字搬运，**零补丁**。本目录与上游的差异**只有两类**：
-   - **新增**本文件、`ARCHITECTURE.md`、`COMPARISON.md`（本 fork 自带的文档，不改上游任何一行）；其中 `ARCHITECTURE.md` 与 `COMPARISON.md` 的内容已于 2026-10-21 并入 [`../docs/self-evolution.md`](../docs/self-evolution.md) §3、§6.5，两处只留指针存根；
+   - **新增**本文件、`ARCHITECTURE.md`、`COMPARISON.md`（本 fork 自带的文档，不改上游任何一行）；其中 `ARCHITECTURE.md` 与 `COMPARISON.md` 的内容已于 2026-10-21 并入 [`../docs/self-evolution.md`](../docs/self-evolution.md) §3、§6.5，两处已随合并**删除**（不再有第二份说法）；
    - **未 vendor** 上游的三个目录（见下节）。
 3. **适配层不进来**：dsh 的接缝、usine 的任务与判据全在 `../garage-ii/`。本目录里**没有一行** usine 或 dsh 专属代码——引擎与桥接的边界不许模糊。
 

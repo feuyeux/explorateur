@@ -1035,6 +1035,45 @@ def _keep_base_ok() -> None:
     srv.shutdown()
 
 
+def _stub_prune_ok() -> None:
+    print("[9b] Windows 桩垫：提案工作区交回前，surface 桩必须摘干净")
+    import sys
+
+    from harness2.core import tree as harness_tree
+    from minimax_proposer import _prune_stub_files
+
+    d = Path(tempfile.mkdtemp(prefix="smoke-stub-"))
+    h = d / "harness"
+    harness_tree.write_tree(DSH_SURFACE, {"systemprompt.md": "c1 原文"}, h, stubs=True)
+    # 引擎自己会 seed 桩（write_tree stubs=True）——这是它对提案者的文档面。
+    check("引擎 seed 了 surface 桩", (h / "skills" / "README.md").is_file())
+
+    # **缺陷形态先复现**（只在 Windows 可复现：POSIX 上 read_tree 的逐字桩比较
+    # 认得正斜杠路径，本来就能跳过）。2026-10-21 实测：Windows 上反斜杠路径
+    # 对不上声明，引擎自己 seed 的桩被当「面外文件」整单拒掉——每个提案、
+    # 连 KEEP_BASE 都 fell_back。
+    if sys.platform == "win32":
+        rejected: list[str] = []
+        harness_tree.read_tree(DSH_SURFACE, h, rejected=rejected)
+        check(
+            "缺陷可复现：未修剪时 Windows 上桩被 read_tree 拒掉",
+            bool(rejected),
+            f"rejected={rejected}——为空说明引擎/面声明变了，重看这条",
+        )
+
+    # 修剪后：引擎判定零拒绝、面内文件完好（**全平台不变量**）。
+    pruned = _prune_stub_files(h)
+    check(
+        "POSIX 不摘桩（引擎自己会跳）" if sys.platform != "win32" else "Windows 摘掉全部声明的桩",
+        (sys.platform != "win32" and pruned == []) or sorted(pruned) == ["scripts/README.md", "skills/README.md"],
+        f"pruned={pruned}",
+    )
+    rejected2: list[str] = []
+    out = harness_tree.read_tree(DSH_SURFACE, h, rejected=rejected2)
+    check("修剪后 read_tree 零拒绝", not rejected2, f"rejected={rejected2}")
+    check("修剪不丢面内文件", out.get("systemprompt.md") == "c1 原文", str(out))
+
+
 def _unreachable_ok() -> None:
     print("[10] 「做不成」是领域事实，不是失败")
     from harness2.core import prompts as P
@@ -1862,6 +1901,7 @@ def main() -> int:
         _launcher_ok,
         _engine_prompts_ok,
         _keep_base_ok,
+        _stub_prune_ok,
         _unreachable_ok,
         _enable_needle_ok,
         _proposer_sse_ok,

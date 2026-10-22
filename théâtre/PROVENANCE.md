@@ -12,9 +12,12 @@
   保持可向上游回步。fork 文档集：PROVENANCE（本文件，
   纪律与补丁清单）、PORTING-NOTES（跨平台病根）、ADAPTATION（实现相对设计稿的
   偏离）；**ARCHITECTURE（机制与图表）已于 2026-10-21 并入
-  [../docs/self-evolution.md](../docs/self-evolution.md) §2，只留指针存根**；
-  本目录 `docs/` 是 **fork 自建**的（`guide.md`
-  人机交互指南 + `reference.md` 上游文档合订 + 论文 PDF + 历史导出哈希清单）——
+  [../docs/self-evolution.md](../docs/self-evolution.md) §2，原处保留为指针存根
+  （正文已删，只留「原节号 → 新节号」映射表）**；
+  本目录 `docs/` 是 **fork 自建**的（`reference.md` 上游文档合订 + 论文 PDF +
+  历史导出哈希清单；原 `guide.md` 人机交互指南已于 2026-10-21 并入
+  [../docs/self-evolution.md](../docs/self-evolution.md) §9，**2026-10-22 复核时
+  发现它仍留着一份陈旧正文，已同样削成指针存根**）——
   上游 `docs/` 的多篇 markdown 在 2026-10-19 的重构（`8baded4`）里已合并进
   `reference.md`，**不是「冻结不动」**（原本文那么写，与磁盘事实相反）。
 
@@ -38,7 +41,7 @@
 |---|---|---|
 | `core/loop.py` | `_path_within` 改 `posixpath.normpath`（真跨平台 bug：Windows 上 ntpath 把 guest 路径反斜杠化，Actor 私有路径泄漏进 Verifier 上下文） | 无分支等价 |
 | `core/loop.py` | Verifier infra-retry 的恢复暂停改为无条件计数（`max(recovery_secs, 0.0)`；Windows 时钟粒度 15.6ms 吞掉微秒级恢复事件；POSIX 传参不变） | 语义修正，POSIX 实际等价 |
-| `core/loop.py` | `_call_with_transport_pause` 加连续暂停上限 `llm_infra_max_pauses`（默认 10）。暂停**故意不计入** active-work 预算（`on_pause` 把原点前移），所以墙钟永远终止不了这个循环：provider 持续 402/429/5xx 时原实现无限 sleep、没有任何预算会触发。超限后升级为终态 infra 错误（状态落盘可恢复、infra 受损的候选拿不到分数）；设 0 = 保留旧的无限等待 | 语义修正（修的是两端共有的无限循环，非平台专属） |
+| `core/loop.py` | `_call_with_transport_pause` 加连续暂停上限 `llm_infra_max_pauses`（默认 10）。暂停**故意不计入** active-work 预算（`on_pause` 把原点前移），所以时间上限永远终止不了这个循环：provider 持续 402/429/5xx 时原实现无限 sleep、没有任何预算会触发。超限后升级为终态 infra 错误（状态落盘可恢复、infra 受损的候选拿不到分数）；设 0 = 保留旧的无限等待 | 语义修正（修的是两端共有的无限循环，非平台专属） |
 | `config/settings.py` | 新增 `llm_infra_max_pauses` 旋钮（默认 10；0 = 保留旧的无限等待），供上一行的暂停上限读取 | 新增功能面；不配置时默认值生效 |
 | `llm/client.py` | `_recoverable_transport` 移除 401：端点/密钥映射是进程级缓存（启动时一次加载），同一进程内重发同一请求不可能自愈 401——实测 2026-10-16 起占位 key 连打三天无效暂停循环。401 改为非恢复终态（fail-fast）；402/403/429 保持可恢复（服务端状态可自愈），仍受 `llm_infra_max_pauses` 上界约束 | 语义修正（两端共有：认证错在 POSIX 上同样不该无限暂停） |
 | `core/checks.py` | `_BODY_WRITE_OPEN` 捕获 `open()` 的**目标参数**，`_nonscratch_mutations` 的 scratch 豁免从「整段 body 是否含 `/tmp/`」改为**逐写入目标**判定。旧判据是 body 级子串测试，body 里只要出现任何 `/tmp/` 字样，一次针对受评交付物的覆写就整段放行（实测复现） | 语义修正（门禁 fail-open 修复） |

@@ -10,7 +10,7 @@ opposite of what the intuition says.  bfs10's recorded actor turns:
 
 The turns that carry ~10-15k reasoning tokens take 119-149s and collide with
 the SDK timeout; the turn that reasons 997 tokens takes 75s.  So on this seat
-the reasoning budget IS the wall-clock cost — but the curriculum A/B proved
+the reasoning budget IS the time cost — but the curriculum A/B proved
 that "lower effort is cheaper" is not a safe assumption on this gateway, so
 the Actor knob gets measured, not guessed.
 

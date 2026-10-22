@@ -1997,12 +1997,22 @@ def _parser() -> argparse.ArgumentParser:
               "across different tasks measures task difficulty, not memory.  "
               "Only the project choice is replaced; SATURATED / STALLED still "
               "come from the engine, and the pinned file must pass the engine's "
-              "own parser.  **Scope limit**: the pinned project must already "
-              "have a fixture in the guest (WAVE_ROOT/<id>/evolution_project).  "
-              "That fixture is built by the Curriculum and destroyed with the "
-              "guest, so a decision from an EARLIER run cannot be replayed -- "
-              "it fails fast with PinFixtureMissing instead of dying later in "
-              "`cp`."))
+              "own parser.  **Cross-run use needs --fixture-from**: the pinned "
+              "project's fixture lives in the guest and dies with it, so a "
+              "decision from an EARLIER run only replays if you also point "
+              "--fixture-from at that run's episode directory (it holds the "
+              "archived `fixtures/materials.tgz`). Without it the run fails "
+              "fast with PinFixtureMissing instead of dying later in `cp`."))
+    parser.add_argument(
+        "--fixture-from", default="", metavar="EPISODE_DIR",
+        help=("with --pin-projects: rebuild the pinned project's fixture from an "
+              "earlier run's episode directory (the one holding "
+              "`fixtures/materials.tgz`).  **This is what makes a cross-run "
+              "comparison possible**: the fixture lives in the guest and dies "
+              "with it, but `_capture_wave_fixtures` archived a copy in every "
+              "episode, and its tar top-level entry IS `evolution_project/`.  "
+              "Without this, pinning a project from an earlier run fails with "
+              "PinFixtureMissing."))
     parser.add_argument(
         "--merge-drs", action="store_true",
         help=("merge the DRS episode's candidate into the usine tree "
@@ -2102,7 +2112,10 @@ def main(argv: list | None = None) -> int:
         import pin_curriculum
         pinned = pin_curriculum.load_pinned(
             Path(args.pin_projects).expanduser().resolve(strict=True))
-        pin_curriculum.install(pinned)
+        pin_curriculum.install(
+            pinned,
+            fixture_from=(Path(args.fixture_from).expanduser().resolve(strict=True)
+                          if args.fixture_from else None))
         log.info("%s", pin_curriculum.describe(pinned))
 
     distribution_path = _resolve_input_file(
