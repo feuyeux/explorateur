@@ -64,7 +64,7 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 而本产线的版式门要求的是**非当前 token 不透明度 ≥ 0.45**、**当前词高亮落在品牌三色里**——照抄模板做出来的画面，`check_video_layout.mjs` 的 `token_readable` 与 `highlight_brand` **必红**（这正是旧 12 期的 D2–D5 实伤，见上面那段）。
 
-**实测证据**：2026-10-22 在 RSI B 线（harness2 × garage-ii）的 rollout 工作区里逐条查了**基准臂** 4 条 rollout 的交付产物——**4/4 照抄了 `opacity: 0.18` 与中性灰 `rgba(44,38,32,0.09)`**；两臂工作区里装的那份模板（`.dsh/skills/karaoke-video/assets/template/scenes.html`）与仓内 `usine/skills/karaoke-video/assets/template/scenes.html` 的 sha256 相同。
+**实测证据**：2026-10-22 在 RSI B 线（harness2 × garage-ii）的 rollout 工作区里逐条查了**基准臂**的交付产物——扩样后 **6/6 照抄了 `opacity: 0.18` 与中性灰 `rgba(44,38,32,0.09)`**（6 条一次都没去读本产线的版式事实源 `templates/video_style.css`）；两臂工作区里装的那份模板（`.dsh/skills/karaoke-video/assets/template/scenes.html`）与仓内 `usine/skills/karaoke-video/assets/template/scenes.html` 的 sha256 相同。
 
 **正确口径**：暗词不透明度 ≥ 0.45；当前词高亮用 `--vowel` / `--cons` / `--gold`（`c9403a` / `2f5d9e` / `b8860b`），**不要**用主题默认的中性灰 `--cur-bg`。顺带记住一件事：**通用资产里一个量化阈值都没有**（`usine/skills/` 整棵树里 grep `12%` / `30%` / `墨迹` / `空白带` / `0.45` 全无）——12% / 30% / 15% / 0.45 这四个数字**只在本产线自己的门里**，只能从这里抄。
 
@@ -89,7 +89,7 @@ node --import tsx tools/foodnames/check_scene_tokens.mjs --html <页面.html>
 
 **⚠️ 探针副本必须自包含**：通用 karaoke 模板用 `<link href="../../theme-tokens.css">` 引主题令牌，**副本一旦挪到别的目录，相对路径就断了——样式全丢，每个 token 的 opacity 都变成默认的 1，量出来是「全部达标」的假绿**。本工具因此把本地样式表**内联**进副本（相对 `url()` 改成绝对 `file:///`），副本放临时目录里量。
 
-**实测（2026-10-22，浏览器实测非静态分析）**：本产线自己交付的 12 期**全绿**（`minOpacity=0.45`、品牌高亮命中 12/12）；RSI B 线基准臂 4 条 rollout 的交付页面**全红**（`0.18` / `0.18` / `0.18` / `0.35`，且当前词高亮都不是品牌色）。
+**实测（2026-10-22，浏览器实测非静态分析）**：本产线自己交付的 12 期**全绿**（`minOpacity=0.45`、品牌高亮命中 12/12）；RSI B 线基准臂的交付页面**全红**（扩样后 6 条 rollout：`0.18` / `0.18` / `0.18` / `0.35` 等，当前词高亮都不是品牌色，且 **6 条一次都没去找过**本产线的版式事实源）。
 
 **同一把尺子量新旧两代**（每期取画面页 `video_build.html`——`index.html` 不是画面页，它没有 token，量出来是「量不到」）：旧 12 期 `foodnames-*` **12/12 红**（`minOpacity=0.18`、品牌高亮 **0/12**），新 12 期 `foodnames-ii-*` **12/12 绿**（`minOpacity=0.45`、品牌高亮 **12/12**）。两代的 **token 数逐期完全相同**（画面结构没动），变的正是暗词不透明度与当前词高亮色这两条。
 
