@@ -117,8 +117,23 @@ def _arm_reading(path: Path) -> dict:
         })
 
     # 起跑时记忆是不是空的——`seed` 臂该非空，`plain` 臂该空。
+    #
+    # **读 episode 的 `memory_before`，不读 wave 的 `memory_snapshot`。**
+    # 后者只装「这一波新增/变化」的文件，不是「该臂起跑时手里有什么」。
+    # 2026-10-22 实测踩到：seed 臂真注入 5 份（`memory_before` = 5 份），
+    # 但 `wave_001/memory_snapshot` 只有 1 份 `INDEX.md`，报告于是写成
+    # 「有记忆起跑（1 份）」——**数字小了 4 倍，而且小得很有说服力**。
     waves = _wave_dirs(p1)
     first_snapshot = _memory_files(waves[0] / "memory_snapshot") if waves else []
+    for ep in sorted((p1 / "episodes").glob("ep*")):
+        payload = _read_json(ep / "outcome.json")
+        if not isinstance(payload, dict):
+            continue
+        before = payload.get("memory_before")
+        if isinstance(before, dict):
+            # episode 的 `memory_before` 是权威：那是该臂起跑那一刻的账。
+            first_snapshot = sorted(before)
+            break
 
     return {
         "path": str(path),

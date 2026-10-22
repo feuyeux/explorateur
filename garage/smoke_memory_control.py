@@ -51,11 +51,16 @@ def make_arm(
     *,
     memory: list[str],
     projects: list[tuple[str, str, int]],
+    memory_before: list[str] | None = None,
 ) -> Path:
     """合成一条臂。
 
-    `memory`   这条臂起跑时 `wave_001/memory_snapshot` 里的文件
-    `projects` [(题面文本, outcome, verification_cycles), …]
+    `memory`        这条臂起跑时 `wave_001/memory_snapshot` 里的文件
+    `projects`      [(题面文本, outcome, verification_cycles), …]
+    `memory_before` 若给出，写进第一个 episode 的 `outcome.json`
+                    `memory_before` 字段——真引擎就是这么记「起跑那一刻手里
+                    有什么」的（2026-10-22 真跑实测：注入 5 份，wave 快照只装
+                    1 份，`memory_before` 记满 5 份）。
     """
     p1 = root / name / "phase1"
     (p1 / "episodes").mkdir(parents=True)
@@ -68,8 +73,11 @@ def make_arm(
         d = p1 / "episodes" / f"ep{i:03d}"
         d.mkdir()
         (d / "project.md").write_text(task, encoding="utf-8")
+        payload = {"terminal_outcome": outcome, "verification_cycles": cycles}
+        if i == 1 and memory_before is not None:
+            payload["memory_before"] = {f: "content" for f in memory_before}
         (d / "outcome.json").write_text(
-            json.dumps({"terminal_outcome": outcome, "verification_cycles": cycles}),
+            json.dumps(payload),
             encoding="utf-8",
         )
 
@@ -234,6 +242,42 @@ def main() -> int:
     rep = compare_arms({"seed": seed3, "plain": make_arm(
         tmp, "dg2", memory=[], projects=[(TASK_A, "PASS", 1)])})
     check("同一题面的两臂 → pairs 成立", rep["verdict"] != "not_paired", rep["verdict"])
+
+    # ── 起跑记忆数：`memory_before` 权威，wave 快照只是增量 ─────────────────
+    #
+    # 2026-10-22 真跑踩到：seed 臂真注入 5 份记忆，`wave_001/memory_snapshot`
+    # 却只装了 1 份（`INDEX.md`）——快照只存「这一波新增/变化」的文件。旧实现
+    # 数快照，把「有记忆起跑（5 份）」报成「（1 份）」，**数字小了 4 倍，而且
+    # 小得很有说服力**：读报告的人会以为注入基本没生效。
+    #
+    # 修法是读第一个 episode 的 `outcome.json` 的 `memory_before`——那是该臂
+    # 起跑那一刻的账。这条断言锁住「数对了」，反向验证锁「不读它就数错」。
+    b1 = make_arm(tmp, "b1", memory=["INDEX.md"], projects=[(TASK_A, "PASS", 1)],
+                  memory_before=["INDEX.md", "evidence.md", "gate.md", "dsh.md",
+                                 "foodnames.md"])
+    rep = compare_arms({"seed": b1, "plain": make_arm(
+        tmp, "b2", memory=[], projects=[(TASK_A, "PASS", 1)])})
+    check(
+        "memory_before 权威：注入 5 份就报 5 份（不是快照的 1 份）",
+        rep["arms"]["seed"]["started_memory_files"] == [
+            "INDEX.md", "dsh.md", "evidence.md", "foodnames.md", "gate.md"],
+        str(rep["arms"]["seed"]["started_memory_files"]),
+    )
+    check(
+        "空记忆臂在没有 memory_before 时回退到快照（0 份）",
+        rep["arms"]["plain"]["started_memory_files"] == [],
+        str(rep["arms"]["plain"]["started_memory_files"]),
+    )
+
+    # 只有快照、没有 memory_before 时回退且不出错（合成臂一律如此）。
+    fb = make_arm(tmp, "fb", memory=["q.md", "r.md"], projects=[(TASK_A, "PASS", 1)])
+    rep2 = compare_arms({"seed": fb, "plain": make_arm(
+        tmp, "fb2", memory=[], projects=[(TASK_A, "PASS", 1)])})
+    check(
+        "没有 memory_before 时回退到 wave 快照（2 份）",
+        len(rep2["arms"]["seed"]["started_memory_files"]) == 2,
+        str(rep2["arms"]["seed"]["started_memory_files"]),
+    )
 
     n_pass = sum(1 for _l, ok, _d in RESULTS if ok)
     n_fail = len(RESULTS) - n_pass

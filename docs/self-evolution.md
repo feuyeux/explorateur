@@ -2629,16 +2629,15 @@ A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还�
 >
 > 三条 fail-closed 的设计要点，每一条都对应一种「静默失效」：① 钉住的文件必须过**引擎自己的** `parse_wave_handoff()`——自己拼 dict 不调它，就会漏掉 `instruction` 必须含 `PROJECT_ROOT` 这类硬条件（`phase1_wave.py:140`），跑到一半才炸；② `SATURATED` / `STALLED` **不许**被钉住的文件盖掉，那是「题目池用完了 / 卡住了」的终止信号，不是选题自由度；③ `_author_wave` 的签名一变就 raise，不让 patch 退化成 no-op——**no-op 的后果不是报错，而是两臂又自由选题、而人以为已经钉住了**，于是又回到那张骗人的成绩表。
 >
-> `garage/smoke_pin_curriculum.py`（25 条）锁住这些，反向验证过 8 类注入：绕开引擎解析器 5 红（含那条「instruction 不含 `PROJECT_ROOT` 也要被拒」——它专门证明「真的调了引擎解析器」而不是自己看字段齐不齐）、允许钉 SATURATED 1 红、不查签名漂移 1 红、patch 空转 2 红、去掉重复安装守卫 1 红、不验 fixture 3 红、拿不到 vm 时判缺失 5 红、自己拼 fixture 判据 4 红。
+> `garage/smoke_pin_curriculum.py`（32 条）锁住这些，反向验证过 11 类注入：绕开引擎解析器 5 红（含那条「instruction 不含 `PROJECT_ROOT` 也要被拒」——它专门证明「真的调了引擎解析器」而不是自己看字段齐不齐）、允许钉 SATURATED 1 红、不查签名漂移 1 红、patch 空转 2 红、去掉重复安装守卫 1 红、不验 fixture 3 红、拿不到 vm 时判缺失 5 红、自己拼 fixture 判据 4 红、不真解压 3 红、没存档也返回 True 4 红、解完自己说好了（不复用引擎判据）1 红。
 >
-> **但这条接缝有一条当天就撞到的硬边界，必须写明白：它钉得住「出哪道题」，钉不住 fixture。**
+> **这条接缝当天撞到过一次「假边界」，必须写明白——错的结论长什么样。**
 >
-> 引擎要求 Curriculum 在 `WAVE_ROOT/<project_id>/evolution_project` 放一份可 replay 的树（`phase1_wave.py:158` 的 `_validate_wave_fixtures`，由 `publication_ready`（:251）与 replay 前（:288）各验一次）。那份树是 Curriculum **在 guest VM 里现做的，运行一结束就随 guest 销毁**。于是：
+> 引擎要求 Curriculum 在 `WAVE_ROOT/<project_id>/evolution_project` 放一份可 replay 的树（`phase1_wave.py:158` 的 `_validate_wave_fixtures`，由 `publication_ready`（:251）与 replay 前（:288）各验一次）。那份树在 guest 里现做、随 guest 销毁。2026-10-22 钉住第一臂跑出的 `foodnames_d1_hero` 重跑，40 秒后炸在 `cp: cannot stat '…/evolution_project'`，整轮记 `infra` / `projects: 0`。**当时把结论写成「fixture 随 guest 销毁，跨运行不可行」——那个结论是错的，错在没查存档**：`_capture_wave_fixtures`（`phase1_wave.py:313`）在**每个** episode 里都留了 `fixtures/materials.tgz`，tar 的顶层就是 `evolution_project/`，第一臂的 33.5 MB 存档一直在盘上。「我验不了」被写成了「它不存在」。
 >
-> - **能**用于同一进程内的后续波次（首波现做 fixture，后续波 replay 它）；
-> - **不能**跨运行复用上一轮的决策。2026-10-22 实测：钉住第一臂跑出的 `foodnames_d1_hero` 重跑，40 秒后炸在 `cp: cannot stat '/home/user/evolution_wave/foodnames_d1_hero/evolution_project'`，整轮记 `infra` / `projects: 0`。
+> 所以接缝现在是：`--fixture-from <episode 目录>` 把存档解回 `WAVE_ROOT/<id>/`（用 vm 的 `push_file` 推进 guest、guest 自己 `tar -xzf` 解压），解完**仍让引擎自己的 `_validate_wave_fixtures` 判一次**——文件到位不等于它认得。2026-10-22 用这条真跑通了：seed 臂从 plain 臂的 `ep001/fixtures/materials.tgz` 恢复 fixture，同题跑完 PASS。
 >
-> **这条失败的观感很坏**：它长得像「验收失败」，实际是「这个用法本身不成立」。所以现在在替换决策**之前**就用引擎自己的 `_validate_wave_fixtures` 验一遍，缺 fixture 直接抛 `PinFixtureMissing`，消息里写明「只能用于同一进程内的后续波次、不能跨运行」。
+> **实现这条时又踩了一脚，值一记**：第一版在宿主侧 `tarfile.extractall(vm.guest_to_host(...))`，真跑直接返回 False。根因是 `WorktreeVM` **没有** `guest_to_host`（那是 `WorktreeEnv` 的方法）——而 smoke 里用的是自写的假 vm，假对象恰好有那个方法，于是自检全绿、真跑全红。「自检只测内存里的假对象，等于没测」这条纪律（§5 里抓到过别人三个这种形状的缺陷），写它的人自己也踩了一遍。修法：假 vm 只实现真对象承诺的接口（`push_file` / `fetch_file`，`guest_env.py:962`），并加了一条反向验证（注入「解完不复用引擎判据」→ 1 红）锁住「真用了引擎口径」。
 >
 > 还有一条更细的：拿不到 `vm` 时**不许**判成「fixture 缺失」（保守返回 True）。那是「我验不了」，不是「它不存在」——把这两句混起来，会让一次无法校验的运行被记成一次确定的缺失。
 
@@ -2666,7 +2665,7 @@ python3 garage/memory_control.py --arm seed=../garage-result/<名>-seed --arm pl
 
 判决：`no_control` / `not_paired` / `harmful`（**这才是负迁移**）/ `helpful` / `no_effect` / `inconclusive`。`no_effect` 的措辞刻意留了余地：两臂完全相同时，「这题本来都会做（天花板）」与「写下的记忆没被读懂」**分不开**，不许据此说「记忆无用」。
 
-> **⚠️ 「负迁移有没有发生过」仍然没有答案，但不再是「没跑过」**：2026-10-22 真跑了两臂（见上面「真的去做对照时撞上的问题」），判决是 **`not_paired`**——题面对不上，工具按设计拒判，退出码 1。**这是工具的实战验证，不是结论**：`memory_control.py` 与它的 22 条门禁都经过离线验证（合成波次产物 + 5 类缺陷注入），而那一对真跑**证明了它会拒判**，也证明了**「两臂拿不到同一道题」这个缺口是真的**。要拿到 `helpful` / `harmful` / `no_effect` 任何一个判决，必须先让两臂拿到同一道题——钉题机制（`--pin-projects`）已经补上，但它有一条硬边界（见上：钉得住题、钉不住 fixture）。别把工具的完成度当成结论。
+> **⚠️ 「负迁移有没有发生过」的答案在 2026-10-22 从「没跑过」变成了「跑了、判了 `no_effect`」。** 这条走过三步，每步都是真的：第一次真跑判 **`not_paired`**（题面对不上，工具按设计拒判，退出码 1）——那次证明了「两臂拿不到同一道题」这个缺口是真的；钉题机制（`--pin-projects`）补上后，第一次跨运行尝试又撞上 fixture 不存在——那次暴露的是「我把没找当成不存在」；`--fixture-from` 补上存档恢复后，**第一次同题两臂走到判决**：`no_effect`（见下表）。**`no_effect` 也是结论的一种，但它是天花板上的结论**——空记忆臂一次就过 PASS 的题，量不出记忆的正/负作用。观测负迁移的能力建立起来了；负迁移本身还没有被观测到，因为它需要一道会挂的题，而 Curriculum 自由出题。别把「判了」当成「量到了」。
 
 **2026-10-22 真跑出来的第一份完整 A 线读数**（`pin-plain-20261022`，`--project-budget 3`，出口 `time_budget_exhausted`）：
 
@@ -2680,10 +2679,27 @@ python3 garage/memory_control.py --arm seed=../garage-result/<名>-seed --arm pl
 
 > **这份读数还顺手修掉了一个真缺陷。** 第一次跑（同名 `pin-plain-20261022`，目录留成 `.failed`）在验收阶段挂了：`status: infra` / `projects: 0` / `Verifier Agent ended at emergency/infrastructure status safety_ceiling`。查 transcript，verifier 的 4 轮全在找目录——`/home/user/evolution_project` → `/home/user` → `/` → `/app` `/gardenLM`，最后 `find / -maxdepth 6` 扫全盘，单条命令 **570s** 被杀（exit 124），420s 席位耗尽。根因是题面自相矛盾：任务正文照抄 Actor 那一面的 `PROJECT ROOT: /home/user/evolution_project` 并写「already on your machine」，而 Verifier 的候选树在 `$VERIFIER_SCRATCH` 下。修法是 `_CANDIDATE_TREE_FACTS` 里先说明「你的候选树就在 `$VERIFIER_SCRATCH`，它就是任务里那个路径，不要去找」，详见 §8.2。修完同一条路径一次跑通三波全 PASS。
 
+**2026-10-22 真跑出来的第一份同题两臂对照读数**（`pin-plain-20261022` vs `pin-seed3-20261022`）：
+
+| 臂 | 起跑记忆 | 题 | 结局 | 验证轮次 |
+|---|---|---|---|---|
+| plain | 0 份（空） | `foodnames_d1_hero` | **PASS** | 1 |
+| seed | **5 份**（注入上一轮学到的全部记忆） | `foodnames_d1_hero`（同题面、同 fixture 树） | **PASS** | 1 |
+
+判决：**`no_effect`**（`memory_control.py` 逐项对照，差 +0.00，exit 0）。配对三条件全过：题面指纹两臂一致（`project.md` sha256[:12] = `645364204311`）；起跑状态确证（seed 臂 `memory_before` = 5 份，plain 臂 = 0 份，**按实际起跑状态归类，不信标签**）；fixture 同源（seed 臂用 `--fixture-from` 从 plain 臂 `ep001/fixtures/materials.tgz` 恢复，同一棵树，不只是同一段题面文字）。
+
+**这个判决要说清楚三件事：**
+
+1. **它不是「记忆无用」的结论。** 两臂都 PASS、都 1 轮过——这是**天花板**读数。空记忆臂都能一次过的题上，记忆没有发挥空间。分不开「记忆没帮上忙」与「这题不需要帮」；`memory_control.py` 的输出里就是这么写的（「分不开这两者时别急着说记忆无用」）。
+2. **观测负迁移的能力，到这里才算真的建立起来。** 在此之前只拿到过 `not_paired`（题面对不上，工具按设计拒判）；这一次是**第一次全部先验检查通过、走到判决**。`--pin-projects` + `--fixture-from` 合起来补掉了「两臂拿不到同一棵树」这个缺口。
+3. **seed 臂的 run 以 `status: infra` 结束，但那条与读数无关。** `UsineMergeError: git status --porcelain -z failed (exit 3221226091)`——3221226091 = 0xC0000142，Windows 的 DLL 初始化失败，宿主上一次进程管理故障；验收（PASS / cycles=1 / `memory_before`）在合并阶段**之前**就已落盘。合并确实没完成，seed 臂的成果没有 commit 进 `usine`，读这个 run 的 `status` 字段时要分清这两层。
+
+要真正观测到 `helpful` / `harmful`（而不只是 no_effect），下一对臂必须挑一道**空记忆臂会挂**的题——天花板上的对照只有「没差别」一种读法。Curriculum 是自由出题，这一点不受人控制，所以现实的做法是多跑几对、取到天花板以下的格子。
+
 #### 这一节仍然测不到什么
 
 > **⚠️ 已知失效面 / 坑**
-> ① **25 个任务里 18 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧格子数不均（train 13 / eval 12），n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线的多项目已经跑通，同题两臂撞上 fixture 边界**：`--project-budget 3` 已在 2026-10-22 跑出「3 个项目全部 PASS / 记忆 5 份 41371 B / `memory_before` 逐波等于上一波 `memory_after`」，跨波次继承有机检证据。而「有记忆 vs 无记忆」的**同题**对照仍没有读数：钉题机制钉得住题面、**钉不住 fixture**（`PinFixtureMissing` 那条边界），跨运行复用上一轮决策会 fail-fast。下一步是让两臂**各自**让 Curriculum 出同一道题——那时题面相同、fixture 各自现做，对照性只到「同一道题的文字」这一层，不是同一棵树。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。⑥ **A 线开跑要多给一个开关**：`--preflight` 会因 curriculum 席位实测 728.5s 超过计划切片 400s 的 60%（= 240s）而拦下（退出码 1），需显式 `--allow-high-latency` 才放行——这是延迟预检在正常工作，不是缺陷。
+> ① **25 个任务里 18 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧格子数不均（train 13 / eval 12），n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线的同题两臂已经跑出第一份读数，但落在天花板上**：`--project-budget 3` 已在 2026-10-22 跑出「3 个项目全部 PASS / 记忆 5 份 41371 B / `memory_before` 逐波等于上一波 `memory_after`」，跨波次继承有机检证据；同题两臂对照也已跑到判决——`no_effect`（同题面同 fixture 树，seed 臂注入 5 份记忆 vs plain 臂空记忆，都 PASS 都 1 轮过）。**但天花板上的对照只有「没差别」一种读法**：空记忆臂都能一次过的题，量不出记忆的正/负作用。要观测到 `helpful` / `harmful`，必须挑一道空记忆臂会挂的题——Curriculum 自由出题，这一点不受人控制，现实做法是多跑几对、取天花板以下的格子。另外 seed 臂那次 run 的合并阶段被宿主进程故障打断（`git status` exit 0xC0000142，`status: infra`），验收读数不受影响，但成果没 commit 进 `usine`。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。⑥ **A 线开跑要多给一个开关**：`--preflight` 会因 curriculum 席位实测 728.5s 超过计划切片 400s 的 60%（= 240s）而拦下（退出码 1），需显式 `--allow-high-latency` 才放行——这是延迟预检在正常工作，不是缺陷。
 
 ## 7. 产物与现状：诚实的账
 
@@ -3035,9 +3051,9 @@ cd <explorateur>\théâtre
 | `smoke_latency_budget.py` | 改端点、`reasoning_effort`、切片计划 | 40 |
 | `smoke_spread.py` | 改 `config/spread.json` 或出题席的铺开约束 | 40 |
 | `smoke_memory_seed.py` | 改 `--memory-seed` 接缝或 DRS 的记忆基线 | 9 |
-| `smoke_memory_control.py` | 改 `memory_control.py` 的判决逻辑（负迁移判据） | 22 |
+| `smoke_memory_control.py` | 改 `memory_control.py` 的判决逻辑（负迁移判据 / 起跑记忆数） | 25 |
 | `smoke_transfer.py` | 改 `transfer_check.py` 的跨波接续判据 | 20 |
-| `smoke_pin_curriculum.py` | 改 `pin_curriculum.py`（钉题目接缝）或 `--pin-projects` | 25 |
+| `smoke_pin_curriculum.py` | 改 `pin_curriculum.py`（钉题目接缝 / fixture 恢复）或 `--pin-projects` / `--fixture-from` | 32 |
 
 **合并器在门禁绿之后会自动跑 `smoke_agent_surface.py`**（L3 面，见 §10），所以它不在人工清单里——**它红 = 候选作废**，不是提醒。
 
@@ -3129,7 +3145,7 @@ python3 garage-ii/build_base_harness.py --check  # 基准树漂移闸
 python3 garage-ii/preflight.py                   # 开跑前自检
 python3 garage-ii/browser_shim.py                # 浏览器垫片自检（断言不拉起 SecurityAgent）
 python3 garage/smoke_transfer.py                 # A 线跨项目迁移读数（20 条）
-python3 garage/smoke_pin_curriculum.py           # 钉题目接缝（17 条）
+python3 garage/smoke_pin_curriculum.py           # 钉题目接缝（32 条）
 ```
 
 **「跑一次」之前的三件事（顺序不能反）**：
