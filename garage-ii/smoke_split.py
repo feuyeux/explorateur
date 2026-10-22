@@ -76,10 +76,25 @@ def section_split() -> None:
     ]
     check("每层两侧都有任务（分层切分）", not unbalanced, f"偏在一边：{unbalanced}")
 
+    # 未切分层（任务数 < MIN_PER_DOMAIN 的层）按设计整层归 train——这是
+    # `task_split` 自己的规矩（切了每边剩 1 个，噪声大于信号）。2026-10-21 起
+    # 任务集里有 `foodnames` 这种 1 题的夹具层，所以「未切分层为空」不再是
+    # 任务集的性质；**读数侧真正要的硬性质**是：未切分层的任务一个都不许
+    # 出现在 eval 侧——eval 侧出现没有 train/eval 对照的层，那一格的
+    # 「泛化」读数就是编的。
+    unsplit = data["unsplit_domains"]
+    leaked = sorted({
+        t.task_id for t in B.TASKS
+        if t.domain in unsplit and t.task_id in te
+    })
     check(
-        "未切分层为空（每层都够切）",
-        not data["unsplit_domains"],
-        f"未切：{data['unsplit_domains']}",
+        "未切分层整层归 train（eval 侧不得出现未切分层的任务）",
+        not leaked,
+        f"eval 侧混进了未切分层：{leaked}（未切分层：{unsplit}）",
+    )
+    info(
+        "未切分层（整层 train，不参与泛化对照）",
+        f"{unsplit or '无'}",
     )
 
     # 切分必须**可复现**：同一个种子两次结果一致。种子不稳的话，两次读数量的是
@@ -138,8 +153,15 @@ def section_select() -> None:
 
 
 # ── [3] 泛化判读 ──────────────────────────────────────────────────────────────
-def _c(tid: str, d: float, p: float, *, nodata: bool = False) -> dict:
-    return {"task_id": tid, "delta_mean": d, "p_value": p, "no_data": nodata}
+def _c(tid: str, d: float, p: float, *, nodata: bool = False, k: int = 4) -> dict:
+    """一条逐格比较。
+
+    `k` 默认 4：这些用例测的是**判决逻辑**（train_only / harmful / generalizes），
+    前提是样本量够判——功效不足会先被 `underpowered` 截走，把判决逻辑挡在后面。
+    k=4 时完全分离的最小 p≈0.014，够用。要测功效本身另有专门用例（见下）。
+    """
+    return {"task_id": tid, "delta_mean": d, "p_value": p, "no_data": nodata,
+            "n_rollouts": k}
 
 
 def section_generalization() -> None:
@@ -202,6 +224,71 @@ def section_generalization() -> None:
         f"train {mixed['train']['n_tasks']} / eval {mixed['eval']['n_tasks']}",
     )
 
+    # ── 判别能力：k=1 时不许把「测不出」说成「没差别」──────────────────────
+    #
+    # 2026-10-22 实测踩到的：`--k` 默认 1，每臂每格只有 1 次 rollout。置换检验在
+    # 完全分离时最小 p = 1/C(2,1) = 0.5，**永远越不过 p ≤ 0.1**。此时若判
+    # `no_train_signal`，读报告的人会以为「演化确实没用」，而真相是「这次跑法在
+    # 数学上没有判别能力」。这两句的差别是「没效果」与「没测出来」。
+    flat_k1 = verdict([
+        _c("t1", 0.0, 1.0, k=1), _c("t2", 0.0, 1.0, k=1),
+        _c("e1", 0.0, 1.0, k=1), _c("e2", 0.0, 1.0, k=1),
+    ])
+    check(
+        "k=1 且无显著变化 → underpowered（不是 no_train_signal）",
+        flat_k1["verdict"] == "underpowered",
+        f"判成 {flat_k1['verdict']}——把「没能力判」说成了「没差别」",
+    )
+    check(
+        "underpowered 说明最小 p 与门槛",
+        "0.5" in flat_k1["why"] and "0.1" in flat_k1["why"],
+        flat_k1["why"][:80],
+    )
+    check(
+        "underpowered 给出修法（k≥3）",
+        "k≥3" in flat_k1["why"],
+        flat_k1["why"][:80],
+    )
+    check(
+        "报告里带 power 字段",
+        flat_k1.get("power", {}).get("k") == 1
+        and flat_k1["power"]["adequate"] is False,
+        str(flat_k1.get("power")),
+    )
+
+    # k=3 时最小 p=0.05，够判；同样的数据就该给出 no_train_signal。
+    flat_k3 = verdict([
+        _c("t1", 0.0, 1.0, k=3), _c("t2", 0.0, 1.0, k=3),
+        _c("e1", 0.0, 1.0, k=3), _c("e2", 0.0, 1.0, k=3),
+    ])
+    check(
+        "k=3 且无显著变化 → no_train_signal（有能力判，确实没差别）",
+        flat_k3["verdict"] == "no_train_signal",
+        f"判成 {flat_k3['verdict']}",
+    )
+    check(
+        "k=3 时 power.adequate 为真",
+        flat_k3.get("power", {}).get("adequate") is True,
+        str(flat_k3.get("power")),
+    )
+
+    # **缺 n_rollouts 时按 k=1 保守处理**：宁可说「判不出」，也不要假装判得出。
+    no_k = verdict([{"task_id": "t1", "delta_mean": 0.0, "p_value": 1.0},
+                    {"task_id": "e1", "delta_mean": 0.0, "p_value": 1.0}])
+    check(
+        "缺 n_rollouts → 按 k=1 保守判 underpowered",
+        no_k["verdict"] == "underpowered",
+        f"判成 {no_k['verdict']}",
+    )
+
+    # 功效不足**不覆盖**已有显著证据：真涨了就该说涨了，别说「判不出」。
+    strong_k1 = verdict([_c("t1", 0.5, 0.05, k=1), _c("e1", 0.5, 0.05, k=1)])
+    check(
+        "显著证据优先于功效不足",
+        strong_k1["verdict"] == "generalizes",
+        f"判成 {strong_k1['verdict']}——功效闸把真信号吞了",
+    )
+
 
 # ── [4] 与报告接线 ────────────────────────────────────────────────────────────
 def section_wiring() -> None:
@@ -230,8 +317,87 @@ def section_wiring() -> None:
     )
 
 
+# ── [5] 两段式的命名空间与回退闸 ──────────────────────────────────────────────
+def section_stage_ns() -> None:
+    """`--split both` 的两侧必须各落各的目录，且回退闸找得到那些目录。
+
+    2026-10-21 实测的缺陷形态：`_sweep_one` 硬写 `tag=""`，train 段与 eval 段
+    共写 `adapt/<ns>/`；而 `_report_stage_fallbacks` 拿 `-train` / `-eval`
+    后缀的目录名去找——**永远找不到**，且它对不存在的目录恒空返回、不报错。
+    于是「阶段回退必须说出口」那条硬规则在两段式下**静默失效**（§12.2 的假绿）。
+    修法是把 tag 与目录名收敛到 `_stage_tag` 一个派生点；这里反向验证那一格。
+    """
+    import json
+    import tempfile
+
+    import run_usine_h2 as RUN
+
+    check("stage_tag: all → 空后缀（与旧读数兼容）", RUN._stage_tag("all") == "")
+    check("stage_tag: train → train", RUN._stage_tag("train") == "train")
+    check("stage_tag: test → eval（读数侧的词）", RUN._stage_tag("test") == "eval")
+    try:
+        RUN._stage_tag("both")
+        check("stage_tag: both 不认（只在段循环里展开）", False, "**静默通过**")
+    except ValueError:
+        check("stage_tag: both 不认（只在段循环里展开）", True)
+
+    # judge / report 看的侧，必须与 sweep 落盘的目录**同一个派生点**。
+    class _A:
+        spec = type("S", (), {"name": "usine-dsh"})()
+        substrate = type("T", (), {"name": "dsh"})()
+
+    class _Args:
+        k = 1
+        seed = None
+        split = "both"
+
+    sides = RUN._stage_sides(_A(), _Args())
+    check(
+        "both → 两侧分开（train 与 eval 两个命名空间）",
+        [s[1] for s in sides] == ["train", "eval"] and len({s[0] for s in sides}) == 2,
+        str(sides),
+    )
+    _Args.split = "train"
+    check(
+        "train → 单侧带 -train 后缀",
+        RUN._stage_sides(_A(), _Args())[0][0].endswith("-train"),
+    )
+    _Args.split = "all"
+    check(
+        "all → 不带后缀",
+        not RUN._stage_sides(_A(), _Args())[0][0].endswith("-"),
+    )
+
+    # 反向验证：带后缀的目录里真有阶段回退时，闸必须抓得到。
+    root = Path(tempfile.mkdtemp(prefix="smoke-split-gate-"))
+    ns = "usine-dsh-dsh-agg1-eval"
+    d = root / "adapt" / ns / "verify-honesty"
+    d.mkdir(parents=True)
+    (d / "summary.json").write_text(
+        json.dumps({
+            "modes": {"agg": {"stages": [
+                {"label": "compose", "fell_back": True, "error": "401"},
+            ]}},
+            "selections": {"agg": {"chosen_tree_is_base": True}},
+        }),
+        encoding="utf-8",
+    )
+    fell = RUN._report_stage_fallbacks(root, ns)
+    check(
+        "回退闸在带后缀目录上抓得到回退",
+        bool(fell),
+        f"抓到 {fell}——缺陷形态正是「拿后缀目录名去找，恒空返回」",
+    )
+    # 这条不是「好行为」的断言，是把闸的静默面**写进读数**：它对不存在的目录
+    # 永远返回空。凡是给它传目录名的地方，都必须传 sweep 真落盘的那个。
+    check(
+        "回退闸对不存在的目录恒空（静默面：传错目录名 = 闸死）",
+        RUN._report_stage_fallbacks(root, "no-such-ns") == [],
+    )
+
+
 def main() -> int:
-    for fn in (section_split, section_select, section_generalization, section_wiring):
+    for fn in (section_split, section_select, section_generalization, section_wiring, section_stage_ns):
         fn()
 
     n_pass = sum(1 for _l, ok, _d in RESULTS if ok)

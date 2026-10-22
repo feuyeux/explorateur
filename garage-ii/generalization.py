@@ -98,6 +98,52 @@ def _side(comparisons: list[dict], task_ids: set[str], name: str) -> SideReading
     return side
 
 
+def _min_achievable_p(n_base: int, n_evolved: int) -> float:
+    """这个样本量下，**完全分离**时能拿到的最小 p。
+
+    这是置换检验的硬下限，不是估计：n_base 与 n_evolved 个点混池重分，
+    总排列数是 `C(n_base+n_evolved, n_base)`；「演化臂全部高于基准臂」只有
+    **一种**排列能达到，所以最小 p = 1 / C(n+m, n)。
+
+    为什么要算这个：`--k 1`（默认值）时每臂每格只有 1 次 rollout，最小 p = 0.5——
+    **即使两臂完全分离、Δ 拉到 1.00，也永远越不过 p ≤ 0.1 这条线**。此时判
+    `no_train_signal` 说的是「我没能力判」，而不是「确实没差别」。这两句话在
+    报告里长得几乎一样，读的人却会得出相反结论。
+    """
+    from math import comb
+
+    total = n_base + n_evolved
+    if total == 0:
+        return 1.0
+    return 1.0 / comb(total, n_base)
+
+
+def _power_shortfall(
+    comparisons: list[dict], task_ids: set[str], p_threshold: float
+) -> dict:
+    """这一侧的样本量够不够判出显著。返回 `{k, min_p, adequate, n_cells}`。
+
+    `k` 从 `n_rollouts` 取（每臂每格的 rollout 数）；缺这个字段时按 1 算——
+    **保守方向**：把「不知道几次」当 k=1，宁可说「判不出」也不要假装判得出。
+    """
+    ks = []
+    for r in comparisons:
+        if r.get("task_id") not in task_ids or r.get("no_data"):
+            continue
+        k = r.get("n_rollouts")
+        ks.append(int(k) if k else 1)
+    if not ks:
+        return {"k": 0, "min_p": 1.0, "adequate": False, "n_cells": 0}
+    k = min(ks)
+    min_p = _min_achievable_p(k, k)
+    return {
+        "k": k,
+        "min_p": round(min_p, 4),
+        "adequate": min_p <= p_threshold,
+        "n_cells": len(ks),
+    }
+
+
 def overfit_report(
     comparisons: list[dict],
     *,
@@ -111,6 +157,10 @@ def overfit_report(
     """
     tr = _side(comparisons, train_ids, "train")
     te = _side(comparisons, test_ids, "eval")
+
+    # **先问「这个样本量有没有能力判」。** 没有能力的样本不该被读成「没差别」：
+    # 那会把一次「什么也没测出来」记成「测出来没有」。
+    power = _power_shortfall(comparisons, train_ids | test_ids, P_THRESHOLD)
 
     tr_pos, tr_neg = tr.significant_positive(), tr.significant_negative()
     te_pos, te_neg = te.significant_positive(), te.significant_negative()
@@ -147,6 +197,18 @@ def overfit_report(
     elif tr_neg:
         verdict = "train_harmful"
         why = f"train 侧就有 {len(tr_neg)} 格显著下降——演化在训练题上都没帮上忙"
+    elif not power["adequate"]:
+        # **这一格是「测不出」不是「没差别」**。k=1 时最小 p 是 0.5，任何 Δ 都
+        # 越不过 0.1；判 no_train_signal 会让人以为「演化确实没用」，而真相是
+        # 「这次跑法在数学上没有判别的能力」。措辞必须把这条说清楚并给出修法。
+        verdict = "underpowered"
+        why = (
+            f"**这批读数没有判别能力**：每臂每格只有 k={power['k']} 次 rollout，"
+            f"置换检验在完全分离时最小 p={power['min_p']}，越不过 p ≤ {P_THRESHOLD} 这条线。"
+            f"所以「没有显著变化」说的是**没能力判**，不是**确实没差别**。"
+            f"要看真信号得把每格 rollout 数提到 k≥3（k=3 时最小 p=0.05）。"
+            f"逐格的 Δ 仍然可以看方向，但**不许据此下「有效/无效」的结论**。"
+        )
     else:
         verdict = "no_train_signal"
         why = "train 侧没有任何显著变化——这一轮无从谈泛化（不是「泛化失败」）"
@@ -159,6 +221,8 @@ def overfit_report(
     return {
         "verdict": verdict,
         "why": why,
+        # 功效放在最前面之一：读任何判决之前，先知道这批样本有没有判别的能力。
+        "power": power,
         "train": {
             "n_tasks": tr.n_tasks,
             "mean_delta": round(tr.mean_delta, 4),
@@ -183,6 +247,15 @@ def overfit_report(
 def format_report(rep: dict) -> str:
     """人读的短报告。**先给判决，再给两侧，最后给那个会骗人的合并均值。**"""
     lines = [f"泛化判决：{rep['verdict']}", f"  {rep['why']}", ""]
+    # 功效单独一行，放在两侧前面：它决定两侧那几行能不能被当结论读。
+    p = rep.get("power") or {}
+    if p:
+        tag = "够" if p.get("adequate") else "**不够**"
+        lines.append(
+            f"  判别能力：k={p.get('k')}  完全分离时最小 p={p.get('min_p')}  "
+            f"（门槛 {P_THRESHOLD}）→ {tag}"
+        )
+        lines.append("")
     for side in ("train", "eval"):
         s = rep[side]
         lines.append(
