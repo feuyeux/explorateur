@@ -8,7 +8,7 @@
 // 不同（null → not-comparable，不判退化；0 → 可判定）。
 // 纪律 12（SKIP 与 PASS 分列）：本套件零网络、零浏览器、零额度。
 import { spawnSync } from "node:child_process"
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -63,11 +63,20 @@ function captureStdout(): { out: () => string; err: () => string } {
   return { out: () => chunks.join(""), err: () => errs.join("") }
 }
 
-/** 仓库里那门课（lessons/ 下唯一一课）。 */
+/** 仓库里**真能体检**的那门课。
+ *
+ * 这里不能再假设「lessons/ 下只有一课」：2026-10-22 实测，`lessons/` 下有三个
+ * 目录，而只有一门同时带 `scene.json`（`scene.md` 的编译产物）。`computeHealth()`
+ * 走 `sceneDoc()`，缺 `scene.json` 直接抛 `FeuilleError`——于是「按字母序取第一个」
+ * 取到空壳课，三条反向验证用例全挂在 fixture 准备上，而不是挂在被测逻辑上。
+ *
+ * 所以按**有没有 `scene.json`** 挑：那才是 `computeHealth()` 真正需要的东西。
+ */
 function lessonIds(): string[] {
   const base = join(REPO, "lessons")
   return readdirSync(base)
     .filter((name) => name !== ".DS_Store")
+    .filter((name) => existsSync(join(base, name, "scene.json")))
     .sort()
 }
 
