@@ -1,6 +1,6 @@
 # Reference: architecture, operations, ALE, paper, release
 
-> User-facing walkthrough: [../../docs/self-evolution.md](../../docs/self-evolution.md) §9 (Chinese; the former `docs/guide.md` was merged into that workspace total document on 2026-10-21). Paper PDF: [RSIAgent.pdf](RSIAgent.pdf).
+> User-facing walkthrough: [../../docs/self-evolution.md](../../docs/self-evolution.md) §5.5 (Chinese; the former `docs/guide.md` was merged into that workspace total document on 2026-10-21). Paper PDF: [RSIAgent.pdf](RSIAgent.pdf).
 > Historical export hashes: [source-manifest.json](source-manifest.json).
 
 ## 1 Architecture

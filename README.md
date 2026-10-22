@@ -174,9 +174,9 @@ flowchart TB
 | 验收 | 验证席判 PASS + 真树 `pnpm verify` 退出码 | 让智能体在候选 harness 下真跑任务，按机械判据判分，再与基准臂做单侧精确置换检验 |
 | 运行产物 | `../garage-result/` | `../garage-ii-result/` |
 
-第一条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §2、§8.2（机制与运行手册）· [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律）· [théâtre/ADAPTATION.md](théâtre/ADAPTATION.md)。
+第一条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §2、§5.5（机制与运行手册）· [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律）· [théâtre/ADAPTATION.md](théâtre/ADAPTATION.md)。
 
-第二条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §3–§8.3（机制、测量协议与运行手册）· [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（零补丁声明）· [docs/self-evolution.md](docs/self-evolution.md) §12（跨轮次方法论偏差）。
+第二条线路的入口：[docs/self-evolution.md](docs/self-evolution.md) §3–§5（机制、测量协议与运行手册）· [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（零补丁声明）· [docs/self-evolution.md](docs/self-evolution.md) §5.3(c)（跨轮次方法论偏差）。
 
 ### 共有红线
 

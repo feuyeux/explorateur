@@ -8,7 +8,7 @@
 - **Purpose**: 作为 `explorateur/usine`（feuille 多语种视频生产线）的 RSI 执行骨架。
   适配层（`garage/`）负责环境嫁接（v1 于 2026-10-16 建成并假 LLM 干跑
   12/12 全绿；2026-10-18 P9 真作用力改造后，现行运行手册见
-  [../docs/self-evolution.md](../docs/self-evolution.md) §2、§8.2）；本目录内代码
+  [../docs/self-evolution.md](../docs/self-evolution.md) §2、§5.5）；本目录内代码
   保持可向上游回步。fork 文档集：PROVENANCE（本文件，
   纪律与补丁清单）、PORTING-NOTES（跨平台病根）、ADAPTATION（实现相对设计稿的
   偏离）；**ARCHITECTURE（机制与图表）已于 2026-10-21 并入
@@ -16,7 +16,7 @@
   （正文已删，只留「原节号 → 新节号」映射表）**；
   本目录 `docs/` 是 **fork 自建**的（`reference.md` 上游文档合订 + 论文 PDF +
   历史导出哈希清单；原 `guide.md` 人机交互指南已于 2026-10-21 并入
-  [../docs/self-evolution.md](../docs/self-evolution.md) §9，**2026-10-22 复核时
+  [../docs/self-evolution.md](../docs/self-evolution.md) §5.5，**2026-10-22 复核时
   发现它仍留着一份陈旧正文，已同样削成指针存根**）——
   上游 `docs/` 的多篇 markdown 在 2026-10-19 的重构（`8baded4`）里已合并进
   `reference.md`，**不是「冻结不动」**（原本文那么写，与磁盘事实相反）。

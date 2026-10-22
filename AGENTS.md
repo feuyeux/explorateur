@@ -9,9 +9,9 @@
 |---|---|---|
 | `usine/` | feuille：多语种视频生产与发布可复用层（TS pnpm monorepo，12 包） | [usine/AGENTS.md](usine/AGENTS.md)（22 条纪律 + 工程约定 + H3 铁律）· [usine/README.md](usine/README.md) |
 | `théâtre/` | RSIAgent 引擎（vendored fork，**无内部 `.git`**，版本由本仓库统一管理） | [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md)（fork 纪律：POSIX 补丁逐字节不变、不回步上游）· 机制与图表 → [docs/self-evolution.md](docs/self-evolution.md) §2 |
-| `garage/` | RSIAgent 线路的适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检 | `run_usine.py` 模块 docstring（装配契约，13 条，次序承重）· 运行手册 / 验收 / 红线 → [docs/self-evolution.md](docs/self-evolution.md) §2、§8、§9、§11 |
+| `garage/` | RSIAgent 线路的适配层：装配 / 传输 / 围栏 / 合并 / 门禁预检 | `run_usine.py` 模块 docstring（装配契约，13 条，次序承重）· 运行手册 / 验收 / 红线 → [docs/self-evolution.md](docs/self-evolution.md) §2、§5.5、§5.3(c) |
 | `theatre-ii/` | harness2 引擎（vendored fork，Apache-2.0，**零补丁**） | [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md)（vendor 范围与已知缺口）· 机制与图表 → [docs/self-evolution.md](docs/self-evolution.md) §3 |
-| `garage-ii/` | harness2 线路的桥接层：dsh 那一面 + usine 那一格 + 对照驱动 | 桥接层 / 测量协议 / 产物对照 → [docs/self-evolution.md](docs/self-evolution.md) §3–§7 · 实测逐字归档仍在 [BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) · 跨轮次方法论在 [docs/self-evolution.md](docs/self-evolution.md) §12 |
+| `garage-ii/` | harness2 线路的桥接层：dsh 那一面 + usine 那一格 + 对照驱动 | 桥接层 / 测量协议 / 产物对照 → [docs/self-evolution.md](docs/self-evolution.md) §3–§5 · 实测逐字归档仍在 [BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) · 跨轮次方法论在 [docs/self-evolution.md](docs/self-evolution.md) §5.3(c) |
 | `config/` | 跨线路共享配置。`env.sample` 入库，`.env` 本地且被根 `.gitignore` 兜底 | [config/env.sample](config/env.sample) 的注释即说明书 |
 
 **两条线路的引擎层不含任何 usine 专属代码**，桥接一律在适配层。改引擎前先读对应 PROVENANCE：`théâtre/` 是「补丁逐字节不变」，`theatre-ii/` 是「零补丁」。
@@ -76,12 +76,12 @@
 ## 八、规则层级
 
 - 在 `usine/` 内工作、或把 feuille 资产用于任何内容项目时，**权威文本是 [usine/AGENTS.md](usine/AGENTS.md)**（22 条纪律 + 跨平台/pnpm 约定 + H3 铁律）；冲突时以它为准。本文件的排版条与产物落位条是工作区级新增，与它不冲突时同时生效。
-- 在 `théâtre/` 内工作或操作 RSI 波次时，先读 [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md) 与 [docs/self-evolution.md](docs/self-evolution.md) §2、§8.2（A 线机制与运行手册）；操作走 `garage/run_usine.py`（`--preflight` 先行，`--execute` 需 ack token `RUN-USINE-PHASE1-WAVES`；发布永不自动，真波次用户喊跑才跑）。
-- 在 `theatre-ii/` 内工作或操作 harness 演化时，先读 [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md) 与 [docs/self-evolution.md](docs/self-evolution.md) §3、§8.3（B 线机制与运行手册）；桥接与操作走 `garage-ii/run_usine_h2.py`（`--phase preflight` 先行，`--phase sweep` 需 ack token `RUN-USINE-H2-SWEEP`）。
+- 在 `théâtre/` 内工作或操作 RSI 波次时，先读 [théâtre/PROVENANCE.md](théâtre/PROVENANCE.md) 与 [docs/self-evolution.md](docs/self-evolution.md) §2、§5.5（A 线机制与运行手册）；操作走 `garage/run_usine.py`（`--preflight` 先行，`--execute` 需 ack token `RUN-USINE-PHASE1-WAVES`；发布永不自动，真波次用户喊跑才跑）。
+- 在 `theatre-ii/` 内工作或操作 harness 演化时，先读 [theatre-ii/PROVENANCE.md](theatre-ii/PROVENANCE.md) 与 [docs/self-evolution.md](docs/self-evolution.md) §3、§5.5（B 线机制与运行手册）；桥接与操作走 `garage-ii/run_usine_h2.py`（`--phase preflight` 先行，`--phase sweep` 需 ack token `RUN-USINE-H2-SWEEP`）。
 
 ## 九、RSI 读数纪律
 
-**两条路径的关系**：RSIAgent（`théâtre/`+`garage/`）改的是**记忆**，harness2（`theatre-ii/`+`garage-ii/`）改的是 **harness 本身**。引擎层对照、产物对照与可跑的三臂对照协议**已合并进 [docs/self-evolution.md](docs/self-evolution.md)**（§5–§7）——**读数字之前先读那一节的「测不到什么」**；逐字实测归档留在 [garage-ii/BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) §17，跨轮次方法论偏差在 [docs/self-evolution.md](docs/self-evolution.md) §12。
+**两条路径的关系**：RSIAgent（`théâtre/`+`garage/`）改的是**记忆**，harness2（`theatre-ii/`+`garage-ii/`）改的是 **harness 本身**。引擎层对照、产物对照与可跑的三臂对照协议**已合并进 [docs/self-evolution.md](docs/self-evolution.md)**（§5）——**读数字之前先读那一节的「测不到什么」**；逐字实测归档留在 [garage-ii/BENCH-APPENDIX-2026-10.md](garage-ii/BENCH-APPENDIX-2026-10.md) §17，跨轮次方法论偏差在 [docs/self-evolution.md](docs/self-evolution.md) §5.3(c)。
 
 - **两条路径共同的硬约束**：基准 harness 必须与被改进对象**同源**（`garage-ii/build_base_harness.py` 派生，带漂移闸）；运行产物落**仓库外** run root，且两线分开放（见第五节）；判据失败是 `None` 不是零分；判据不进 harness 树。
 - **演化结果先看「阶段回退」再看分数**：提案阶段失败时引擎会**退回基准树**继续跑，这一轮「看起来跑完了」，而最终被采纳的其实是**没改过的基准**——分数量的是基准，不是演化后的。`garage-ii` 的 sweep / judge 会把回退打出来并以**退出码 1** 结束。
