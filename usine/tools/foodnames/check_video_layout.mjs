@@ -394,10 +394,20 @@ for (const key of WANT) {
       '画面句子 == 数据里的旁白句',
       '配音念的就是这句：画面句子必须与它逐字相同（2026-10-21 实测：首词被无条件替换成词形，' +
       '冠词/助词被吃掉、词重复一遍，卡拉OK高亮整体错开一词＝音画不同步）')
+    // **量不到 ≠ 达标**（与 `check_scene_tokens.mjs` 同一条纪律）：`others_opacity`
+    // 为 null 说明「没唱到的词」一个都没量到——它们没渲染（零尺寸 / 隐藏），或者
+    // 画面上根本没有非当前 token。两种都是「暗词看不见」，比「不透明度低于阈值」
+    // 更严重。原来这一行写的是 `dom.others_opacity === null || ...`——**量不到就
+    // 当成通过**。
+    //
+    // 2026-10-22 实测：这条在 `check_scene_tokens.mjs` 上真的放过了一个只渲染当前
+    // 词、其余全藏起来的页面（第三臂 r5，白拿一分）。本门当时没被这个坑咬到，
+    // 是因为两代 12 期的实测值分别是 0.45 与 0.18，**从来不是 null**——修完仍然
+    // 不会动任何一条已记的读数（2026-10-22 复核：24 期报告里没有一条 null）。
     check(w.locale, 'token_readable',
-      dom.others_opacity === null || dom.others_opacity >= TH.other_token_opacity,
-      dom.others_opacity === null ? 'n/a' : dom.others_opacity.toFixed(2),
-      `≥${TH.other_token_opacity}`, '没唱到的词也要看得见')
+      dom.others_opacity !== null && dom.others_opacity >= TH.other_token_opacity,
+      dom.others_opacity === null ? 'n/a（暗词一个都没量到）' : dom.others_opacity.toFixed(2),
+      `≥${TH.other_token_opacity}`, '没唱到的词也要看得见（一个都没渲染出来＝看不见，比不透明度不足更严重）')
     check(w.locale, 'highlight_brand', !!dom.highlight?.brand,
       dom.highlight ? dom.highlight.bg : '无高亮', '品牌色 ' + BRAND.join('/'),
       '当前词的高亮必须落在页脚图例承诺的三色里')

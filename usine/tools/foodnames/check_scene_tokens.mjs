@@ -259,14 +259,24 @@ function measure(htmlPath) {
   const opacities = withTokens.map((p) => p.data.minOpacity).filter((v) => v !== null && v !== undefined)
   const minOpacity = opacities.length ? Math.min.apply(null, opacities) : null
   const brandHit = withTokens.some((p) => p.data.brandHit)
+  // **token 计数也要带出来**：「量不到暗词不透明度」这句话，得说得清是
+  // 「没有非当前 token」还是「非当前 token 全都没渲染」——判红的证据要能复查。
+  const tokensTotal = perParam.length ? Math.max.apply(null, perParam.map((p) => p.data.tokens)) : 0
+  const visibleMax = perParam.length ? Math.max.apply(null, perParam.map((p) => p.data.visible)) : 0
+  const othersMax = perParam.length ? Math.max.apply(null, perParam.map((p) => p.data.othersCount)) : 0
+  const invisibleMax = perParam.length ? Math.max.apply(null, perParam.map((p) => p.data.invisible)) : 0
   return {
     file: htmlPath,
     params_tried: PARAM_SETS.length,
     renders_ok: perParam.length,
     renders_with_tokens: withTokens.length,
+    tokens: tokensTotal,
+    visible: visibleMax,
+    others: othersMax,
+    invisible: invisibleMax,
     minOpacity: minOpacity,
     brandHit: brandHit,
-    perParam: perParam.map((p) => ({ params: p.params, tokens: p.data.tokens, visible: p.data.visible, cur: p.data.curCount, minOpacity: p.data.minOpacity, brandHit: p.data.brandHit })),
+    perParam: perParam.map((p) => ({ params: p.params, tokens: p.data.tokens, visible: p.data.visible, cur: p.data.curCount, others: p.data.othersCount, invisible: p.data.invisible, minOpacity: p.data.minOpacity, brandHit: p.data.brandHit })),
     curSample: withTokens.length ? withTokens[0].data.curSample : [],
     othersSample: withTokens.length ? withTokens[0].data.othersSample : [],
   }
@@ -295,13 +305,28 @@ export function verdict(m) {
       ],
     }
   }
-  const opacityOk = m.minOpacity === null ? true : m.minOpacity >= TH.other_token_opacity
+  // **量不到 ≠ 达标**。`minOpacity` 为 null 说明「非当前 token」一个都没被量到——
+  // 它们要么没渲染（display:none / visibility:hidden / 零尺寸），要么页面上根本没有
+  // 非当前 token。两种都是「暗词看不见」，比「不透明度低于 0.45」更严重。
+  //
+  // 2026-10-22 实测踩过：这一行原来写的是 `m.minOpacity === null ? true : ...`
+  // ——**量不到被判成通过**。于是第三臂 r5（只渲染当前词、其余 11 个 token 全藏着，
+  // CSS 还是通用模板的 0.18 + 中性灰）白拿了一条判据的通过，0.5 分里有一分是假的。
+  //
+  // 这跟「判据失败是 None 不是零分」是同一条纪律的另一面：**判据量不到时，不能
+  // 当成达标**——「量不到」要么是门跑不成（measurable=false），要么是**量到了
+  // 「看不见」这个事实**（判红）。
+  const opacityOk = m.minOpacity !== null && m.minOpacity >= TH.other_token_opacity
   if (!opacityOk) {
     fails.push({
       name: 'token_readable',
-      actual: Number(m.minOpacity.toFixed(3)),
+      actual: m.minOpacity === null
+        ? `非当前 token 一个都没渲染出来（页面 ${m.tokens || 0} 个 token，可见 ${m.visible || 0} 个、其中非当前 ${m.others || 0} 个、不可见 ${m.invisible || 0} 个）`
+        : Number(m.minOpacity.toFixed(3)),
       need: `≥${TH.other_token_opacity}`,
-      note: '没唱到的词也要看得见（暗词不透明度低于阈值就是几乎隐形）',
+      note: m.minOpacity === null
+        ? '没唱到的词一个都没渲染（display:none / visibility:hidden / 零尺寸）——看不见，比不透明度不足更严重'
+        : '没唱到的词也要看得见（暗词不透明度低于阈值就是几乎隐形）',
     })
   }
   if (!m.brandHit) {

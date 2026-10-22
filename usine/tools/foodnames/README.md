@@ -85,6 +85,8 @@ node --import tsx tools/foodnames/check_scene_tokens.mjs --html <页面.html>
 
 退出码：0 两条都达标；1 有不达标（逐条给实测值与阈值）；2 门本身跑不成（不是零分）。
 
+**「量不到」不等于「达标」**（2026-10-22 修）：判据里原来写的是 `m.minOpacity === null ? true : m.minOpacity >= 0.45`——**暗词不透明度量不到（null）就被判成通过**。实测踩过：RSI B 线第三臂一条交付页有 12 个 `.tok` 却**只渲染当前那一个**（其余零尺寸），`minOpacity` 量不到，于是白拿了一条判据的通过。**「量不到」只有三种归宿，没有一种叫「达标」**：① 门跑不成（页面上一个可见 token 都没有）⇒ `measurable=false`，退出码 2；② **量到了「看不见」这个事实**（非当前 token 一个都没渲染）⇒ **判红**，证据写清「N 个 token、可见 M 个、其中非当前 0 个」；③ 量到了具体的低不透明度 ⇒ 判红。`check_video_layout.mjs` 里同一个洞也有一份（`others_opacity === null || ...`），一并修了；**已记的读数可证不受影响**（24 期报告 576 条 `others_opacity` 无一条 null，取值只有 0.18 与 0.45）。
+
 **量的是计算值，不是声明值**：探针跑在浏览器里，用 `getComputedStyle` 取 opacity、用「祖先链上第一个非透明底色」取高亮色。所以 `opacity: var(--dim-opacity)` 这种写法也量得准。
 
 **⚠️ 探针副本必须自包含**：通用 karaoke 模板用 `<link href="../../theme-tokens.css">` 引主题令牌，**副本一旦挪到别的目录，相对路径就断了——样式全丢，每个 token 的 opacity 都变成默认的 1，量出来是「全部达标」的假绿**。本工具因此把本地样式表**内联**进副本（相对 `url()` 改成绝对 `file:///`），副本放临时目录里量。
