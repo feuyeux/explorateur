@@ -83,39 +83,42 @@ def criteria_stamp() -> str:
 
 # ── 启动失败：不是行为表现，是基础设施抖动 ─────────────────────────────────────
 def launch_failure(run_dir: Path) -> str:
-    """这条 rollout 是不是**根本没跑起来**，返回原因（空串 = 正常跑过了）。
+    """这条 rollout 是不是**什么都没发生**（没跑起来 / 早退），返回原因（空串 = 正常跑过了）。
 
-    签名：`diagnostics.json` 里有 error、`events.jsonl` 是空的、没有 `final.txt`。
+    判据是**一个事件都没产生**：`events.jsonl` 空 且 没有 `final.txt`。这样判的好处
+    是它不认「失败的样子」，只认「有没有行为样本」——启动失败（SDK 的
+    `initialize` 超时）、进程早退、被上限掐死在第一个动作上，三种都落在这条线上，
+    而且**没有一种是被改进对象的行为表现**。
+
     2026-10-22 实测：机器上同时有 11 条 rollout 在跑（每条带约 10 个 node 进程），
     dsh SDK 的 `initialize` 等不到 runtime 就 10 秒超时（`initialize timed out after
     10000ms waiting for dsh profile "sdk"`）——**一条 rollout 一个事件都没产生**。
-    那种失败**不是被改进对象的行为表现**，两条纪律各管一半：
+    那种失败**不该被记成零分**，两条纪律各管一半：
 
-    - 「判据失败是 None 不是零分」——启动失败不记 0 分（记 0 分等于说「它交了但
-      不达标」，那是伪造）；
+    - 「判据失败是 None 不是零分」——记 0 分等于说「它交了但不合格」，那是伪造；
     - 「被杀/超时也要留下已经发生的事」——启动失败**没有已经发生的事**，所以它
       不该被当成一条样本，它该被**重试**（重试启动不是重试行为，不改变测量）。
 
-    只重试**启动**失败：模型跑满时间上限被掐死、或智能体交了不合格的东西，
-    那些都不许重试——那是行为表现，重试它就是挑好结果。
+    只重试**启动**：模型跑满时间上限被掐死、智能体交了不合格的东西，那些是行为
+    表现（**有事件**），不许重试——重试它就是挑好结果。
     """
     run_dir = Path(run_dir)
     if not run_dir.is_dir():
         return "run 目录不存在"
-    diag = run_dir / "diagnostics.json"
     events = run_dir / "events.jsonl"
     final = run_dir / "final.txt"
-    if not diag.is_file():
-        return ""
     if final.is_file():
         return ""
     if events.is_file() and events.stat().st_size > 0:
         return ""
-    try:
-        err = json.loads(diag.read_text(encoding="utf-8")).get("error", "")
-    except (OSError, ValueError):
-        err = ""
-    return f"启动失败（一个事件都没产生）：{err or 'diagnostics.json 里有记录但没写原因'}"
+    diag = run_dir / "diagnostics.json"
+    err = ""
+    if diag.is_file():
+        try:
+            err = json.loads(diag.read_text(encoding="utf-8")).get("error", "")
+        except (OSError, ValueError):
+            err = ""
+    return f"什么都没发生（一个事件都没产生）：{err or '没有 diagnostics.json，说不出原因'}"
 
 
 def _execute_with_retry(adapter, task_id: str, tree: Path, run_id: str, timeout: int | None, attempts: int = 3) -> Path:
@@ -319,6 +322,39 @@ def run_arm(adapter: UsineAdapter, *, tag: str, tree: Path, repeats: int, args) 
     return got[0]
 
 
+# ── 自检（不花钱、不起进程）────────────────────────────────────────────────────
+def _selftest() -> int:
+    """**「什么都没发生」这条线**的自检：四种 run 目录，四条期望。
+
+    这一格的两条判据（`check_scene_tokens.mjs`）要跑浏览器，不适合放进自检；
+    但**怎么读失败**是纯逻辑，必须有钉子——2026-10-22 那次「启动失败被记成
+    0 分」就是这里没有钉子造成的。
+    """
+    import tempfile  # noqa: PLC0415
+
+    cases: list[tuple[str, dict[str, str], bool, str]] = [
+        # 目录内容 → 期望「判成没发生」吗
+        ("正常跑过：有事件、有最终答复", {"events.jsonl": '{"a":1}\n', "final.txt": "done"}, False, ""),
+        ("被上限掐死：有事件、没最终答复（行为表现，不该作废）", {"events.jsonl": '{"a":1}\n'}, False, ""),
+        ("启动失败：有 diagnostics、事件流是空的", {"events.jsonl": "", "diagnostics.json": '{"error":"initialize timed out"}'}, True, "initialize timed out"),
+        ("早退：什么都没有", {"events.jsonl": ""}, True, ""),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, files, expect_void, expect_frag in cases:
+            d = Path(tmp) / name.replace(":", "_").replace("/", "_")
+            d.mkdir()
+            for fn, content in files.items():
+                (d / fn).write_text(content, encoding="utf-8")
+            reason = launch_failure(d)
+            ok = bool(reason) == expect_void and expect_frag in reason
+            print(f"  [{'ok' if ok else 'FAIL'}] {name} → {reason or '（正常，按行为判）'}")
+            if not ok:
+                bad += 1
+    print("自检" + ("通过" if bad == 0 else f"失败 {bad} 条"))
+    return 0 if bad == 0 else 1
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="scene_layout_arms", description=__doc__)
     ap.add_argument("--root", type=Path, default=Path(r"D:\coding\personal\garage-ii-result"))
@@ -337,7 +373,7 @@ def main(argv=None) -> int:
         help=f"solver 用的模型（默认 {MINIMAX_MODEL}；与 run_usine_h2 同一个默认值）",
     )
     ap.add_argument("--only-tasks", default=TASK_ID)
-    ap.add_argument("--phase", choices=("run", "compare", "both"), default="both")
+    ap.add_argument("--phase", choices=("run", "compare", "both", "selftest"), default="both")
     ap.add_argument(
         "--arm",
         choices=("base", "evo", "both"),
@@ -345,6 +381,9 @@ def main(argv=None) -> int:
         help="只跑哪条臂（两臂各起一个进程并行跑时用）",
     )
     args = ap.parse_args(argv)
+
+    if args.phase == "selftest":
+        return _selftest()
 
     adapter = build_adapter(args)
     patch_adapter(adapter)
