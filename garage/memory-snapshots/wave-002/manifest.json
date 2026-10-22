@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "unit": "wave-002",
+  "source": "D:\\coding\\personal\\garage-result\\pin-plain-20261022\\phase1\\memory",
+  "files": [
+    "INDEX.md",
+    "craft/evidence-and-verification.md",
+    "projects/evolution-project-gate-layout.md",
+    "projects/foodnames-video-line.md"
+  ],
+  "file_count": 4,
+  "bytes": 24647,
+  "tree_sha256": "2c9299021e0966b262862b836d4578dcee6182f843cab5c424469f031d83f6c5",
+  "tree_sha256_note": "the engine's own tree hash (explore.memory_hash.tree_sha256, the same口径 explore.target_learning._memory_tree_sha256 uses); null means the engine was not importable here, so nothing was invented",
+  "recorded_at": "2026-10-22 14:44:56"
+}
