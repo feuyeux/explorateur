@@ -137,6 +137,18 @@ def provider_failure(run_dir: Path) -> str:
     `assistant/attempt` 的 `finish.reason.kind == "error"`」。两条都成立才是
     被掐死；只是答复空、末事件不是错误的那不算（那是智能体自己没交）。
     基准臂四条都正常收尾（`final.txt` 2.7–3.2KB），所以这条线对两臂一视同仁。
+
+    **但「被掐死」本身不等于「作废」**：还要看**产品有没有落盘**。
+    2026-10-22 第五轮实测到两种相反的情况——
+
+    - r1 / r4：被掐死时工作区里只有探针页（没有 token 契约、量不到）⇒ **作废**
+      （它没被送到终点，没有行为样本）；
+    - r3：被掐死**之前**已经把合格产品写进盘上了（`index.html`，最小不透明度
+      0.45、当前词高亮落品牌色）⇒ **不作废，照常判分**——产物在盘上，它合不合格
+      由产物说话，不由它最后那句答没答完说话。
+
+    所以作废的完整条件是「**被掐死 且 没有可判的交付**」，见
+    `score_scene_layout`。
     """
     run_dir = Path(run_dir)
     final = run_dir / "final.txt"
@@ -221,14 +233,14 @@ def score_scene_layout(run_dir: Path, task_id: str) -> dict | None:
         # 启动失败不判 0 分：它没有产生任何行为，0 分等于伪造「交了但不合格」。
         return None
     pf = provider_failure(run_dir)
-    if pf:
-        # 被模型端掐死的同理：不是「它交了但不合格」，是它没被送到终点。
-        return None
     ws = run_dir / "workspace"
     if not ws.is_dir():
         return None
     cands = [p for p in ws.rglob("*.html") if p.is_file() and not _is_skill_asset(p, ws)]
     if not cands:
+        if pf:
+            # 被模型端掐死、又什么都没留下：没有行为样本，不进分布。
+            return None
         return {
             "task_id": task_id,
             "score": 0.0,
@@ -257,6 +269,13 @@ def score_scene_layout(run_dir: Path, task_id: str) -> dict | None:
             best = (p, r)
             break
     if best is None:
+        if pf:
+            # **被模型端掐死、又没有可判的交付** ⇒ 作废（不是零分）。
+            #
+            # 这条线的意思是「它没被送到终点，所以没有行为样本」；而**产品已经
+            # 落盘的那些不作废**（见下面 `best is not None` 那条路）——产物在盘上，
+            # 它合不合格由产物说话，不由它最后那句答没答完说话。
+            return None
         return {
             "task_id": task_id,
             "score": 0.0,
@@ -359,6 +378,7 @@ def run_arm(adapter: UsineAdapter, *, tag: str, tree: Path, repeats: int, args) 
         timeout=args.timeout,
         workers=args.arm_workers,
         execute=execute,
+        append=bool(getattr(args, "append", False)),
     )
     return got[0]
 
@@ -454,43 +474,31 @@ def rescore_arm(tag: str, args) -> arms.Arm:
     )
     for r in old.rolls:
         run_dir = root / TASK_ID / r.run_id
-        pf = provider_failure(run_dir)
-        if pf:
-            out.rolls.append(
-                arms.Roll(
-                    run_id=r.run_id,
-                    score=None,
-                    n_passed=0,
-                    n_criteria=len(CHECK_NAMES),
-                    checks=[{"name": n, "passed": False, "evidence": pf} for n in CHECK_NAMES],
-                    final_text="",
-                    error=pf,
-                    void_reason=pf,
-                )
-            )
-            continue
         scored = score_scene_layout(run_dir, TASK_ID)
-        if scored is None:
+        if scored is not None:
             out.rolls.append(
                 arms.Roll(
                     run_id=r.run_id,
-                    score=None,
-                    n_passed=0,
-                    n_criteria=len(CHECK_NAMES),
-                    checks=[],
-                    final_text="",
-                    error="判据跑不成（不是零分）",
+                    score=scored["score"],
+                    n_passed=scored["n_passed"],
+                    n_criteria=scored["n_criteria"],
+                    checks=scored["checks"],
+                    final_text=scored.get("final_text", ""),
                 )
             )
             continue
+        # 判据跑不成 ⇒ 记作废，并写清是哪一种（**不是零分**）
+        bad = launch_failure(run_dir) or provider_failure(run_dir) or "判据跑不成（不是零分）"
         out.rolls.append(
             arms.Roll(
                 run_id=r.run_id,
-                score=scored["score"],
-                n_passed=scored["n_passed"],
-                n_criteria=scored["n_criteria"],
-                checks=scored["checks"],
-                final_text=scored.get("final_text", ""),
+                score=None,
+                n_passed=0,
+                n_criteria=len(CHECK_NAMES),
+                checks=[{"name": n, "passed": False, "evidence": bad} for n in CHECK_NAMES],
+                final_text="",
+                error=bad,
+                void_reason=bad,
             )
         )
     p.write_text(json.dumps(out.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8")
@@ -508,6 +516,11 @@ def main(argv=None) -> int:
     ap.add_argument("--evolved-arm", default="fn2-evo")
     ap.add_argument("--tree", type=Path, default=None, help="演化臂的树目录（基准臂用基准树）")
     ap.add_argument("--repeats", type=int, default=4)
+    ap.add_argument(
+        "--append",
+        action="store_true",
+        help="接着已有臂往下加（扩样），不覆盖已跑过的那几条；臂的树指纹或判据戳变了会被拒绝",
+    )
     ap.add_argument("--arm-workers", type=int, default=4)
     ap.add_argument("--timeout", type=int, default=5400)
     ap.add_argument("--llm", default="", help="统一配置里的模型 slug（默认走 config/.env 的默认项）")
