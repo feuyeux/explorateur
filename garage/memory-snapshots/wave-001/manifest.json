@@ -1,16 +1,15 @@
 {
   "schema_version": 1,
   "unit": "wave-001",
-  "source": "D:\\coding\\personal\\garage-result\\foodnames-video5\\phase1\\memory",
+  "source": "D:\\coding\\personal\\garage-result\\pin-plain-20261022\\phase1\\memory",
   "files": [
-    "README.md",
-    "machine_substrate.md",
-    "method_lessons.md",
-    "project_foodnames.md"
+    "INDEX.md",
+    "craft/evidence-and-verification.md",
+    "projects/foodnames-video-line.md"
   ],
-  "file_count": 4,
-  "bytes": 10533,
-  "tree_sha256": "0211bdcbaa318df1b8131cf33f19d0523b0a3c635593435a4d9e128760999c76",
+  "file_count": 3,
+  "bytes": 11935,
+  "tree_sha256": "e4e5643b7e9d87563313f0d029cec39581c3c1ff2f22d0e97917510fa04effc1",
   "tree_sha256_note": "the engine's own tree hash (explore.memory_hash.tree_sha256, the same口径 explore.target_learning._memory_tree_sha256 uses); null means the engine was not importable here, so nothing was invented",
-  "recorded_at": "2026-10-21 23:07:11"
+  "recorded_at": "2026-10-22 14:28:46"
 }
