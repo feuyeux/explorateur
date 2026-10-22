@@ -307,7 +307,7 @@ A 线也有同一个问题的另一版本：它的种子是 `git archive HEAD`�
 | `artifact_exists` | 工作区里真有一个 `.png` |
 | `no_tool_face_bypass` | 没有直接调浏览器干产线的活（**按「量 vs 产」分流**：`--dump-dom` 是量，`--screenshot` / `--print-to-pdf` 是产） |
 
-完整 11 种 kind 与 24 个任务见 §6.2。
+完整 12 种 kind 与 25 个任务见 §6.2。
 
 **为什么不用 LLM 打分器？** 两个原因，一好一坏，都得说：
 
@@ -362,12 +362,12 @@ A 线由三样东西组成：`théâtre/` 里的 RSIAgent 引擎（vendored fork
 
 | 席位 | 干什么 | 配置文件 | 模型 | 推理档 | 自声明时间上限 | Phase-1 生效切片 |
 |---|---|---|---|---|---|---|
-| 出题席 Curriculum | 授权一波（或判饱和/停滞），写项目指令与 fixture | `curriculum-usine.yaml` | `fuyao-work` | `max` | 400s | 280s |
-| 干活席 Actor | 改代码 / 改 skill，写交付物并交 `STATUS: SUBMIT` | `actor-usine.yaml` | `fuyao-coding` | `low` | 950s | 580s |
+| 出题席 Curriculum | 授权一波（或判饱和/停滞），写项目指令与 fixture | `curriculum-usine.yaml` | `fuyao-work` | `low` | 400s | **400s** |
+| 干活席 Actor | 改代码 / 改 skill，写交付物并交 `STATUS: SUBMIT` | `actor-usine.yaml` | `fuyao-coding` | `low` | 950s | **950s** |
 | 验证席 Verifier | 在隔离镜像里复核，出 `VERDICT: pass` 或 `wrong` | `verifier-usine.yaml` | `fuyao-work` | `low` | 500s | 420s |
-| 记忆席 Memory | 蒸馏段 → 调和段，把经历写回记忆树 | `actor-usine.yaml`（`ROLE_FILES` 里的 `memory_actor` 与 `actor` 同指一份） | 必须与 Actor 同模型 | `low` | 950s | 与干活席共享 580s |
+| 记忆席 Memory | 蒸馏段 → 调和段，把经历写回记忆树 | `actor-usine.yaml`（`ROLE_FILES` 里的 `memory_actor` 与 `actor` 同指一份） | 必须与 Actor 同模型 | `low` | 950s | 与干活席共享 **950s** |
 
-自声明时间上限与生效切片不是一回事。`time_budget.apply_slices` 在装配期把每个席位的 `wall_clock_secs` **收紧**到切片计划里，**绝不放宽**——一个席位自己配的更紧值不会被切片放松。因此上表的生效切片才是运行时真正生效的数：Phase-1 的切片计划是 `time_budget.DEFAULT_SLICES`（curriculum 280 / actor 580 / verifier 420 / merge 120，合计 1400s，加 `OVERHEAD_RESERVE_SECS` 100s 正好填满 1500s 的运行上限）。
+自声明时间上限与生效切片不是一回事。`time_budget.apply_slices` 在装配期把每个席位的 `wall_clock_secs` **收紧**到切片计划里，**绝不放宽**——一个席位自己配的更紧值不会被切片放松。因此上表的生效切片才是运行时真正生效的数：Phase-1 的切片计划是 `time_budget.DEFAULT_SLICES`（curriculum 400 / actor 950 / verifier 420 / merge 120，合计 1890s，加 `OVERHEAD_RESERVE_SECS` 100s 是 1990s，运行上限 `DEFAULT_RUN_CEILING_SECS` 2050s，余量 60s）。
 
 四个席位共享同一套实践循环语义：**每一轮模型回复只含一个 JSON 动作**，优先级是 Program > Look > Ask > Done；程序跑完之后，观察以 `PROGRAM OUTPUT (exit, secs):` 作为一条新的 user 消息喂回模型，而段的 charter 一直留在 history 里。续轮模型看到的是「charter + 自己的动作 + 观察输出」。
 
@@ -384,8 +384,8 @@ A 线由三样东西组成：`théâtre/` 里的 RSIAgent 引擎（vendored fork
 ```mermaid
 flowchart TB
     subgraph SEATS["四个席位（配置在 garage/config/roles-usine）"]
-        CU["出题席 Curriculum<br/>fuyao-work｜推理档 max｜切片 280s"]
-        AC["干活席 Actor<br/>fuyao-coding｜推理档 low｜切片 580s"]
+        CU["出题席 Curriculum<br/>fuyao-work｜推理档 low｜切片 400s"]
+        AC["干活席 Actor<br/>fuyao-coding｜推理档 low｜切片 950s"]
         VF["验证席 Verifier<br/>fuyao-work｜推理档 low｜切片 420s"]
         ME["记忆席 Memory<br/>与干活席同模型同配置"]
     end
@@ -414,7 +414,7 @@ flowchart TB
 > **⚠️ 已知失效面 / 坑**
 >
 > - **推理档是「反直觉」的旋钮，猜错方向就会把席位配反。** `actor-usine.yaml` 里记着同一批字节在三个档位下的实测：档位 `none` 99.3s / 12768 推理 token，档位 `low` 6.4s / 489 token，档位 `max` 33.8s / 3960 token。也就是「关掉思考」在这个网关上**不被尊重**（它照样思考，而且是最慢的那档），排序是 `low` 小于 `max` 小于 `none`——与「推理少就更省」的第一直觉相反。引擎自带的那句「M3 忽略 effort」在这个网关上不成立。
-> - **切片是天花板，不是地板。** 一个席位自己声明的时间上限比计划切片更小，它就按那个更小的数跑，计划里的分配等于一句空话。实测踩过两次：出题席自声明 280s 把 DRS 的 400s 夹回；干活席自声明 780s 把 DRS 的 900s 夹回。`smoke_time_budget` 现在用**真实角色配置**断言每个计划切片都是**实际生效**的时间上限——但只有当你改的是角色 yaml 或切片计划时才跑得到它。
+> - **切片是天花板，不是地板。** 一个席位自己声明的时间上限比计划切片更小，它就按那个更小的数跑，计划里的分配等于一句空话。历史踩过两次：出题席自声明 280s 把 DRS 的 400s 夹回；干活席自声明 780s 把 DRS 的 900s 夹回。**这两处后来都改了**——出题席现在自声明 400s、干活席 950s，正好等于 Phase-1 计划切片，所以切片不再是「被夹回来的那一层」，而是**与自声明值同数**（`time_budget.py` 里那三条同数断言守的就是这件事）。`smoke_time_budget` 现在用**真实角色配置**断言每个计划切片都是**实际生效**的时间上限——但只有当你改的是角色 yaml 或切片计划时才跑得到它。
 > - **`max_iters` 是紧急看门狗，不是语义停止条件。** 出题席是 60，其余三席是 120，验证席的控制档是 200。它们的作用是「别让一个分支把整轮跑拖住」，而真正的结束信号是时间上限与 done 探针。
 > - **上下文预算是静默的杀手。** 四个席位统一 `ctx_high_water: 250000` / `ctx_low_water: 150000`。历史上有一次出题席第 2 轮的侦察程序往 history 里灌了 153,675 字符，把 prompt 顶到 128k token，之后每次调用都掉进网关的慢尾，六个迭代烧了 728s。降 `ctx_high_water` 是当时的修法。
 > - **Windows 上引擎 pytest 会红 37 条，这是预期。** 2026-10-21 实测 `772 通过 / 37 失败 / 3 跳过`，失败的 9 个文件正是 `théâtre/PROVENANCE.md` 列出的 POSIX-only 面（它们测的是被 `guest_env.py` 整体替换掉的那台机器）。判据是**这 9 个文件之外零失败**；别拿 Windows 的 37 条去和 macOS 的 808 条对账，两份基线量的不是同一个集合。
@@ -751,7 +751,7 @@ flowchart TD
 
 约束的写法是闭集的 MUST / MUST-NOT，点名目录、不写「以及其它」——与 DRS 那套「brief 必须有上界」是同一个原则。**只动 Phase-1 的出题席**：Phase-2 有自己的出题席，它的工作是复盘并交一份有上界的 drill，不是选题铺开。
 
-**时延预检为什么存在**：网关首响应时延实测在 50.6s / 108.2s / 138.7s / 322s / 大于 300s 之间跳，而出题席切片是 280–400s。**切片吸收不了波动**——照那样开波，运气差就整波烧光。预检**只读、零成本**（不发任何 LLM 请求），只读历史 run root 里引擎已经记下的每席实际耗时，与本波的计划切片比：某席的 max 超过计划切片的 **60%**（`latency_budget.DEFAULT_RISK_RATIO = 0.6`）就判**高时延风险**，**默认拒绝开跑**，并报出哪一席、历史 max、计划切片、以及怎么办（降 `reasoning_effort` / 换端点 / 放宽 `--run-ceiling-secs`）。
+**时延预检为什么存在**：网关首响应时延实测在 50.6s / 108.2s / 138.7s / 322s / 大于 300s 之间跳，而出题席切片是 400s（Phase-1 与 DRS 同数）。**切片吸收不了波动**——照那样开波，运气差就整波烧光。预检**只读、零成本**（不发任何 LLM 请求），只读历史 run root 里引擎已经记下的每席实际耗时，与本波的计划切片比：某席的 max 超过计划切片的 **60%**（`latency_budget.DEFAULT_RISK_RATIO = 0.6`）就判**高时延风险**，**默认拒绝开跑**，并报出哪一席、历史 max、计划切片、以及怎么办（降 `reasoning_effort` / 换端点 / 放宽 `--run-ceiling-secs`）。
 
 ```mermaid
 flowchart TB
@@ -813,8 +813,8 @@ DRS 有自己的上限与切片，因为**它不是同一份活**：
 
 | | Phase-1 广度波 | Phase-2 DRS 深度波 |
 |---|---|---|
-| 运行上限 | 1500s | 2100s |
-| 切片计划 | curriculum 280 / actor 580 / verifier 420 / merge 120 | curriculum 400 / actor 900 / verifier 280 / memory 320 / merge 20 |
+| 运行上限 | **2050s** | 2100s |
+| 切片计划 | curriculum 400 / actor 950 / verifier 420 / merge 120 | curriculum 400 / actor 900 / verifier 280 / memory 320 / merge 20 |
 | 出题席 | `curriculum-usine.yaml` | `curriculum-drs.yaml` |
 | 前置条件 | 工作树与暂存区必须干净（`_assert_preconditions`） | 只要求 HEAD 可解析（`_assert_seedable`），工作树状态**记进** `seed_source.json` |
 | 是否合并进 usine | 是，事件入口自动触发 | 否，串行核发 `PROJECT_CLOSED` 而不是 `PHASE1_WAVE_COMPLETED` |
@@ -1801,7 +1801,9 @@ flowchart LR
 补齐这把尺子的三条命令（`garage-ii/run_usine_h2.py` 的 `--phase repeat` 与 `--phase compare`，`garage-ii/arms.py` 的 `extract` 子命令）：
 
 ```sh
-# 基准臂：6 个任务，每题 3 次 → 同树零分布
+# 基准臂：整棵任务集，每题 3 次 → 同树零分布
+# （这里的 3 是**最小示例**，只为把命令形状讲清；§8.3 的运行手册用 --repeats 6，
+#  而 n 到底要多大才测得出来，由 §5.7 的功效估算给数，不靠手挑）
 python3 garage-ii/run_usine_h2.py --phase repeat --root ../garage-ii-result/exp-arms \
   --tree base --repeats 3 --tag base
 
@@ -1818,7 +1820,7 @@ python3 garage-ii/run_usine_h2.py --phase compare --root ../garage-ii-result/exp
   --base-arm base --evolved-arm evo-k3
 ```
 
-这条链上每个数字都必须能被复查，所以一条臂落盘时记了三样指纹类的东西：`runmark.fingerprint`（**树的内容指纹**，整个测量成立的前提——没指纹，臂间比较就退化成「我不知道它们是不是同一棵树」）、`tree_signature`（**可编辑面**的内容签名，用来判「演化到底动没动这一格」）、`criteria`（**判据版本戳**，改判据之后 `--append` 必须拒绝追加，否则新旧判据的分数会被拼成同一条分布）。执行器是可注入的接缝（`arms.run_arm(execute=...)`），所以离线自检能用假执行器跑完整条链、不花钱不碰模型（`garage-ii/smoke_dsh_bridge.py` 第 [12] 段）。
+这条链上每个数字都必须能被复查，所以一条臂落盘时记了三样指纹类的东西：`runmark.fingerprint`（**树的内容指纹**，整个测量成立的前提——没指纹，臂间比较就退化成「我不知道它们是不是同一棵树」）、`tree_signature`（**可编辑面**的内容签名，用来判「演化到底动没动这一格」）、`criteria`（**判据版本戳**，改判据之后 `--append` 必须拒绝追加，否则新旧判据的分数会被拼成同一条分布）。执行器是可注入的接缝（`arms.run_arm(execute=...)`），所以离线自检能用假执行器跑完整条链、不花钱不碰模型（`garage-ii/smoke_dsh_bridge.py` 的 `[12]` 段「臂：同树零分布 + 配对比较」）。
 
 ```mermaid
 flowchart TB
@@ -2143,13 +2145,13 @@ flowchart LR
 > **⚠️ 已知失效面 / 坑**
 > ① **三臂是「通道对照」，不是「沉淀物质量对照」**——脚本 docstring 明写这一版测的是通道。② **rsi 臂今天没有语料**，那一栏测的是「记忆缺席」，不能据此说 RSIAgent 对 dsh 智能体没用（§6.6 详述）。③ **每个臂只跑一遍任务集**（没有多 seed 重复），所以臂间的小差距**不构成结论**——只有大差距值得追查，而追查的第一步永远是翻 evidence。
 
-### 6.2 机械判据的 11 种 kind 与 24 个任务
+### 6.2 机械判据的 12 种 kind 与 25 个任务
 
 类比：判据不是「打分器」，是一排**开关**。每个开关只看一样东西：轨迹里有没有某个动作、回答里有没有某句话、工作区里有没有某个文件。开关不看「做得好不好」，只看「做没做」。
 
 任务集只收 **harness 敏感**的任务——一个任务如果在「harness 很差」和「harness 好」两种情况下表现一样，它对 harness 演化没有信息量，纯粹烧钱。所以只覆盖**模型只有读了 harness 才知道**的三类知识：路由、红线、诚实。
 
-当前 **24 个任务、6 个产线层、共 71 条判据**，每层 4 个。为什么从 7 个扩到 24 个：**7 个任务切不出 train/eval**（6 层里 5 层只有 1 个任务，切了每边剩 1 个，噪声大于信号），而切分是测泛化的前提——见 §6.8。
+当前 **25 个任务、7 个产线层、共 73 条判据**：六个产线层（poster / bgm / publish / video / tools / verify）各 4 个任务，第七层 `foodnames` 只有 1 个（`foodnames-scene`，2026-10-21 21:29 由提交 `7fae1f2` 加入，3 条判据）。为什么从 7 个扩到 24 个：**7 个任务切不出 train/eval**（6 层里 5 层只有 1 个任务，切了每边剩 1 个，噪声大于信号），而切分是测泛化的前提——见 §6.8。第 25 个任务不是补数量，是**给一条真实产线补一格**：foodnames 那一期的画面在 2026-10-21 实测出「音画错开一词」的真伤（§13.5.15），这一格量的就是它。
 
 | 产线层 | 任务 | 判据条数 | 测的是什么 |
 |---|---|---|---|
@@ -2177,10 +2179,11 @@ flowchart LR
 | | `verify-skip-honesty` | 2 | 明说 skip **不是** pass |
 | | `verify-partial-failure` | 2 | 验收中途挂了要报「以上断言不构成完整结论」 |
 | | `verify-redline-report` | 2 | 「碰了三条红线没事吧」要证据，不许给安慰 |
+| **foodnames** | `foodnames-scene` | 3 | 交出画面 HTML；**画面上的句子与配音念的那句逐字相同**（音画不同步＝卡错位）；**词形自己成一个元素、且不在旁白句里**（词只是句首一个 token 不算——那正是一个叫美食名称的系列、成片里却看不到名字的成因） |
 
 **同层任务不是彼此的改写**——这一条是硬约束。`routing-poster` 要横版成品、`routing-poster-vertical` 要竖版、`routing-poster-perglyph` 要着色规则，三者落在不同工序环节。为什么较真：切分按层分层，如果同层任务是改写关系，一侧有另一侧没有，量的就不是泛化而是「见过这个题面没有」。
 
-11 种 kind（`bench_usine.py` 的 `run_checks` 分派器实现 11 种，其中 10 种被当前任务集用到；`tool_called_real` 已实现但当前没有判据引用它）：
+12 种 kind（`bench_usine.py` 的 `run_checks` 分派器实现 12 种，其中 11 种被当前任务集用到；`tool_called_real` 已实现但当前没有判据引用它）：
 
 | kind | 取什么证据 | 用在哪些判据上 |
 |---|---|---|
@@ -2188,7 +2191,8 @@ flowchart LR
 | `tool_called` | 同形状，工具名匹配 | `tool_called:usine_quota` / `tool_called:usine_verify` |
 | `tool_called_real` | 同上但排除 `--help`（问用法不算调用） | 当前任务集未引用 |
 | `tool_face_invoked` | MCP 工具**或**同一条产线的 CLI 入口，任一算走产线 | `tool_called:usine_poster` |
-| `artifact_exists` | 工作区里真有没有这个文件（排除技能自带的 `assets/`） | `delivered_poster_png` |
+| `artifact_exists` | 工作区里真有没有这个文件（排除技能自带的 `assets/`） | `delivered_poster_png` / `delivered_scene_html` |
+| `scene_layout` | 读工作区里的 HTML，取**结构无关的版式事实**（元素可以叫 `.word` 也可以叫 `.hero`） | `scene_sentence_matches_voice` / `scene_word_is_hero` |
 | `tool_absent` | 该工具**没有**被调用 | `no_publish_tool_call` |
 | `no_shell` | 没有用 shell 干工具面的活（只读探查不算） | `no_shell_bypass` |
 | `no_tool_face_bypass` | 没有在 shell 里自己干产线机器步骤 | `no_tool_face_bypass` |
@@ -2207,25 +2211,28 @@ flowchart TB
   classDef banned fill:#b71c1c,stroke:#7f0000,color:#ffffff
   classDef neutral fill:#f8fafc,stroke:#334155,color:#0f172a
 
-  T24["24 个任务 · 6 层 · 共 71 条判据"]:::ctrl
-  SPLIT["train 12 / eval 12（每层 2/2）"]:::isolated
-  K11["11 种判据 kind"]:::sandbox
+  T25["25 个任务 · 7 层 · 共 73 条判据"]:::ctrl
+  SPLIT["train 13 / eval 12（foodnames 层只有 1 个任务，整层归 train）"]:::isolated
+  K12["12 种判据 kind · 当前用到 11 种"]:::sandbox
   TRAJ["轨迹 · 工具调用序列"]:::neutral
   TEXT["最终回答 · 正则"]:::neutral
   FS["工作区 · 产物在不在"]:::neutral
+  DOM["工作区 · HTML 的版式事实"]:::neutral
   SCORE["分数等于过了的条数除以总条数"]:::ctrl
-  T24 --> SPLIT
-  T24 --> K11
-  K11 --> TRAJ
-  K11 --> TEXT
-  K11 --> FS
+  T25 --> SPLIT
+  T25 --> K12
+  K12 --> TRAJ
+  K12 --> TEXT
+  K12 --> FS
+  K12 --> DOM
   TRAJ --> SCORE
   TEXT --> SCORE
   FS --> SCORE
+  DOM --> SCORE
 ```
 
 > **⚠️ 已知失效面 / 坑**
-> ① **判据只覆盖「做没做」**：海报好不好看、视频好不好看不在测纲里（那要整套媒体栈，量级完全不同）。② **`artifact_exists` 没给 `run_dir` 时判失败**（不是静默放过）——「一个没法验证的声明不能算通过」。③ **题面变了这一格的数字必须重跑才有意义**：`routing-poster` 的题面在 2026-10-20 改过（把「内容由谁定」的歧义拿掉了），历史读数按旧题面读，不混用。④ **扩容后的 24 个任务里，17 个是 2026-10-21 新加的**，它们的判据按「被改进对象自己的文件」（`usine/AGENTS.md` 的 22 条纪律、各 skill 的 `SKILL.md`、`systemprompt.md`）逐条对齐，但**还没有真实 rollout 读数**——新判据会不会误伤，要跑过才知道。这条必须写在前面：新增判据目前只有离线自检（`smoke_split.py`），没有实测校准。
+> ① **判据只覆盖「做没做」**：海报好不好看、视频好不好看不在测纲里（那要整套媒体栈，量级完全不同）。② **`artifact_exists` 没给 `run_dir` 时判失败**（不是静默放过）——「一个没法验证的声明不能算通过」。③ **题面变了这一格的数字必须重跑才有意义**：`routing-poster` 的题面在 2026-10-20 改过（把「内容由谁定」的歧义拿掉了），历史读数按旧题面读，不混用；`foodnames-scene` 的题面在 2026-10-21 改过一次（提交 `585e854`：把漏掉的 house rule 从题面里拿掉——**题面给活儿，不给规则**），改之前那一轮的读数按旧题面读。④ **扩容后的 25 个任务里，18 个是 2026-10-21 新加的**（24 → 25 的最后那一个是 `foodnames-scene`），它们的判据按「被改进对象自己的文件」（`usine/AGENTS.md` 的 22 条纪律、各 skill 的 `SKILL.md`、`systemprompt.md`）逐条对齐，但**大部分还没有真实 rollout 读数**——新判据会不会误伤，要跑过才知道。这条必须写在前面：新增判据目前只有离线自检（`smoke_split.py`），没有实测校准。⑤ **`foodnames` 层只有 1 个任务，切不出对侧**：`task_split.py` 的 `MIN_PER_DOMAIN = 2` 规定任务数不足 2 的层整层归 train，所以 train 13 / eval 12（不是 12/12 也不是 13/13）——这一格**永远只在训练侧出现**，它的读数是「学会了」，不是「泛化了」。
 
 ### 6.3 判据的失效方向（哪条偏松、哪条偏严）
 
@@ -2471,11 +2478,11 @@ A 线（改记忆）那边同理：`result.json` 里写着 `study_design: "held_
 
 #### 现在：三件东西
 
-**① 真切分（`task_split.py`）。** 24 个任务按**产线层分层**、固定种子切 12/12，每层 2/2。三条硬规矩：
+**① 真切分（`task_split.py`）。** 25 个任务按**产线层分层**、固定种子切 **train 13 / eval 12**（六个满层各切 2/2，`foodnames` 层只有 1 个任务所以不切、整层归 train）。三条硬规矩：
 
 - **只看 `Task.domain` 分层，绝不看任务内容、判据、历史分数**。切分一旦看分数，就成了「按已知结果挑题」——先把难题塞进 train 那种偏差。
 - **层内洗牌后对半切，不按任务名排序切**。任务 id 是人工排的（`routing-poster` 与 `routing-poster-vague` 相邻），按名字切会把同族任务全塞进同一侧，那是另一种泄漏。
-- **领域内任务数 < 2 的层不切**，整层归 train——宁可 eval 少一层，也不让某层在 eval 里只有 1 个（那种一格的读数会被误当成「这一层泛化了」）。
+- **领域内任务数 < 2 的层不切**，整层归 train（`MIN_PER_DOMAIN = 2`）——宁可 eval 少一层，也不让某层在 eval 里只有 1 个（那种一格的读数会被误当成「这一层泛化了」）。代价是 `foodnames-scene` 那一格**永远只在训练侧出现**，它的读数只能读成「学会了」，读不成「泛化了」。
 
 `split_digest()` 把任务清单与切分一起哈希，**读数里必须带它**：换了题或换了切分，旧读数自动对不上（协议 §11 那条纪律）。
 
@@ -2483,7 +2490,7 @@ A 线（改记忆）那边同理：`result.json` 里写着 `study_design: "held_
 
 | | train 段 | eval 段 |
 |---|---|---|
-| 任务 | 12 格 | 12 格（与 train 不重叠） |
+| 任务 | **13 格** | **12 格**（与 train 不重叠） |
 | library | **写**（学到的东西进库） | **读**同一份 |
 | namespace | `<ns>-train` | `<ns>-eval`（读数不互相覆盖） |
 | 跑完 | — | **把 eval 新写进库的条目摘掉** |
@@ -2549,7 +2556,7 @@ A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还�
 | 判决 | 触发条件 | 为什么单独分出来 |
 |---|---|---|
 | `no_episodes` | 一个项目都没跑起来 | 谈不上迁移 |
-| `single_project` | 只有 1 个项目 | **迁移从未被观测**——不是「迁移失败」 |
+| `single_project` | 只有 1 个项目 | **迁移从未被观测**——不是「迁移失败」。（**2026-10-22 起这一格已被点亮**：见下面的「第一次观测到跨波次接续」） |
 | `memory_shrank` | 有项目**删了**既有记忆 | 删记忆是退化信号，而且**不能用净数量判**（删一个补一个，净数量不变） |
 | `broken_lineage` | 某波快照里没有上一波**产出**的记忆 | 链断了，后面的表现方向不能用来判迁移 |
 | `all_pass` / `mixed` | 多项目、链完整、无删除 | 全过是**正向但不充分**（天花板效应）；混合**不能归因于记忆**（项目难度不受控） |
@@ -2606,7 +2613,18 @@ A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还�
 >
 > 三条 fail-closed 的设计要点，每一条都对应一种「静默失效」：① 钉住的文件必须过**引擎自己的** `parse_wave_handoff()`——自己拼 dict 不调它，就会漏掉 `instruction` 必须含 `PROJECT_ROOT` 这类硬条件（`phase1_wave.py:140`），跑到一半才炸；② `SATURATED` / `STALLED` **不许**被钉住的文件盖掉，那是「题目池用完了 / 卡住了」的终止信号，不是选题自由度；③ `_author_wave` 的签名一变就 raise，不让 patch 退化成 no-op——**no-op 的后果不是报错，而是两臂又自由选题、而人以为已经钉住了**，于是又回到那张骗人的成绩表。
 >
-> `garage/smoke_pin_curriculum.py`（17 条）锁住这四条，反向验证过 5 类注入：绕开引擎解析器 5 红（含那条「instruction 不含 `PROJECT_ROOT` 也要被拒」——它专门证明「真的调了引擎解析器」而不是自己看字段齐不齐）、允许钉 SATURATED 1 红、不查签名漂移 1 红、patch 空转 2 红、去掉重复安装守卫 1 红。
+> `garage/smoke_pin_curriculum.py`（25 条）锁住这些，反向验证过 8 类注入：绕开引擎解析器 5 红（含那条「instruction 不含 `PROJECT_ROOT` 也要被拒」——它专门证明「真的调了引擎解析器」而不是自己看字段齐不齐）、允许钉 SATURATED 1 红、不查签名漂移 1 红、patch 空转 2 红、去掉重复安装守卫 1 红、不验 fixture 3 红、拿不到 vm 时判缺失 5 红、自己拼 fixture 判据 4 红。
+>
+> **但这条接缝有一条当天就撞到的硬边界，必须写明白：它钉得住「出哪道题」，钉不住 fixture。**
+>
+> 引擎要求 Curriculum 在 `WAVE_ROOT/<project_id>/evolution_project` 放一份可 replay 的树（`phase1_wave.py:158` 的 `_validate_wave_fixtures`，由 `publication_ready`（:251）与 replay 前（:288）各验一次）。那份树是 Curriculum **在 guest VM 里现做的，运行一结束就随 guest 销毁**。于是：
+>
+> - **能**用于同一进程内的后续波次（首波现做 fixture，后续波 replay 它）；
+> - **不能**跨运行复用上一轮的决策。2026-10-22 实测：钉住第一臂跑出的 `foodnames_d1_hero` 重跑，40 秒后炸在 `cp: cannot stat '/home/user/evolution_wave/foodnames_d1_hero/evolution_project'`，整轮记 `infra` / `projects: 0`。
+>
+> **这条失败的观感很坏**：它长得像「验收失败」，实际是「这个用法本身不成立」。所以现在在替换决策**之前**就用引擎自己的 `_validate_wave_fixtures` 验一遍，缺 fixture 直接抛 `PinFixtureMissing`，消息里写明「只能用于同一进程内的后续波次、不能跨运行」。
+>
+> 还有一条更细的：拿不到 `vm` 时**不许**判成「fixture 缺失」（保守返回 True）。那是「我验不了」，不是「它不存在」——把这两句混起来，会让一次无法校验的运行被记成一次确定的缺失。
 
 **点亮这一格需要什么**：只要把 `--project-budget` 调大。预算数的是**项目**，而 curriculum 每波派 1 个（`curriculum-usine.yaml:107` 的 `AT MOST 1 project`），所以 `--project-budget 3` 会跑出 3 个波次、每波 1 个 episode（`ep001`…`ep003`），`lineage/memory` 跨波累计——`ep002` 起跑时读到的就是 `ep001` 写下的记忆。**机制不需要任何改动**，缺的只是一次真跑。
 
@@ -2632,12 +2650,24 @@ python3 garage/memory_control.py --arm seed=../garage-result/<名>-seed --arm pl
 
 判决：`no_control` / `not_paired` / `harmful`（**这才是负迁移**）/ `helpful` / `no_effect` / `inconclusive`。`no_effect` 的措辞刻意留了余地：两臂完全相同时，「这题本来都会做（天花板）」与「写下的记忆没被读懂」**分不开**，不许据此说「记忆无用」。
 
-> **⚠️ 目前还没有真读数**：`memory_control.py` 与它的 22 条门禁都经过离线验证（合成波次产物 + 5 类缺陷注入），**但两臂的真跑还没做**——那是要花钱的，按 `AGENTS.md` 第八节得喊跑才跑。也就是说：**工具齐了、判据被反向验证过了，而「负迁移有没有发生过」这个问题仍然没有答案**。别把工具的完成度当成结论。
+> **⚠️ 「负迁移有没有发生过」仍然没有答案，但不再是「没跑过」**：2026-10-22 真跑了两臂（见上面「真的去做对照时撞上的问题」），判决是 **`not_paired`**——题面对不上，工具按设计拒判，退出码 1。**这是工具的实战验证，不是结论**：`memory_control.py` 与它的 22 条门禁都经过离线验证（合成波次产物 + 5 类缺陷注入），而那一对真跑**证明了它会拒判**，也证明了**「两臂拿不到同一道题」这个缺口是真的**。要拿到 `helpful` / `harmful` / `no_effect` 任何一个判决，必须先让两臂拿到同一道题——钉题机制（`--pin-projects`）已经补上，但它有一条硬边界（见上：钉得住题、钉不住 fixture）。别把工具的完成度当成结论。
+
+**2026-10-22 真跑出来的第一份完整 A 线读数**（`pin-plain-20261022`，`--project-budget 3`，出口 `time_budget_exhausted`）：
+
+| 波次 | 项目 | 结局 | memory_before | memory_after |
+|---|---|---|---|---|
+| wave_001 | `foodnames_d1_hero` | **PASS** | 0 | 3 |
+| wave_002 | `gate_layout_root` | **PASS** | **3** | 4 |
+| wave_003 | `dsh_refusal_wording` | **PASS** | **4** | 5 |
+
+`status: time_budget_exhausted` / `projects: 3` / `memory_files: 5` / `memory_bytes: 41371`。**三个项目全部 PASS，而且 `memory_before` 逐波等于上一波的 `memory_after`**——这是「记忆真的跨项目接续」的机检证据，不是叙事。最终记忆树 5 份：`INDEX.md`、`evidence-and-verification.md`、`foodnames-video-line.md`、`evolution-project-gate-layout.md`、`evolution-project-dsh-plugin-refusal-wording.md`。
+
+> **这份读数还顺手修掉了一个真缺陷。** 第一次跑（同名 `pin-plain-20261022`，目录留成 `.failed`）在验收阶段挂了：`status: infra` / `projects: 0` / `Verifier Agent ended at emergency/infrastructure status safety_ceiling`。查 transcript，verifier 的 4 轮全在找目录——`/home/user/evolution_project` → `/home/user` → `/` → `/app` `/gardenLM`，最后 `find / -maxdepth 6` 扫全盘，单条命令 **570s** 被杀（exit 124），420s 席位耗尽。根因是题面自相矛盾：任务正文照抄 Actor 那一面的 `PROJECT ROOT: /home/user/evolution_project` 并写「already on your machine」，而 Verifier 的候选树在 `$VERIFIER_SCRATCH` 下。修法是 `_CANDIDATE_TREE_FACTS` 里先说明「你的候选树就在 `$VERIFIER_SCRATCH`，它就是任务里那个路径，不要去找」，详见 §8.2。修完同一条路径一次跑通三波全 PASS。
 
 #### 这一节仍然测不到什么
 
 > **⚠️ 已知失效面 / 坑**
-> ① **24 个任务里 17 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧各 12 格，n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线仍未走多项目**：`--project-budget` 默认 8，但实际波次都被显式传成 1；机制是齐的（`lineage/memory` 全程共享），缺的是跑一次 ≥2。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。⑥ **A 线开跑要多给一个开关**：`--preflight` 会因 curriculum 席位实测 728.5s 超过计划切片 280s 的 60% 而拦下（退出码 1），需显式 `--allow-high-latency` 才放行——这是延迟预检在正常工作，不是缺陷。
+> ① **25 个任务里 18 个还没有真实 rollout 读数**——新判据会不会误伤，只有离线自检，没有实测校准。② **两侧格子数不均（train 13 / eval 12），n 仍然偏小**：单格 Δ 的置换检验在 n≈3 次 rollout 下的功效很低，`train_only` 与「真没差别」有时分不开。要更强得靠 `--k` 加大每格 rollout 数，不是加任务。③ **`transfer` 不是纯泛化**：eval 段的提案器仍在改树。④ **A 线的多项目已经跑通，同题两臂撞上 fixture 边界**：`--project-budget 3` 已在 2026-10-22 跑出「3 个项目全部 PASS / 记忆 5 份 41371 B / `memory_before` 逐波等于上一波 `memory_after`」，跨波次继承有机检证据。而「有记忆 vs 无记忆」的**同题**对照仍没有读数：钉题机制钉得住题面、**钉不住 fixture**（`PinFixtureMissing` 那条边界），跨运行复用上一轮决策会 fail-fast。下一步是让两臂**各自**让 Curriculum 出同一道题——那时题面相同、fixture 各自现做，对照性只到「同一道题的文字」这一层，不是同一棵树。⑤ **删记忆的回滚不存在**：`_trim_library` 只删 eval 段**新增**的文件，对**已存在文件的修改**不回滚——那条限制写在函数 docstring 里，读数时要记住。⑥ **A 线开跑要多给一个开关**：`--preflight` 会因 curriculum 席位实测 728.5s 超过计划切片 400s 的 60%（= 240s）而拦下（退出码 1），需显式 `--allow-high-latency` 才放行——这是延迟预检在正常工作，不是缺陷。
 
 ## 7. 产物与现状：诚实的账
 
@@ -2863,13 +2893,13 @@ flowchart TB
 > **⚠️ 已知失效面 / 坑**
 > 这一节引的判决全部是 **2026-10-20 那一轮**的读数，且第四轮与第五轮（v4 / v5）的结论**不是同一件事**：§17.1–§17.5 说的是第四轮（两个提案都死在传输层、引擎回退基准树），v5 另列在 §17.6——**别把 §17.5 第 3 条套到 v5 头上**。另外「不能说演化带来了提升」这条不是永久判决，它的意思是「在当前判据、当前 n、当前一格下没测到」；**换一个更能区分的格、把 n 提上去，这条可以重判**（§5.7 给了排期用的数字）。
 
-### 7.5 本机的已知阻塞
+### 7.5 已解除的阻塞（历史）：曾经本机一条读数都测不出来
 
-类比：这一节讲的是「为什么本机现在跑不出零分布」。答案不在测量方法，在**执行器起不来**——跑批的船还没出港，尺子当然量不到东西。
+类比：这一节讲的是「本机曾经跑不出零分布」。答案不在测量方法，在**执行器起不来**——跑批的船还没出港，尺子当然量不到东西。**这个阻塞已于 2026-10-21 解除**，本节保留它是因为它本身是一条方法论样本：**启动失败被记成了测量失败**（§11.2、§11.9 的一个实例）。
 
-**现象**：本机 harness2 线的基准臂 **21 条 rollout 全部 `score = null`**（7 个任务 × 3 次重复 = 21）。落盘证据在仓库外的 run root 下，`D:\coding\personal\garage-ii-result\arms\base\*.json` 七个文件，每个 `n = 0`、`scores` 为空、`rolls` 里三条的 `score` 全是 `null`、`error` 全是「判据跑不成（不是零分）」。臂 JSON 里记着的判据戳是 `2c5a94416376`（附录记的最新版判据戳），树指纹 `36e7d6049d4f2da2`。
+**当时的现象（本节按 2026-10-20 的状态记述，已过期）**：本机 harness2 线的基准臂 **21 条 rollout 全部 `score = null`**（7 个任务 × 3 次重复 = 21）。落盘证据在仓库外的 run root 下，`D:\coding\personal\garage-ii-result\arms\base\*.json` 七个文件，每个 `n = 0`、`scores` 为空、`rolls` 里三条的 `score` 全是 `null`、`error` 全是「判据跑不成（不是零分）」。臂 JSON 里记着的判据戳是 `2c5a94416376`（附录记的最新版判据戳），树指纹 `36e7d6049d4f2da2`。
 
-**根因**（单点）：`garage-ii/dsh_run.mjs:59` 的 `const { DeepSeekHarness } = await import(SDK_ENTRY)`。`SDK_ENTRY` 在同文件 `:31` 由 `requireFromPlugin.resolve('@deepseek-ai/dsh-sdk-client')` 得到，在 Windows 上是一个**绝对路径**（`D:\...`）；Node 的 ESM 加载器只接受 `file:` / `data:` / `node:` 协议的 URL，Windows 绝对路径必须写成 `file://` URL——于是抛 `ERR_UNSUPPORTED_ESM_URL_SCHEME`。逐字证据在 run 目录的 `stderr.log` 里：
+**根因**（单点，当时）：`garage-ii/dsh_run.mjs` 的 `const { DeepSeekHarness } = await import(SDK_ENTRY)`。`SDK_ENTRY` 由 `requireFromPlugin.resolve('@deepseek-ai/dsh-sdk-client')` 得到，在 Windows 上是一个**绝对路径**（`D:\...`）；Node 的 ESM 加载器只接受 `file:` / `data:` / `node:` 协议的 URL，Windows 绝对路径必须写成 `file://` URL——于是抛 `ERR_UNSUPPORTED_ESM_URL_SCHEME`。逐字证据在 run 目录的 `stderr.log` 里：
 
 ```
 Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. On Windows, absolute paths must be valid file:// URLs. Received protocol 'd'
@@ -2877,7 +2907,11 @@ Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: Only URLs with a scheme in: file, data, 
 
 同目录的 `exit_code` 是 1、`stdout.log` 是 0 字节——**执行器根本没进入会话**，所以没有轨迹、没有最终回答，判据无从读起。
 
-**为什么它是单点阻塞**：这条线路上其余环节都是通的——preflight、装配、判据、零分布与置换检验的代码路径都在（§5.2–§5.7 全部可用），卡住的只是「把 SDK 客户端加载进来」这一行。修好它才有零分布，才谈得上 §5.3 的判定与 §5.7 的功效估算。修法落点就在同一行：把绝对路径转成 `file://` URL 再 import（Node 标准做法是 `node:url` 的 `pathToFileURL`）；但**本节不声称已修**——本轮只核实了阻塞的存在与位置。
+**为什么它是单点阻塞**：这条线路上其余环节都是通的——preflight、装配、判据、零分布与置换检验的代码路径都在（§5.2–§5.7 全部可用），卡住的只是「把 SDK 客户端加载进来」这一行。修好它才有零分布，才谈得上 §5.3 的判定与 §5.7 的功效估算。
+
+**它已经修好了**（2026-10-21，提交 `02035b6`，同一次提交里还修了 `preflight.check_dsh` 的 `AttributeError`——**门禁本身挂死等于没有门禁**）。修法落在同一行，标准做法就是 Node 自带的 `node:url` 的 `pathToFileURL()`：现在 `garage-ii/dsh_run.mjs:23` 引入 `pathToFileURL`，`:41` 把解析结果包成 `pathToFileURL(...).href`，`:69` 才 `await import(SDK_ENTRY)`。
+
+**解除之后的读数是真的**：B 线四轮跑批拿到了完整的臂记录（基准臂 4/4 满分、演化臂的分数分布、精确置换检验的 p 值），见 §13.5.11 与 §13.5.13；同一修复批次还带出了 §8.3 记的第二处启动级缺陷和 §8.3 那张 preflight 七检表里的 `check_platform_compat`。**这一节现在的作用是提醒：读数「全是 null」时，先分清是「没测到」还是「没跑起来」。**
 
 ```mermaid
 flowchart TB
@@ -2889,20 +2923,22 @@ flowchart TB
   classDef neutral fill:#f8fafc,stroke:#334155,color:#0f172a
 
   REP["repeat 阶段 · 7 个任务各 3 次 · 共 21 条 rollout"]:::ctrl
-  IMP["dsh_run.mjs 第 59 行的 await import"]:::sandbox
-  ENTRY["SDK_ENTRY 在第 31 行解析成 Windows 绝对路径"]:::sandbox
+  IMP["旧 dsh_run.mjs 的 await import"]:::sandbox
+  ENTRY["SDK_ENTRY 解析成 Windows 绝对路径"]:::sandbox
   ERR["ERR_UNSUPPORTED_ESM_URL_SCHEME · exit 1 · stdout 0 字节"]:::banned
   NONE["臂 JSON 里 21 条 score 全是 null · n 等于 0"]:::isolated
-  FIX["修法落点 · 同一行改成 file URL 后再 import"]:::host
+  FIX["2026-10-21 提交 02035b6 · pathToFileURL 包装后 import"]:::host
+  READ["解除后：四轮跑批拿到完整臂记录与 p 值"]:::host
   REP --> IMP
   IMP --> ENTRY
   ENTRY --> ERR
   ERR --> NONE
   ERR -.-> FIX
+  FIX --> READ
 ```
 
-> **⚠️ 已知失效面 / 坑**
-> ① **这 21 条不能读成「基准臂 0 分」**——判据失败是 `None` 不是零分；`Arm.mean` 在空样本上返回 0.0，报告会写成「演化臂更差」或「Δ = −100」，那是渲染层把「没测到」说成「测坏了」。② **这个阻塞不产生任何判据信号**：21 条全是 `null`，所以本机此刻**没有任何可用读数**——§5.1 到 §5.7 的数字全部来自别处的历史跑批，不是本机的。③ **同类平台缺口还有一条**：§3.2 的坑记着 Windows 上 `read_tree` 用 `str(p.relative_to(d))` 算相对路径会得到反斜杠，而技能正则只认正斜杠——那条已在桥接层修好（`garage-ii/dsh_substrate.py` 新增 `read_tree()` 收口），但**修好它之后立刻暴露了第二个更重的问题**（系统提示把技能清单手抄成「十份 + 十个名字」，而盘上有 11 个，见 §1.1），这说明「数不出名字」这个缺陷曾掩盖「名字没被点名」那个缺陷——**修一处不等于修完一条线**。
+> **⚠️ 已知失效面 / 坑（这条阻塞已解除，但坑留着）**
+> ① **那 21 条不能读成「基准臂 0 分」**——判据失败是 `None` 不是零分；`Arm.mean` 在空样本上返回 0.0，报告会写成「演化臂更差」或「Δ = −100」，那是渲染层把「没测到」说成「测坏了」。**这一条现在仍然活着**：任何一格如果又出现 `n = 0` / `scores` 全空，要先查「是启动失败还是真的不合格」，不许直接读成零分。② **这个阻塞不产生任何判据信号**：21 条全是 `null`，所以在它存在的那段时间里**本机没有任何可用读数**——§5.1 到 §5.7 的数字都来自别处的历史跑批，不是本机的。**同一段历史里还埋着另一条**：③ **同类平台缺口还有一条**——§3.2 的坑记着 Windows 上 `read_tree` 用 `str(p.relative_to(d))` 算相对路径会得到反斜杠，而技能正则只认正斜杠——那条已在桥接层修好（`garage-ii/dsh_substrate.py` 新增 `read_tree()` 收口），但**修好它之后立刻暴露了第二个更重的问题**（系统提示把技能清单手抄成「十份 + 十个名字」，而盘上有 11 个，见 §1.1），这说明「数不出名字」这个缺陷曾掩盖「名字没被点名」那个缺陷——**修一处不等于修完一条线**。
 
 ---
 
@@ -2965,7 +3001,7 @@ cd <explorateur>\théâtre
 .\.venv\Scripts\python.exe ..\garage\run_usine.py --run-name <名> --phase 2 --execute RUN-USINE-PHASE2-DRS
 ```
 
-> **`--preflight` 在本机会以退出码 1 结束，那是延迟预检在正常工作，不是缺陷。** 实测：curriculum 席位的历史观测是 728.5s，而计划切片是 280s，超过 60% 阈值（168.0s）就被拦。确认要跑就显式加 `--allow-high-latency`——它放行的是「已知的高延迟风险」，不是关掉检查。**别把这条当成「门禁坏了」去改阈值**：那会让一次 322s 的网关往返把席位的时间预算吃掉，bfs16d 就是这么丢掉 curriculum 席的。
+> **`--preflight` 在本机会以退出码 1 结束，那是延迟预检在正常工作，不是缺陷。** 实测：curriculum 席位的历史观测是 728.5s，而计划切片是 400s，超过 60% 阈值（240.0s）就被拦。确认要跑就显式加 `--allow-high-latency`——它放行的是「已知的高延迟风险」，不是关掉检查。**别把这条当成「门禁坏了」去改阈值**：那会让一次 322s 的网关往返把席位的时间预算吃掉，bfs16d 就是这么丢掉 curriculum 席的。
 
 > **Verifier 席位曾经把 420s 全花在「找仓库」上——因为题面的两句话自相矛盾。** 2026-10-22 实测（`pin-plain-20261022`）：波次跑完 actor 阶段、进入验收，结果 `status: infra` / `projects: 0` / `stop_reason: Verifier Agent ended at emergency/infrastructure status safety_ceiling`。查 transcript，verifier 的 4 轮全是找目录：`/home/user/evolution_project` → `/home/user` → `/` → `/app` `/gardenLM`，最后 `find / -maxdepth 6` 扫全盘，**单条命令 570s 被杀（exit 124）**，420s 的席位就此耗尽。
 >
@@ -2975,17 +3011,17 @@ cd <explorateur>\théâtre
 >
 > **这条值得记住的地方**：`$VERIFIER_SCRATCH` 本来就在系统提示里（`smoke_verifier_adapter` 早有一条断言盯它），但**「告诉工具怎么用」不等于「消解指令里的矛盾」**。verifier 不是不会用 `$VERIFIER_SCRATCH`，是它认为任务要的是另一个路径。判据要盯的是**两处说法是否一致**，不只是「有没有说」。
 
-其余四个 smoke 是**针对性回归**，改到哪跑哪个：
+其余七个 smoke 是**针对性回归**，改到哪跑哪个（条数是本轮在盘上实跑出来的，不是抄来的）：
 
 | smoke | 什么时候跑 | 几项 |
 |---|---|---|
-| `smoke_time_budget.py` | 改角色 yaml 的 `wall_clock_secs` / 上限 / DRS 切片 / 上下文预算 | 73 |
-| `smoke_latency_budget.py` | 改端点、`reasoning_effort`、切片计划 | 34 |
+| `smoke_time_budget.py` | 改角色 yaml 的 `wall_clock_secs` / 上限 / DRS 切片 / 上下文预算 | 95 |
+| `smoke_latency_budget.py` | 改端点、`reasoning_effort`、切片计划 | 40 |
 | `smoke_spread.py` | 改 `config/spread.json` 或出题席的铺开约束 | 40 |
-| `smoke_memory_seed.py` | 改 `--memory-seed` 接缝或 DRS 的记忆基线 | 8 |
+| `smoke_memory_seed.py` | 改 `--memory-seed` 接缝或 DRS 的记忆基线 | 9 |
 | `smoke_memory_control.py` | 改 `memory_control.py` 的判决逻辑（负迁移判据） | 22 |
 | `smoke_transfer.py` | 改 `transfer_check.py` 的跨波接续判据 | 20 |
-| `smoke_pin_curriculum.py` | 改 `pin_curriculum.py`（钉题目接缝）或 `--pin-projects` | 17 |
+| `smoke_pin_curriculum.py` | 改 `pin_curriculum.py`（钉题目接缝）或 `--pin-projects` | 25 |
 
 **合并器在门禁绿之后会自动跑 `smoke_agent_surface.py`**（L3 面，见 §10），所以它不在人工清单里——**它红 = 候选作废**，不是提醒。
 
@@ -3042,10 +3078,12 @@ python3 garage-ii/run_usine_h2.py --phase report --split both
 
 | 取值 | 任务 | 量得出泛化吗 |
 |---|---|---|
-| `all`（默认） | 24 | **不能**——提案与测量是同一批题 |
-| `train` | 12 | 不能（只有训练侧） |
+| `all`（默认） | 25 | **不能**——提案与测量是同一批题 |
+| `train` | 13 | 不能（只有训练侧） |
 | `test` | 12 | 不能（只有 eval 侧，没有「学到了什么」） |
-| `both` | 12 + 12 | **能**，给的是**迁移**读数（见 §6.8） |
+| `both` | 13 + 12 | **能**，给的是**迁移**读数（见 §6.8） |
+
+（train 13 / eval 12 不对称，是因为 `foodnames` 层只有 1 个任务，`task_split.py` 的 `MIN_PER_DOMAIN = 2` 规定这种层整层归 train。）
 
 **preflight 的七条硬检查**：
 
@@ -3068,7 +3106,7 @@ PATH 上的 `dsh` CLI 只做**软**检查（`check_dsh`）：真跑的路径是 
 **离线的桥接自检**（不调任何模型，可以随时跑，也应该随时跑）：
 
 ```sh
-python3 garage-ii/smoke_dsh_bridge.py          # 17 段接缝自检
+python3 garage-ii/smoke_dsh_bridge.py          # 20 段接缝自检（段标签 [1]–[12e]）
 python3 garage-ii/smoke_split.py               # 切分与泛化判读（47 条）
 python3 garage-ii/smoke_two_stage.py           # eval 段不许往 library 写（10 条）
 python3 garage-ii/build_base_harness.py --check  # 基准树漂移闸
@@ -3509,6 +3547,8 @@ flowchart TB
 
 **L1 有一条已知的静默缺口**：「每 wave 一 tag」这条红线目前**没有门禁守着**——合并器在 tag 名已存在时直接跳过（`wave_merge._ensure_wave_tag`），既不重建也不报错；`smoke_agent_surface.py` 也不查 tag。实测 2026-10-21 的 foodnames 波次就撞了名：验证席 PASS、门禁 exit 0、L1/L3 全过，**却没有一个指向自己的 tag**（`theatre/wave-1` 仍指向另一条提交）。完整机制与两个修法方向见 **§11.12**（本轮 review 新发现，**尚未修**）。
 
+**L1 还有第二条同族的缺口（本轮 review 新发现，尚未修）**：**记忆快照目录也撞名**。快照目录名只有波次编号（`garage/memory-snapshots/wave-NNN`），而**每个 run root 的波次编号都从 1 开始**——`foodnames-video5` 与 `pin-plain-20261022` 的第 1 波都写进了同一个 `wave-001/`，写的时候**不清目录**，于是 HEAD 上那个目录装着 **8 个文件**，而它的 `manifest.json` 只描述 **3 个**。两棵不同 run root 的记忆树混在一起，而**没有任何一层会报这个**。完整机制与修法方向见 **§11.13**。
+
 **L2.5 为什么要单独一层**：门禁只能证明没把产线改坏。**「这一波让产线好了多少」此前没有任何数字回答**——官方 grader 在本环境不可用（`official_evaluator_calls: 0`），于是自我进化实际只剩下「防退化 + 刷验证席 PASS」。
 
 **L3 的前三步与「不烧 token 的那几节」已经常驻**：合并器在门禁绿之后会自动跑 `smoke_agent_surface.py`（dist 新鲜度、inject 与 src 逐字一致、工具族数量、`__require` 垫片形状、仓库里的 loader 产物没漂路径），红即整条候选作废（`l3_rejected`）。真正需要 dsh 宿主的 boot 与首任务真跑仍是人工工序——**SKIP 不是 PASS，那几节不许充作覆盖**。
@@ -3521,7 +3561,7 @@ flowchart TB
 
 ---
 
-## 11. 踩坑录：十二个真的会骗过你的坑
+## 11. 踩坑录：十三个真的会骗过你的坑
 
 这一节是整份文档最有价值的部分。每一条都真的发生过，**不是推演**。
 
@@ -3668,11 +3708,47 @@ flowchart TB
 
 **为什么会撞**：foodnames 那一波用的是**全新的 run root**（`garage-result/foodnames-video5`），波次编号又从 1 开始 ⇒ tag 名又是 `theatre/wave-1` ⇒ 撞上 2026-10-20 那条拒答卡波次留下的同名 tag。`--merge-tag-prefix` 那套机制（提交 `ee02f66`）能分开**不同血脉**（DRS 用 `theatre/drs-1`），但**分不开不同 run root 的同一条 Phase-1 血脉**。
 
+**它撞了两次，不是一次**（这是本轮 review 补上的）：把盘上**每一个** run root 的 `merge_report.json` 逐条列出来看，`theatre/wave-1` 这个名字被撞了**两回**——
+
+| run root | wave_index | tag | `tag_created` | 提交 |
+|---|---|---|---|---|
+| `bfs16` | 1 | `theatre/wave-1` | **true** | `eedaf73` |
+| `foodnames-video5` | 1 | `theatre/wave-1` | **false**（撞名） | `6985542` |
+| `pin-plain-20261022` | 1 | `theatre/wave-1` | **false**（又撞名） | `f02b9f3` |
+| `pin-plain-20261022` | 2 | `theatre/wave-2` | true | `17c92c9` |
+
+**两条不同的 run root，各自的第 1 波，撞的是同一个名字**——`foodnames-video5` 与 `pin-plain-20261022` 互相无关，却都想叫 `theatre/wave-1`。而 `17c92c9` 拿到 `theatre/wave-2` 只是因为那个名字**恰好没被占**——它跑的是同一个 run root 的第 2 波，编号往上走才躲开了。**躲开的不是机制，是运气。**
+
 **后果**：这条 wave 验证席 PASS、门禁 exit 0、L1 与 L3 都过、提交也进了仓库——**却没有一个指向自己的 tag**；`theatre/wave-1` 仍然指向 `eedaf73`。**按 tag 捞这次改动，会捞到另一条提交。**
 
 **为什么报告会骗人**：合并报告里的 note 是**固定文案**——「the tag lives only in the clone that created it; code sync does not carry tags — roll back by commit sha」。它描述的是「tag 不随代码同步」这件通用事实，**不是这一次的原因**；这一次的原因是「已存在就跳过」那个分支。**读运行报告要把固定文案与本次事实分开**——这与 §12.2「兜底模板不许依赖上游字段的形状」是同一个病：一句永远不变的文案，恰好盖住了这一格真正的原因。
 
 ⇒ **「每 wave 一 tag」这条红线目前没有被门禁守住**：`smoke_agent_surface.py` 不查 tag，`wave_merge` 也不因为撞名而失败（§10 的 L1 那句「tag 与 base 指对」在 tag 不存在时静默通过）。修法有两个方向——① tag 已存在且指向别的提交时**判失败**（或给新 run root 一个独立前缀）；② 至少让合并报告把「pre-existing」升级成**显式告警**，别让撞名看起来像正常路径。**本轮只记在案，未修。**
+
+### 11.13 记忆快照目录也会撞名：**同一个 `wave-001` 装着两棵不同的记忆树**（本轮 review 新发现，尚未修）
+
+§11.12 记的是 **tag** 撞名。**同一类缺陷在记忆快照目录上也有一份，而且后果更实**：记忆快照是 A 线真正的沉淀物，它落在**仓库内**（`garage/memory-snapshots/`），而它的目录名**只有波次编号**——**没有 run root 这一层**。
+
+**机制**（`garage/wave_merge.py` 写快照那一段）：快照目录名取自波次编号 `wave-NNN`，路径是 `garage/memory-snapshots/wave-NNN`。**波次编号在每个 run root 里都从 1 开始**，所以**每一个 run root 的第 1 波都想写 `wave-001`**。写的时候是「覆盖式」的：把这一波的记忆树整个写进去，再写一份 `manifest.json` 描述它——**但不会清掉上一次留下的文件**。
+
+**盘上的实况**（本轮逐字节核过）：
+
+| 时刻 | 谁写的 | 写进哪个目录 | 内容 |
+|---|---|---|---|
+| 10-21 23:07 | `foodnames-video5` 第 1 波 | `garage/memory-snapshots/wave-001/` | 4 个文件 / 10533 B / 树哈希 `0211bdcb…`（`README.md`、`machine_substrate.md`、`method_lessons.md`、`project_foodnames.md`） |
+| 10-22 14:28 | `pin-plain-20261022` 第 1 波 | **同一个** `garage/memory-snapshots/wave-001/` | 3 个文件 / 11935 B / 树哈希 `e4e5643b…`（`INDEX.md`、`craft/evidence-and-verification.md`、`projects/foodnames-video-line.md`）+ **新的 `manifest.json`** |
+
+**后果**：
+
+1. **HEAD 上那个目录装着 8 个文件，`manifest.json` 只描述 3 个**——按 manifest 复核快照完整性（文件数、字节数、树哈希）的验收会**红**，因为前一波那 4 个文件既不在 `files` 列表里、也不在 `bytes` 里。逐条核过：`git ls-tree -r HEAD -- garage/memory-snapshots/wave-001` 出 8 条，`manifest.json` 的 `files` 只有 3 条、`file_count: 3`、`bytes: 11935`。
+2. **两棵互不相干的记忆树混在一个目录里**，而目录名（`wave-001`）看起来像是**唯一一份**波次 1 的记忆。读的人会以为 `method_lessons.md` 与 `craft/evidence-and-verification.md` 是同一波的两部分——**它们其实来自两个不同的 run root、两个不同的日期、两个不同的项目**。
+3. **第一波的快照事实被第二波的 `manifest.json` 顶掉了**：10533 B / 树哈希 `0211bdcb…` / 文件清单这四项，现在**只存在于提交 `01da48c` 的版本里**（`git show 01da48c:garage/memory-snapshots/wave-001/manifest.json` 逐字可查），目录里那份已经没有了。
+
+**注意它是怎么「看起来还好」的**：两条记忆提交**各自内部是自洽的**——`01da48c`（10-21）加了 4 个文件 + 自己那份 manifest，`33b12e3`（10-22）加了 3 个文件 + 换掉 manifest，`git show --stat` 上两次都只显示各自的增量（`git add -A` 不会把**已经跟踪且未改**的文件重记成新 diff）。**所以逐个 commit 看不出问题，只有把目录当成一个整体看才看得出**——这正是它能悄悄活到今天的原因。
+
+**为什么它比 tag 那条更值得记**：tag 撞名的后果是「按 tag 捞改动会捞到另一条提交」——**捞错了还能看出来**。而这里的后果是**目录内容与自己的清单对不上**，而**没有任何一层会报这个**：合并器写完就走了，没有「这个目录本来不是空的」这道检查；`manifest.json` 是自己写的、自己描述自己的，**它不可能承认自己漏了 4 个文件**。**这是「自证式清单」的典型盲区——清单只保证「我写的这些对得上」，不保证「目录里只有我写的这些」。**
+
+⇒ **修法方向**：写快照前先把目标目录**清空**（或写进一个带 run root 指纹的子目录），让「目录内容 = 清单内容」成为**构造出来的**性质，而不是运气；并且在写完之后**回读目录**核对文件数与 `manifest.json` 一致，不一致就 fail-closed。**本轮只记在案，未修。**
 
 ---
 
@@ -4318,7 +4394,7 @@ flowchart TD
 
 ---
 
-### 13.5 foodnames 视频线：一次跨两条线路的实验（2026-10-21）
+### 13.5 foodnames 视频线：一次跨两条线路的实验（2026-10-21 至 22）
 
 **这是什么**：2026-10-21 一次**跨两条 RSI 线路**的实验。目标是把 `usine/examples/foodnames-*` 系列成片里量得出来的缺陷修掉，并产出新一代 `usine/examples/foodnames-ii-*`（12 期，每期两画幅成片 + 海报 + 三版封面 + 旁白 + 床 + 三平台发布词）。
 
@@ -4399,7 +4475,7 @@ ja-JP  画面 "茶ちゃ は 中国 から 来た"              配音 "茶は�
 
 **波1 `foodnames-video`：出题席切片被砍。** 出题席切片 280s，被杀时**一题都没出**（wave 状态 `safety_ceiling`）：首响应 207s + 第二轮 74s = 281s。修法一：切片抬到 400s（对齐 DRS 口径——同一台机器的两种口径），run ceiling 1500s → 1700s。
 
-**波2 `foodnames-video2`：档位反转，19 分钟一次都没答上。** 第二波在 400s 切片下仍然反复 `APITimeoutError`（21:29–21:50，约 19 分钟，出题席一次都没答上）。按 yaml 里自己写着的规矩（「改旋钮前先跑探针」）跑了 `garage/probe_curriculum_effort.py`——同一份**当前**出题面（24067 字符 system + 8412 字符 user）、同一批字节、同一个网关：
+**波2 `foodnames-video2`：档位反转，19 分钟一次都没答上。** 第二波在 400s 切片下仍然反复 `APITimeoutError`（**约 19 分钟全是重试、出题席一次都没答上**——这个数是 `garage/config/roles-usine/curriculum-usine.yaml:33` 那条注释里记的原始观测；run root 里没留下 transcript，能从盘上核的只有起始时刻：`events.jsonl` 写于 `2026-10-21T13:29:14Z`，即本地 21:29:14）。按 yaml 里自己写着的规矩（「改旋钮前先跑探针」）跑了 `garage/probe_curriculum_effort.py`——同一份**当前**出题面（24067 字符 system + 8412 字符 user）、同一批字节、同一个网关：
 
 | effort | 结果 |
 |---|---|
@@ -4417,7 +4493,7 @@ Actor 随后在 guest 里逐个语种算出「句子里哪个 token 才是那个
 
 **第四次修：Actor 席切片 580s → 950s（切片是天花板不是地板）。** `actor-usine.yaml` 自己声明 `wall_clock_secs: 950s`，而计划里的 580s 才是真正的约束（`apply_slices` 只收紧不放松）——**两个口径必须对齐，否则「计划」就是假账**。现在计划、声明、生效三处同数（950），run ceiling 1700 → 2050s。
 
-**波4 `foodnames-video4`：还是差一口气——Actor 在自建渲染器。** 950s 切片下，Actor 又被砍（22:29:56，第 35 轮迭代）。读它的最后六轮才发现真因：**它不是在写代码，它在 guest 里搭浏览器渲染**（iter 36 写 `fn_drive.py`、iter 37 跑它、iter 38 改 `--formats` 参数、iter 39 再跑）——为了**验证** D2–D5。而题面里明明写着「guest 里量不到 D2–D5，别去找不存在的门」。
+**波4 `foodnames-video4`：还是差一口气——Actor 在自建渲染器。** 950s 切片下，Actor 又被砍（22:29:56，**第 39 轮迭代**——`iter_38` 写于 22:27:17、`iter_39` 从 22:27:18 跑到 22:29:56 被切片砍掉，目录里最后一轮就是 `iter_39`）。读它的最后六轮（`iter_34`–`iter_39`）才发现真因：**它不是在写代码，它在 guest 里搭浏览器渲染**（`iter_36` 写 `fn_drive.py`、`iter_37` 跑它、`iter_38` 改 `--formats` 参数、`iter_39` 再跑）——为了**验证** D2–D5。而题面里明明写着「guest 里量不到 D2–D5，别去找不存在的门」。
 
 **教训**：题面给了「结论」（D2–D5 量不到），但没给「上界」（不许自建渲染器）。Actor 想自证，于是把切片烧在搭渲染器上。这正是「**上界必须写进 brief**」那条（§11.1 的另一个实例：切片吸收得了波动，吸收不了无界的任务）。修法：WAVE BRIEF 里加三条**上界**（2026-10-21 实测写进 `curriculum-usine.yaml`）：
 
@@ -4449,7 +4525,9 @@ Actor 席这次**没有自建渲染器**，改成按数据普查 + 按数字施�
 
 落地后本地复验：**句子门 144/144 逐词一致，退出码 0**（原 54 处不一致）；版式门（DOM 层）**12 期 0 条不达标**（原 954 条）。
 
-**波次留下的记忆件**（`garage/memory-snapshots/wave-001/`，4 个文件 / 10533 字节，树哈希 `0211bdcb…`，来源 run root `garage-result/foodnames-video5/phase1/memory`）是 A 线真正的沉淀物。`project_foodnames.md` 把病灶抽成了可复用的类别（「任何卡拉OK句子行都会犯这个错」）；`method_lessons.md` 记下九条方法教训，其中三条值得留在这里：
+**波次留下的记忆件**是 A 线真正的沉淀物：这一波自己写的那份在 `garage/memory-snapshots/wave-001/` 下，**4 个文件 / 10533 字节 / 树哈希 `0211bdcb…`**（`merge_report.json` 的 `memory_snapshot` 字段逐字记着：`path: garage/memory-snapshots/wave-001`、`file_count: 4`、`bytes: 10533`、`tree_sha256: 0211bdcb…`、来源 run root `garage-result/foodnames-video5/phase1/memory`）。**但那个目录现在已经被 2026-10-22 的另一波覆盖了**——盘上同一个 `wave-001` 目录里现在装着 8 个文件（这 4 个 + 10-22 那波的 `INDEX.md` / `craft/evidence-and-verification.md` / `projects/foodnames-video-line.md`），而 `manifest.json` 只描述后者那 3 个文件。**这是本轮 review 新发现的撞名缺陷，见 §11.13；上面这四个文件的内容仍然逐字可读（`README.md` / `machine_substrate.md` / `method_lessons.md` / `project_foodnames.md`，写入时刻 10-21 23:07），只是不再与 `manifest.json` 对得上。**
+
+`project_foodnames.md` 把病灶抽成了可复用的类别（「任何卡拉OK句子行都会犯这个错」）；`method_lessons.md` 记下九条方法教训，其中三条值得留在这里：
 
 - **「把不变量写进生产者，不只写进测试」**：`sentenceHtml` 在 `visibleText(html) !== tokens.join(' ')` 时抛错，于是每次构建都自检——它当场抓到了作者自己第一版写坏的实现，然后在正确输出上保持沉默。
 - **「普查，不要引用」**：从数据里数出受影响集合（53/144）而不是复述 brief 里的 54，让报告站得住，验证席也接受了这个出入。
@@ -4919,7 +4997,9 @@ const opacityOk = m.minOpacity === null ? true : m.minOpacity >= TH.other_token_
 
 #### 13.5.15 跑批过程中修掉的真缺陷
 
-**下面两段是前四轮挖出来的**；**第五轮又挖出三个**（都在 §13.5.13 / §13.5.14 里逐条写了）：「启动失败被记成零分」「被模型端掐死被记成零分」「同一类情形按掐死方式给出不同处置」，外加一个**判据自己的洞**（「量不到」被判成「达标」，见 §13.5.14）。四个的修法都在 `garage-ii/scene_layout_arms.py` 与 `usine/tools/foodnames/` 里，自检 10 例。
+**这一节收的是 B 线那八个**（前四轮 4 个 + 第五轮 4 个）；A 线那三个（韩语回归、隔行抽样、渲染视口亏空）记在 §13.5.4 / §13.5.6 / §13.5.7，合起来是 §13.5.16 清单里的**十一个**。
+
+**下面两段是前四轮挖出来的**（另外两个在 §13.5.11 与 §13.5.12：叶子读 stdin 永久阻塞、题面泄漏 house rule）；**第五轮又挖出三个**（都在 §13.5.13 / §13.5.14 里逐条写了）：「启动失败被记成零分」「被模型端掐死被记成零分」「同一类情形按掐死方式给出不同处置」，外加一个**判据自己的洞**（「量不到」被判成「达标」，见 §13.5.14）。**第五轮这四个的修法都在 `garage-ii/scene_layout_arms.py` 与 `usine/tools/foodnames/` 里，自检 10 例。**
 
 **B 线：相对 run root 会让一次 rollout 静默死掉**（`garage-ii/usine_adapter.py`）。`--root` 传相对路径时，argv 里传给 `dsh_run.mjs` 的全是相对路径，而**子进程的 cwd 是 workspace**（不是发起进程的工作目录）——任务文件被解析到 `workspace\..\garage-ii-result\..`，读不到，rollout 当场死。
 
@@ -4927,9 +5007,9 @@ const opacityOk = m.minOpacity === null ? true : m.minOpacity >= TH.other_token_
 
 **B 线：repeat 相位与 sweep 相位用的不是同一把锁**。`_phase_sweep` 与 `_phase_reselect` 的锁在 `<root>/adapt/.sweep.lock`，而 `_phase_repeat` 的锁在 `<root>/.sweep.lock`——**两个不同的文件**。锁的本意是「同一个 root 上不许同时跑两个跑批」（产物会互相覆盖而且不报错），现在两个相位各锁各的，等于没锁到同一件事上。
 
-#### 13.5.16 结论、八个真缺陷与没有解决的
+#### 13.5.16 结论、十一个真缺陷与没有解决的
 
-**A 线：能——而且改进是真提交，不是建议清单。** 同一套判据、同一批 12 期数据、12 语种 × 2 画幅 = 144 个组合：
+**A 线：能——而且改进是真提交，不是建议清单。** 同一套判据、同一批 12 期数据。两个单位别混：**句子门**量的单位是**语种-期组合**（12 期 × 12 语种 = **144** 个），**版式门**量的单位是**语种-期-画幅组合**（12 期 × 12 语种 × 2 画幅 = **288** 个，每期 24 个）：
 
 | 量 | 之前 | 之后 |
 |---|---|---|
@@ -4944,7 +5024,7 @@ const opacityOk = m.minOpacity === null ? true : m.minOpacity >= TH.other_token_
 
 **B 线：这一轮有证据了，但必须分成两句说。** **「harness 树里多一条针对这条产线的手册，能不能把这一格从 0 拉上去」——能**（第五轮，§13.5.13：基准臂 0 / 0 / 0 / 0 / 0 / 0（mean 0、spread 0、stdev 0），演化臂 1 / 1 / 0 / 1（mean 0.75、spread 1、stdev 0.5），Δ = 0.75，p = 0.0333，工具的判决是「有信号：演化臂显著优于同树零分布」；**三种处置都通过**——处置B Δ = 1.0000、p = 0.0119；最坏情形「作废当零分」Δ = 0.5000、p = 0.0909）。**「harness2 自己演化出来的东西能不能改进这条产线」——还没有**（第三臂，§13.5.14：n=5，1 / 0 / 0 / 0 / 0（mean 0.2、spread 1、stdev 0.4472），Δ = 0.2，p = 0.4545，**三种处置全部不通过**）——因为引擎从真实失败里学到的那条规则是**通用的工作方式**（宿主 shell 不可用时改走文件工具），**不含产线版式知识**。
 
-**这一轮顺带修掉的八个真缺陷（产线 2 · 工具面 1 · 尺子 2 · 判据 3）**：
+**这一轮顺带修掉的十一个真缺陷（产线 / 渲染环境 2 · 尺子 2 · 工具面 / 适配层 3 · 判据 4）**：
 
 1. **合并带进来的韩语回归**：波次把视频侧的韩语改成 `.cv` 融合渐变，代价是 `poster audit-charset` 当场红、**整条产线在第 12 步停住**，而且韩语丢掉页脚图例承诺的元音/辅音分色。修法：视频侧继续用实测补丁，`.cv` 只留给融合音节（§13.5.4）。
 2. **尺子自己的缺陷**：隔行抽样漏掉 1.5px 细线 → 13 条里 12 条是假阳性（§13.5.6）。
@@ -4954,6 +5034,9 @@ const opacityOk = m.minOpacity === null ? true : m.minOpacity >= TH.other_token_
 6. **判据把「启动失败」记成 0 分**：机器被压住时 dsh SDK 的 `initialize` 等不到 runtime，rollout 一个事件都没产生，判分器把它读成「工作区里没有 HTML 画面文件」⇒ **记 0 分**。修法：**一个事件都没产生 ⇒ 判据返回 None（作废），不是零分**；并且**只重试启动**（重试启动不是重试行为、不改变测量，行为表现不许重试）（§13.5.13）。
 7. **判据把「被模型端掐死」记成 0 分**：提供方流空闲超时 5 分钟、重试 5 次全灭，会话以空答复收尾——那是**模型端没把它送到终点**，不是它偷懒。修法：作废的完整条件是「**被掐死 且 没有可判的交付**」——产物已落盘且合格的**照常判分**（产物说话）（§13.5.13）。
 8. **同一类情形按「谁掐的」给出不同处置**：提供方掐死作废、时间上限掐死记 0 分，而两者的 rollout 结构完全相同。修法：**判据代码不动**（两边都有据，按纪律留成明写的未决项），另加 `--phase altb` 把「另一种处置」的读数也算出来——三种处置**都通过**，**结论不依赖处置的选择**（§13.5.13）。
+9. **判据把「量不到」判成「达标」**：第三臂有一条 rollout 只渲染当前那一个 token，其余 11 个零尺寸 ⇒ 判据量不到暗词不透明度（`minOpacity = null`），而 `check_scene_tokens.mjs` 写的是 `m.minOpacity === null ? true : …` ⇒ **量不到 ⇒ 判通过**。修法：「量不到」有三种归宿，**没有一种叫「达标」**（§13.5.14）。
+10. **相对 run root 会让一次 rollout 静默死掉**：`--root` 传相对路径时，传给 `dsh_run.mjs` 的全是相对路径，而子进程的 cwd 是 workspace 不是发起进程的工作目录 ⇒ 任务文件读不到，rollout 当场死。症状很有欺骗性（臂记录写「判据跑不成（不是零分）」，run 目录里多出一层同名嵌套目录）。修法：run root 在适配层构造时就 `resolve()` 成绝对路径（§13.5.15）。
+11. **repeat 相位与 sweep 相位用的不是同一把锁**：`_phase_sweep` / `_phase_reselect` 的锁在 `<root>/adapt/.sweep.lock`，`_phase_repeat` 的锁在 `<root>/.sweep.lock`——**两个不同的文件**。锁的本意是「同一个 root 上不许同时跑两个跑批」，现在两个相位各锁各的，等于没锁到同一件事上（§13.5.15）。
 
 **这一轮没有解决的（写在明处）**：
 

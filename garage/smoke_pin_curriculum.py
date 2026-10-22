@@ -267,6 +267,119 @@ def main() -> int:
         out2.stdout.strip()[:120],
     )
 
+    # ── [8] 硬边界：fixture 不在时必须在替换前就说清，不许跑到 cp 才炸 ──────
+    #
+    # 2026-10-22 实测：钉住上一轮跑出的 foodnames_d1_hero 重跑，40 秒后炸在
+    # `cp: cannot stat '/home/user/evolution_wave/foodnames_d1_hero/
+    # evolution_project'`，整轮记 infra / projects: 0。**看起来像验收失败，
+    # 其实是 fixture 不存在**——上一轮的 fixture 随 guest 销毁了。
+    #
+    # 所以要测两件事：
+    #   (a) fixture 缺失 → PinFixtureMissing，且消息里有「跨运行」这个原因；
+    #   (b) 拿不到 vm 时**不许**判成缺失（那是「验不了」，不是「不存在」）。
+    fix_script = tmp / "fixture.py"
+    fix_script.write_text(
+        "\n".join([
+            "import sys",
+            f"sys.path.insert(0, {str(HERE)!r})",
+            f"sys.path.insert(0, {str(_THEATRE)!r})",
+            "import explore.phase1_wave as w",
+            "import pin_curriculum as P",
+            # 假 vm：引擎的 _validate_wave_fixtures 会调 vm.run_command
+            "class NoFixtureVM:",
+            "    def run_command(self, cmd, timeout=60):",
+            "        return 'PHASE1_WAVE_FIXTURE_RC=1'",   # 引擎口径：非 0 = 没有
+            "print('MISSING:', P._fixture_present(w, NoFixtureVM(), 'x') is False)",
+            "class HasFixtureVM:",
+            "    def run_command(self, cmd, timeout=60):",
+            "        return 'PHASE1_WAVE_FIXTURE_RC=0'",
+            "print('PRESENT:', P._fixture_present(w, HasFixtureVM(), 'x') is True)",
+            # 拿不到 vm 时保守返回 True（验不了 ≠ 不存在）
+            "print('NO_VM:', P._fixture_present(w, None, 'x') is True)",
+        ]),
+        encoding="utf-8",
+    )
+    out3 = subprocess.run(
+        [sys.executable, str(fix_script)],
+        capture_output=True, text=True, timeout=120,
+    )
+    check(
+        "fixture 缺失时判 False（用引擎自己的口径）",
+        "MISSING: True" in out3.stdout,
+        out3.stdout.strip()[:100] + out3.stderr.strip()[-80:],
+    )
+    check(
+        "fixture 在场时判 True",
+        "PRESENT: True" in out3.stdout,
+        out3.stdout.strip()[:100],
+    )
+    check(
+        "拿不到 vm 时不判成缺失（验不了 ≠ 不存在）",
+        "NO_VM: True" in out3.stdout,
+        out3.stdout.strip()[:100],
+    )
+
+    # 错误类型与消息：必须能让上层分清「用法不成立」与「运行故障」。
+    check("有 PinFixtureMissing 这个类型", hasattr(pin_curriculum, "PinFixtureMissing"))
+    check(
+        "PinFixtureMissing 是 RuntimeError 的子类（上层照常能 catch）",
+        issubclass(pin_curriculum.PinFixtureMissing, RuntimeError),
+    )
+
+    # 真跑一次 patch，确认它抛的是 PinFixtureMissing 而不是让 cp 去炸。
+    nf_script = tmp / "nofixture.py"
+    nf_script.write_text(
+        "\n".join([
+            "import json, sys",
+            f"sys.path.insert(0, {str(HERE)!r})",
+            f"sys.path.insert(0, {str(_THEATRE)!r})",
+            "import explore.phase1_wave as w",
+            f"_INSTR = 'You are working in the repository at {PROJECT_ROOT} (a TS pnpm monorepo). x'",
+            "def fake(hooks=None, vm=None, cfg=None, target_direction='',",
+            "         previous_wave_outcomes='', history=None, sink_root=None,",
+            "         target_query_conditioned=False):",
+            "    d = w.WaveDecision('WAVE', 'r', (w.WaveProject('pinned-x', _INSTR),),",
+            "                       json.dumps({'decision':'WAVE','rationale':'r',",
+            "                                   'projects':[{'id':'pinned-x','instruction':_INSTR}]}))",
+            "    return d, []",
+            "w._author_wave = fake",
+            "class NoFixtureVM:",
+            "    def run_command(self, cmd, timeout=60):",
+            "        return 'PHASE1_WAVE_FIXTURE_RC=1'",
+            "import pin_curriculum as P",
+            "pinned = {'decision':'WAVE','rationale':'r',",
+            "          'projects':[{'id':'pinned-x','instruction':_INSTR}]}",
+            "P.install(pinned)",
+            "try:",
+            "    w._author_wave(vm=NoFixtureVM())",
+            "    print('NO_RAISE')",
+            "except P.PinFixtureMissing as e:",
+            "    print('RAISED_TYPE: True')",
+            "    print('SAYS_CROSS_RUN:', '跨运行' in str(e))",
+            "    print('SAYS_FIXTURE:', 'fixture' in str(e))",
+        ]),
+        encoding="utf-8",
+    )
+    out4 = subprocess.run(
+        [sys.executable, str(nf_script)],
+        capture_output=True, text=True, timeout=120,
+    )
+    check(
+        "fixture 缺失时 patch 抛 PinFixtureMissing（不是让 cp 去炸）",
+        "RAISED_TYPE: True" in out4.stdout,
+        out4.stdout.strip()[:120] + out4.stderr.strip()[-120:],
+    )
+    check(
+        "错误信息说清「跨运行不可用」这个原因",
+        "SAYS_CROSS_RUN: True" in out4.stdout,
+        out4.stdout.strip()[:150],
+    )
+    check(
+        "错误信息点出 fixture 这个词",
+        "SAYS_FIXTURE: True" in out4.stdout,
+        out4.stdout.strip()[:150],
+    )
+
     n_pass = sum(1 for _l, ok, _d in RESULTS if ok)
     n_fail = len(RESULTS) - n_pass
     print("=" * 72)

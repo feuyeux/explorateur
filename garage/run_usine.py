@@ -1990,14 +1990,19 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pin-projects", default="", metavar="CURRICULUM_DECISION_JSON",
         help=("pin every wave's projects to an existing "
-              "`curriculum_decision.json` (a file from an earlier run's "
-              "`phase1/waves/wave_NNN/`).  **Needed to compare two arms on the "
-              "SAME task**: the Curriculum picks from a fixed menu with no "
-              "deterministic switch, so two arms can otherwise draw different "
-              "projects -- and a memory comparison across different tasks "
-              "measures task difficulty, not memory.  Only the project choice "
-              "is replaced; SATURATED / STALLED still come from the engine, "
-              "and the pinned file must pass the engine's own parser."))
+              "`curriculum_decision.json` (from this run or an earlier one).  "
+              "**Needed to compare two arms on the SAME task**: the Curriculum "
+              "picks from a fixed menu with no deterministic switch, so two arms "
+              "can otherwise draw different projects -- and a memory comparison "
+              "across different tasks measures task difficulty, not memory.  "
+              "Only the project choice is replaced; SATURATED / STALLED still "
+              "come from the engine, and the pinned file must pass the engine's "
+              "own parser.  **Scope limit**: the pinned project must already "
+              "have a fixture in the guest (WAVE_ROOT/<id>/evolution_project).  "
+              "That fixture is built by the Curriculum and destroyed with the "
+              "guest, so a decision from an EARLIER run cannot be replayed -- "
+              "it fails fast with PinFixtureMissing instead of dying later in "
+              "`cp`."))
     parser.add_argument(
         "--merge-drs", action="store_true",
         help=("merge the DRS episode's candidate into the usine tree "
