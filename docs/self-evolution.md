@@ -2461,7 +2461,21 @@ A 线改的是记忆，所以它的泛化问题是「**前一份记忆帮了还�
 
 如果只看那张成绩表（0 个项目 vs 3 个项目全 PASS），很容易写成「记忆有害，**这是负迁移**」。而 `memory_control.py` 拒判 `not_paired` 正是为了挡住这一句：**差的来源是题不同，不是记忆**。这次真跑因此成了 `not_paired` 那条判据最有力的一次实战验证——它不是纸面上的防御。
 
-> **要真做成 A 线对照，还缺一个「固定题目」的接缝**：能指定 curriculum 派哪道题（或让两臂共用同一份 `curriculum_decision.json`）。在那之前，A 线的负迁移**跑不出来**，只能跑到「迁移被观测到了、全过、看不出因果」这一步。这是已知缺口，不是判据缺陷——**判据正确地把「不可比」判成了不可比**。
+> **这个缺口当天就补上了**：`--pin-projects <一份 curriculum_decision.json>`（`garage/pin_curriculum.py`）让每一波都用钉住的题目。做法**不是**改引擎——`théâtre/` 是 vendored fork、补丁必须逐字节不变，所以它在 `garage/` 这一层 wrap 引擎的 `_author_wave`（`phase1_wave.py:670` 拿决策、`:676` 写盘，中间本来没有「读入既定决策」的入口）。用法：
+>
+> ```sh
+> # 第一臂正常跑，留下它的决策文件
+> python3 garage/run_usine.py --run-name <名>-plain --project-budget 3 --execute RUN-USINE-PHASE1-WAVES
+> # 第二臂钉住第一臂的那份决策 → 两臂拿到同一道题
+> python3 garage/run_usine.py --run-name <名>-seed --project-budget 3 \
+>     --memory-seed <记忆目录> \
+>     --pin-projects ../../garage-result/<名>-plain/phase1/waves/wave_001/curriculum_decision.json \
+>     --execute RUN-USINE-PHASE1-WAVES
+> ```
+>
+> 三条 fail-closed 的设计要点，每一条都对应一种「静默失效」：① 钉住的文件必须过**引擎自己的** `parse_wave_handoff()`——自己拼 dict 不调它，就会漏掉 `instruction` 必须含 `PROJECT_ROOT` 这类硬条件（`phase1_wave.py:140`），跑到一半才炸；② `SATURATED` / `STALLED` **不许**被钉住的文件盖掉，那是「题目池用完了 / 卡住了」的终止信号，不是选题自由度；③ `_author_wave` 的签名一变就 raise，不让 patch 退化成 no-op——**no-op 的后果不是报错，而是两臂又自由选题、而人以为已经钉住了**，于是又回到那张骗人的成绩表。
+>
+> `garage/smoke_pin_curriculum.py`（17 条）锁住这四条，反向验证过 5 类注入：绕开引擎解析器 5 红（含那条「instruction 不含 `PROJECT_ROOT` 也要被拒」——它专门证明「真的调了引擎解析器」而不是自己看字段齐不齐）、允许钉 SATURATED 1 红、不查签名漂移 1 红、patch 空转 2 红、去掉重复安装守卫 1 红。
 
 **点亮这一格需要什么**：只要把 `--project-budget` 调大。预算数的是**项目**，而 curriculum 每波派 1 个（`curriculum-usine.yaml:107` 的 `AT MOST 1 project`），所以 `--project-budget 3` 会跑出 3 个波次、每波 1 个 episode（`ep001`…`ep003`），`lineage/memory` 跨波累计——`ep002` 起跑时读到的就是 `ep001` 写下的记忆。**机制不需要任何改动**，缺的只是一次真跑。
 
@@ -2810,6 +2824,7 @@ cd <explorateur>\théâtre
 | `smoke_memory_seed.py` | 改 `--memory-seed` 接缝或 DRS 的记忆基线 | 8 |
 | `smoke_memory_control.py` | 改 `memory_control.py` 的判决逻辑（负迁移判据） | 22 |
 | `smoke_transfer.py` | 改 `transfer_check.py` 的跨波接续判据 | 20 |
+| `smoke_pin_curriculum.py` | 改 `pin_curriculum.py`（钉题目接缝）或 `--pin-projects` | 17 |
 
 **合并器在门禁绿之后会自动跑 `smoke_agent_surface.py`**（L3 面，见 §10），所以它不在人工清单里——**它红 = 候选作废**，不是提醒。
 
@@ -2893,12 +2908,13 @@ PATH 上的 `dsh` CLI 只做**软**检查（`check_dsh`）：真跑的路径是 
 
 ```sh
 python3 garage-ii/smoke_dsh_bridge.py          # 17 段接缝自检
-python3 garage-ii/smoke_split.py               # 切分与泛化判读（38 条）
+python3 garage-ii/smoke_split.py               # 切分与泛化判读（47 条）
 python3 garage-ii/smoke_two_stage.py           # eval 段不许往 library 写（10 条）
 python3 garage-ii/build_base_harness.py --check  # 基准树漂移闸
 python3 garage-ii/preflight.py                   # 开跑前自检
 python3 garage-ii/browser_shim.py                # 浏览器垫片自检（断言不拉起 SecurityAgent）
-python3 garage/smoke_transfer.py                 # A 线跨项目迁移读数（16 条）
+python3 garage/smoke_transfer.py                 # A 线跨项目迁移读数（20 条）
+python3 garage/smoke_pin_curriculum.py           # 钉题目接缝（17 条）
 ```
 
 **「跑一次」之前的三件事（顺序不能反）**：

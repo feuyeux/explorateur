@@ -196,7 +196,7 @@ DEFAULT_DISTRIBUTION = _HERE / "distribution-usine.md"
 # fail-closed 预检（真 wave 仍喊跑才跑）。
 DEFAULT_GATE_ARGV = ("pnpm", "verify")
 
-# Hard wall-clock ceiling for one Phase-1 self-evolution run.  Mirrors
+# Hard time ceiling for one Phase-1 self-evolution run.  Mirrors
 # time_budget.DEFAULT_RUN_CEILING_SECS; kept as a literal here because the
 # theatre checkout has to be on sys.path before garage modules are importable.
 # The CLI default is resolved per phase (Phase 1 here, the DRS on
@@ -977,7 +977,7 @@ def _check_drs_wiring(configs: dict) -> None:
             "--phase 2 must run the DRS curriculum seat "
             "(curriculum-drs.yaml) in the curriculum slot; the Phase-1 "
             "breadth brief has no drill bound and the Actor cannot finish "
-            "an open-set task inside its wall clock.")
+            "an open-set task inside its time budget.")
 
 
 def _select_phase_seats(configs: dict, role_paths: dict,
@@ -990,7 +990,7 @@ def _select_phase_seats(configs: dict, role_paths: dict,
     closed scope (one source file, one test file, at most two deliverables,
     a table-shaped report, an existing memory record to deepen).  The
     unbounded brief Phase 1 can afford is the one that killed five DRS runs:
-    the Actor spent its whole wall clock searching for the open set instead
+    the Actor spent its whole time budget searching for the open set instead
     of changing anything, and the run ended with an unchanged memory tree
     (bfs16g, 2026-10-20).
 
@@ -1098,7 +1098,7 @@ def _context_budget_check(configs: dict) -> dict:
     Wave1r-lineup-switch died at ~40 minutes with ``HTTP 400 context window
     exceeds limit (2013)`` — the provider's real window was far below what
     the seat assumed.  That failure was invisible until the LLM call was
-    already made, i.e. after seeding a VM and burning a wave's wall clock.
+    already made, i.e. after seeding a VM and burning a wave's time budget.
 
     This check is deliberately STATIC (no request, no token): it compares
     each seat's declared high-water mark, its per-reply output cap, and the
@@ -1690,7 +1690,7 @@ def _seeded_capture(inner, state: dict):
     the whole seeded tree with it — so without a seed at the DRS's capture
     seam the Actor's owned root holds ONLY the Curriculum's fixture files:
     no package.json, no packages/, no source.  The Actor then has no
-    repository to edit, and it burns its whole wall clock hunting for one
+    repository to edit, and it burns its whole time budget hunting for one
     (measured 2026-10-20, bfs16h: the Actor probed guest paths, the pnpm
     store, and OTHER runs' stale guest worktrees — and found the monorepo
     only in a previous run's guest, at a different HEAD).  Every DRS run
@@ -1749,7 +1749,7 @@ def _baseline_guarded_replay(inner, state: dict):
 
     The replay is the last seam before the Actor starts.  If the tree it
     restored carries no seeded repository, the Actor cannot do the project
-    at all — it will spend its entire wall clock looking for code that is
+    at all — it will spend its entire time budget looking for code that is
     not there.  That is a WIRING gap, and (measured 2026-10-20) a wiring gap
     must cost seconds, not a thirty-minute run: this guard turns it into an
     immediate, named failure.
@@ -1762,7 +1762,7 @@ def _baseline_guarded_replay(inner, state: dict):
             raise RuntimeError(
                 "the replayed project tree carries no seeded baseline "
                 f"(missing one of {_BASELINE_MARKERS}): the Actor would have "
-                "no repository to edit and would burn its whole wall clock "
+                "no repository to edit and would burn its whole time budget "
                 "hunting for one. This is a wiring gap, not a seat failure.")
         return result
     return replay_project
@@ -1929,7 +1929,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--run-ceiling-secs", type=int,
         default=None,
-        help=("hard wall-clock ceiling for the whole run, in seconds "
+        help=("hard time ceiling for the whole run, in seconds "
               "(default: 1500 = twenty-five minutes for Phase 1, 1800 = "
               "thirty minutes for the DRS; the ceiling follows the measured "
               "gateway latency and the measured cost of the phase's seats, "
@@ -1987,6 +1987,17 @@ def _parser() -> argparse.ArgumentParser:
               "earlier phase learned, so the Actor starts with the "
               "hard-won records instead of rediscovering them.  The DRS "
               "(Phase 2) already seeds itself from Phase 1."))
+    parser.add_argument(
+        "--pin-projects", default="", metavar="CURRICULUM_DECISION_JSON",
+        help=("pin every wave's projects to an existing "
+              "`curriculum_decision.json` (a file from an earlier run's "
+              "`phase1/waves/wave_NNN/`).  **Needed to compare two arms on the "
+              "SAME task**: the Curriculum picks from a fixed menu with no "
+              "deterministic switch, so two arms can otherwise draw different "
+              "projects -- and a memory comparison across different tasks "
+              "measures task difficulty, not memory.  Only the project choice "
+              "is replaced; SATURATED / STALLED still come from the engine, "
+              "and the pinned file must pass the engine's own parser."))
     parser.add_argument(
         "--merge-drs", action="store_true",
         help=("merge the DRS episode's candidate into the usine tree "
@@ -2079,6 +2090,15 @@ def main(argv: list | None = None) -> int:
     import wave_merge
     _install_actor_prompt_patch()
     _wave_host_no_browser()
+    # 钉住题目：让两条臂拿同一份 curriculum 决策，否则「记忆有没有害」问不出来。
+    # 装在这里（而不是 wave 内部）是因为它 wrap 的是引擎的 `_author_wave`，
+    # 必须在任何波次启动前装好，且只装一次。
+    if args.pin_projects:
+        import pin_curriculum
+        pinned = pin_curriculum.load_pinned(
+            Path(args.pin_projects).expanduser().resolve(strict=True))
+        pin_curriculum.install(pinned)
+        log.info("%s", pin_curriculum.describe(pinned))
 
     distribution_path = _resolve_input_file(
         args.distribution_file, repo_root=_HERE)
@@ -2151,7 +2171,7 @@ def main(argv: list | None = None) -> int:
         configs, phase=args.phase, state=spread_state, config=spread_config)
 
     # Latency preflight: READ ONLY and zero cost (it sends no LLM request).
-    # It reads the per-seat wall clock the engine already wrote down in past
+    # It reads the per-seat elapsed time the engine already wrote down in past
     # runs and compares it with this wave's planned slices — a slice absorbs
     # variance only so far, and the gateway's first-response latency has been
     # measured at 50.6s / 108.2s / 138.7s / 322s / >300s.
@@ -2182,7 +2202,7 @@ def main(argv: list | None = None) -> int:
     # responses twice per call, burning 480s of a 400s slice on retries.
     #   180s covered that case, but bfs12 measured the cost of a HANGING
     # provider instead: the engine's 4-attempt transport loop burned 891s of
-    # RUN wall clock on one call (4 x 180s + backoff).  Provider downtime is
+    # run's time limit on one call (4 x 180s + backoff).  Provider downtime is
     # EXCLUDED from the seat budget (loop.py moves the work origin forward),
     # so it is charged only to the run ceiling — and 891s is 59% of 1500s.
     #   120s still covers every measured legitimate call (3-60s, and 89s on
@@ -2325,7 +2345,7 @@ def main(argv: list | None = None) -> int:
         raise RuntimeError(
             "context budget check failed — a seat whose own declarations "
             "contradict each other will hit HTTP 400 mid-wave, long after the "
-            "run has burned its wall clock (fix the role yaml): "
+            "run has burned its time budget (fix the role yaml): "
             + "; ".join(ctx_budget["findings"]))
     if _latency_blocks(latency_report):
         raise RuntimeError(
@@ -2333,7 +2353,7 @@ def main(argv: list | None = None) -> int:
             "clock from past runs exceeds this wave's planned slice, and a "
             "slice absorbs variance only so far (one worst-case gateway round "
             "trip has been measured at 50.6s / 108.2s / 138.7s / 322s / >300s, "
-            "and a stalled request is charged to the seat's wall clock). "
+            "and a stalled request is charged to the seat's time budget). "
             "Lower the seat's reasoning_effort, move the seat to another "
             "endpoint, or raise --run-ceiling-secs; pass "
             "--allow-high-latency to run anyway (the risk is recorded in the "
