@@ -713,7 +713,27 @@ _SUBSTRATE_REPLACEMENTS = (
 )
 
 _CANDIDATE_TREE_FACTS = (
-    "Candidate-tree facts: the candidate is a TypeScript pnpm monorepo. "
+    # **先说树在哪。** 任务正文照抄的是 Actor 那一面的
+    # ``PROJECT ROOT: /home/user/evolution_project``，并加了一句「already on
+    # your machine; do not reconstruct it」。这两句在 Verifier 这一面**字面为真、
+    # 路径为假**：候选树不在 ``/home/user/evolution_project``，而在
+    # ``$VERIFIER_SCRATCH`` 下（``WORKTREE_WORKSPACE_PARENT`` 是
+    # ``/home/user/.verifier``，每次验收一个 ``rsiagent-verifier-<随机>``）。
+    #
+    # 2026-10-22 实测代价：Verifier 照着「已在你的机器上」去**找**那个目录，
+    # 4 轮依次试 ``/home/user/evolution_project`` → ``/home/user`` → ``/`` →
+    # ``/app`` / ``/gardenLM``，最后 ``find / -maxdepth 6`` 扫全盘，单条命令
+    # 570s 被杀（exit 124），420s 的 Verifier 席位就此耗尽，整个波次记
+    # ``status: infra`` / ``projects: 0``。**这不是模型笨，是指令自相矛盾**：
+    # 它被告知树已经在，而那个路径下什么都没有。
+    "Candidate-tree facts: YOUR candidate is the tree at $VERIFIER_SCRATCH - "
+    "that is the repository the task calls '/home/user/evolution_project'. "
+    "The task text was written for the Actor seat; in THIS seat the same "
+    "project lives at $VERIFIER_SCRATCH (and at ~ under Bash). Do NOT go "
+    "looking for /home/user/evolution_project, do not search the filesystem "
+    "for it, and do not treat its absence as a failed candidate - reach the "
+    "tree through $VERIFIER_SCRATCH or ~ and start there. "
+    "The candidate is a TypeScript pnpm monorepo. "
     "node_modules and dist are PRUNED from every capture by design (they "
     "are regenerable install/build output, symmetric on both the capture "
     "and the merge side) - their absence in the candidate tree is expected "
@@ -800,7 +820,7 @@ _VERIFIER_WORKFLOW_NOTE = (
 # How to CONCLUDE, measured 2026-10-19 (bfs13).  The stock charter says "There
 # is no prescribed checklist, report schema, probe count, or number of turns" —
 # so the Verifier is free to keep investigating forever, and the ONLY thing that
-# ends an inspection is the seat's wall clock.  bfs13 spent its whole 280s on
+# ends an inspection is the seat's time limit.  bfs13 spent its whole 280s on
 # 19 real probes (19 of 23 turns were genuine Programs, not transport noise)
 # and was killed by the emergency wall ceiling with the report never written;
 # its last turn was a closing cross-check, one step from a verdict.  bfs12 died
@@ -816,7 +836,7 @@ _VERIFIER_WORKFLOW_NOTE = (
 # verdict is contained downstream — wave_merge re-runs the real gate before it
 # commits a candidate, so a false PASS cannot reach the usine tree un-gated.
 _VERIFIER_PUBLISH_NOTE = (
-    "\n\nRuling inside your budget: this inspection runs on a bounded wall-clock "
+    "\n\nRuling inside your budget: this inspection runs on a bounded time "
     "budget, and if that budget expires before you publish, the harness records "
     "NO verdict at all. An unpublished report is indistinguishable from no "
     "inspection, and every probe you ran is then wasted. So rule as soon as the "

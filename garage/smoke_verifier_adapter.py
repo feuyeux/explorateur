@@ -98,6 +98,30 @@ def test_install_and_prompts() -> None:
           and "private writable directory" in system
           and "screen Looks are unavailable" in system
           and "$VERIFIER_SCRATCH" in system)
+
+    # ── 候选树在哪，必须说清楚 ───────────────────────────────────────────
+    #
+    # 2026-10-22 实测：任务正文照抄 Actor 那一面的
+    # ``PROJECT ROOT: /home/user/evolution_project``，还加了「already on your
+    # machine; do not reconstruct it」。而 Verifier 的候选树在
+    # ``$VERIFIER_SCRATCH`` 下（``/home/user/.verifier/rsiagent-verifier-<随机>``）。
+    # 于是 Verifier 照着「已在你的机器上」去**找**：/home/user/evolution_project
+    # → /home/user → / → /app → /gardenLM，最后 `find / -maxdepth 6` 扫全盘，
+    # 单条命令 570s 被杀（exit 124），420s 的席位耗尽，整波记
+    # ``status: infra`` / ``projects: 0``。
+    #
+    # **这不是模型笨，是两句话自相矛盾。** 所以门禁盯的不是「提没提 SCRATCH」
+    # （上面那条已经盯了），而是「有没有明说 题面那个路径 = 你的候选树」。
+    check("prompt: 明说候选树在 $VERIFIER_SCRATCH",
+          "YOUR candidate is the tree at $VERIFIER_SCRATCH" in system)
+    check("prompt: 明说题面那个路径就是这棵树",
+          "/home/user/evolution_project" in system
+          and "that is the repository the task calls" in system)
+    check("prompt: 禁止去找 / 禁止信「已经在了」",
+          "Do NOT go looking for /home/user/evolution_project" in system
+          and "do not search the filesystem" in system)
+    check("prompt: 它的缺席不算候选失败",
+          "do not treat its absence as a failed candidate" in system)
     oriented = verifier_runtime.agentic_verifier_system_for(
         "rollback_mirror", orienting=True)
     check("prompt: orientation variant patched",
