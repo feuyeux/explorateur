@@ -7,123 +7,116 @@
 //
 // **没有第三处。** 仓库根与 usine/ 顶层不许再长出项目目录。
 //
-// 为什么这道闸必须存在：2026-10-20 发现 `chess-12lang/` 直接长在仓库根并被
-// 入库——222 个文件、99 个 LFS 对象共 129.5 MB。它的内容和产物都没毛病，
-// **位置错了**。位置错误不会自己报错：它只在下一次 clone 时变成体积，
-// 而且被追踪之后 .gitignore 也拦不住（已入库的文件忽略规则管不着）。
-// 所以这条得由门禁说出来，不能靠「记得」。
+// 为什么这道闸必须存在：2026-10-20 发现 `chess-12lang/` 直接长在仓库根并被入库
+// ——222 个文件、99 个 LFS 对象共 129.5 MB。它的内容和产物都没毛病，**位置错了**。
+// 位置错误不会自己报错：它只在下一次 clone 时变成体积，而且被追踪之后 .gitignore
+// 也拦不住（已入库的文件忽略规则管不着）。所以得由门禁说出来，不能靠「记得」。
+//
+// ── 2026-10-22 根定位修复（本文件与 ../src/index.ts 两个文件）──────────────
+// **旧定位**（原来就在这几行里）：
+//     const USINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+//     const REPO  = join(USINE, '..')        // ← 假定「上一层就是仓库根」
+// **新定位**：`discoverRoot()` 从起点向上逐级走，第一个**同时含**
+// pnpm-workspace.yaml 与 ownership.json 的目录就是工作区根；走完整条链都没有，
+// 门禁照样 FAIL，但报文点名「找的是哪些标记、从哪起走、走过哪些层」。
+//
+// 为什么必须换：仓库签出在 home 下一层时（home 里还有 AppData/、bin/、另一份
+// 工作树），旧 `..` 让 REPO 指到 home 本身，于是 home 的无关目录被当成本仓库的
+// 违规内容——**候选代码完全正确的机器上红闸**，合并时拒绝一切。判断没错，错的是
+// 定位：把「包目录之上固定几层就是仓库根」这个**位置假设**写死了。
+//
+// 口径一个字也没放宽：下面既钉了真根下的白名单全文，也用合成树钉了正向对照
+// （真长出 chess-12lang / prompts ⇒ 当场 FAIL）与负向对照（标记缺失 ⇒ 清晰报文，
+// 绝不冒充第三处违规）。合成树一律建在 os.tmpdir() 的 mkdtemp 目录里，
+// afterAll 删干净——**不碰真 HOME 的任何内容**。
 //
 // 全部是磁盘静态检查，不起浏览器、不跑产线（纪律 12）。
-import { describe, expect, test } from 'vitest'
-import { existsSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { afterAll, describe, expect, test } from 'vitest'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  ALLOWED_ROOT_DIRS,
+  ALLOWED_USINE_DIRS,
+  ROOT_MARKERS,
+  dirNames,
+  discoverRoot,
+  enclosingRepoRoot,
+  layoutReport,
+  strayEngineRepos,
+  strayRootDirs,
+  strayUsineDirs,
+} from '../src/index.js'
 
-/** packages/gate/test → usine 根（pnpm-workspace.yaml 所在层）。 */
-const USINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
-/** 仓库根——内容产物最容易被随手堆在这里的地方。 */
-const REPO = join(USINE, '..')
+/** 本测试文件所在目录——真实磁盘用例的起点（只用来发起向上走，不假定层数）。 */
+const TEST_DIR = dirname(fileURLToPath(import.meta.url))
 
-/**
- * 允许出现在**仓库根**的目录。每一个都是「工具/引擎/适配层」，不是内容项目。
- *
- * 这张表要人手工改，是**故意的**：新增一个根目录时，必须停下来回答
- * 「这是不是又一处放内容的地方」。答「是」就该改成 skill 资产或进 examples/；
- * 答「不是」才往这里加一行。白名单比黑名单可靠——黑名单只拦已经犯过的错。
- */
-const ALLOWED_ROOT_DIRS = new Set([
-  'usine',        // feuille：TS 产线 + skills
-  'garage',       // RSIAgent 适配层（改记忆）
-  'garage-ii',    // harness2 适配层（改 harness 本身）
-  'theatre-ii',   // harness2 引擎（vendor）
-  'théâtre',      // RSIAgent 引擎（vendored fork）
-  'config',       // 环境样例与本地配置（.env 由 .gitignore 兜底）
-  // 工作区级**入门读物**（`self-evolution.md`：两条 RSI 线路怎么实现、怎么读读数）。
-  // 它放仓库根是有理由的：读者是**第一次进这个仓库的人**，那时他还不知道该去
-  // `garage-ii/` 还是 `théâtre/` 翻——放在子项目里等于要求先知道答案再去找问题。
-  // 注意这条判的是「它是不是一处放内容产物的新地方」，答案是不是：它装的是
-  // 文档，进 git，跟 `usine/docs/` 同类。**放行一个不是内容项目的地方，不等于
-  // 放宽落位口径**——同一次断言里必须证明别的目录照抓（见下面那条凿洞用例）。
-  'docs',
-])
-
-/**
- * 允许出现在 **`usine/` 顶层**的目录。
- *
- * 上面那张表只扫仓库根，而 `usine/` 顶层是同一个错误更容易复发的地方——
- * 2026-10-21 就在这里抓到 `usine/prompts/`：19 个入库文件、147.6 KB 的
- * 词汇图鉴提示词草稿。它们**全部是内容产物**（每一份都是某一轮某个词的
- * 提示词），按落位口径该进 `examples/`，而且其中草莓那份与
- * `skills/vocab-infographic/assets/example/strawberry/prompt.md` **逐字节相同**
- * ——同一份东西存了两遍，一遍入库一遍在 skill 里。
- *
- * 处置（同日完成）：草莓那份因逐字节重复直接删；另外 18 份（九大艺术 × 横竖两版）
- * 是**已过审的系列样例**、会被反复对账，按落位口径属资产 ⇒ 移进
- * `skills/vocab-infographic/assets/example/<词>/`，随 git 版本化，内容一字未改。
- * 所以现在这个用例抓的是一个**已清掉的**位置：它留着是为了在下次又有人
- * 「随手在项目根旁边建个 prompts/」时立刻响。
- *
- * 它之所以能长出来，正是因为本文件当时**只看仓库根**。只看一层等于只看
- * 一条边界，而「随手在项目根旁边建个文件夹」这件事不认层级。
- */
-const ALLOWED_USINE_DIRS = new Set([
-  'packages',     // 代码：十二包
-  'skills',       // SKILL 资产（含 assets/ 可复用资产，入库）
-  'examples',     // 内容项目产物（不入库）
-  'docs',         // 文档
-  'languages',    // 语种注册表（14 manifest）
-  'personas',     // 人设目录与 schema
-  'themes',       // 主题 token
-  'lessons',      // 课件数据
-  'tools',        // 开发期工具脚本
-  'node_modules', // 依赖（由 .gitignore 兜底；点目录规则管不着它）
-  // **例外，且只有这一个**：`packages/publish/test/publish.test.ts` 的证据目录
-  // （`build/publish-verify/`，两个 json）。它是**测试跑出来的**、被 .gitignore
-  // 兜住的运行证据，不是内容项目——放行它有据，放行一个「随手建的项目目录」
-  // 没据。这条判的是「它属于哪一类」，不是「名字好不好看」。
-  'build',
-])
-
-/**
- * 从目录名里挑出**该报错**的那些。
- *
- * 点目录（`.git` / `.venv` / `.pytest_cache`）一律跳过：它们是本机工具产物，
- * 既不是内容项目、也不该进索引，报出来只会训练人忽略这条门禁。
- */
-export function strayRootDirs(names: string[]): string[] {
-  return names
-    .filter((n) => !n.startsWith('.'))
-    .filter((n) => !ALLOWED_ROOT_DIRS.has(n))
-    .sort()
+/** 真根：靠标记定位，找不到就让用例响亮地失败（而不是拿一个猜的路径继续）。 */
+function realRoot(): string {
+  const found = discoverRoot(TEST_DIR)
+  if (!found.ok) throw new Error(found.message)
+  return found.root
 }
 
-/** 同一条判断，用在 `usine/` 顶层。 */
-export function strayUsineDirs(names: string[]): string[] {
-  return names
-    .filter((n) => !n.startsWith('.'))
-    .filter((n) => !ALLOWED_USINE_DIRS.has(n))
-    .sort()
+// ── 合成树工具：一律建在 os.tmpdir() 下的 mkdtemp 目录，afterAll 删干净 ──────
+const MADE: string[] = []
+
+function tmpTree(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix))
+  MADE.push(dir)
+  return dir
 }
 
-function dirNames(parent: string): string[] {
-  return readdirSync(parent, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
+function mkDirs(base: string, names: readonly string[]): void {
+  for (const n of names) mkdirSync(join(base, n), { recursive: true })
 }
 
-function rootDirNames(): string[] {
-  return dirNames(REPO)
+/** 在 `dir` 放上全部仓库根标记（**两个都要**，缺一不算仓库根）。 */
+function markersAt(dir: string): void {
+  mkdirSync(dir, { recursive: true })
+  for (const m of ROOT_MARKERS) writeFileSync(join(dir, m), '# synthetic marker (test fixture)\n')
 }
+
+/** 报告 → 便于断言的紧凑字符串（层级 + 违规目录名）。 */
+function findingsOf(report: { findings: readonly { level: string; stray: readonly string[] }[] }): string[] {
+  return report.findings.map((f) => `${f.level}:${JSON.stringify(f.stray)}`)
+}
+
+afterAll(() => {
+  for (const dir of MADE) rmSync(dir, { recursive: true, force: true })
+})
+
+// ── 真实仓库：靠标记定位，不靠固定层数 ────────────────────────────────────
 
 describe('内容产物落位（仓库根白名单）', () => {
+  test('仓库根靠标记定位：不假定包目录之上几层', () => {
+    const found = discoverRoot(TEST_DIR)
+    if (!found.ok) throw new Error(found.message)
+    // 证据：命中的那一层，磁盘上真的同时有两个标记（不是「定位结果自证」）。
+    for (const m of ROOT_MARKERS) expect(existsSync(join(found.root, m)), m).toBe(true)
+    // 且它是向上走时**第一个**命中的：走过的最后一层就是它。
+    expect(found.searched.at(-1)).toBe(found.root)
+    expect(found.root).toBe(resolve(TEST_DIR, '..', '..', '..'))
+    expect(dirNames(found.root)).toContain('packages')
+  })
+
   test('仓库根没有第三处放内容的地方', () => {
-    const stray = strayRootDirs(rootDirNames())
-    expect(
-      stray,
-      `仓库根多了 ${JSON.stringify(stray)}——内容项目只允许两处：`
-      + 'usine/skills/<skill>/assets/（可复用资产，入库）或 '
-      + 'usine/examples/<项目名>/（内容产物，不入库）。见 AGENTS.md「内容产物落位」。',
-    ).toEqual([])
+    const report = layoutReport(TEST_DIR)
+    expect(findingsOf(report), report.message).toEqual([])
+  })
+
+  test('外层仓库根只在它**真是**仓库根（含 .git）时才检查', () => {
+    const ws = realRoot()
+    const report = layoutReport(TEST_DIR)
+    expect(report.workspaceRoot).toBe(ws)
+    expect(report.enclosingRoot).toBe(enclosingRepoRoot(ws))
+    // 结构判据的两侧都要钉住：没有 .git ⇒ 没有外层 ⇒ 那一层一个字都不看。
+    if (enclosingRepoRoot(ws) === null) {
+      expect(existsSync(join(dirname(ws), '.git'))).toBe(false)
+      expect(report.findings.filter((f) => f.level === 'enclosing')).toEqual([])
+      expect(report.message).not.toContain('外层仓库根')
+    }
   })
 
   test('凿洞必被抓：chess-12lang 这种根目录项目当场 FAIL', () => {
@@ -142,7 +135,8 @@ describe('内容产物落位（仓库根白名单）', () => {
 
 describe('内容产物落位（usine/ 顶层白名单）', () => {
   test('usine/ 顶层没有第三处放内容的地方', () => {
-    const stray = strayUsineDirs(dirNames(USINE))
+    const root = realRoot()
+    const stray = strayUsineDirs(dirNames(root))
     expect(
       stray,
       `usine/ 顶层多了 ${JSON.stringify(stray)}——内容项目只允许两处：`
@@ -164,11 +158,127 @@ describe('内容产物落位（usine/ 顶层白名单）', () => {
   })
 
   test('跑测试长出来的 build/ 证据目录不误伤，但别的项目目录照抓', () => {
-    // `build/` 是 publish.test.ts 的运行证据（.gitignore 兜住）；它被放行是
-    // 因为它**属于测试证据这一类**，不是因为闸放宽了。同一次断言里必须证明
-    // 「放行 build 不等于放行一切」——否则这条白名单就成了补丁清单。
+    // `build/` 是 publish.test.ts 的运行证据（.gitignore 兜住）；放行它是因为它
+    // **属于测试证据这一类**，不是因为闸放宽了——同一次断言里必须证明别的照抓。
     expect(strayUsineDirs(['build'])).toEqual([])
     expect(strayUsineDirs(['build', 'prompts'])).toEqual(['prompts'])
+  })
+
+  test('口径没放宽：两张白名单与修复前逐条相同（定位修复 ≠ 放松）', () => {
+    expect([...ALLOWED_USINE_DIRS].sort()).toEqual([
+      'build', 'docs', 'examples', 'languages', 'lessons',
+      'node_modules', 'packages', 'personas', 'skills', 'themes', 'tools',
+    ])
+    expect([...ALLOWED_ROOT_DIRS].sort()).toEqual([
+      'config', 'docs', 'garage', 'garage-ii', 'theatre-ii', 'théâtre', 'usine',
+    ])
+  })
+})
+
+// ── 根定位：合成树（离线、不碰真 HOME）────────────────────────────────────
+
+describe('仓库根定位（向上找标记，不假定层数）', () => {
+  test('深度签出：真根之上还有无关目录，仍解析到真根并放行', () => {
+    const home = tmpTree('feuille-layout-deep-')
+    // 真实事故里的 home 形状：无关兄弟目录（AppData/、bin/、另一份工作树）
+    mkDirs(home, ['AppData', 'bin', 'another-evolution_project'])
+    const repo = join(home, 'explorateur')
+    markersAt(repo)
+    mkDirs(repo, ['packages', 'skills', 'examples', 'docs'])
+    const pkgTest = join(repo, 'packages', 'gate', 'test')
+    mkdirSync(pkgTest, { recursive: true })
+
+    const found = discoverRoot(pkgTest)
+    if (!found.ok) throw new Error(found.message)
+    expect(found.root).toBe(resolve(repo)) // 不是 home
+
+    const report = layoutReport(pkgTest)
+    expect(report.ok, report.message).toBe(true)
+    expect(report.workspaceRoot).toBe(resolve(repo))
+    expect(report.findings).toEqual([])
+    // home 没有 .git ⇒ 不是仓库根 ⇒ 它的无关目录一概不进判断。
+    expect(report.enclosingRoot).toBe(null)
+    expect(report.message).not.toContain('AppData')
+    expect(report.message).not.toContain('another-evolution_project')
+    expect(report.message).not.toContain('bin')
+  })
+
+  test('负向对照：一层标记都没有 ⇒ FAIL，报文点名标记与走过的层，不当第三处违规', () => {
+    const orphan = tmpTree('feuille-layout-nomark-')
+    mkDirs(orphan, ['home-like', 'packages'])
+    const start = join(orphan, 'home-like', 'packages', 'gate', 'test')
+    mkdirSync(start, { recursive: true })
+
+    expect(discoverRoot(start).ok).toBe(false)
+    const report = layoutReport(start)
+    expect(report.ok).toBe(false)
+    expect(report.workspaceRoot).toBe(null)
+    expect(report.enclosingRoot).toBe(null)
+    // 关键：没有把任何一层的目录当成本仓库的违规内容。
+    expect(report.findings).toEqual([])
+    expect(report.message).toContain('找不到仓库根')
+    for (const m of ROOT_MARKERS) expect(report.message).toContain(m)
+    expect(report.message).toContain(resolve(start)) // 说清从哪起走
+    expect(report.message).not.toContain('第三处')    // 不是笼统的落位违规
+  })
+
+  test('正向对照：干净的合成根放行，塞进项目目录后当场 FAIL', () => {
+    const outer = tmpTree('feuille-layout-dirty-')
+    const repo = join(outer, 'usine')
+    markersAt(repo)
+    mkDirs(repo, ['packages', 'skills', 'examples'])
+    const start = join(repo, 'packages', 'gate')
+    mkdirSync(start, { recursive: true })
+    const clean = layoutReport(start)
+    expect(clean.ok, clean.message).toBe(true)
+
+    mkDirs(repo, ['chess-12lang', 'prompts'])
+    const report = layoutReport(start)
+    expect(report.ok).toBe(false) // 根定位对了之后，判断照旧抓得住
+    expect(report.workspaceRoot).toBe(resolve(repo))
+    expect(findingsOf(report)).toEqual(['workspace:["chess-12lang","prompts"]'])
+    expect(report.message).toContain('chess-12lang')
+  })
+
+  test('真有外层仓库根（父目录含 .git）时那一层照查；没有外层时那一层不查', () => {
+    const outer = tmpTree('feuille-layout-outer-')
+    const ws = join(outer, 'usine')
+    markersAt(ws)
+    mkDirs(ws, ['packages', 'skills'])
+    const start = join(ws, 'packages')
+    mkdirSync(start, { recursive: true })
+    mkDirs(outer, ['AppData', 'bin'])
+
+    // 没有 .git ⇒ 父目录不是仓库根 ⇒ 那一层一个字都不看（旧实现在这里红闸：
+    // 它把 home 形状的 AppData/、bin/ 当成仓库根的违规内容）。
+    expect(enclosingRepoRoot(ws)).toBe(null)
+    const noOuter = layoutReport(start)
+    expect(noOuter.enclosingRoot).toBe(null)
+    expect(noOuter.ok, noOuter.message).toBe(true)
+    expect(noOuter.message).not.toContain('AppData')
+
+    // 真出现外层仓库根之后，同一批目录**才**进入判断——这正是口径该有的样子：
+    // 它们是不是违规，取决于这一层是不是仓库根，而不是取决于父目录长得像 home。
+    mkdirSync(join(outer, '.git'), { recursive: true })
+    const nowOuter = layoutReport(start)
+    expect(nowOuter.enclosingRoot).toBe(resolve(outer))
+    expect(findingsOf(nowOuter)).toEqual([`enclosing:${JSON.stringify(['AppData', 'bin'])}`])
+    expect(nowOuter.ok).toBe(false)
+    // 清掉它们，回到干净的外层根继续钉「白名单放行」与「真违规照抓」。
+    rmSync(join(outer, 'AppData'), { recursive: true, force: true })
+    rmSync(join(outer, 'bin'), { recursive: true, force: true })
+    expect(enclosingRepoRoot(ws)).toBe(resolve(outer))
+    // 外层白名单里的目录照常放行
+    mkDirs(outer, ['docs', 'config', 'usine'])
+    const clean = layoutReport(start)
+    expect(clean.enclosingRoot).toBe(resolve(outer))
+    expect(clean.ok, clean.message).toBe(true)
+
+    // 外层真长出项目目录 ⇒ FAIL，且只报外层那一层
+    mkdirSync(join(outer, 'chess-12lang'), { recursive: true })
+    const dirty = layoutReport(start)
+    expect(dirty.ok).toBe(false)
+    expect(findingsOf(dirty)).toEqual(['enclosing:["chess-12lang"]'])
   })
 })
 
@@ -179,21 +289,22 @@ describe('内容产物落位（usine/ 顶层白名单）', () => {
 //
 // 为什么这条要进机械门禁：2026-10-21 之前 `théâtre/` 带着一份 32.6 MB 的内嵌
 // `.git`（HEAD 是 fork 后的上游快照），而同一轮的 `theatre-ii/` 没有——两条本该
-// 平行的引擎线在磁盘上并不对称，文档里的说法（`theatre-ii/PROVENANCE.md` 说
-// 「与 théâtre 的现状一致，它的 .git 也已被清掉」）与磁盘事实相反。
-// 这种偏差**不会自己报错**：内嵌 `.git` 只要存在，在它下面跑 git 命令就会
-// 静默读错历史（`git -C théâtre log` 读到的是上游那份，不是本仓库的改动），
-// 而 wrapper 一律看起来成功。所以得由门禁说出来。
+// 平行的引擎线在磁盘上并不对称，文档里的说法与磁盘事实相反。这种偏差**不会自己
+// 报错**：内嵌 `.git` 只要存在，在它下面跑 git 命令就会静默读错历史，而 wrapper
+// 一律看起来成功。所以得由门禁说出来。
 const ENGINE_DIRS = ['théâtre', 'theatre-ii'] as const
 
-/** 从引擎目录名里挑出**自带 .git** 的那些（纯函数，便于反向验证）。 */
-export function strayEngineRepos(names: string[], hasGit: (name: string) => boolean): string[] {
-  return names.filter(hasGit).sort()
+/** 引擎目录可以躺在工作区根，也可以躺在外层仓库根（真实布局），两处都看。 */
+function engineBases(): string[] {
+  const root = realRoot()
+  const outer = enclosingRepoRoot(root)
+  return outer ? [root, outer] : [root]
 }
 
 describe('两线引擎的版本统一由外层仓库管理', () => {
   test('引擎目录下没有自己的 .git', () => {
-    const stray = strayEngineRepos([...ENGINE_DIRS], (n) => existsSync(join(REPO, n, '.git')))
+    const bases = engineBases()
+    const stray = strayEngineRepos([...ENGINE_DIRS], (n) => bases.some((b) => existsSync(join(b, n, '.git'))))
     expect(
       stray,
       `引擎目录自带了 .git：${JSON.stringify(stray)}。两条引擎线都是普通目录，`
