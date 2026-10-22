@@ -1794,6 +1794,115 @@ def test_crash_recovery() -> None:
                      wave_merge.merge_wave, str(lineage), 1,
                      config_for(usine))
 
+        # 日志里记的是**另一波**的提交：tag 会打到错的 commit 上，必须拦住。
+        git_read(usine, "-c", "user.name=smoke", "-c", "user.email=smoke@local",
+                 "commit", "--allow-empty", "-m", "other wave", "-m",
+                 "X-Theatre-Wave: 2\nX-Theatre-Project: p-other")
+        other = git_read(usine, "rev-parse", "HEAD").strip()
+        progress_path.write_text(json.dumps(
+            dict(base, tag_prefix="theatre/wave", commits=[other])),
+            encoding="utf-8")
+        expect_raise("crash: a journal recording another wave's commit fails closed",
+                     wave_merge.merge_wave, str(lineage), 1,
+                     config_for(usine))
+
+    # D. 提交已落、进度日志没来得及记：重跑按 trailer 从 git 历史反查。
+    original_atomic = wave_merge._atomic_json
+    try:
+        with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-window-") as tmp:
+            root = pathlib.Path(tmp)
+            usine = make_repo(root)
+            lineage = root / "lineage"
+            make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                         dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+            make_episode(lineage, "ep002", 1, 2, "p-b", "PASS", BASE_FILES,
+                         dict(BASE_FILES, **{"src/c.txt": b"B-SIDE\n"}))
+            progress_path = lineage / "waves/wave_001/merge_progress.json"
+
+            def flaky_atomic(path, payload):
+                # 模拟「commit 返回之后、进度日志写之前」进程死掉：
+                # 只跳过 status=committing 的日志写入，起点的日志仍落盘。
+                if (str(path).endswith("merge_progress.json")
+                        and payload.get("status") == "committing"):
+                    return
+                original_atomic(path, payload)
+
+            wave_merge._atomic_json = flaky_atomic
+            wave_merge._ensure_wave_tag = fail
+            try:
+                expect_raise("window: the tag-step failure propagates",
+                             wave_merge.merge_wave, str(lineage), 1,
+                             config_for(usine))
+            finally:
+                wave_merge._ensure_wave_tag = original_tag
+                wave_merge._atomic_json = original_atomic
+            journal = json.loads(progress_path.read_text(encoding="utf-8"))
+            check("window: both commits landed but the journal has none",
+                  journal["commits"] == [], journal)
+            check("window: both commits are in git history",
+                  git_read(usine, "rev-list", "--count", "HEAD").strip() == "3",
+                  git_read(usine, "rev-list", "--count", "HEAD"))
+
+            report = wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+            recovered = report.get("recovered_commits") or []
+            check("window: the retry recovers both commits from history",
+                  len(recovered) == 2 and len(report["commits"]) == 2
+                  and report.get("commits_made_this_run") == 0, recovered)
+            check("window: the recovered commits keep history order",
+                  [item["project_index"] for item in recovered] == [1, 2]
+                  and report["commits"]
+                  == [item["commit"] for item in recovered], recovered)
+            check("window: the tag points at the last recovered commit",
+                  git_read(usine, "rev-parse",
+                           "theatre/wave-1^{commit}").strip()
+                  == report["commits"][-1], report["commits"])
+            check("window: the journal is cleared after the report",
+                  not progress_path.exists(), "")
+    finally:
+        wave_merge._atomic_json = original_atomic
+
+    # E. 同一 wave/project 的重复提交分不清是哪一条 → fail-closed。
+    with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-ambig-") as tmp:
+        root = pathlib.Path(tmp)
+        usine = make_repo(root)
+        lineage = root / "lineage"
+        make_episode(lineage, "ep001", 1, 1, "p-a", "PASS", BASE_FILES,
+                     dict(BASE_FILES, **{"src/b.txt": b"A-SIDE\n"}))
+        base = git_read(usine, "rev-parse", "HEAD").strip()
+        wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        # 抹掉报告，制造「需要从历史反查」的重跑场景。
+        (lineage / "waves/wave_001/merge_report.json").unlink()
+        (lineage / "waves/wave_001/merge_report.md").unlink()
+        # 再加一条 trailer 完全相同的空提交：两条都能匹配，无法判断哪条是
+        # 这一轮真正产出的。
+        git_read(usine, "-c", "user.name=smoke", "-c", "user.email=smoke@local",
+                 "commit", "--allow-empty", "-m",
+                 "theatre(wave-1): accept ep001 (p-a) duplicate", "-m",
+                 "X-Theatre-Wave: 1\nX-Theatre-Project: p-a")
+        check("window: the duplicate commit was created",
+              git_read(usine, "rev-list", "--count", "HEAD").strip() == "3",
+              git_read(usine, "rev-list", "--count", "HEAD"))
+        progress_path = lineage / "waves/wave_001/merge_progress.json"
+        progress_path.parent.mkdir(parents=True, exist_ok=True)
+        progress_path.write_text(json.dumps({
+            "schema_version": 1, "wave_index": 1, "unit_label": "wave",
+            "tag_prefix": "theatre/wave", "base_commit": base,
+            "commits": [], "status": "committing",
+        }), encoding="utf-8")
+        try:
+            wave_merge.merge_wave(str(lineage), 1, config_for(usine))
+        except wave_merge.UsineMergeError as exc:
+            ambiguous = "same wave/project trailers" in str(exc)
+            detail = str(exc)
+        except Exception as exc:  # noqa: BLE001
+            ambiguous = False
+            detail = f"wrong exception {type(exc).__name__}: {exc}"
+        else:
+            ambiguous = False
+            detail = "recovery guessed among duplicate commits"
+        check("window: duplicate trailer commits fail closed", ambiguous,
+              detail[:240])
+
 
 def test_merge_lock() -> None:
     """仓库级合并锁：跨进程互斥，且等锁期间报告出现后不许重复提交。

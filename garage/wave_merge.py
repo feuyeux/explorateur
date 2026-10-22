@@ -78,9 +78,13 @@ Merge contract (v1)
   step completes.  The next invocation validates that every recorded commit
   still exists and is an ancestor of HEAD, then finishes the tag and snapshot;
   the report says ``resumed_from_progress`` and separates the whole wave's
-  ``commits`` from ``commits_made_this_run``.  A rewritten history, a changed
-  unit label or a changed tag prefix makes the journal unusable (fail-closed)
-  instead of tagging a commit that no longer belongs to this wave.
+  ``commits`` from ``commits_made_this_run``.  A commit that landed just before
+  the journal update is found again from git history by its
+  ``X-Theatre-Wave``/``X-Theatre-Project`` trailers within the journal's
+  ``base..HEAD``; duplicate matches for one wave/project make the recovery fail
+  closed instead of guessing.  A rewritten history, a changed unit label or a
+  changed tag prefix makes the journal unusable (fail-closed) instead of
+  tagging a commit that no longer belongs to this wave.
 * Serialized merges.  Two run roots can finish a wave at the same time against
   the same repository.  The whole merge runs under an exclusive OS lock in the
   git common dir (worktrees share the main repository's lock), so commits,
@@ -1029,6 +1033,13 @@ def _render_md(report: dict) -> str:
             f"> already in the tree from an earlier attempt (no new commit): "
             + "、".join(f"ep{index:03d}" for index in report["already_in_tree"]))
         lines.append("")
+    if report.get("recovered_commits"):
+        lines.append(
+            "> recovered from git history (the journal had not recorded them): "
+            + "、".join(f"ep{item['project_index']:03d} → "
+                       f"`{item['commit'][:12]}`"
+                       for item in report["recovered_commits"]))
+        lines.append("")
     if report.get("skipped"):
         lines.append(f"> skipped: {report['skipped']}")
         lines.append("")
@@ -1581,6 +1592,14 @@ def _load_merge_progress(path: pathlib.Path, wave_index: int,
                 f"{path}: recorded commit {sha} is not an ancestor of HEAD "
                 f"({head[:12]}); refusing to recover a tag across a rewritten "
                 f"history")
+        body = _git(["show", "-s", "--format=%B", sha], cwd=usine_dir) \
+            .stdout.decode("utf-8", "replace")
+        unit, _project = _commit_trailers(body)
+        if unit != (config.unit_label, wave_index):
+            raise UsineMergeError(
+                f"{path}: recorded commit {sha} carries {unit!r}, not "
+                f"{config.unit_label} {wave_index}; a journal copied from "
+                f"another wave would tag the wrong commit")
     base = payload.get("base_commit")
     if base:
         ancestor = _git(["merge-base", "--is-ancestor", base, head],
@@ -1760,6 +1779,89 @@ def _acquire_merge_lock(usine_dir, lineage: pathlib.Path,
     lock = _MergeLock(_merge_lock_path(usine_dir), _merge_lock_timeout(),
                       metadata)
     return lock.acquire()
+
+
+_TRAILER_UNIT_RE = re.compile(r"^X-Theatre-(Wave|Drs):\s*(\d+)\s*$")
+_TRAILER_PROJECT_RE = re.compile(r"^X-Theatre-Project:\s*(.+?)\s*$")
+
+
+def _commit_trailers(body: str) -> tuple[tuple[str, int] | None, str]:
+    """从 commit body 里读 `X-Theatre-<Wave|Drs>` 与 `X-Theatre-Project`。"""
+    unit: tuple[str, int] | None = None
+    project = ""
+    for line in body.splitlines():
+        match = _TRAILER_UNIT_RE.match(line)
+        if match:
+            unit = (match.group(1).lower(), int(match.group(2)))
+        match = _TRAILER_PROJECT_RE.match(line)
+        if match:
+            project = match.group(1)
+    return unit, project
+
+
+def _recover_already_merged_commits(candidates: list[dict],
+                                    all_commits: list[str], usine_dir,
+                                    base_commit: str,
+                                    config: UsineMergeConfig,
+                                    wave_index: int) -> tuple[list[str], list[dict]]:
+    """「提交已落、进度日志没来得及记」时，从 git 历史把 sha 找回来。
+
+    崩溃窗口：`_commit_candidate` 返回 sha 之后、`merge_progress.json` 更新之前
+    进程死掉。下一次重跑时候选的字节已经在树里（`already_merged`），但日志里
+    没有那个 sha；如果只信日志，tag 会打在**前一个**提交上、或者整波没有 tag。
+
+    commit body 里有 `X-Theatre-Wave: N`（或 `Drs`）与 `X-Theatre-Project: <id>`，
+    所以按「日志记录的 base → HEAD」逐条对账：每个 `already_merged` 候选必须
+    恰好匹配一个尚未记录的提交。**零个不猜**（那说明提交根本没落，候选会在
+    这次重跑里正常走）；**多个 fail-closed**（同一 wave 同一 project 的重复提交，
+    分不清哪条是这一轮的）。返回 `(按历史顺序排好的全部提交, 补记明细)`。
+    """
+    needed = [entry for entry in candidates
+              if entry.get("decision") == "already_merged"]
+    if not needed:
+        return list(all_commits), []
+    out = _git(["log", "--reverse", "--format=%H%x1f%B%x1e",
+                f"{base_commit}..HEAD"], cwd=usine_dir) \
+        .stdout.decode("utf-8", "replace")
+    expected_unit = (config.unit_label, wave_index)
+    by_project: dict[str, list[str]] = {}
+    order: dict[str, int] = {}
+    for index, chunk in enumerate(out.split("\x1e")):
+        chunk = chunk.strip("\n")
+        if not chunk:
+            continue
+        sha, sep, body = chunk.partition("\x1f")
+        if not sep:
+            continue
+        unit, project = _commit_trailers(body)
+        if unit != expected_unit or not project:
+            continue
+        by_project.setdefault(project, []).append(sha)
+        order[sha] = index
+    known = set(all_commits)
+    recovered: list[str] = []
+    details: list[dict] = []
+    for entry in needed:
+        project = _clean_id(entry["project_id"])
+        matches = [sha for sha in by_project.get(project, [])
+                   if sha not in known]
+        if not matches:
+            continue
+        if len(matches) > 1:
+            raise UsineMergeError(
+                f"cannot recover the commit for ep{entry['project_index']:03d} "
+                f"({project}): {len(matches)} commits in "
+                f"{base_commit[:10]}..HEAD carry the same wave/project "
+                f"trailers ({matches}); refusing to guess which one this run "
+                f"produced")
+        sha = matches[0]
+        recovered.append(sha)
+        known.add(sha)
+        details.append({"project_index": entry["project_index"],
+                        "project_id": entry["project_id"], "commit": sha})
+    combined = list(dict.fromkeys([*all_commits, *recovered]))
+    combined.sort(key=lambda sha: order.get(sha, 10 ** 9))
+    return combined, details
 
 
 def _reported_wave(report_path: pathlib.Path, progress_path: pathlib.Path,
@@ -2060,6 +2162,21 @@ def _merge_wave_locked(lineage: pathlib.Path, wave_index: int,
                 log.exception("rollback also failed; the usine tree is dirty")
             raise
     all_commits = prior_commits + commits
+    all_commits, recovered_commits = _recover_already_merged_commits(
+        candidates, all_commits, usine, progress["base_commit"], config,
+        wave_index)
+    if recovered_commits:
+        # 先把补记写回日志，再继续 tag/快照：即便下一步又崩，下一次也不会
+        # 再从历史里猜一遍。
+        progress["commits"] = all_commits
+        progress["status"] = "recovered_history"
+        progress["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        _atomic_json(progress_path, progress)
+        log.warning(
+            "wave %s: recovered %d commit(s) from git history that the "
+            "progress journal had not recorded yet: %s", wave_index,
+            len(recovered_commits),
+            [item["commit"][:10] for item in recovered_commits])
     tag_info = ({"tag": None, "tag_created": False} if not all_commits
                 else _ensure_wave_tag(config, usine, wave_index, all_commits))
     progress["tag"] = tag_info
@@ -2095,6 +2212,7 @@ def _merge_wave_locked(lineage: pathlib.Path, wave_index: int,
               "commits": all_commits,
               "commits_made_this_run": len(commits),
               "resumed_from_progress": resumed is not None,
+              "recovered_commits": recovered_commits,
               "gate_seconds_total": round(gate_seconds, 1),
               "already_in_tree": already_in_tree,
               "candidates": candidates,
