@@ -2677,6 +2677,8 @@ python3 garage/memory_control.py --arm seed=../garage-result/<名>-seed --arm pl
 
 `status: time_budget_exhausted` / `projects: 3` / `memory_files: 5` / `memory_bytes: 41371`。**三个项目全部 PASS，而且 `memory_before` 逐波等于上一波的 `memory_after`**——这是「记忆真的跨项目接续」的机检证据，不是叙事。最终记忆树 5 份：`INDEX.md`、`evidence-and-verification.md`、`foodnames-video-line.md`、`evolution-project-gate-layout.md`、`evolution-project-dsh-plugin-refusal-wording.md`。
 
+> **「三波全 PASS」是 episode 层面的事实；落到仓库只有两波。** 时间上限（2050s）在 wave_003 的边界处截停（实际已跑 3345s），日志里只有 `wave 1 merge done`（`f02b9f3`）与 `wave 2 merge done`（`17c92c9`）两行，**没有 wave 3 的 merge 行**——`ep003`（`dsh_refusal_wording`）的验收 PASS 落了盘，但它对 `usine` 的代码改动随 guest 一起销毁了，只在 run 产物里留了 fixture 存档。读「3/3 PASS」时要知道：仓库里拿到的是 2 个 commit + 1 个只在 run 产物里的通过记录。`stop_reason` 写的「stopped at a complete-wave boundary so the memory tree stays consistent」说的是记忆树一致，不是「三波都合并了」。
+
 > **这份读数还顺手修掉了一个真缺陷。** 第一次跑（同名 `pin-plain-20261022`，目录留成 `.failed`）在验收阶段挂了：`status: infra` / `projects: 0` / `Verifier Agent ended at emergency/infrastructure status safety_ceiling`。查 transcript，verifier 的 4 轮全在找目录——`/home/user/evolution_project` → `/home/user` → `/` → `/app` `/gardenLM`，最后 `find / -maxdepth 6` 扫全盘，单条命令 **570s** 被杀（exit 124），420s 席位耗尽。根因是题面自相矛盾：任务正文照抄 Actor 那一面的 `PROJECT ROOT: /home/user/evolution_project` 并写「already on your machine」，而 Verifier 的候选树在 `$VERIFIER_SCRATCH` 下。修法是 `_CANDIDATE_TREE_FACTS` 里先说明「你的候选树就在 `$VERIFIER_SCRATCH`，它就是任务里那个路径，不要去找」，详见 §8.2。修完同一条路径一次跑通三波全 PASS。
 
 **2026-10-22 真跑出来的第一份同题两臂对照读数**（`pin-plain-20261022` vs `pin-seed3-20261022`）：
@@ -2872,11 +2874,13 @@ flowchart TB
 1. **RSIAgent 路径真的产出了东西，而且进了仓库**——**六条合并提交**可以逐字复查：前三条是拒答卡改写加配套测试钉子，第四、五条改的是 foodnames 视频产线（构建器与模板 → 把量化要求钉成测试，§13.5），第六条改的是门禁本身对「仓库根」的判定；门禁 `pnpm verify` 六次都是 exit 0、24.7–50.1s。
 2. **RSIAgent 的改进能被同一套判据量出前后差**——foodnames 视频线那波（§13.5）把旧 12 期的 **954 条版式不达标 + 54 处音画不同步**改成 **0 / 0**（144/144 逐词一致）；判据是那条产线自己的门，尺子换过两次，**两侧都用新尺子重测过**。这是本仓第一次出现「改前 / 改后」同尺可比的一对数字。
 3. **RSIAgent 路径的记忆树真的变过**——DRS 深度波次的 `memory_changed: true` 有独立核验器（`garage/verify_drs_run.py` 用引擎自己的哈希函数重算两棵树、重算 manifest、查载荷是否诚实），不是自报；本轮盘上复核三棵树都还在（§6.6）。
-4. **两条路径花时间的地方不同**——A 线花在让引擎跑得完，B 线花在让读数可信。
-5. **实际耗时差一个量级，且差额是结构性的**（§7.3）。
-6. **harness2 的产物是两件，不止一件**——一棵被采纳的 harness 树，加一件会喂回下一轮提案者的 `experience`。
-7. **换成 `openai-completions` 之后，提案通道确实稳了**——v5 的三个提案会话全部 `ok: true`（126.6s / 90.0s / 114.0s），而旧协议下同一格是「半截文件块」与 602.7s 的 HTTP 502。**修的是链路，不是判据。**
-8. **唯一一条关于「正面结论」的，它关于测量、不关于进化能力**：这一轮把「演化到底动了什么」从「看它自己说什么」变成可机检的树级比对，第一次抓到「加知识的同时删了一条纪律」这种产物判据看不见的退化。
+4. **RSIAgent 的记忆真的跨项目接续**——2026-10-22 `--project-budget 3` 真跑：三个项目全部 PASS，`memory_before` 逐波等于上一波的 `memory_after`（0→3→4→5），这是机检证据（`outcome.json` 逐字段可查），不是叙事（§6.6 的表）。
+5. **同题两臂对照第一次跑到了判决**——`--pin-projects` + `--fixture-from` 让两臂拿到**同一棵** fixture 树（不只是同一段题面文字），`memory_control.py` 的三条先验检查（配对/起点/同题）全部通过，判决 `no_effect`。观测记忆正/负迁移的能力，到这里才算真的建立（§6.6 的对照表）。
+6. **两条路径花时间的地方不同**——A 线花在让引擎跑得完，B 线花在让读数可信。
+7. **实际耗时差一个量级，且差额是结构性的**（§7.3）。
+8. **harness2 的产物是两件，不止一件**——一棵被采纳的 harness 树，加一件会喂回下一轮提案者的 `experience`。
+9. **换成 `openai-completions` 之后，提案通道确实稳了**——v5 的三个提案会话全部 `ok: true`（126.6s / 90.0s / 114.0s），而旧协议下同一格是「半截文件块」与 602.7s 的 HTTP 502。**修的是链路，不是判据。**
+10. **唯一一条关于「正面结论」的，它关于测量、不关于进化能力**：这一轮把「演化到底动了什么」从「看它自己说什么」变成可机检的树级比对，第一次抓到「加知识的同时删了一条纪律」这种产物判据看不见的退化。
 
 **不能说出口的，以及为什么**（附录 §17.4 的四条硬理由 + §17.5 的 14 条「测不到什么」）：
 
@@ -2887,6 +2891,8 @@ flowchart TB
 | 不能说「演化让智能体更差」 | Δ 不是负的，是**零**；空样本是 `None` 不是零分——把「没测到」说成「测坏了」是渲染层漏网 |
 | 不能说「被采纳的树换到了分」 | 「有产物」和「有提升」是两句话，只有前者今天成立 |
 | 不能说「rsi 臂的空格说明 RSIAgent 的记忆没用」 | 那一栏测的是「记忆缺席」，不是「记忆没用」 |
+| 不能说「记忆帮了这道题」或「记忆害了这道题」 | 同题两臂的判决是 `no_effect`，但那是**天花板读数**：空记忆臂一次就过 PASS 的题，量不出记忆的正/负作用——分不开「记忆没帮上忙」与「这题不需要帮」。要判 `helpful` / `harmful` 必须挑一道空记忆臂会挂的题，而 Curriculum 自由出题（§6.6） |
+| 不能说「三波全 PASS 等于三份成果都进仓库」 | 时间上限在 wave_003 边界截停：只有 wave 1、2 落成 commit（`f02b9f3` / `17c92c9`），`ep003` 的 PASS 只在 run 产物里，它对 `usine` 的改动随 guest 销毁了（§6.6 的注记） |
 | 不能说「引擎的 `experience` 是对的」 | 这一轮它把上一条错误归因给了 `dom1` / `agg1` 的裸 CLI 路径，而同一批证据里方向是反的；它的 `confidence` 自己写了 `medium`——**但它写错的是 `evidence`，不是把握**，而下一轮提案者读到的是那段证据 |
 | 不能说「分数没动，所以演化没起作用」 | v5 的演化臂 3/3 条 rollout **都真的加载了**新技能 `poster-print-delivery`（第 1 条加载 3 次），基准臂 3/3 条只加载了 `one-page-poster」——**行为变了，只是没有一条判据量它的好处** |
 | 不能说「被采纳等于比出来的」 | `selection.json` 写着 `trivial pool: single final at k=1; delivered without a selector session` |
