@@ -121,6 +121,43 @@ def launch_failure(run_dir: Path) -> str:
     return f"什么都没发生（一个事件都没产生）：{err or '没有 diagnostics.json，说不出原因'}"
 
 
+def provider_failure(run_dir: Path) -> str:
+    """这条 rollout 是不是**被模型端掐死的**（会话以空答复收尾 + 末步是提供方致命错误）。
+
+    2026-10-22 第五轮实测：演化臂 r4 跑到第 22 步（188 条事件）时，模型端开始
+    **流空闲超时**（`pi-ai stream idle timeout after 300000ms`），重试 5 次全灭，
+    会话以**空答复**收尾（`final.txt` 0 字节、`exit_code=1`）——工作区里什么
+    画面都没留下。
+
+    **那不是被改进对象的行为表现**：智能体没偷懒，是模型端没把它送到终点。记成
+    0 分等于说「它跑了却什么也没交」，那是把提供方的抖动算到树头上——而且方向
+    偏保守（演化臂被无端扣分）。
+
+    判据要**窄**：只认「`final.txt` 存在但为空」**且**「末几条事件里有
+    `assistant/attempt` 的 `finish.reason.kind == "error"`」。两条都成立才是
+    被掐死；只是答复空、末事件不是错误的那不算（那是智能体自己没交）。
+    基准臂四条都正常收尾（`final.txt` 2.7–3.2KB），所以这条线对两臂一视同仁。
+    """
+    run_dir = Path(run_dir)
+    final = run_dir / "final.txt"
+    if not final.is_file() or final.stat().st_size > 0:
+        return ""
+    events = run_dir / "events.jsonl"
+    if not events.is_file():
+        return ""
+    try:
+        tail = events.read_text(encoding="utf-8", errors="replace").splitlines()[-6:]
+    except OSError:
+        return ""
+    for line in tail:
+        # 匹配前先去空格：事件流本身是紧凑 JSON（`"type":"assistant/attempt"`），
+        # 但判据不该依赖「有没有空格」这种格式细节。
+        probe = line.replace(" ", "")
+        if '"type":"assistant/attempt"' in probe and '"kind":"error"' in probe:
+            return "模型端致命错误（会话以空答复收尾，末步是提供方的流错误）——这条 rollout 没有可比的行为样本"
+    return ""
+
+
 def _execute_with_retry(adapter, task_id: str, tree: Path, run_id: str, timeout: int | None, attempts: int = 3) -> Path:
     """跑一条 rollout；**只有启动失败**才重试（退避 20s / 40s）。
 
@@ -182,6 +219,10 @@ def score_scene_layout(run_dir: Path, task_id: str) -> dict | None:
     bad = launch_failure(run_dir)
     if bad:
         # 启动失败不判 0 分：它没有产生任何行为，0 分等于伪造「交了但不合格」。
+        return None
+    pf = provider_failure(run_dir)
+    if pf:
+        # 被模型端掐死的同理：不是「它交了但不合格」，是它没被送到终点。
         return None
     ws = run_dir / "workspace"
     if not ws.is_dir():
@@ -355,6 +396,111 @@ def _selftest() -> int:
     return 0 if bad == 0 else 1
 
 
+def _selftest_provider() -> int:
+    """**「被模型端掐死」这条线**的自检：三种 run 目录，三条期望。
+
+    判据要**窄**：只有「`final.txt` 空」**且**「末几条事件里有提供方错误」才算；
+    「答复空但末事件不是错误」是智能体自己没交（那是行为表现，该判 0 分）；
+    「答复在、只是中途报过错」更不算。
+    """
+    import tempfile  # noqa: PLC0415
+
+    err_line = json.dumps(
+        {"type": "assistant/attempt", "data": {"stream": [{"type": "chunk", "chunk": {"type": "finish", "reason": {"kind": "error", "failure": {"message": "pi-ai stream idle timeout after 300000ms"}}}}]}},
+        ensure_ascii=False,
+    )
+    cases: list[tuple[str, dict[str, str], bool]] = [
+        ("答复空 + 末事件是提供方错误", {"final.txt": "", "events.jsonl": err_line + "\n"}, True),
+        ("答复空 + 末事件不是错误（智能体自己没交）", {"final.txt": "", "events.jsonl": '{"type":"turn/end"}\n'}, False),
+        ("答复在 + 中途报过错（答了就算数）", {"final.txt": "交付了", "events.jsonl": err_line + "\n"}, False),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, files, expect in cases:
+            d = Path(tmp) / name.replace(":", "_").replace("/", "_")
+            d.mkdir()
+            for fn, content in files.items():
+                (d / fn).write_text(content, encoding="utf-8")
+            reason = provider_failure(d)
+            ok = bool(reason) == expect
+            print(f"  [{'ok' if ok else 'FAIL'}] {name} → {reason or '（不算被掐死）'}")
+            if not ok:
+                bad += 1
+    print("自检（提供方掐死）" + ("通过" if bad == 0 else f"失败 {bad} 条"))
+    return 0 if bad == 0 else 1
+
+
+# ── 重判：按臂记录里的 run 目录重判整条臂 ──────────────────────────────────────
+def rescore_arm(tag: str, args) -> arms.Arm:
+    """按臂记录里的 run 目录**重判整条臂**。
+
+    为什么需要：跑批时是「边跑边记」，那时候读数规则可能还不完整（比如 2026-10-22
+    第五轮第一版没认出「被模型端掐死」那种 rollout）。**重判走的是真实路径**——
+    从盘上的 run 目录重新量一遍，把臂记录覆盖掉。作废的那几条要**留痕**
+    （`void_reason` + 逐条判据的证据），不能悄悄少一条。
+    """
+    root = Path(args.root).resolve()
+    p = root / "arms" / tag / f"{TASK_ID}.json"
+    if not p.is_file():
+        raise SystemExit(f"没有臂记录：{p}")
+    old = arms.Arm.from_dict(json.loads(p.read_text(encoding="utf-8")))
+    out = arms.Arm(
+        tag=old.tag,
+        task_id=old.task_id,
+        tree_fingerprint=old.tree_fingerprint,
+        tree_label=old.tree_label,
+        tree_signature=old.tree_signature,
+        criteria=criteria_stamp(),
+    )
+    for r in old.rolls:
+        run_dir = root / TASK_ID / r.run_id
+        pf = provider_failure(run_dir)
+        if pf:
+            out.rolls.append(
+                arms.Roll(
+                    run_id=r.run_id,
+                    score=None,
+                    n_passed=0,
+                    n_criteria=len(CHECK_NAMES),
+                    checks=[{"name": n, "passed": False, "evidence": pf} for n in CHECK_NAMES],
+                    final_text="",
+                    error=pf,
+                    void_reason=pf,
+                )
+            )
+            continue
+        scored = score_scene_layout(run_dir, TASK_ID)
+        if scored is None:
+            out.rolls.append(
+                arms.Roll(
+                    run_id=r.run_id,
+                    score=None,
+                    n_passed=0,
+                    n_criteria=len(CHECK_NAMES),
+                    checks=[],
+                    final_text="",
+                    error="判据跑不成（不是零分）",
+                )
+            )
+            continue
+        out.rolls.append(
+            arms.Roll(
+                run_id=r.run_id,
+                score=scored["score"],
+                n_passed=scored["n_passed"],
+                n_criteria=scored["n_criteria"],
+                checks=scored["checks"],
+                final_text=scored.get("final_text", ""),
+            )
+        )
+    p.write_text(json.dumps(out.to_dict(), ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"重判 {tag}：n={out.n}  分数={out.scores}  mean={out.mean}  spread={out.spread}")
+    for r in out.rolls:
+        mark = "作废" if r.void_reason else ("无分" if r.score is None else "计入")
+        print(f"  [{mark}] {r.run_id}  score={r.score}  {r.error or r.void_reason or ''}")
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="scene_layout_arms", description=__doc__)
     ap.add_argument("--root", type=Path, default=Path(r"D:\coding\personal\garage-ii-result"))
@@ -373,7 +519,7 @@ def main(argv=None) -> int:
         help=f"solver 用的模型（默认 {MINIMAX_MODEL}；与 run_usine_h2 同一个默认值）",
     )
     ap.add_argument("--only-tasks", default=TASK_ID)
-    ap.add_argument("--phase", choices=("run", "compare", "both", "selftest"), default="both")
+    ap.add_argument("--phase", choices=("run", "compare", "both", "selftest", "rescore"), default="both")
     ap.add_argument(
         "--arm",
         choices=("base", "evo", "both"),
@@ -383,7 +529,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.phase == "selftest":
-        return _selftest()
+        return 0 if (_selftest() == 0 and _selftest_provider() == 0) else 1
+
+    if args.phase == "rescore":
+        for tag in (args.base_arm, args.evolved_arm):
+            rescore_arm(tag, args)
+        return 0
 
     adapter = build_adapter(args)
     patch_adapter(adapter)
