@@ -1702,7 +1702,13 @@ class _MergeLock:
                     f"could not lock the usine merge lock {self.path}: "
                     f"{exc}") from exc
             self.fd = fd
-            self._write_metadata()
+            try:
+                self._write_metadata()
+            except BaseException:
+                # 元数据写失败（磁盘满、权限）时**必须先把锁放掉**：否则
+                # 长驻的 wave 循环会一直持有 fd，后面所有合并都等这把锁。
+                self.release()
+                raise
             return self
 
     def _write_metadata(self) -> None:
@@ -1724,11 +1730,15 @@ class _MergeLock:
     def release(self) -> None:
         if self.fd is None:
             return
+        fd, self.fd = self.fd, None
         try:
-            _unlock_fd(self.fd)
+            _unlock_fd(fd)
+        except OSError as exc:
+            # 解锁失败不该掩盖调用方的异常；close 本身也会释放 OS 锁。
+            log.warning("could not unlock %s (%s); closing the fd releases it",
+                        self.path, exc)
         finally:
-            os.close(self.fd)
-            self.fd = None
+            os.close(fd)
 
     def __enter__(self) -> "_MergeLock":
         return self.acquire()

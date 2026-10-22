@@ -1863,6 +1863,31 @@ def test_merge_lock() -> None:
             check("lock: after the holder exits the lock is acquirable",
                   True, "")
 
+            # 元数据写失败（磁盘满/权限）时必须**先释放锁**再抛错：否则长驻
+            # 进程会一直持有 fd，后面所有合并都等这把锁。
+            original_write = wave_merge._MergeLock._write_metadata
+            leaked = None
+
+            def broken_write(self):
+                raise OSError("injected metadata failure")
+
+            wave_merge._MergeLock._write_metadata = broken_write
+            try:
+                try:
+                    leaked = wave_merge._acquire_merge_lock(usine, lineage, 1)
+                except OSError as exc:
+                    failed = "injected" in str(exc)
+                else:
+                    failed = False
+            finally:
+                wave_merge._MergeLock._write_metadata = original_write
+                if leaked is not None:
+                    leaked.release()
+            os.environ["RSIAGENT_MERGE_LOCK_TIMEOUT"] = "0.5"
+            probe = wave_merge._acquire_merge_lock(usine, lineage, 1)
+            probe.release()
+            check("lock: a metadata-write failure releases the lock", failed, "")
+
         # B. 两个真合并并发：一个提交，另一个等锁后看到报告，不重复提交。
         with tempfile.TemporaryDirectory(prefix="usine-wave-smoke-lock2-") as tmp:
             root = pathlib.Path(tmp)
