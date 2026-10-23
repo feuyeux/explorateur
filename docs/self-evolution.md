@@ -847,7 +847,7 @@ dsh 那一面的取值在 `garage-ii/dsh_substrate.py` 的 `DSH_SURFACE`：`alwa
 | c2 护栏 | `guardrails.md` | | | **每次调用** |
 | c3 记忆 | `LongTermMEMORY.md` | | | **每次调用** |
 | c6 技能 | `skills/<n>/SKILL.md` | | | **被调用时**（on invoke） |
-| c8 插件 | `plugin/<name>.ts` | **中间件**（middleware） | 钩住每一次工具调用，**在模型的裁量之外** | 每次工具调用 |
+| c8 插件 | `plugin/<name>.ts` | <b>中间件</b>（middleware） | 钩住每一次工具调用，<b>在模型的裁量之外</b> | 每次工具调用 |
 | c4 工具指引 | `tool_guidance.md` | **工具界面**（tool interface） | 模型能调用什么、怎么调 | **每次调用** |
 | c7 脚本 | `scripts/<name>.py` | | | **经 bash** |
 | c5 子智能体 | `sub_agents/<n>/AGENT.md` | **编排**（orchestration） | 工作什么时候委派给一个新智能体、怎么委派 | **经 task 工具** |
