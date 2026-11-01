@@ -47,6 +47,7 @@ BGM 在这里是**侧链压缩**。海报/卡片驱动的线性 `amix` 方案在
 **不做 / 转交**：
 
 - **没有实拍母版** → 本 skill 不适用。**出母版**（选 Hailuo/H3 线、提交前确认额度、生成后冻结）→ `video-generation`；画面改用海报/卡片 → `karaoke-video`（单卡片成片）或 `storyteller-video`（多幕评书人物小传）
+- **赛事解说集锦**（集锦母版 + 官方比赛事件，比分牌实测映射出时间轴）→ `match-recap-video`（本 skill 在赛事域的特化，装配机制沿用这里）
 - **生成 BGM 床 / 定床位** → `bgm-bed`
 - 做海报、字体子集、逐字着色 → `one-page-poster`
 - 写发布词 → `publish-copy`

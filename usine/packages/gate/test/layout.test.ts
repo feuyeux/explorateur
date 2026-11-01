@@ -198,7 +198,11 @@ describe('仓库根定位（向上找标记，不假定层数）', () => {
     expect(report.findings).toEqual([])
     // home 没有 .git ⇒ 不是仓库根 ⇒ 它的无关目录一概不进判断。
     expect(report.enclosingRoot).toBe(null)
-    expect(report.message).not.toContain('AppData')
+    // ⚠️ 断言写 `"AppData"`（带引号）不带裸词：synthetic home 建在 os.tmpdir() 下，
+    // Windows 上真实 tmpdir 是 C:\Users\<u>\AppData\Local\Temp，report.message 里的
+    // 根路径必然含有裸词 AppData——裸词断言在这台机器上永红（与被测行为无关）。
+    // 违规引用的落款格式是 enclosing:["AppData","bin"]（JSON 带引号），按它断言。
+    expect(report.message).not.toContain('"AppData"')
     expect(report.message).not.toContain('another-evolution_project')
     expect(report.message).not.toContain('bin')
   })
@@ -255,7 +259,7 @@ describe('仓库根定位（向上找标记，不假定层数）', () => {
     const noOuter = layoutReport(start)
     expect(noOuter.enclosingRoot).toBe(null)
     expect(noOuter.ok, noOuter.message).toBe(true)
-    expect(noOuter.message).not.toContain('AppData')
+    expect(noOuter.message).not.toContain('"AppData"')
 
     // 真出现外层仓库根之后，同一批目录**才**进入判断——这正是口径该有的样子：
     // 它们是不是违规，取决于这一层是不是仓库根，而不是取决于父目录长得像 home。

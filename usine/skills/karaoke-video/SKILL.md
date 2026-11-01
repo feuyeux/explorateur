@@ -54,6 +54,7 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 - **多幕评书人物小传**（说书人立绘 + 每幕一景一镜一转场 + 醒木）→ `storyteller-video`（它复用本 skill 的时间轴与合片脚本，不复制）
 - 实拍母版压字幕 → `multilingual-video-poetry`
 - **生成 BGM 床 / 定床位** → `bgm-bed`
+- **音乐欣赏 / 听辨教学**（真实录音是内容本体、乐谱-录音对齐出时间轴）→ `music-annotate-video`
 - 写发布词 → `publish-copy`
 - 真的点发布 → `multilingual-video-publishing`
 
