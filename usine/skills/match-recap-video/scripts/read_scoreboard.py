@@ -12,10 +12,17 @@
     # 2) 用排名第一的候选读数（或手动 --crop）
     python3 read_scoreboard.py master.mp4 --from-probe probe.json --out sb.json
     python3 read_scoreboard.py master.mp4 --crop 480:110:1440:0 --out sb.json
+    # 3) 离线回归（不跑 OCR、不需要 rapidocr）
+    python3 read_scoreboard.py selftest
 
-crop 的格式是 `w:h:x:y`（编码器裁窗参数）。不同转播的比分牌几何不同，**不要抄别人的数字**。
+crop 的格式是 `w:h:x:y`（宽:高:左:上，裁窗四元组）。不同转播的比分牌几何不同，**不要抄别人的数字**。
+
+读数下限（fail-closed）：一帧分钟都没读出来 = 裁窗多半不对（或这个转播没有
+比分牌），**退出码 1** 并回显裁窗——不许拿全 None 的读数冒充「读过了」；
+下游窗口表会把它当映射基准。分钟覆盖率 < 20% 时在 stderr 给警告。
 
 依赖：`pip install rapidocr_onnxruntime`（CPU 即可）。没装就退出非零，不静默跳过。
+selftest 不需要它。
 """
 
 from __future__ import annotations
@@ -70,25 +77,32 @@ def _extract(master: Path, crop: str, fps: float, out_dir: Path) -> list[Path]:
 
 
 def _parse(texts: list[str]) -> dict:
+    """从一帧 OCR 文本里读分钟 / 比分 / 队伍缩写。
+
+    两种时钟形态都要认：`60'`（德甲，只有分钟）与 `89:58`（意甲 MM:SS）。
+    MM:SS 会被比分正则误读成 89-58——时钟**优先**，且与时间钟重叠的比分
+    候选跳过，取下一个不重叠的（同一帧里真正的比分「2-2」不能被吞）。"""
     joined = " | ".join(texts)
-    mc = CLOCK_RE.search(joined)
     mm = MINUTE_RE.search(joined)
-    ms = SCORE_RE.search(joined)
-    mt = TEAMS_RE.search(joined)
+    clock_match = CLOCK_RE.search(joined)
     minute = second = None
     clock = None
-    if mc:
-        minute, second = int(mc.group(1)), int(mc.group(2))
-        clock = f"{minute:02d}:{second:02d}"
-    elif mm:
+    minute_span: tuple[int, int] | None = None
+    if mm and (not clock_match or mm.start() <= clock_match.start()):
         minute = int(mm.group(1))
         clock = f"{minute}'"
+        minute_span = mm.span()
+    elif clock_match:
+        minute, second = int(clock_match.group(1)), int(clock_match.group(2))
+        clock = f"{minute:02d}:{second:02d}"
+        minute_span = clock_match.span()
     score = None
-    if ms:
-        # MM:SS 时钟本身也能被 SCORE_RE 命中（07:52 → 7-52）；同一段文本是时钟就跳过。
-        same_as_clock = mc is not None and ms.group(0) == mc.group(0)
-        if not same_as_clock:
-            score = f"{ms.group(1)}-{ms.group(2)}"
+    for m in SCORE_RE.finditer(joined):
+        if minute_span and m.start() < minute_span[1] and minute_span[0] < m.end():
+            continue  # 时钟那一段不是比分
+        score = f"{m.group(1)}-{m.group(2)}"
+        break
+    mt = TEAMS_RE.search(joined)
     return {
         "minute": minute,
         "second": second,
@@ -164,14 +178,118 @@ def _anchors(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     return score_changes, jumps
 
 
+# 读数覆盖率地板：比分牌每秒都在画面上，fps=1 采样下正常读数覆盖率远高于此。
+MIN_MINUTE_COVERAGE = 0.2
+
+
+def assert_reads(rows: list[dict], crop: str) -> float:
+    """读数覆盖率下限（fail-closed）。返回分钟覆盖率。
+
+    全 None 的读数会让下游把「没读到」当「读过了」——映射表是窗口表一切
+    落点的依据，空读数必须退出码非零并回显裁窗，不许静默产出。"""
+    if not rows:
+        raise ReadError(f"一帧都没采到（crop={crop}）——检查 crop 是否越界。")
+    reads = sum(1 for r in rows if r["minute"] is not None)
+    coverage = reads / len(rows)
+    if reads == 0:
+        raise ReadError(
+            f"OCR 一帧分钟都没读出来（crop={crop}）——裁窗多半不对，或这个转播"
+            "根本没有比分牌。映射表不能建立在零读数上；先用 probe_scoreboard.py "
+            "重探候选裁窗。")
+    if coverage < MIN_MINUTE_COVERAGE:
+        print(f"警告：分钟读数覆盖率只有 {coverage:.0%}（{reads}/{len(rows)} 帧）——"
+              "裁窗可能只擦到比分牌边缘，逐帧核对 reads 再用。",
+              file=sys.stderr)
+    return coverage
+
+
+# ---------------------------------------------------------------- 自检（纯函数，不跑 OCR）
+
+
+def selftest() -> int:
+    """_parse / _fill / _anchors / assert_reads 的离线回归。
+
+    这些是纯函数，喂罐头数据就能测——不需要 rapidocr、不需要真视频；
+    覆盖率地板的负例（全 None 读数必须炸）也在这里锁住。"""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(label, ok, detail=""):
+        checks.append((label, bool(ok), detail))
+        print(f"{'PASS' if ok else 'FAIL'}  {label}{('  ' + detail) if detail else ''}")
+
+    # _parse：分钟 / 比分 / 队伍缩写
+    got = _parse(["60'", "1-1", "FCB:BVB"])
+    check("_parse: 德甲分钟 + 比分 + 队伍",
+          got == {"minute": 60, "second": None, "clock": "60'",
+                  "score": "1-1", "teams": "FCB:BVB"}, f"{got}")
+    got = _parse(["89:58", "2-2"])
+    check("_parse: 意甲 MM:SS 时钟（秒不进分钟）",
+          got["minute"] == 89 and got["second"] == 58
+          and got["clock"] == "89:58" and got["score"] == "2-2", f"{got}")
+    check("_parse: 读不出时全 None", _parse(["看台镜头"])["minute"] is None)
+
+    # _fill：已知读数之间线性插值，比分前向填充
+    rows = [
+        {"t": 0.0, "minute": 1, "score": "0-0", "teams": None, "texts": []},
+        {"t": 5.0, "minute": None, "score": None, "teams": None, "texts": []},
+        {"t": 10.0, "minute": 11, "score": "1-0", "teams": None, "texts": []},
+    ]
+    _fill(rows)
+    check("_fill: 插值（t=5 → 6.0）",
+          rows[1]["minute_est"] == 6.0 and rows[1]["minute_interpolated"],
+          f"{rows[1]['minute_est']}")
+    check("_fill: 已知读数不标插值", not rows[0]["minute_interpolated"])
+    check("_fill: 比分前向填充（缺失段沿用前值）", rows[1]["score_est"] == "0-0")
+
+    # _anchors：比分变化 + 跳切（slope > 1.5 分钟/秒）
+    rows = [
+        {"t": 0.0, "minute": 60, "score": "1-1", "teams": "FCB:BVB", "texts": []},
+        {"t": 1.0, "minute": 64, "score": "1-1", "teams": "FCB:BVB", "texts": []},
+        {"t": 2.0, "minute": 64, "score": "2-1", "teams": "FCB:BVB", "texts": []},
+    ]
+    changes, jumps = _anchors(rows)
+    check("_anchors: 比分变化被抓到",
+          len(changes) == 1 and changes[0]["from"] == "1-1" and changes[0]["to"] == "2-1")
+    check("_anchors: 跳切被抓到（slope=4）",
+          len(jumps) == 1 and jumps[0]["slope"] == 4.0, f"{jumps}")
+    _, jumps = _anchors([
+        {"t": 0.0, "minute": 60, "score": "1-1", "teams": None, "texts": []},
+        {"t": 1.0, "minute": 60, "score": "1-1", "teams": None, "texts": []},
+    ])
+    check("_anchors: 正常读数不算跳切", not jumps)
+
+    # assert_reads：零读数必须炸（fail-closed），有读数返回覆盖率
+    try:
+        assert_reads([{"minute": None, "texts": []}], "1:1:0:0")
+        check("assert_reads: 零读数必须拒绝", False, "没有抛 ReadError")
+    except ReadError as exc:
+        check("assert_reads: 零读数必须拒绝", "crop=1:1:0:0" in str(exc))
+    try:
+        assert_reads([], "1:1:0:0")
+        check("assert_reads: 空帧必须拒绝", False)
+    except ReadError:
+        check("assert_reads: 空帧必须拒绝", True)
+    cov = assert_reads([{"minute": 1}, {"minute": None}, {"minute": 3}], "c")
+    check("assert_reads: 覆盖率 = 有读数帧占比", abs(cov - 2 / 3) < 1e-9, f"{cov:.2f}")
+
+    bad = sum(1 for _, ok, _ in checks if not ok)
+    print()
+    print(f"自检：{len(checks) - bad}/{len(checks)} 通过")
+    return 1 if bad else 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="比分牌 OCR：视频时间 ↔ 比赛时钟")
-    ap.add_argument("master", help="母版视频")
-    ap.add_argument("--crop", help="裁窗 w:h:x:y（与 --from-probe 二选一）")
+    ap.add_argument("master", help="母版视频；填 'selftest' 跑离线回归（不跑 OCR）")
+    ap.add_argument("--crop", help="裁窗四元组 w:h:x:y（与 --from-probe 二选一）")
     ap.add_argument("--from-probe", help="probe_scoreboard.py 的输出；取 rank 1 的 crop")
     ap.add_argument("--fps", type=float, default=1.0, help="采样帧率（默认 1）")
     ap.add_argument("--out", help="输出 JSON（默认 stdout）")
+    ap.add_argument("--selftest", action="store_true", help="离线跑纯函数回归，不跑 OCR")
     args = ap.parse_args(argv)
+
+    if args.selftest or args.master == "selftest":
+        return selftest()
 
     try:
         from rapidocr_onnxruntime import RapidOCR
@@ -200,6 +318,7 @@ def main(argv: list[str]) -> int:
                 row = {"t": round(i / args.fps, 3), "frame": i + 1,
                        "texts": texts, **_parse(texts)}
                 rows.append(row)
+        coverage = assert_reads(rows, crop)
     except ReadError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -212,6 +331,7 @@ def main(argv: list[str]) -> int:
         "master": str(master),
         "crop": crop,
         "fps": args.fps,
+        "minute_coverage": round(coverage, 3),
         "reads": rows,
         "first_score": first_score,
         "last_score": last_score,

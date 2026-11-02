@@ -5,12 +5,21 @@
 本脚本做的是**把候选和证据摆出来**，官方频道优先、extended highlights 次之；
 最终冻结哪条仍由人拍板（`--download` 只在显式要求时执行）。
 
+官方判定的口径（`official_basis` 字段）：
+  - `id`   = uploader_id / channel_id 精确等于注册的官方 handle——最硬；
+  - `name` = 频道**名字**精确等于 handle——能用，但同名仿冒号也能过，结果里
+    会带警告，冻结前核对频道 id；
+  - 名字后缀变体（handle+"official"/"tv"/"fc"）**不算官方**——仿冒号只要起个
+    这样的名字就能混进来；宁可漏判成非官方（有人工复核兜底），不可误判
+    +100 顶到第一。
+
 用法：
     python3 find_master.py barcelona --fact-pack pack.json
     python3 find_master.py barcelona --asof 2026-11-02          # 内部先跑 resolve_match
     python3 find_master.py psg --fact-pack pack.json --download masters/
     python3 find_master.py --query "Le Havre 1-5 PSG highlights" \
         --official-channel https://www.youtube.com/@PSG
+    python3 find_master.py --selftest                          # 离线回归（排序判据），不联网
 
 依赖：yt-dlp（PATH 里有即可）。没有就退出非零并说明——不猜链接。
 """
@@ -60,33 +69,79 @@ def _official_handles(team: dict, league_meta: dict | None) -> set[str]:
     return handles
 
 
-def _is_official(entry: dict, handles: set[str]) -> bool:
-    """只认精确的 handle / 频道 id。
+def _official_basis(entry: dict, handles: set[str]) -> str | None:
+    """官方判定的依据：'id'（uploader_id/channel_id 精确命中）或 'name'
+    （频道名精确等于 handle）；都不中 = None（不算官方）。
 
     不能用子串：Sky Sports Premier League 的频道名里也含 premierleague，
-    子串匹配会把媒体号当成官方号。"""
+    子串匹配会把媒体号当成官方号。名字后缀变体（handle+official/tv/fc）
+    同样不算——那是起名就能满足的条件（见模块头）。"""
     if not handles:
-        return False
+        return None
     ids = {_norm(entry.get("uploader_id")), _norm(entry.get("channel_id"))}
+    ids.discard("")
     names = {_norm(entry.get("channel")), _norm(entry.get("uploader"))}
+    names.discard("")
     for h in handles:
         if h in ids:
-            return True
-        if any(n == h or n in (h + "official", h + "tv", h + "fc") for n in names):
-            return True
-    return False
+            return "id"
+        if h in names:
+            return "name"
+    return None
 
 
-def _score(entry: dict, handles: set[str], match: dict) -> tuple[int, list[str]]:
+def _suspected_suffix(entry: dict, handles: set[str]) -> str | None:
+    """频道名是 handle 的后缀变体（handle+official/tv/fc）——不算官方，
+    但值得一句警告：它可能是真官方的子频道，也可能是仿冒，人来定。"""
+    names = {_norm(entry.get("channel")), _norm(entry.get("uploader"))}
+    names.discard("")
+    for h in handles:
+        for suffix in ("official", "tv", "fc"):
+            if f"{h}{suffix}" in names:
+                return h + suffix
+    return None
+
+
+def _is_official(entry: dict, handles: set[str]) -> bool:
+    return _official_basis(entry, handles) is not None
+
+
+def _season_years(match: dict) -> set[int] | None:
+    """这场比赛所属赛季的年份集合（"2026/27" → {2026, 2027}）。
+
+    联赛赛季跨两个日历年；比赛日期取自 fact pack 时按 {当年, 次年} 放行，
+    也就是「这一季或下一季」——标题里的年份必须落在这两年内，否则
+    多半是往季同名对阵的集锦（对阵与比分都可能撞上）。"""
+    label = str(match.get("season_label") or "")
+    # 赛季短年形式："2026/27" → {2026, 2027}（27 不是四位数，得按短年展开）
+    m = re.search(r"((?:19|20)\d{2})\s*/\s*(\d{2,4})", label)
+    if m:
+        y = int(m.group(1))
+        tail = m.group(2)
+        second = int(tail) + (2000 if len(tail) == 2 else 0)
+        return {y, second}
+    years = {int(y) for y in re.findall(r"(?:19|20)\d{2}", label)}
+    if years:
+        return years
+    d = str(match.get("date") or "")
+    m = re.match(r"^(\d{4})-", d)
+    if m:
+        return {int(m.group(1)), int(m.group(1)) + 1}
+    return None
+
+
+def _score(entry: dict, handles: set[str], match: dict,
+           season_years: set[int] | None = None) -> tuple[int, list[str]]:
     title = (entry.get("title") or "").lower()
     duration = entry.get("duration") or 0
     score = match.get("score")
     points = 0
     reasons: list[str] = []
 
-    if _is_official(entry, handles):
+    basis = _official_basis(entry, handles)
+    if basis:
         points += 100
-        reasons.append("官方频道 +100")
+        reasons.append(f"官方频道 +100（依据 {basis}）")
     if "highlight" in title:
         points += 40
         reasons.append("标题含 highlight +40")
@@ -109,10 +164,21 @@ def _score(entry: dict, handles: set[str], match: dict) -> tuple[int, list[str]]
 
     for side in ("home", "away"):
         name = (match.get(side) or "").lower()
-        token = next((w for w in re.split(r"\W+", name) if len(w) >= 4), "")
-        if token and token in title:
+        # 队名里每个 ≥4 字母的词都试（"borussia dortmund" 只认第一个词时，
+        # 标题写 Dortmund 的 +10 就拿不到）；命中任一个就算，两侧各最多 +10。
+        tokens = [w for w in re.split(r"\W+", name) if len(w) >= 4]
+        hit = next((w for w in tokens if w in title), None)
+        if hit:
             points += 10
-            reasons.append(f"标题含 {token} +10")
+            reasons.append(f"标题含 {hit} +10")
+    # 往季年份：同名对阵、比分都可能撞上，标题里的赛季年份对不上就压下去。
+    if season_years:
+        years = {int(y) for y in re.findall(r"\b(19|20)\d{2}\b", title)}
+        stale = sorted(years - season_years)
+        if stale:
+            points -= 60
+            reasons.append(f"标题年份 {stale} 不在本赛季 {sorted(season_years)} 内 -60"
+                           "（疑似往季同名对阵）")
     if 300 <= duration <= 1500:
         points += 20
         reasons.append(f"{duration}s（适合 8 分钟成片）+20")
@@ -193,9 +259,80 @@ def _download(entry: dict, out_dir: Path) -> str:
     return str(hits[-1]) if hits else str(out_dir)
 
 
+def selftest() -> int:
+    """排序判据的离线回归：好例排上去、坏例压下去，全部用伪造条目，不联网。
+
+    find_master 是全 skill 唯一「判据式打分」的脚本（官方 +100 / 比分 +30 /
+    反向 -50 / full match -40），也是最容易被页面改版悄悄弄坏的一层——
+    没有这组回归，打分逻辑烂了没人知道。"""
+    handles = {"liverpoolfc", "premierleague"}
+    match = {"home": "Liverpool", "away": "Arsenal", "score": "0-1",
+             "date": "2026-11-01", "season_label": "2026/27"}
+    years = _season_years(match)
+
+    def entry(title, channel="Sky Sports Premier League", uid="@SkySportsPL",
+              dur=520):
+        return {"title": title, "channel": channel, "uploader": channel,
+                "uploader_id": uid, "channel_id": uid, "duration": dur}
+
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(label, ok, detail=""):
+        checks.append((label, bool(ok), detail))
+        print(f"{'PASS' if ok else 'FAIL'}  {label}{('  ' + detail) if detail else ''}")
+
+    check("赛季年从 season_label 解析", years == {2026, 2027}, f"{years}")
+    check("赛季年从比赛日期回退", _season_years({"date": "2026-11-01"}) == {2026, 2027})
+    check("频道 id 精确命中 → basis=id",
+          _official_basis(entry("x", "Liverpool FC", "@liverpoolfc"), handles) == "id")
+    check("频道名精确等于 handle → basis=name",
+          _official_basis(entry("x", "Liverpool FC", "@other"), handles) == "name")
+    check("媒体号不算官方（Sky Sports）",
+          _official_basis(entry("x"), handles) is None)
+    check("名字后缀变体不算官方（仿冒面）",
+          _official_basis(entry("x", "Liverpool FC TV", "@fake"), handles) is None)
+    check("名字后缀变体给出疑似警告",
+          _suspected_suffix(entry("x", "Liverpool FC TV", "@fake"), handles) == "liverpoolfctv")
+
+    official = entry("Liverpool 0-1 Arsenal | Highlights", "Liverpool FC", "@liverpoolfc")
+    media = entry("Liverpool 0-1 Arsenal | Highlights")
+    p_official, _ = _score(official, handles, match, years)
+    p_media, _ = _score(media, handles, match, years)
+    check("同标题：官方排到媒体号前面", p_official > p_media,
+          f"{p_official} vs {p_media}")
+
+    reversed_score = entry("Arsenal 1-0 Liverpool | Highlights", "Liverpool FC", "@liverpoolfc")
+    p_rev, _ = _score(reversed_score, handles, match, years)
+    check("反向比分被压下去", p_rev < p_official, f"{p_rev} vs {p_official}")
+
+    full = entry("Liverpool vs Arsenal | Full Match Highlights 2026/27",
+                 "Liverpool FC", "@liverpoolfc")
+    p_full, _ = _score(full, handles, match, years)
+    check("full match 被压下去", p_full < p_official, f"{p_full} vs {p_official}")
+
+    stale = entry("Liverpool 0-1 Arsenal | Highlights 2022/23",
+                  "Liverpool FC", "@liverpoolfc")
+    p_stale, _ = _score(stale, handles, match, years)
+    check("往季年份被压下去", p_stale < p_official, f"{p_stale} vs {p_official}")
+
+    bvb_match = {"home": "Bayern München", "away": "Borussia Dortmund",
+                 "score": "2-2", "date": "2026-10-31", "season_label": "2026/27"}
+    only_second = {"title": "Bayern 2-2 Dortmund | Highlights",
+                   "channel": "BVB", "uploader": "BVB",
+                   "uploader_id": "@BVB", "channel_id": "@BVB", "duration": 520}
+    _, reasons = _score(only_second, {"bvb"}, bvb_match, {2026, 2027})
+    check("队名后一个词也拿得到 +10（dortmund）",
+          any("dortmund" in r for r in reasons), "; ".join(reasons))
+
+    bad = sum(1 for _, ok, _ in checks if not ok)
+    print()
+    print(f"自检：{len(checks) - bad}/{len(checks)} 通过")
+    return 1 if bad else 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="找官方集锦母版（候选 + 排序）")
-    ap.add_argument("team", nargs="?", help="teams.json 里的队伍 key（用 --query 时可省）")
+    ap.add_argument("team", nargs="?", help="teams.json 里的队伍 key（用 --query 时可省）；填 'selftest' 跑离线回归")
     ap.add_argument("--fact-pack", help="已有 fact pack JSON（省一次抓取）")
     ap.add_argument("--asof", help="基准日 YYYY-MM-DD（未给 fact pack 时使用）")
     ap.add_argument("scope", nargs="?", choices=["league", "all"], default="league")
@@ -204,7 +341,11 @@ def main(argv: list[str]) -> int:
                     help="额外官方频道 URL（可重复）")
     ap.add_argument("--limit", type=int, default=8, help="每个检索词取前 N 条（默认 8）")
     ap.add_argument("--download", help="下载选中母版到该目录（显式要求才执行）")
+    ap.add_argument("--selftest", action="store_true", help="离线跑排序判据回归，不联网")
     args = ap.parse_args(argv)
+
+    if args.selftest or args.team == "selftest":
+        return selftest()
 
     teams, leagues = load_registry()
     pack: dict = {}
@@ -289,10 +430,14 @@ def main(argv: list[str]) -> int:
             errors.append(str(exc))
 
     ranked = []
+    if league_meta.get("season_label"):
+        match["season_label"] = league_meta["season_label"]
+    season_years = _season_years(match)
     for e in candidates.values():
-        pts, why = _score(e, handles, match)
-        e.update({"official": _is_official(e, handles), "score_points": pts,
-                  "reasons": why})
+        pts, why = _score(e, handles, match, season_years)
+        basis = _official_basis(e, handles)
+        e.update({"official": basis is not None, "official_basis": basis,
+                  "score_points": pts, "reasons": why})
         ranked.append(e)
     ranked.sort(key=lambda x: (-x["score_points"], -(x.get("duration") or 0)))
 
@@ -304,6 +449,14 @@ def main(argv: list[str]) -> int:
         warnings.append("没有搜到候选：换检索词，或把 --limit 调大。")
     elif not ranked[0]["official"]:
         warnings.append("排名第一的不是已注册的官方频道；先人工核对频道，再冻结母版。")
+    if ranked and ranked[0].get("official_basis") == "name":
+        warnings.append("排名第一按**频道名**判官方（非频道 id）——同名仿冒号也能过；"
+                        "冻结前核对频道 id（candidates 里的 uploader_id / channel_id）。")
+    suspected = [e for e in ranked if _suspected_suffix(e, handles)]
+    if suspected:
+        warnings.append(f"有 {len(suspected)} 条候选的频道名是官方 handle 的后缀变体"
+                        f"（如 {suspected[0].get('channel')!r}）——可能是子频道也可能是仿冒，"
+                        "按非官方计分，人来定。")
     if ranked and (ranked[0].get("duration") or 0) < 180:
         warnings.append("排名第一的候选不足 3 分钟，做 8 分钟成片会很紧；优先找 extended highlights。")
 

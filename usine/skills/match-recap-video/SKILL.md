@@ -12,10 +12,12 @@ description: >
   narration fitted into measured windows, and assemble with burned captions +
   sidechain mixing. Ships runnable resolvers for FC Barcelona, Liverpool,
   Borussia Dortmund and Paris Saint-Germain (latest league match, official
-  highlights search included). Use when the user wants a football (or any
-  timed-sport with an on-screen scoreboard) match explainer — 阵容 / 进球 / 换人
-  / VAR — for fans to follow the match, from a highlights master they supply or
-  that exists on an official channel. Not for generic live-action subtitle
+  highlights search included). Use when the user wants a football match
+  explainer — 阵容 / 进球 / 换人 / VAR — for fans to follow the match, from a
+  highlights master they supply or that exists on an official channel. The
+  scoreboard-mapping method extends to other timed sports with an on-screen
+  scoreboard, but league adapters and window-schema samples are football-only
+  today. Not for generic live-action subtitle
   overlays (multilingual-video-poetry owns the assembly mechanics and this skill
   reuses them), not for poster/card-driven videos (karaoke-video /
   storyteller-video), not for music-appreciation annotation (music-annotate-video),
@@ -31,12 +33,7 @@ description: >
 
 解说按**进程轴 × 画面轴**写：进程轴说清第几分钟、谁、比分与意义，画面轴只承认这一窗画面里看得见的动作；两轴合成一句话，观众既跟得上比赛，也不会听到画面上不存在的东西。
 
-首个完整实现是 2026-27 意甲第 10 轮米兰德比（AC米兰 3-1 国际米兰，485.48s 母版 →
-8 分钟成片）。同一产线已实跑四场：`examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方
-highlights 裁到 162s）、`examples/barcelona-2026/`（巴萨 6-1 阿拉维斯，192s）、
-`examples/psg-2026/`（勒阿弗尔 1-5 巴黎，330s）、`examples/liverpool-2026/`
-（利物浦 0-1 阿森纳，120s）。后三场同样无视觉输入，用 `read_scoreboard.py`
-OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配脚手架不在本 skill 里**——从 `multilingual-video-poetry` 的入库
+首个完整实现是 2026-27 意甲第 10 轮米兰德比（AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。同一产线已实跑四场：`examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方 highlights 裁到 162s）、`examples/barcelona-2026/`（巴萨 6-1 阿拉维斯，192s）、`examples/psg-2026/`（勒阿弗尔 1-5 巴黎，330s）、`examples/liverpool-2026/`（利物浦 0-1 阿森纳，120s）。后三场同样无视觉输入，用 `read_scoreboard.py` OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。项目产物都按内容项目落位规则放在 `usine/examples/` 下、不入库，可能已清理——**方法与实测数字已固化在本 skill 的 references 与夹具里，不依赖那些目录还在**。**装配脚手架不在本 skill 里**——从 `multilingual-video-poetry` 的入库
 样例抄：`assets/example/配文.py`（文案与名单的单一事实源）· `build_voice.py`
 （edge-tts 合成 + 实测校窗）· `subtitles.py`（三层字幕卡 → 透明层 → 烧录）·
 `mix.py`（BGM + 旁白侧链混音）· `封面.py`（封面）。底层能力用 `packages/core/src/`
@@ -50,7 +47,7 @@ OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配�
 
 | 队伍 | 联赛 | 官方事实源事件流 | VAR | 母版来源 | 实跑结论（2026-11-02） |
 |---|---|---|---|---|---|
-| AC米兰 / 国际米兰 | 意甲 | 结构化 | ✗ | 官方频道 | 基线 |
+| AC米兰 / 国际米兰 | 意甲 | **未验证**（基线联赛，未纳入本轮实抓；`leagues.json` 里 `event_stream: unverified`） | ✗ | 官方频道 | 基线 |
 | **巴塞罗那** | 西甲 | **结构化**（进球/换人/牌/VAR 分行） | ✓ 明列 | 官方频道检索 | ✅ **跑通**：6-1 阿拉维斯（10-31 第 11 轮）· 7 进球（含射手/助攻）/ 10 换人 / 5 黄牌 / 1 VAR |
 | **利物浦** | 英超 | **文字直播**（`/commentary`，需滚动抓） | ✗ | **比赛页内嵌** | ✅ **跑通**：0-1 负阿森纳（11-01 第 9 轮）· 16' Havertz / 9 换人 / 8 牌 · 球场 Anfield · 主裁 Andy Madley · 官方集锦链接直出 |
 | **多特蒙德** | 德甲 | **结构化 liveticker**（`## GOAL!` + 分钟 + 比分 + Assist） | ✗ | liveticker 页内 / 官方频道 | ✅ **跑通**：2-2 拜仁（10-31 第 8 轮）· 4 进球（38' Laimer、60' Guirassy、66' Upamecano、89' F. Silva）/ 8 换人 / 3 牌 |
@@ -76,11 +73,14 @@ OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配�
 | 4 | **两队赛季页**（Wikipedia）交叉核对主帅、积分背景 | 主帅与「赛季首败」这类叙事没有归属地 |
 | 5 | 解说语种 + 音色 + 画幅 | TTS 与字幕几何定不了 |
 | 6 | 覆盖哪些事件轴（阵容 / 进球 / 换人 / 红黄牌 / VAR） | 窗口表无从建；默认全要。**该联赛官方页不支持的轴要显式说做不到** |
+| 7 | **母版权属口径**：母版必须来自官方频道或官方页内嵌；产物是「解说 + 标注」的评论性二创，**不搬运、不上传母版原片**；发布前过一遍平台对赛事素材的规则 | 母版是官方版权物——没有这条口径，发布就是把别人的集锦换个声音再传一遍 |
 
 第 1 与第 3 项由 `scripts/resolve_match.py` 一步产出：它把「哪支队的哪一场」解析成
 一份 fact pack（比赛页 URL + 比分 + 日期 + 事件时间线 + `key_events` + 每个字段的
 来源）。母版候选由 `scripts/find_master.py` 检索（官方频道 + 比分一致性 + 时长）。
-解析不出来时**退出非零并留下原始证据**，不静默兜底成默认值。
+解析不出来时**退出非零并留下原始证据**，不静默兜底成默认值；比赛页抓不动、解析出
+**0 条事件**（页面结构变了）、同日真冲突、候选全没有比分（未完赛，未加
+`--allow-unfinished`）同样退出非零——`resolved: true` 必须意味着比赛页真的解析出来了。
 
 官方赛程面答不出「最新一场」的联赛（实测：**法甲**），`resolve_match.py` 自动改走
 **俱乐部官网 psg.fr 的月度赛程页**；`ligue1.com` 只留作阵容面。仍然解析不出来时，
@@ -114,11 +114,18 @@ OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配�
    每个联赛转播的比分牌几何不同，**先探针再定裁窗，不抄数字**）。
    探针已做成脚本：`python3 scripts/probe_scoreboard.py <母版>` 会在上沿/下沿
    六块候选带上量**每秒变化密度**（比分牌每秒钟跳一次，密度远高于静态画面），
-   排名输出候选裁窗，并为每个候选生成一张 1 帧/秒的**竖拼长图**供人眼确认。
+   排名输出候选裁窗，并为每个候选生成一张 1 帧/秒的**竖拼长图**（`--stitch N`
+   覆盖探测窗口的**前 N 秒**，不是全片）供人眼确认。
    脚本给的是**候选 + 证据**，裁窗的最终值要人眼拍板后写进窗口表锚点。
+   探针带地板：所有候选带的变化密度都低于 0.25 次/s 时输出 `found: false` 并
+   **退出码 1**——这条母版里没有比分牌，没有映射基准，本 skill 对它不适用
+   （退回 `multilingual-video-poetry` 的压字幕口径），不许拿噪声排名继续走。
    没有视觉输入时，用 `python3 scripts/read_scoreboard.py <母版> --from-probe probe.json`
    把读数交给本地 OCR（RapidOCR）：输出逐帧 `minute / score / texts`、比分变化
-   （进球锚点）与跳切候选。OCR 会把 8/6 认混，**比分变化必须和官方事件分钟互证**。
+   （进球锚点）与跳切候选。两种时钟形态都认：`60'`（分钟）与 `89:58`（MM:SS——
+   时钟优先于比分读法，不会把 89:58 误读成比分 89-58）。一帧分钟都没读出来 =
+   裁窗不对，**退出码 1**；分钟覆盖率 < 20% 在 stderr 给警告。OCR 会把 8/6 认混，
+   **比分变化必须和官方事件分钟互证**。
    ⚠️ 不是所有转播都给 MM:SS——德甲比分牌只有 `60'`（分钟），读数粒度就是 1 分钟；
    先确认该联赛的时钟格式，不要把「分钟」当「分秒」。
 3. **ffmpeg 场景检测**定位事件包：`select='gt(scene,0.25)'` 的切点聚集处 =
@@ -154,7 +161,7 @@ OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配�
   阵容要回 `ligue1.com` 的 match-sheet。fact pack 的 `lineups_note` 会写明这一点，
   不能拿「事件齐了」冒充「阵容齐了」；
 - 球员中文译名全文一致：**每场比赛建一份名单**，旁白、字幕卡、封面都从它取，不另抄。
-  名单的字段口径与命名约定见下节。
+  名单的字段口径从 `multilingual-video-poetry/assets/example/配文.py` 的名单 schema 抄（文案与名单的同一事实源），本 skill 不另立一份口径。
 
 ## 「当前赛季最新一场」怎么定（多球队产线的入口）
 
@@ -164,15 +171,16 @@ OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配�
 python3 scripts/resolve_match.py barcelona            # 默认 league 口径，真抓，出 fact pack
 python3 scripts/resolve_match.py barcelona all        # 含杯赛 / 欧战口径
 python3 scripts/resolve_match.py barcelona --dry-run  # 先看它打算抓哪几个面
+python3 scripts/resolve_match.py barcelona --allow-unfinished  # 最新一场还没有比分时仍出 pack（带 unfinished 标记）
 python3 scripts/resolve_match.py --all-targets --asof 2026-11-02 --out packs.json
                                                       # 四支目标队一次解析（巴萨/利物浦/多特/巴黎）
-python3 scripts/resolve_match.py selftest             # 离线回归（不联网）
+python3 scripts/resolve_match.py selftest             # 离线回归（不联网：解析夹具 + 判别逻辑负例）
 ```
 
 参数：`resolve_match.py <队伍 key> [league|all] [基准日]`（位置参数，适合单队）；
 批量用 `--targets a,b,c` 或 `--all-targets` + `--asof`。出口用 `--out <路径>`。
-fact pack 里除 `latest_pick` / `match_page` 外还有 `key_events`（只留进球/换人/牌/VAR）
-与 `event_counts`，窗口表直接从 `key_events` 取。完整参数见
+fact pack 里除 `latest_pick` / `match_page` 外还有 `key_events`（只留进球/换人/牌/VAR/点球/哨）
+与 `event_counts`（按 kind 逐条计数），窗口表直接从 `key_events` 取。完整参数见
 `python3 scripts/resolve_match.py --help`。
 
 **母版检索**接着跑（人工确认后才冻结）：
@@ -183,8 +191,12 @@ python3 scripts/find_master.py psg --fact-pack packs.json --download masters/
 ```
 
 它读 fact pack 的「主客 + 比分」，在 YouTube 上跑两轮检索（普通 / extended），
-按**官方频道、标题比分是否一致、时长**排序，输出候选与推荐；`--download` 才真的下载。
-官方频道是精确 handle 匹配——`Sky Sports Premier League` 这类媒体号不会被误判成官方。
+按**官方频道、标题比分是否一致、时长、赛季年份**排序，输出候选与推荐；`--download` 才真的下载。
+官方判定分两档（结果里的 `official_basis`）：`id` = uploader_id / channel_id 精确命中
+注册 handle；`name` = 频道**名字**精确等于 handle（同名仿冒号也能过，结果会带警告，
+冻结前核对频道 id）。频道名的后缀变体（handle+official/tv/fc）**不算官方**——起名就能
+满足的条件挡不住仿冒；`Sky Sports Premier League` 这类媒体号不会被误判成官方。
+标题里出现**不在本赛季**的年份（如往季同名对阵的 `2022/23`）会被压到后面。
 排名第一也仍要人眼核对标题与频道；脚本给的是证据，不是拍板。
 
 三条硬规矩（来自纪律 12 / 19）：
@@ -249,12 +261,14 @@ slug 与 id / 官方集锦频道 / 品牌色 / 原声语言 / 宿敌），往 `a
 
 六个典型场景的写法、声画同步的机械细节与反向验证见 [references/visual-commentary.md](references/visual-commentary.md)。
 
-**三条硬判据已经有机检。** `references/visual-commentary.md` §6.3 要求「注入三个坏例，
-判据必须全部抓到」——`scripts/check_windows.py` 就是那份坏例的载体：
+**三条硬判据已经有机检。** `references/visual-commentary.md` §6.3 要求「注入坏例，
+判据必须全部抓到」——`scripts/check_windows.py` 就是那份坏例的载体（坏例 A/B/C 是
+三个语义坏例，D 是 jump 窗 `see` 混进动作词；另有输入契约：空表、`kind` / `visible`
+枚举笔误一律退出码 2，不进判据、更不冒充 PASS）：
 
 ```bash
-python3 scripts/check_windows.py selftest      # 反向验证：好表全过 + 三个坏例全抓
-python3 scripts/check_windows.py windows.json   # 判决窗口表（FAIL 退出码 1）
+python3 scripts/check_windows.py selftest      # 反向验证：好表全过 + 四个坏例全抓 + 输入契约
+python3 scripts/check_windows.py windows.json   # 判决窗口表（FAIL 退出码 1；坏表退出码 2）
 ```
 
 §6.4 说「词表扫候选**不能自动判 FAIL**」——那是**裸词表**的限制：词表不知道自己
@@ -277,6 +291,9 @@ WARN，不冒充 FAIL。
 ```
 
 - **一窗一镜态**：窗口按镜头切点分，不按事件名字分；进球包的三段（现场 / 比分动画 / 回放）就是三个窗，信息职责不同——现场讲过程、比分动画讲数据与意义、回放讲细节，不重复同一句话；
+- **时间区间写 `t0` / `t1`**（本 schema 的正式字段）；机检也认装配脚本沿用的紧凑写法 `src`（`"36.2-42.0"`），两处同给时 `t0`/`t1` 优先。`kind` / `visible` 是受控枚举，写错会**退出码 2**（不是 FAIL、更不是 PASS）；
+- **jump 窗的 `see` 只写读数**（比分牌 69:46 → 73:26、「无换人镜头」），不写动作词——机检判据 3 对 `see` 与 `say` 都扫动作细节词；
+- **回放窗可以引用本事件的时间 / 比分**（「第 4 分钟那个球」）——「观众已经知道的」包括 `title` / `stat` 卡说过的，机检的已陈述集合含这三层；
 - **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡（`kind: 'graphic'`，名字以卡片上可读的为准）；**没有可靠首发数据时只出「比分 + 赛事信息」开场卡，不编阵容**（巴萨/巴黎/利物浦实跑中，psg.fr 无阵容、PL/西甲阵容页只是可选面，均用开场卡降级）；
 - 旁白落点带 `LEAD`（实测 0.45s）：画面先到位，声音再进来；
 - **TTS 时长是实测的**：每段合成后立刻量，超窗压词不硬塞（build_voice 报
@@ -300,11 +317,11 @@ WARN，不冒充 FAIL。
 
 | 步骤 | 判据 |
 |---|---|
-| 定场 | fact pack 里每个字段都有来源；解析失败时退出码非零且留下原始证据（`resolve_match.py`） |
-| 母版 | `find_master.py` 的第一名是**已注册官方频道**（精确 handle）、标题比分与 fact pack 一致；不足 180s 时要显式接受「成片会更短」 |
-| 映射 | 比分牌读数长图逐帧目视确认；跳切点前后 MM:SS 有记录（裁窗来自 `probe_scoreboard.py` 的候选 + 人眼确认，**不抄别的联赛的数字**） |
+| 定场 | fact pack 里每个字段都有来源；解析失败时退出码非零且留下原始证据（`resolve_match.py`）：比赛页抓不动 / 解析出 0 条事件 / 同日真冲突 / 未完赛未加 `--allow-unfinished` 都算失败；`cross_checked` 只有当选中这场被 ≥2 个面印证时才是 true |
+| 母版 | `find_master.py` 的第一名是**已注册官方频道**（`official_basis` = id 或精确频道名）、标题比分与 fact pack 一致；basis=name 或出现后缀变体警告时，冻结前核对频道 id；不足 180s 时要显式接受「成片会更短」 |
+| 映射 | 探针 `found: true`（无比分牌 = 退出码 1，本 skill 对这条母版不适用）；比分牌读数长图逐帧目视确认；跳切点前后 MM:SS 有记录（裁窗来自 `probe_scoreboard.py` 的候选 + 人眼确认，**不抄别的联赛的数字**）；OCR 分钟覆盖率 < 20% 有警告、零读数退出码 1 |
 | 事实 | 每个进球/换人/VAR 都能指到官方页条目；主帅指到 Wikipedia infobox；**该联赛不支持的轴显式标注做不到** |
-| 窗口表 | `check_windows.py` 退出码 0（好表必须全过）；自检模式三条反向验证全抓 |
+| 窗口表 | `check_windows.py` 退出码 0（好表必须全过）；自检模式四个坏例 + 输入契约全抓；空表 / 枚举笔误 = 退出码 2，不算过 |
 | TTS | 每段实测时长 ≤ 窗口；超窗压词（build_voice 退出码 0 = 全部过） |
 | 成片 | ffprobe 通过（**moov atom 找不到 = 渲染被杀，重跑，不要当产物用**）；时长 = 母版时长 |
 | 画面 | 抽帧复核：阵容窗口见阵容卡、每个进球窗口见进球画面；回放窗见慢放 / 不同机位；跳切窗前后比分牌时间确实跳了 |
@@ -322,6 +339,9 @@ WARN，不冒充 FAIL。
 - 装配机制（TTS 校窗 / 三层烧录 / 侧链混音 / 封面规范）→ `multilingual-video-poetry`
   （本 skill 是它在赛事域的特化：时间轴来自**比分牌映射 + 官方事件**，
   不是场景美学）
+- **母版里没有比分牌**（`probe_scoreboard.py` 输出 `found: false`、退出码 1）→
+  退回 `multilingual-video-poetry`：没有「视频时间 ↔ 比赛时钟」的映射基准，
+  就只能做压字幕，做不了进程轴解说
 - 出母版（无现成集锦、要生成画面）→ `video-generation`；但**官方集锦优先**——
   生成画面出不了真实比赛
 - 生成 BGM 床 / 定床位 → `bgm-bed`
@@ -329,7 +349,22 @@ WARN，不冒充 FAIL。
   （永不自动，用户喊了才发）
 - 泛化到其他运动：比分牌映射法适用于任何**带屏幕比分牌的计时运动**
   （篮球 / 网球…），但事实源与窗口 schema 的样例目前只有足球——
-  换运动先重新探针比分牌几何
+  换运动先重新探针比分牌几何，且联赛适配器要新写（`leagues.json` 里没有）
+
+## 代码归属
+
+拥有模块：（无）
+
+本 skill 只有说明书与 skill 内脚本（`scripts/` 下五个 Python：resolve_match / find_master / probe_scoreboard / read_scoreboard / check_windows，每个都带离线 selftest）——装配层的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio`），与 `multilingual-video-poetry` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
+
+## Requirements (fresh machine)
+
+- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的五个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
+- **ffmpeg / ffprobe**（PATH，或 `FEUILLE_FFMPEG` / `FEUILLE_FFPROBE` 指路径）：探针、抽帧、读数都要。
+- **firecrawl**（PATH）：四个联赛页面都是 JS 渲染，直连只能拿到壳（`resolve_match.py` 内置滚动抓取）。
+- **yt-dlp**（PATH）：`find_master.py` 的检索与 `--download`。
+- **rapidocr_onnxruntime**（可选，`pip install rapidocr_onnxruntime`）：只在**无视觉输入**时给 `read_scoreboard.py` 用；`selftest` 不需要它。
+- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——五个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
 
 ## Resources
 
@@ -350,13 +385,17 @@ WARN，不冒充 FAIL。
 - `assets/leagues.json` —— 联赛适配器（URL 模板 / 事件流形态 / VAR 是否明列 /
   母版策略 / 实测验证记录）
 - `assets/action-families.json` —— 动作词族表（判据机检的受控词表，事实源唯一）
-- `assets/fixtures/` —— 机检夹具：窗口表好例与三个坏例 + 三个联赛的实抓页面样本
+- `assets/fixtures/` —— 机检夹具：窗口表好例与四个坏例（A/B/C 语义坏例 + D：jump 窗 `see` 混动作词）+ 四个联赛的实抓页面样本
 - `scripts/resolve_match.py` —— 「当前赛季最新一场」解析器（出 fact pack + `key_events` + 来源；
-  英超自动补抓 `/commentary`，巴黎自动抓 psg.fr 月度赛程 + 比赛页）
-- `scripts/find_master.py` —— 官方频道集锦母版检索（候选 + 官方/比分/时长排序，`--download` 才下载）
-- `scripts/probe_scoreboard.py` —— 比分牌几何探针（候选裁窗 + 竖拼长图）
-- `scripts/read_scoreboard.py` —— 比分牌 OCR（逐帧分钟/比分/比分变化/跳切候选；无视觉输入时的读数替代）
-- `scripts/check_windows.py` —— 三条硬判据机检（含 §6.3 反向验证；`visible=unread` 降 WARN）
+  英超自动补抓 `/commentary`，巴黎自动抓 psg.fr 月度赛程 + 比赛页；
+  比赛页失败 / 0 事件 / 真冲突 / 未完赛都退出非零；`selftest` 含判别逻辑负例）
+- `scripts/find_master.py` —— 官方频道集锦母版检索（候选 + 官方/比分/时长/赛季年排序，
+  `official_basis` 分 id/name 两档并带仿冒警告；`--download` 才下载；`--selftest` 离线回归）
+- `scripts/probe_scoreboard.py` —— 比分牌几何探针（候选裁窗 + 竖拼长图 + 无比分牌地板 `found`；
+  `selftest` 用 lavfi 合成视频离线回归）
+- `scripts/read_scoreboard.py` —— 比分牌 OCR（逐帧分钟/比分/比分变化/跳切候选；`60'` 与 `89:58` 两种时钟都认；零读数退出码 1；`selftest` 纯函数回归，不需要 OCR 依赖）
+- `scripts/check_windows.py` —— 三条硬判据机检（含 §6.3 反向验证 + 输入契约；`visible=unread` 降 WARN）
+- `scripts/verify_all.py` —— 一条命令跑全验收（五个 selftest + 可选窗口表判决，聚合退出码）
 
 **参考文档**
 

@@ -18,6 +18,10 @@ SKILL.md 写的是「先探针再定裁窗，**不抄数字**」。这句话在�
 
 用法：
     python3 probe_scoreboard.py <master.mp4> [--top 3] [--stitch 40] [--out probe.json]
+    python3 probe_scoreboard.py selftest          # 离线回归：lavfi 合成视频，不联网
+
+退出码：0 = 探到比分牌候选（仍需人眼确认）；1 = 探不到比分牌（变化密度低于
+地板，本 skill 对这条母版不适用——没有映射基准）；2 = 输入/环境坏了。
 """
 
 from __future__ import annotations
@@ -101,6 +105,15 @@ def probe_video(master: Path) -> dict:
 
 SCORE_RE = re.compile(r"lavfi\.scene_score=([0-9.]+)")
 
+# 抽格拼版每 SHEET_EVERY_SECS 秒取一格（12 格覆盖前 96s）
+SHEET_EVERY_SECS = 8
+
+# 「有没有比分牌」的地板：比分牌每秒跳一次，fps=1 采样下它的带 changes_per_sec
+# 接近 1；只有切点会动的普通画面带通常 ≤ 0.2/s。低于地板 = 这个母版里探不到
+# 比分牌，映射方法不适用（没有映射基准）——退出码 1，把母版退回
+# multilingual-video-poetry 的口径，不许拿着纯噪声的「候选排名」继续走。
+MIN_CHANGES_PER_SEC = 0.25
+
 
 def score_band(master: Path, crop: str, seconds: int) -> dict:
     """量一条候选带上的**逐帧场景变化强度**。
@@ -147,7 +160,7 @@ def make_stitch(master: Path, crop: str, out_png: Path, rows: int) -> bool:
 def make_contact_sheet(master: Path, out_png: Path, cols: int = 4, rows: int = 3) -> bool:
     """全画面抽格拼版——人眼一眼看出比分牌在哪。"""
     exe = _need(FFMPEG)
-    vf = f"fps=1/{max(1, int(8))},scale=-1:360,tile={cols}x{rows}"
+    vf = f"fps=1/{SHEET_EVERY_SECS},scale=-1:360,tile={cols}x{rows}"
     proc = subprocess.run(
         [exe, "-hide_banner", "-v", "error", "-i", str(master),
          "-vf", vf, "-frames:v", "1", "-y", str(out_png)],
@@ -207,28 +220,99 @@ def probe(master: Path, top: int, stitch_rows: int, seconds: int,
             shutil.copyfile(sheet, dst)
             exported.append(str(dst))
 
+    best = results[0] if results else None
+    found = bool(best) and best["changes_per_sec"] >= MIN_CHANGES_PER_SEC
     return {
         "master": str(master),
         "video": info,
         "probe_seconds": seconds,
+        "found": found,
         "candidates": results,
         "exported": exported,
         "verdict": (
             "候选已按变化密度排名；**人眼读竖拼长图确认**比分牌真的在这里，"
             "再把 crop 值写进窗口表锚点。变化密度只是线索，不是判据。"
+            if found else
+            f"排名最高的候选带变化密度也只有 {best['changes_per_sec']}/s"
+            f"（地板 {MIN_CHANGES_PER_SEC}/s）——**这个母版里探不到比分牌**。"
+            "没有比分牌就没有「视频时间 ↔ 比赛时钟」的映射基准，本 skill 不适用；"
+            "母版退回 multilingual-video-poetry 的口径（压字幕），不要拿噪声排名当候选。"
         ),
     }
 
 
+# ---------------------------------------------------------------- 自检（合成视频，不联网）
+
+
+def selftest() -> int:
+    """用 lavfi 合成两条视频做离线回归：带「时钟带」的必须探到并排对位置，
+    全静态的必须给出 found=False（无比分牌地板）。
+
+    正例：灰底 + 左上角一条每帧都变的高频噪声带（模拟比分牌每秒跳动）；
+    负例：纯灰底（什么都没有）。都不需要字体、不需要真集锦。"""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(label, ok, detail=""):
+        checks.append((label, bool(ok), detail))
+        print(f"{'PASS' if ok else 'FAIL'}  {label}{('  ' + detail) if detail else ''}")
+
+    exe = _need(FFMPEG)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        clock = tmpdir / "clock.mp4"
+        static = tmpdir / "static.mp4"
+        # 640x360 ⇒ 候选带 = 160x30；噪声带 (X<160, Y<30) 恰好落在 top-left 候选带里
+        r = subprocess.run(
+            [exe, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+             "-i", "color=c=gray:s=640x360:r=30:d=8",
+             "-vf", "geq=lum='if(lt(X,160)*lt(Y,30),255*random(1),128)':cb=128:cr=128",
+             "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", str(clock)],
+            capture_output=True, text=True)
+        check("合成带时钟带的视频", r.returncode == 0 and clock.exists(),
+              (r.stderr or "")[-200:])
+        r = subprocess.run(
+            [exe, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+             "-i", "color=c=gray:s=640x360:r=30:d=6",
+             "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", str(static)],
+            capture_output=True, text=True)
+        check("合成全静态视频", r.returncode == 0 and static.exists(),
+              (r.stderr or "")[-200:])
+
+        if clock.exists():
+            res = probe(clock, top=1, stitch_rows=4, seconds=8,
+                        args_out=str(tmpdir / "artifacts"))
+            check("时钟带：found=True", res.get("found") is True,
+                  f"top={res['candidates'][0]['band']} "
+                  f"{res['candidates'][0]['changes_per_sec']}/s")
+            check("时钟带：排名第一的是 top-left（噪声带所在候选）",
+                  res["candidates"][0]["band"] == "top-left")
+        if static.exists():
+            res = probe(static, top=1, stitch_rows=4, seconds=6,
+                        args_out=str(tmpdir / "artifacts2"))
+            check("全静态：found=False（无比分牌地板）", res.get("found") is False,
+                  f"top={res['candidates'][0]['band']} "
+                  f"{res['candidates'][0]['changes_per_sec']}/s")
+
+    bad = sum(1 for _, ok, _ in checks if not ok)
+    print()
+    print(f"自检：{len(checks) - bad}/{len(checks)} 通过")
+    return 1 if bad else 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="match-recap-video 比分牌几何探针")
-    ap.add_argument("master", help="集锦母版视频")
+    ap.add_argument("master", help="集锦母版视频；填 'selftest' 跑离线回归（合成视频）")
     ap.add_argument("--top", type=int, default=3, help="生成竖拼长图的候选数")
-    ap.add_argument("--stitch", type=int, default=40, help="竖拼长图的帧数")
+    ap.add_argument("--stitch", type=int, default=40,
+                    help="竖拼长图的帧数（fps=1 采样 ⇒ 覆盖探测窗口的前 N 秒）")
     ap.add_argument("--seconds", type=int, default=120, help="探测时长（秒）")
     ap.add_argument("--out", help="探针结果 JSON 输出路径")
     ap.add_argument("--artifacts", help="竖拼长图与抽格图的输出目录（默认 ./probe-out）")
+    ap.add_argument("--selftest", action="store_true", help="离线跑合成视频回归")
     args = ap.parse_args(argv)
+
+    if args.selftest or args.master == "selftest":
+        return selftest()
 
     master = Path(args.master)
     if not master.exists():
@@ -252,6 +336,11 @@ def main(argv: list[str]) -> int:
         print(f"  {r['rank']}. {r['band']:<14} crop={r['crop']:<22} "
               f"p90={r['p90']:<9} 均值={r['mean']:<9} 变化 {r['changes']:>4} 次"
               f"（{r['changes_per_sec']}/s）")
+    if not res["found"]:
+        print()
+        print(f"未找到比分牌（地板 {MIN_CHANGES_PER_SEC}/s）——本 skill 对这条母版不适用，"
+              "没有映射基准。", file=sys.stderr)
+        return 1
     return 0
 
 

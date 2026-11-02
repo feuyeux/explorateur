@@ -2,8 +2,9 @@
   "_说明": [
     "队伍注册表：把「球队」这一维从 skill 里抽出来。新增一支球队只需要在这里加一条，",
     "再加一个 league 适配器（见 leagues.json）；SKILL.md 正文不写任何球队专有事实。",
-    "球员中文译名不在这里——那是每场比赛的事实，走官方比赛页 + assets/naming-conventions.md 的译名约定。",
-    "brand 是封面/字幕卡的取色；scoreboard 一律写 'probe'，几何不许抄，见 scripts/probe_scoreboard.py。"
+    "球员中文译名不在这里——那是每场比赛的事实，走官方比赛页；每场建一份名单（字段口径见 SKILL.md 事实源纪律），旁白、字幕卡、封面都从名单取。",
+    "brand 是封面/字幕卡的取色；scoreboard 一律写 'probe'，几何不许抄，见 scripts/probe_scoreboard.py。",
+    "coach 只是叙事背景参考、可能过期，任何脚本都不读它；解说与字幕卡里的主帅以两队 Wikipedia infobox 为准（SKILL.md 事实源纪律）。"
   ],
   "teams": {
     "milan": {

@@ -437,9 +437,13 @@ describe("inject 声明 ↔ apply 实际取用的 ctx 服务", () => {
 // 线上才发现。SKILL.md 是**给智能体看的说明书**，它写的每个 CLI 旗标都必须
 // 真实存在：这是「文档不许漂移」的最小可机检形态。
 //
-// 口径：旗标 = 库层源码里以字符串字面量出现的 '--xxx'（即真实可传的旗标）。
-// 排除两类噪音：① 测试目录里的假旗标；② SKILL.md 里的 CSS 自定义属性
-// （`--gold: #b8860b` 这种排版记号，不是 CLI 旗标）。
+// 口径：旗标 = **库层源码**或**该 skill 自己的 scripts/*.py** 里以字符串字面量
+// 出现的 '--xxx'（即真实可传的旗标）。skill 本地脚本（如 match-recap-video 的
+// 五个 Python）是真实可跑的入口，与库层同权——只认库层会把 match-recap 的
+// --stitch / --fact-pack 判成幻觉旗标，而它们天天在跑（2026-11-02 实测：本检查
+// 在 HEAD 上就已经红）。同 skill 的 scripts 才算数：A skill 的文档写 B skill 的
+// 脚本旗标仍然要红。排除两类噪音：① 测试目录里的假旗标；② SKILL.md 里的
+// CSS 自定义属性（`--gold: #b8860b` 这种排版记号，不是 CLI 旗标）。
 
 /** 库层源码（排除 test / node_modules）里的全部 '--xxx' 字面量。 */
 function libraryFlags(): Set<string> {
@@ -455,6 +459,30 @@ function libraryFlags(): Set<string> {
     }
   }
   walk(fileURLToPath(new URL("../../", import.meta.url)))
+  return out
+}
+
+/** 各 skill 自己的 scripts/（含子目录，排除 __pycache__）里定义的 '--xxx'。 */
+function skillScriptFlags(): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  const skillsDir = fileURLToPath(new URL("../../../skills/", import.meta.url))
+  for (const d of readdirSync(skillsDir)) {
+    const sdir = join(skillsDir, d, "scripts")
+    if (!statSync(sdir, { throwIfNoEntry: false })?.isDirectory()) continue
+    const flags = new Set<string>()
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir)) {
+        if (e === "__pycache__") continue
+        const p = join(dir, e)
+        if (statSync(p).isDirectory()) { walk(p); continue }
+        if (!p.endsWith(".py")) continue
+        const t = readFileSync(p, "utf8")
+        for (const m of t.matchAll(/['"](--[a-z][a-z0-9-]*)['"]/g)) flags.add(m[1]!)
+      }
+    }
+    walk(sdir)
+    out.set(d, flags)
+  }
   return out
 }
 
@@ -474,13 +502,15 @@ function skillFlags(): Array<{ skill: string; flag: string }> {
 }
 
 describe("旗标词表 ↔ SKILL.md", () => {
-  it("SKILL.md 里写的每个 CLI 旗标都在库层真实存在（旗标改名 → 说明书漂移 → 红）", () => {
+  it("SKILL.md 里写的每个 CLI 旗标都在库层或本 skill 脚本里真实存在（旗标改名 → 说明书漂移 → 红）", () => {
     const lib = libraryFlags()
     expect(lib.size, "库层旗标词表解析为空 = 解析器失效").toBeGreaterThan(10)
-    const unknown = skillFlags().filter(({ flag }) => !lib.has(flag))
+    const local = skillScriptFlags()
+    const unknown = skillFlags().filter(
+      ({ skill, flag }) => !lib.has(flag) && !local.get(skill)?.has(flag))
     expect(
       unknown.map((u) => `${u.skill}: ${u.flag}`),
-      "SKILL.md 写了库层不存在的旗标——模型会照着拼一个不存在的参数",
+      "SKILL.md 写了库层与本 skill 脚本都不存在的旗标——模型会照着拼一个不存在的参数",
     ).toEqual([])
   })
 

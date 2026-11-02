@@ -58,7 +58,8 @@
       "core.section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
     },
     "character-rig": {},
-    "music-annotate-video": {}
+    "music-annotate-video": {},
+    "match-recap-video": {}
   },
 
   "infrastructure": {

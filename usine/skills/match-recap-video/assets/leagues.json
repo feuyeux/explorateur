@@ -308,14 +308,8 @@
         "match_url_note": "意甲官方页的比赛 slug 形如 xxx-2026-2027-team-a-team-b；本条未纳入本轮实抓验证，只保留原 skill 的既有用法。"
       },
       "event_stream": "unverified",
-      "yields": [
-        "score",
-        "date",
-        "lineups",
-        "timeline:goal",
-        "timeline:substitution",
-        "timeline:card"
-      ],
+      "yields": [],
+      "yields_note": "event_stream 未验证（unverified）时不声明 yields——空数组才是与验证状态一致的口径；旧版本这里列过 score/date/lineups/timeline:*，那是未验证就先声明的写法，已收回。实抓验证后再按实际解析结果填。",
       "var_exposed": false,
       "highlights": {
         "strategy": "league_channel_search",

@@ -11,18 +11,21 @@
      只有**日期**能定序。所以：排序键永远是日期，取不到日期的候选一律不进
      「最新」评选，而是报出来让人看。
   2. **解析不出来就退出非零并留下原始证据。** 不许静默兜底成默认值
-     （纪律 19）。候选面之间若给出不同的「最新」，两个读数都报出来，退出码 2。
+     （纪律 19）。候选面之间若给出不同的「最新」，两个读数都报出来，退出码 1。
+     比赛页抓不动、或解析出 0 条事件，同样不许标 resolved。
   3. **每个字段带来源。** fact pack 里每个值都记着它是从哪个 URL、哪条规则
      抽出来的；没抽到的字段是 null 并标 reason，不填猜测值。
 
 用法：
-    python3 resolve_match.py --team barcelona                 # 解析并打印 fact pack
-    python3 resolve_match.py --team barcelona --out pack.json # 写文件
-    python3 resolve_match.py --team barcelona --dry-run       # 只打印将要抓的 URL
-    python3 resolve_match.py --selftest                       # 离线跑夹具，不联网
+    python3 resolve_match.py barcelona                 # 解析并打印 fact pack（league 口径）
+    python3 resolve_match.py barcelona all --out pack.json
+    python3 resolve_match.py barcelona --dry-run       # 只打印将要抓的 URL，不联网
+    python3 resolve_match.py barcelona --allow-unfinished  # 最新一场还没有比分时仍出 fact pack
+    python3 resolve_match.py --all-targets --asof 2026-11-02 --out packs.json
+    python3 resolve_match.py selftest                  # 离线跑夹具 + 判别逻辑负例，不联网
 
-退出码：0 = 解析成功；1 = 有 FAIL 级问题（事实源能力不足等）；2 = 输入/环境坏了；
-        3 = 多个候选面互相矛盾（需要人来定）。
+退出码：0 = 解析成功；1 = 没解析出可用的「最新已完赛」（含比赛页抓不动/解析出
+        0 条事件/同日真冲突/未完赛未加 --allow-unfinished）；2 = 输入/环境坏了。
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -498,21 +502,83 @@ def parse_fixtures(markdown: str, league: str, asof: date,
 # ---------------------------------------------------------------- 选取「最新」
 
 
+def _norm_url(url: str | None) -> str:
+    """URL 归一：去 query/fragment、去尾斜杠、小写协议与主机名。
+
+    同一场比赛在两个面上可能带不同 tracking 参数或尾斜杠出现两次——
+    精确字符串去重会把它们当两条，进而把「同日同场」误判成真冲突。"""
+    if not url:
+        return ""
+    u = url.strip()
+    for sep in ("#", "?"):
+        u = u.split(sep, 1)[0]
+    while u.endswith("/"):
+        u = u[:-1]
+    m = re.match(r"^([A-Za-z][A-Za-z0-9+.\-]*)://([^/]*)(.*)$", u)
+    if m:
+        u = f"{m.group(1).lower()}://{m.group(2).lower()}{m.group(3)}"
+    return u
+
+
+def _norm_name(name: str | None) -> str:
+    """队名归一：小写、去变音符、只留字母数字。Alavés 与 Alaves 是同一支队。"""
+    if not name:
+        return ""
+    low = name.lower()
+    stripped = "".join(ch for ch in unicodedata.normalize("NFD", low)
+                       if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]", "", stripped)
+
+
+def _same_match(a: dict, b: dict) -> bool:
+    """两个候选是不是**同一场比赛**：日期相同，且双方队名归一后一致、比分一致
+    （比分一侧缺失按「不矛盾」放行——发现面常先给日期后给比分）。
+
+    队名认不出来时**返回 False**（fail-closed）：证明不了是同一场，
+    就按「同日不同比赛」报冲突，让人来定，不许静默合并。"""
+    if not a.get("date") or a.get("date") != b.get("date"):
+        return False
+    for side in ("home", "away"):
+        na, nb = _norm_name(a.get(side)), _norm_name(b.get(side))
+        if not na or not nb or na != nb:
+            return False
+    sa, sb = a.get("score"), b.get("score")
+    if sa and sb and sa != sb:
+        return False
+    return True
+
+
+def corroborating_surfaces(cands: list[dict], winner: dict) -> set[str]:
+    """赢家被**几个候选面**印证：其余候选里与赢家同日同场的面（URL 是否相同
+    不影响——同一场在两个面上挂着同一个链接，是最硬的印证）。
+
+    「有两个面出过候选」不等于「选中这场被交叉核对过」——西甲的俱乐部
+    /results 页可能整轮缺失，赢家只在一个面上出现过；这时 cross-check
+    是空话，必须如实说没有。"""
+    surfaces = {winner.get("_surface") or ""}
+    for c in cands:
+        if c is winner or not c.get("_surface"):
+            continue
+        if _same_match(winner, c):
+            surfaces.add(c["_surface"])
+    return {s for s in surfaces if s}
+
+
 def dedupe_candidates(cands: list[dict]) -> list[dict]:
     """同一场比赛可能从多个面抓到（西甲两个表格、德甲俱乐部页 + 轮次页）。
-    按 URL 去重；保留先到的那条，缺的字段从后到的补。"""
+    按**归一化 URL** 去重；保留先到的那条，缺的字段从后到的补。"""
     out: list[dict] = []
     by_url: dict[str, dict] = {}
     for c in cands:
-        url = c.get("url")
-        if url and url in by_url:
-            kept = by_url[url]
+        key = _norm_url(c.get("url"))
+        if key and key in by_url:
+            kept = by_url[key]
             for field in ("date", "score", "home", "away", "competition", "round"):
                 if not kept.get(field) and c.get(field):
                     kept[field] = c[field]
             continue
-        if url:
-            by_url[url] = c
+        if key:
+            by_url[key] = c
         out.append(c)
     return out
 
@@ -523,10 +589,11 @@ def select_latest(cands: list[dict], asof: date, scope: str,
 
     排序键是日期，不是页面顺序（法甲的控件顺序会骗人）。
     没日期的候选不参与评选，但会被原样返回，让人看得见它为什么出局。
+    池里没有任何带比分的候选时，赢家带 `unfinished` 标记——「最新一场」
+    可能仍在进行或官网未更新赛果，不许冒充已完赛。
     """
     undated = [c for c in cands if not c.get("date")]
     dated = [c for c in cands if c.get("date")]
-    future = [c for c in dated if c["date"] > asof.isoformat()]
 
     # 未来日期的候选剔除（asof 当天或之后开球的都算未来）
     asof_iso = asof.isoformat()
@@ -535,6 +602,7 @@ def select_latest(cands: list[dict], asof: date, scope: str,
     # 已完赛 = 有比分。有比分的才进评选。
     completed = [c for c in past if c.get("score")]
     pool = completed or past
+    unfinished = not completed and bool(pool)
 
     # scope=league：只要联赛正赛。赛事名认不出来的候选**保留**
     # （信息缺失不该被当成「不是联赛」——那会悄悄缩小候选池）。
@@ -551,6 +619,7 @@ def select_latest(cands: list[dict], asof: date, scope: str,
     winners = [c for c in pool if c["date"] == best_date]
     # 同一日多场（罕见）：取带比分的
     winners.sort(key=lambda c: (bool(c.get("score")), c.get("source_line", 0)), reverse=True)
+    winners[0]["unfinished"] = unfinished
     return winners[0], undated
 
 
@@ -1367,8 +1436,49 @@ def capability_report(league_key: str, leagues: dict) -> list[str]:
 # ---------------------------------------------------------------- 主流程
 
 
+def _gather_or_refuse(ctx: dict, pick: dict, team: dict,
+                      lg_key: str, leagues: dict) -> bool:
+    """抓比赛页并装进 ctx。抓不动 / 解析出 0 条事件 = fact pack **拒绝**标 resolved。
+
+    2026-11-02 评审实测的 fail-open：gather_match 抛错被吞进 match_page.error、
+    key_events 变空，resolved 仍是 True、CLI 退出 0——下游会拿零个事件去建
+    窗口表还以为成功。比赛页失败与「页面结构变了」必须退出码非零（规矩 2）。
+    足球比赛至少有换人/牌，解析出 0 条事件 = 解析器没跟上页面，不是没事件。
+    """
+    try:
+        ctx["match_page"] = gather_match(pick, team, lg_key)
+    except ResolveError as exc:
+        ctx["match_page"] = {"error": str(exc), "url": pick.get("url")}
+        ctx["resolved"] = False
+        ctx["reason"] = (f"比赛页抓取/解析失败：{exc}——页面结构可能变了；"
+                         "fact pack 不冒充已解析（原始错误见 match_page.error）")
+        ctx["capability_warnings"] = capability_report(lg_key, leagues)
+        return False
+    if not (ctx["match_page"].get("events") or []):
+        ctx["resolved"] = False
+        ctx["reason"] = ("比赛页解析出 0 条事件——足球比赛至少有换人/牌，"
+                         "解析器多半没跟上页面结构；需要人工看原始页面（url 见 match_page.url）")
+        ctx["capability_warnings"] = capability_report(lg_key, leagues)
+        return False
+    return True
+
+
+def _fill_key_events(ctx: dict) -> None:
+    """窗口表只需要关键事件；其余（射门/犯规/角球）留作画面轴取材。
+
+    key_events = 进球/换人/牌/VAR/点球/哨（SKILL.md 的口径同步）；event_counts
+    按 kind 逐条计数，缺 0 不缺省——counts 里看不出哨与点球就等于没数。"""
+    key_kinds = {"goal", "substitution", "card", "var", "penalty", "whistle"}
+    events = (ctx.get("match_page") or {}).get("events") or []
+    ctx["key_events"] = [e for e in events if e.get("kind") in key_kinds]
+    ctx["event_counts"] = {
+        k: sum(1 for e in events if e.get("kind") == k)
+        for k in sorted(key_kinds)
+    }
+
+
 def resolve(team_key: str, asof: date, scope: str, dry_run: bool = False,
-            match_url: str | None = None) -> dict:
+            match_url: str | None = None, allow_unfinished: bool = False) -> dict:
     teams, leagues = load_registry()
     if team_key not in teams:
         raise ResolveError(f"未知球队 {team_key!r}；可选：{', '.join(sorted(teams))}")
@@ -1390,17 +1500,15 @@ def resolve(team_key: str, asof: date, scope: str, dry_run: bool = False,
 
     if match_url:
         # 手动指定比赛页（法甲这类「官方赛程面答不了」的联赛的兜底）：
-        # 跳过发现，直接读比赛页出 fact pack。
+        # 跳过发现，直接读比赛页出 fact pack。抓不动/解析不出事件同样拒绝标 resolved。
         ctx["latest_pick"] = {"url": match_url, "date": None, "score": None,
                               "source": "manual --match-url"}
-        ctx["resolved"] = True
         ctx["cross_checked"] = False
         ctx["cross_check_note"] = "比赛页由人工指定，未做发现面交叉核对。"
-        try:
-            ctx["match_page"] = gather_match({"url": match_url}, team, lg_key)
-        except ResolveError as exc:
-            ctx["match_page"] = {"error": str(exc), "url": match_url}
-        ctx["capability_warnings"] = capability_report(lg_key, leagues)
+        if not _gather_or_refuse(ctx, {"url": match_url}, team, lg_key, leagues):
+            return ctx
+        _fill_key_events(ctx)
+        ctx["resolved"] = True
         return ctx
 
     if dry_run:
@@ -1487,21 +1595,47 @@ def resolve(team_key: str, asof: date, scope: str, dry_run: bool = False,
         )
         return ctx
 
-    # ---- 真冲突：同一日期给出不同比赛 ----
+    # ---- 未完赛：显式降级，不冒充「最新已完赛」 ----
+    if best.get("unfinished"):
+        ctx["unfinished"] = True
+        ctx["latest_pick"] = best
+        if not allow_unfinished:
+            ctx["resolved"] = False
+            ctx["reason"] = (
+                "候选里没有任何一场带比分——「最新一场」可能仍在进行，或官网还没更新赛果。"
+                "确要使用这一场时加 --allow-unfinished（fact pack 会带 unfinished 标记）。"
+            )
+            return ctx
+        ctx["allow_unfinished"] = True
+
+    # ---- 同日候选分流：证明是同一场的算重复记录，证明不了的才是真冲突 ----
+    # URL 不同 ≠ 不同比赛：两个面常用不同 tracking 参数 / 尾斜杠指同一场
+    # （2026-11-02 评审实测：同日同队同比分不同 URL 会被误判成真冲突）。
+    # 队名认不出来 = 证明不了是同一场 → 按真冲突报，让人来定（fail-closed）。
     same_day = [c for c in all_cands
-                if c.get("date") == best["date"] and c.get("url") != best["url"]]
-    if same_day:
+                if c.get("date") == best["date"]
+                and _norm_url(c.get("url")) != _norm_url(best.get("url"))]
+    conflicts = [c for c in same_day if not _same_match(best, c)]
+    duplicates = [c for c in same_day if _same_match(best, c)]
+    if conflicts:
         ctx["resolved"] = False
         ctx["conflict"] = [
             {"surface": c.get("_surface"), "date": c["date"], "score": c.get("score"),
-             "url": c["url"]}
-            for c in [{"_surface": best.get("_surface"), **best}] + same_day
+             "home": c.get("home"), "away": c.get("away"),
+             "url": c["url"], "same_match": _same_match(best, c)}
+            for c in [{"_surface": best.get("_surface"), **best}] + conflicts
         ]
         ctx["reason"] = (
             f"同一日期（{best['date']}）在候选面之间指向了不同比赛——"
             "这是真冲突，需要人工指定比赛页。"
         )
         return ctx
+    if duplicates:
+        ctx["duplicate_candidates"] = [
+            {"surface": c.get("_surface"), "url": c["url"],
+             "note": "同日同场不同 URL，按内容确认为重复记录，不算冲突"}
+            for c in duplicates
+        ]
 
     ctx["latest_pick"] = best
     # 母版检索线索：官方频道 + 一条可复制到 YouTube 的查询串。
@@ -1516,18 +1650,21 @@ def resolve(team_key: str, asof: date, scope: str, dry_run: bool = False,
         "query": " ".join(x for x in (home, score, away, "highlights") if x),
         "note": lg.get("highlights", {}).get("note"),
     }
-    ctx["cross_checked"] = len({c.get("_surface") for c in all_cands}) > 1
+    # 「交叉核对」的口径 = 赢家被 ≥2 个面印证（同日同场出现在不同面上），
+    # 不是「有两个面出过候选」——赢家可能整轮只在一个面上出现（西甲实测）。
+    surfaces = corroborating_surfaces(all_cands, best)
+    ctx["corroborating_surfaces"] = sorted(surfaces)
+    ctx["cross_checked"] = len(surfaces) > 1
     if not ctx["cross_checked"]:
         ctx["cross_check_note"] = (
-            "只有一个候选面解析出结果，未做交叉核对；"
+            "选中的这一场只出现在一个候选面上（没有第二个面给出同日同场的记录）——"
             "页面顺序不可信，请人工确认这条日期。"
         )
 
-    # 比赛页事实包（英超要 overview + commentary 两页）
-    try:
-        ctx["match_page"] = gather_match(best, team, lg_key)
-    except ResolveError as exc:
-        ctx["match_page"] = {"error": str(exc), "url": best["url"]}
+    # 比赛页事实包（英超要 overview + commentary 两页）。
+    # 抓不动 / 解析出 0 条事件 = 拒绝标 resolved（见 _gather_or_refuse）。
+    if not _gather_or_refuse(ctx, best, team, lg_key, leagues):
+        return ctx
 
     # 比赛页缺的基础字段用发现面的读数补齐（德甲 liveticker 不给日期，
     # psg.fr 的日期在标题里，统一回填成 ISO）。
@@ -1537,15 +1674,7 @@ def resolve(team_key: str, asof: date, scope: str, dry_run: bool = False,
             if not mp_meta.get(field):
                 mp_meta[field] = best.get(field)
 
-    # 窗口表只需要关键事件；其余（射门/犯规/角球）留作画面轴取材。
-    key_kinds = {"goal", "substitution", "card", "var", "penalty", "whistle"}
-    key_events = [e for e in (ctx["match_page"].get("events") or [])
-                  if e.get("kind") in key_kinds]
-    ctx["key_events"] = key_events
-    ctx["event_counts"] = {
-        k: sum(1 for e in (ctx["match_page"].get("events") or []) if e.get("kind") == k)
-        for k in ("goal", "substitution", "card", "var")
-    }
+    _fill_key_events(ctx)
     ctx["capability_warnings"] = capability_report(lg_key, leagues)
     ctx["resolved"] = True
     return ctx
@@ -1702,7 +1831,39 @@ def selftest() -> int:
     best, undated = select_latest(fake, date(2026, 11, 2), "league")
     check("select_latest: 日期优先且剔除未来",
           bool(best) and best["date"] == "2026-10-31" and len(undated) == 1,
-          f"取 {best and best['date']}")
+          f"输入含未来场 2026-11-05（带比分），取 {best and best['date']}")
+    check("select_latest: 有比分的候选不标未完赛",
+          bool(best) and not best.get("unfinished"))
+
+    # 5) 负例：全部候选都没有比分 → 显式标未完赛，不冒充「最新已完赛」
+    best_u, _ = select_latest(
+        [{"date": "2026-11-01", "score": None, "url": "u", "source_line": 1}],
+        date(2026, 11, 2), "league")
+    check("select_latest: 无比分时标 unfinished",
+          bool(best_u) and best_u.get("unfinished") is True)
+
+    # 6) 同场判别：URL 归一 + 队名/比分对内容，不对 URL 字符串
+    a = {"date": "2026-10-31", "home": "FC Barcelona", "away": "Deportivo Alavés",
+         "score": "6-1", "url": "https://X.com/match/a?utm=feed"}
+    b = {"date": "2026-10-31", "home": "FC Barcelona", "away": "Deportivo Alaves",
+         "score": "6-1", "url": "https://X.com/match/a/"}
+    c = {"date": "2026-10-31", "home": "Real Madrid", "away": "Girona",
+         "score": "2-0", "url": "https://x/match/b"}
+    check("_norm_url: query/尾斜杠/主机大小写不产生重复",
+          _norm_url(a["url"]) == _norm_url(b["url"]),
+          f"{_norm_url(a['url'])} vs {_norm_url(b['url'])}")
+    check("_same_match: 变音符与 URL 差异不算不同比赛", _same_match(a, b))
+    check("_same_match: 同日不同对阵是真冲突", not _same_match(a, c))
+    check("_same_match: 队名认不出来证明不了同场（fail-closed）",
+          not _same_match(a, {"date": "2026-10-31", "score": "6-1",
+                              "home": None, "away": None, "url": "z"}))
+    a2, b2, c2 = ({**a, "_surface": "s1"}, {**b, "_surface": "s2"}, {**c, "_surface": "s2"})
+    check("corroborating_surfaces: 同场不同 URL 算印证",
+          corroborating_surfaces([a2, b2, c2], a2) == {"s1", "s2"})
+    check("corroborating_surfaces: 只有一个面不算交叉核对",
+          corroborating_surfaces([a2, c2], a2) == {"s1"})
+    check("corroborating_surfaces: 两个面但没有同场记录不算印证",
+          corroborating_surfaces([a2, c2], a2) != {"s1", "s2"})
 
     bad = sum(1 for _, ok, _ in checks if not ok)
     print()
@@ -1714,13 +1875,15 @@ def selftest() -> int:
 
 
 def resolve_targets(keys: list[str], asof: date, scope: str,
-                    dry_run: bool = False) -> tuple[dict, list[str]]:
+                    dry_run: bool = False,
+                    allow_unfinished: bool = False) -> tuple[dict, list[str]]:
     """批量解析。每支队伍独立成败——一支失败不拖垮其他三支。"""
     out: dict = {"asof": asof.isoformat(), "scope": scope, "teams": {}}
     failed: list[str] = []
     for key in keys:
         try:
-            ctx = resolve(key, asof, scope, dry_run=dry_run)
+            ctx = resolve(key, asof, scope, dry_run=dry_run,
+                          allow_unfinished=allow_unfinished)
         except ResolveError as exc:
             ctx = {"resolved": False, "error": str(exc)}
         out["teams"][key] = ctx
@@ -1745,6 +1908,8 @@ def main(argv: list[str]) -> int:
                     help="批量解析 teams.json 里 role=target 的全部球队")
     ap.add_argument("--out", help="fact pack 输出路径（默认打到 stdout）")
     ap.add_argument("--dry-run", action="store_true", help="只打印将要抓的 URL，不联网")
+    ap.add_argument("--allow-unfinished", action="store_true",
+                    help="最新一场还没有比分时仍出 fact pack（带 unfinished 标记）；默认拒绝，不冒充已完赛")
     ap.add_argument("--match-url", help="手动指定官方比赛页 URL（跳过发现面，用于官方赛程面答不了的联赛）")
     ap.add_argument("--selftest", action="store_true", help="离线跑夹具")
     args = ap.parse_args(argv)
@@ -1770,7 +1935,8 @@ def main(argv: list[str]) -> int:
                               "error": f"未知球队 {unknown}；可选：{', '.join(sorted(teams))}"},
                              ensure_ascii=False, indent=2))
             return 2
-        out_ctx, failed = resolve_targets(keys, asof, args.scope, dry_run=args.dry_run)
+        out_ctx, failed = resolve_targets(keys, asof, args.scope, dry_run=args.dry_run,
+                                          allow_unfinished=args.allow_unfinished)
         text = json.dumps(out_ctx, ensure_ascii=False, indent=2)
         if args.out:
             Path(args.out).write_text(text + "\n", encoding="utf-8")
@@ -1785,7 +1951,7 @@ def main(argv: list[str]) -> int:
 
     try:
         ctx = resolve(args.team, asof, args.scope, dry_run=args.dry_run,
-                      match_url=args.match_url)
+                      match_url=args.match_url, allow_unfinished=args.allow_unfinished)
     except ResolveError as exc:
         print(json.dumps({"resolved": False, "error": str(exc)}, ensure_ascii=False, indent=2))
         return 2

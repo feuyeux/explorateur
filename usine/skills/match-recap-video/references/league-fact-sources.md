@@ -358,8 +358,10 @@ match-sheet。
 3. 跑 `python3 scripts/resolve_match.py <key> --dry-run` 看它打算抓哪几个面；
    再跑真抓，核对 fact pack 的每个字段是否可解析。德甲/英超的 fact pack 会带
    `lineup_url`（liveticker→/lineup、overview→/lineups）；阵容仍要单独取。
-4. 跑 `python3 scripts/resolve_match.py selftest` 与
-   `python3 scripts/check_windows.py selftest`（回归）。
+4. 跑 `python3 scripts/verify_all.py`（五个 selftest 聚合回归），或逐个：
+   `resolve_match.py selftest` · `check_windows.py selftest` ·
+   `find_master.py --selftest` · `probe_scoreboard.py selftest` ·
+   `read_scoreboard.py selftest`。
 5. 跑 `python3 scripts/find_master.py <key>` 看官方频道候选是否排得出来；
    第一名不是官方频道或比分对不上，说明 `official_channels` 或检索词要改。
 
