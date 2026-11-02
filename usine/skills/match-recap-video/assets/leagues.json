@@ -1,0 +1,295 @@
+{
+  "_说明": [
+    "联赛适配器层。每条记录的字段都经过实抓验证（验证方式与日期见 references/league-fact-sources.md）。",
+    "改 URL 模板前先改这里并重跑 scripts/resolve_match.py --selftest；不要把链接抄进 SKILL.md 正文。",
+    "event_stream 是这个联赛官方页**实际能给出的事件流形态**，不是它「应该有」什么：",
+    "  structured = 逐分钟结构化（进球/换人/牌/VAR 分行）；prose = 只有叙述稿，事件在另一个标签页；",
+    "  narrative = 叙述式直播，标题是编辑文案（进球分钟要人工读或另找数据源）；none = 抓不到可用事件流。",
+    "highlights.strategy 决定母版从哪来：'match_page_embedded' = 比赛页自带官方集锦链接；",
+    "  'league_channel_search' = 联赛官方频道里找；'match_sheet_tab' = 比赛页有独立集锦标签页。"
+  ],
+  "leagues": {
+    "laliga": {
+      "zh": "西甲",
+      "en": "LaLiga EA SPORTS",
+      "country": "ES",
+      "season_arg": "2026-2027",
+      "season_label": "2026/27",
+      "original_audio": "es",
+      "fact_source": {
+        "base": "https://www.laliga.com",
+        "lang": "en-GB",
+        "club_url": "{base}/{lang}/clubs/{club_slug}",
+        "club_matches_url": "{base}/{lang}/clubs/{club_slug}/matches",
+        "club_next_matches_url": "{base}/{lang}/clubs/{club_slug}/next-matches",
+        "match_url": "{base}/{lang}/match/temporada-{season}-{competition}-{home_slug}-{away_slug}-{match_id}",
+        "match_url_note": "主客 slug 用 '-' 直接相连，没有 vs 分隔符；competition 段用官方小写名（如 laliga-ea-sports、ucl）。",
+        "fixtures_surfaces": [
+          "{club_results_url}",
+          "{league_results_url}"
+        ],
+        "fixtures_surfaces_note": "俱乐部 /results 与联赛总表都是**管道表格**（一行一场：日期 | 开球 | 主+比分+客 | 赛事 | 比赛页）。两个面必须都跑——实抓发现俱乐部页可能不含最新一轮。",
+        "club_results_url": "{base}/{lang}/clubs/{club_slug}/results",
+        "league_results_url": "{base}/{lang}/{competition}/results"
+      },
+      "event_stream": "structured",
+      "yields": [
+        "score",
+        "date",
+        "kickoff",
+        "venue",
+        "attendance",
+        "referees",
+        "formations",
+        "trainers",
+        "starters",
+        "substitutes",
+        "round",
+        "timeline:goal",
+        "timeline:substitution",
+        "timeline:card",
+        "timeline:var",
+        "timeline:foul"
+      ],
+      "var_exposed": true,
+      "var_markers": [
+        "VAR Decision:",
+        "Goal awarded following VAR Review.",
+        "Goal overturned"
+      ],
+      "highlights": {
+        "strategy": "league_channel_search",
+        "channel_url": "https://www.youtube.com/user/laliga",
+        "note": "比赛页不内嵌集锦视频 URL，只有图片与官方频道入口；母版要按队名+比分去官方频道找。"
+      },
+      "verified": {
+        "at": "2026-11-02",
+        "sample_match": "https://www.laliga.com/en-GB/match/temporada-2026-2027-laliga-ea-sports-fc-barcelona-deportivo-alaves-11",
+        "sample_result": "Barcelona 6-1 Alaves, Matchday 11, SAT 31.10.2026 16:00, Spotify Camp Nou 53,523",
+        "parsed": "7 进球 / 10 换人 / 5 黄牌 / 1 VAR 判决 / 47 犯规，比分 6-1 还原正确"
+      },
+      "league_competition_tokens": [
+        "LALIGA EA SPORTS"
+      ],
+      "competition_path": "laliga-easports",
+      "match_url_carries_team_slug": true
+    },
+    "premierleague": {
+      "zh": "英超",
+      "en": "Premier League",
+      "country": "GB",
+      "season_arg": "2026-27",
+      "season_label": "2026/27",
+      "original_audio": "en",
+      "fact_source": {
+        "base": "https://www.premierleague.com",
+        "lang": "en",
+        "season_fixtures_url": "{base}/{lang}/matches/premier-league/{season_arg}",
+        "club_matches_url": "{base}/{lang}/clubs/{club_id}/matches",
+        "match_url": "{base}/{lang}/match/{match_id}/{home_slug}-vs-{away_slug}",
+        "match_tabs": {
+          "overview": "/overview",
+          "highlights": "/highlights",
+          "lineups": "/lineups",
+          "stats": "/stats",
+          "commentary": "/commentary",
+          "info": "/info"
+        },
+        "match_url_note": "slug 用 '-' 连接，主客之间固定 vs；match_id 是数字，赛程页与比赛页共用。",
+        "fixtures_surfaces": [
+          "{season_fixtures_url}",
+          "{club_matches_url}"
+        ],
+        "fixtures_surfaces_note": "赛季页带 FT 与比分，俱乐部页只有赛程（无结果），所以优先赛季页。"
+      },
+      "event_stream": "prose",
+      "yields": [
+        "score",
+        "date",
+        "venue",
+        "referee",
+        "lineups",
+        "report_text",
+        "highlights_video"
+      ],
+      "var_exposed": false,
+      "var_note": "英超官方比赛页不单独列 VAR 判决；逐分钟事件在 /commentary 标签页。判罚要读 commentary 全文，不要从赛果反推。",
+      "highlights": {
+        "strategy": "match_page_embedded",
+        "note": "比赛页内嵌官方集锦（YouTube 官方频道），直接从 /overview 抓 watch?v= 链接。"
+      },
+      "verified": {
+        "at": "2026-11-02",
+        "sample_match": "https://www.premierleague.com/en/match/2645281/liverpool-vs-arsenal/overview",
+        "sample_result": "Liverpool 0-1 Arsenal, Sun 01 Nov 2026, Anfield, Havertz 16'",
+        "sample_highlights": "https://www.youtube.com/watch?v=Zt1VugPdwFw",
+        "parsed": "比分 0-1 / 球场 Anfield / 主裁 Andy Madley / 官方集锦链接 均还原正确"
+      },
+      "league_competition_tokens": [
+        "Premier League"
+      ],
+      "match_url_carries_team_slug": true
+    },
+    "bundesliga": {
+      "zh": "德甲",
+      "en": "Bundesliga",
+      "country": "DE",
+      "season_arg": "2026-2027",
+      "season_label": "2026/27",
+      "original_audio": "de",
+      "fact_source": {
+        "base": "https://www.bundesliga.com",
+        "lang": "en",
+        "club_matches_url": "{base}/{lang}/{competition}/clubs/{club_slug}/matches",
+        "club_calendar_url": "{base}/{lang}/{competition}/matchday/{season_arg}/{club_slug}",
+        "match_url": "{base}/{lang}/{competition}/matchday/{season_arg}/{matchday}/{home_slug}-vs-{away_slug}/liveticker",
+        "match_url_note": "matchday 是德甲轮次数字（如 8），不是比赛 id。",
+        "fixtures_surfaces": [
+          "{club_matches_url}",
+          "{club_calendar_url}"
+        ],
+        "fixtures_surfaces_note": "俱乐部页的「Fixtures & Results」块带日期与比分，是德甲最省事的入口。 俱乐部页给的是「日期 + 比分 + 主客缩写」，日期在 20 行开外，解析器往回找最近日期。"
+      },
+      "event_stream": "narrative",
+      "yields": [
+        "score",
+        "date",
+        "kickoff",
+        "venue",
+        "formations",
+        "lineups",
+        "standings",
+        "timeline:substitution",
+        "timeline:narrative"
+      ],
+      "var_exposed": false,
+      "var_note": "德甲 liveticker 是叙述式直播：标题是编辑文案（「Dortmund level!」「Off the bar!」），只有换人与终场是结构化标题。**进球分钟与 VAR 判决抓不到结构化字段**——需要人工读 liveticker，或改用 DFL 的 bapi 数据层。",
+      "highlights": {
+        "strategy": "match_page_embedded",
+        "note": "俱乐部页每场有「Highlights Matchday N」缩略图，链接指向 liveticker 页，集锦视频在该页内（JWPlayer）。"
+      },
+      "verified": {
+        "at": "2026-11-02",
+        "sample_match": "https://www.bundesliga.com/en/bundesliga/matchday/2026-2027/8/fc-bayern-muenchen-vs-borussia-dortmund/liveticker",
+        "sample_result": "FC Bayern München 2-2 Borussia Dortmund, Matchday 8, Saturday 31 October",
+        "parsed": "比分 2-2 从「Full time: Bayern 2-2 Dortmund」标题还原；事件流 13 条（10 条 editorial / 3 条 substitution）"
+      },
+      "league_competition_tokens": [
+        "Bundesliga"
+      ],
+      "match_url_carries_team_slug": true
+    },
+    "ligue1": {
+      "zh": "法甲",
+      "en": "Ligue 1 McDonald's",
+      "country": "FR",
+      "season_arg": "2026",
+      "season_label": "2026/27",
+      "original_audio": "fr",
+      "fact_source": {
+        "base": "https://ligue1.com",
+        "lang": "en",
+        "club_url": "{base}/{lang}/club-sheet/l1_championship_club_{season_arg}_{club_id}",
+        "club_matches_url": "{base}/{lang}/club-sheet/l1_championship_club_{season_arg}_{club_id}/matches",
+        "club_calendar_url": "{base}/{lang}/club-sheet/l1_championship_club_{season_arg}_{club_id}/calendar",
+        "match_url": "{base}/{lang}/match-sheet/l1_championship_match_{match_id}",
+        "match_tabs": {
+          "summary": "/summary",
+          "formations": "/formations",
+          "stats": "/stats",
+          "highlights": "/highlights"
+        },
+        "match_url_note": "club_id 与赛季绑定在 url 里（l1_championship_club_2026_13 = 26/27 赛季的巴黎；club 90 是巴黎 FC，别搞混）。",
+        "fixtures_surfaces": [
+          "{club_matches_url}",
+          "{club_calendar_url}"
+        ],
+        "fixtures_surfaces_note": "matches 页的控件顺序不可信（轮播首位与官方集锦视频列表指向不同场次）；calendar 页只有未赛场次。最新一场要靠日期定序，必要时开比赛页核。"
+      },
+      "event_stream": "none",
+      "yields": [
+        "score",
+        "date",
+        "kickoff",
+        "venue",
+        "lineups",
+        "formations",
+        "standings",
+        "highlight_clips"
+      ],
+      "var_exposed": false,
+      "var_note": "**法甲官方比赛页在抓下来的 markdown 里不暴露可用事件流**——事件藏在图标图例后面，只剩 Summary 里零星几条。要进球/换人/牌的时间线，得改用俱乐部官网或 LFP 数据层，或人工读 /summary 页。",
+      "highlights": {
+        "strategy": "match_sheet_tab",
+        "note": "比赛页有独立 /highlights 标签页；官网另有逐段短片（官方频道），不是一条完整母版——法甲的「母版」要先确认口径。"
+      },
+      "verified": {
+        "at": "2026-11-02",
+        "sample_match": "https://ligue1.com/en/match-sheet/l1_championship_match_73421",
+        "sample_result": "Paris FC - PSG",
+        "parsed": "阵容 / 阵型 / 数据 / 积分可读；事件流不可用（event_stream=none）"
+      },
+      "league_competition_tokens": [
+        "Ligue 1 McDonald's",
+        "Ligue 1"
+      ],
+      "match_url_carries_team_slug": false,
+      "fixture_surface_limitation": "实抓结论：ligue1.com 的俱乐部页**只列未赛场次**（L1 - GW.10 - Friday 6 这类），已赛场次只在「Recent results」控件里出现且**不带日期**；比赛页给的是**轮次名义日期**（如「17 May 2026 - D.34」= 该轮名义日期），不是实际开球日。因此「本赛季最新一场」**无法从 ligue1.com 单独解出**。",
+      "supplemental_fact_sources": [
+        {
+          "what": "俱乐部官网赛果页（含真实开球日与首发）",
+          "how": "psg.fr 的 matches/news 栏目"
+        },
+        {
+          "what": "LFP / MPG 数据层",
+          "how": "mpg.football / lfp.fr"
+        },
+        {
+          "what": "当轮官方集锦视频（逐段短片，含日期字幕）",
+          "how": "ligue1.com/en/videos 与官方频道"
+        },
+        {
+          "what": "手动指定比赛页（兜底）",
+          "how": "把 match-sheet URL 直接喂给 resolve_match.py 的 --match-url"
+        }
+      ]
+    },
+    "seriea": {
+      "zh": "意甲",
+      "en": "Serie A",
+      "country": "IT",
+      "season_arg": "2026-2027",
+      "season_label": "2026/27",
+      "original_audio": "it",
+      "fact_source": {
+        "base": "https://www.legaseriea.it",
+        "lang": "en",
+        "match_url": "{base}/{lang}/match/{season_arg}/{match_slug}",
+        "match_url_note": "意甲官方页的比赛 slug 形如 xxx-2026-2027-team-a-team-b；本条未纳入本轮实抓验证，只保留原 skill 的既有用法。"
+      },
+      "event_stream": "unverified",
+      "yields": [
+        "score",
+        "date",
+        "lineups",
+        "timeline:goal",
+        "timeline:substitution",
+        "timeline:card"
+      ],
+      "var_exposed": false,
+      "highlights": {
+        "strategy": "league_channel_search",
+        "channel_url": "https://www.youtube.com/user/legaseriea"
+      },
+      "verified": {
+        "at": null,
+        "sample_match": null,
+        "sample_result": "原 skill 基线联赛；未纳入本轮实抓验证范围。"
+      },
+      "league_competition_tokens": [
+        "Serie A"
+      ],
+      "match_url_carries_team_slug": false
+    }
+  }
+}

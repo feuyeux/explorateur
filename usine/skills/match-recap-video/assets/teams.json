@@ -1,0 +1,104 @@
+{
+  "_说明": [
+    "队伍注册表：把「球队」这一维从 skill 里抽出来。新增一支球队只需要在这里加一条，",
+    "再加一个 league 适配器（见 leagues.json）；SKILL.md 正文不写任何球队专有事实。",
+    "球员中文译名不在这里——那是每场比赛的事实，走官方比赛页 + assets/naming-conventions.md 的译名约定。",
+    "brand 是封面/字幕卡的取色；scoreboard 一律写 'probe'，几何不许抄，见 scripts/probe_scoreboard.py。"
+  ],
+  "teams": {
+    "milan": {
+      "zh": "AC米兰",
+      "en": "AC Milan",
+      "league": "seriea",
+      "club_slug": "ac-milan",
+      "club_id": null,
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@ACMilanOfficial",
+        "site": "https://www.acmilan.com"
+      },
+      "brand": { "primary": "#FB090B", "secondary": "#000000", "accent": "#FFFFFF" },
+      "original_audio": "it",
+      "rivals": ["inter", "juventus", "atalanta", "roma", "napoli"],
+      "role": "baseline"
+    },
+    "inter": {
+      "zh": "国际米兰",
+      "en": "Inter Milan",
+      "league": "seriea",
+      "club_slug": "inter",
+      "club_id": null,
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@Inter",
+        "site": "https://www.inter.it"
+      },
+      "brand": { "primary": "#0068A8", "secondary": "#000000", "accent": "#D8A94B" },
+      "original_audio": "it",
+      "rivals": ["milan", "juventus", "napoli", "atalanta", "lazio"],
+      "role": "baseline"
+    },
+    "barcelona": {
+      "zh": "巴塞罗那",
+      "en": "FC Barcelona",
+      "league": "laliga",
+      "club_slug": "fc-barcelona",
+      "club_id": null,
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@FCBarcelona",
+        "site": "https://www.fcbarcelona.com"
+      },
+      "brand": { "primary": "#A50044", "secondary": "#004D98", "accent": "#EDBB00" },
+      "original_audio": "es",
+      "rivals": ["real-madrid", "athletic-bilbao", "sevilla", "girona", "real-sociedad"],
+      "coach": { "zh": "汉斯-弗利克", "en": "Hansi Flick" },
+      "role": "target"
+    },
+    "liverpool": {
+      "zh": "利物浦",
+      "en": "Liverpool FC",
+      "league": "premierleague",
+      "club_slug": "liverpool",
+      "club_id": "14",
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@LiverpoolFC",
+        "site": "https://www.liverpoolfc.com"
+      },
+      "brand": { "primary": "#C8102E", "secondary": "#F6EB61", "accent": "#00B2A9" },
+      "original_audio": "en",
+      "rivals": ["manchester-united", "manchester-city", "everton", "arsenal", "chelsea"],
+      "coach": { "zh": "安多尼·伊劳拉", "en": "Andoni Iraola" },
+      "role": "target"
+    },
+    "dortmund": {
+      "zh": "多特蒙德",
+      "en": "Borussia Dortmund",
+      "league": "bundesliga",
+      "club_slug": "borussia-dortmund",
+      "club_id": "DFL-CLU-000007",
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@Borussia Dortmund",
+        "site": "https://www.bvb.de"
+      },
+      "brand": { "primary": "#FDE100", "secondary": "#000000", "accent": "#FFFFFF" },
+      "original_audio": "de",
+      "rivals": ["fc-bayern-munchen", "schalke", "borussia-monchengladbach", "rb-leipzig", "hoffenheim"],
+      "coach": { "zh": "尼科·科瓦奇", "en": "Niko Kovač" },
+      "role": "target"
+    },
+    "psg": {
+      "zh": "巴黎圣日耳曼",
+      "en": "Paris Saint-Germain",
+      "league": "ligue1",
+      "club_slug": "paris-saint-germain",
+      "club_id": "13",
+      "official_channel": {
+        "youtube": "https://www.youtube.com/@PSG",
+        "site": "https://www.psg.fr"
+      },
+      "brand": { "primary": "#004170", "secondary": "#DA291C", "accent": "#FFFFFF" },
+      "original_audio": "fr",
+      "rivals": ["marseille", "lyon", "monaco", "lille", "nice"],
+      "coach": { "zh": "路易斯·恩里克", "en": "Luis Enrique" },
+      "role": "target"
+    }
+  }
+}
