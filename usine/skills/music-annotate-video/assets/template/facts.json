@@ -1,0 +1,57 @@
+{
+  "$schema": "music-facts/v1",
+  "$comment": "制作信息页与发布词的唯一数字源。numbers[] 的每一项都必须有 source（探针日志 / ffprobe / 乐谱真值 / chroma 实测），credit 的 source_ids 必须能在 sources.json 里找到。visuals[] 把每张史料图的用途、图注与来源绑定到 sources.json；full-bleed 长边 ≥1600、inset ≥900。占位符 {{…}} 不许流进成片。",
+  "work": {
+    "title": "{{WORK_TITLE}}",
+    "composer": "{{COMPOSER}}",
+    "catalog": "{{CATALOG}}"
+  },
+  "numbers": [
+    {
+      "key": "recording_duration_s",
+      "value": 0.0,
+      "unit": "s",
+      "source": "{{ffprobe 命令 或 probe 日志路径}}",
+      "measured_at": "{{YYYY-MM-DDTHH:MM:SS+08:00}}"
+    },
+    {
+      "key": "final_duration_s",
+      "value": 0.0,
+      "unit": "s",
+      "source": "{{成片 ffprobe（交付前回填）}}",
+      "measured_at": "{{YYYY-MM-DDTHH:MM:SS+08:00}}"
+    },
+    {
+      "key": "excerpt_count",
+      "value": 0,
+      "unit": "count",
+      "source": "{{摘录清单 / 探针日志}}",
+      "measured_at": "{{YYYY-MM-DDTHH:MM:SS+08:00}}"
+    }
+  ],
+  "credit": {
+    "work": "{{WORK_TITLE}}",
+    "performer": "{{PERFORMER}}",
+    "recording_license": "{{LICENSE_ID}}",
+    "score_license": "{{SCORE_LICENSE}}",
+    "source_ids": ["src-001", "src-002"],
+    "attribution_lines": [
+      "{{REQUIRED_CREDIT_LINE}}"
+    ]
+  },
+  "visuals": [
+    {
+      "key": "composer-portrait",
+      "source_id": "src-003",
+      "usage": "inset",
+      "placement": "bio-timeline",
+      "caption": "{{人物/作品 + 年代 + 作者 + 来源}}",
+      "crop": "{{可选的裁切说明}}"
+    }
+  ],
+  "placeholders": [
+    "{{WORK_TITLE}}",
+    "{{COMPOSER}}",
+    "{{CATALOG}}"
+  ]
+}

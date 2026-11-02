@@ -1,0 +1,48 @@
+{
+  "$schema": "music-sources/v1",
+  "$comment": "许可账本。每一件进入成片的录音/乐谱/谱例/图片都必须在这里有一条，URL + 许可 + 获取日期 + sha256 四件齐全。{{…}} 是占位符，交付前必须替换；validate-facts.mjs 不带 --template 时会拒收。",
+  "items": [
+    {
+      "id": "src-001",
+      "kind": "recording",
+      "title": "{{WORK_TITLE}} — {{MOVEMENT_OR_EXCERPT}}",
+      "performer": "{{ENSEMBLE_OR_PERFORMER}}",
+      "url": "{{SOURCE_URL}}",
+      "license": "{{LICENSE_ID}}",
+      "license_url": "{{LICENSE_URL}}",
+      "attribution": "{{REQUIRED_CREDIT_LINE}}",
+      "retrieved": "{{YYYY-MM-DD}}",
+      "sha256": "{{SHA256}}",
+      "notes": "公有领域录音也要登记来源；CC BY / CC BY-SA 的录音必须把 attribution 原样放进制作信息页。"
+    },
+    {
+      "id": "src-002",
+      "kind": "score",
+      "title": "{{SCORE_TITLE}}",
+      "url": "{{SCORE_URL}}",
+      "license": "{{SCORE_LICENSE}}",
+      "license_url": "{{SCORE_LICENSE_URL}}",
+      "attribution": "{{SCORE_ATTRIBUTION}}",
+      "retrieved": "{{YYYY-MM-DD}}",
+      "sha256": "{{SHA256}}",
+      "notes": "CC0 MIDI / 公有领域谱例。没有真值的段落必须写成 recording-measured，不许假装有谱。"
+    },
+    {
+      "id": "src-003",
+      "kind": "image",
+      "title": "{{IMAGE_TITLE}}",
+      "creator": "{{PORTRAIT_PAINTER_OR_PHOTOGRAPHER}}",
+      "date": "{{YEAR_OR_DATE_RANGE}}",
+      "url": "{{FILE_PAGE_URL}}",
+      "file_url": "{{DIRECT_IMAGE_URL}}",
+      "license": "{{LICENSE_ID}}",
+      "license_url": "{{LICENSE_URL}}",
+      "attribution": "{{REQUIRED_CREDIT_LINE}}",
+      "retrieved": "{{YYYY-MM-DD}}",
+      "sha256": "{{SHA256}}",
+      "width": 0,
+      "height": 0,
+      "notes": "kind=image：url 是 File: 页/馆藏页（许可证据），file_url 才是直链。搜到的 imageUrl 不能当出处；缩略图、带水印图、AI 放大图不收。"
+    }
+  ]
+}

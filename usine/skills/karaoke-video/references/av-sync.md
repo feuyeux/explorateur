@@ -101,9 +101,14 @@ compares against the same-run state frames (white vs white diffs to zero)
 Defenses (all in `feuille karaoke build`, @feuille/karaoke):
 1. **Absolute paths only** for anything that goes into a `file://` URL —
    `HERE = cfgp.resolve().parent`, never a cwd-relative parent;
-2. **isolated `--user-data-dir`** per render — also guards against a
-   running desktop Chrome hijacking the headless launch (URL opens as a
-   tab there and the screenshot is its new-tab page);
+2. **`--headless=new`, and NO `--user-data-dir`** — `--headless=new` does not
+   hijack (and is not hijacked by) an already-running desktop browser. Do **not**
+   add an isolated `--user-data-dir`: on macOS + Edge the frame renders but the
+   process never exits and the whole build hangs (see `usine/AGENTS.md` and
+   `packages/karaoke/src/build_video.ts` `renderChrome`). Also pass
+   `--force-device-scale-factor=1` (otherwise screenshots drift with the OS
+   display scale) and `--hide-scrollbars` (layout width must equal the window
+   width, or the compensation math is wrong);
 3. **blank-frame sentinel** after every render: >90% near-pure-white
    pixels → hard fail with the URL echoed. This is the only reliable
    gate — it proved the fix by catching the still-broken relative-path

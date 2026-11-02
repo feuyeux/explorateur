@@ -1,0 +1,91 @@
+{
+  "$schema": "music-project/v1",
+  "$comment": "本产线的装配契约（模板）。`feuille karaoke build` 的音频是固定增益 amix，表达不了这里的「摘录绝对偏移 + 旁白期 ducking + 聆听段全电平」；builder 必须按 audio 段实现，不要把 tracks/envelope 降级成一个常数 gain。数值是样例，替换成实测值。",
+  "work": {
+    "title": "{{WORK_TITLE}}",
+    "composer": "{{COMPOSER}}",
+    "movements": 4
+  },
+  "recording": {
+    "file": "assets/recording.ogg",
+    "source_id": "src-001",
+    "duration_s": 0.0
+  },
+  "score": {
+    "file": "assets/score.midi",
+    "source_id": "src-002",
+    "kind": "cc0-midi"
+  },
+  "fps": 30,
+  "grid": "d30(t) = ceil(t * 30 - 1e-9) / 30",
+
+  "scenes": [
+    {
+      "id": "A",
+      "kind": "chords",
+      "recording_excerpt": { "start_s": 0.0, "end_s": 22.0 },
+      "preroll": 0.8,
+      "tail": 0.8,
+      "done": 0.5,
+      "notes_file": "notes/opening-notes.json",
+      "geometry": { "x0": 40, "x1": 1820, "yTop": 30, "yBot": 520 },
+      "vmax_ref": 0.14,
+      "narration": [
+        { "file": "tts/zh-CN.mp3", "at_s": 0.8, "gain": 1.0 }
+      ]
+    },
+    {
+      "id": "B",
+      "kind": "melody",
+      "recording_excerpt": { "start_s": 186.0, "end_s": 246.0 },
+      "preroll": 0.8,
+      "tail": 0.8,
+      "done": 0.5,
+      "notes_file": "notes/theme-notes.json",
+      "geometry": { "x0": 10, "x1": 1740, "yTop": 30, "yBot": 580 },
+      "vmax_ref": 0.14,
+      "narration": [
+        { "file": "tts/zh-CN-2.mp3", "at_s": 0.8, "gain": 1.0 }
+      ]
+    }
+  ],
+
+  "audio": {
+    "$comment": "music 轨是全片一条，offset 是摘录在录音里的绝对位置；gain envelope 的窗口是母版时间轴上的绝对秒。旁白期 0.25（≈ −12 dB），聆听段 1.0。实现可用 volume=…:enable='between(t,…)'，也可用 sidechaincompress；但产物必须满足 acceptance。",
+    "tracks": [
+      {
+        "role": "music",
+        "file": "assets/recording.ogg",
+        "offset_s": 0.0,
+        "envelope": [
+          { "from_s": 0.0, "to_s": 6.0, "gain": 0.25 },
+          { "from_s": 6.0, "to_s": 22.0, "gain": 1.0 },
+          { "from_s": 22.0, "to_s": 30.0, "gain": 0.25 }
+        ]
+      }
+    ],
+    "ducking": {
+      "mode": "narration-windows",
+      "music_gain": 0.25,
+      "rule": "旁白出声时音乐下压，旁白结束立刻回到 1.0；不许因为旁白讲完就把音乐停掉。"
+    },
+    "loudness": { "I": -14, "TP": -1.5, "LRA": 11 }
+  },
+
+  "credit": {
+    "$comment": "二段式的关键不动点：卡长在第一次装配前就定死（例如 8.0s），回填数字只改内容不改帧数；否则总时长变→数字变→再变，重渲不收敛。",
+    "placeholder_duration_s": 8.0,
+    "final_duration_s": 8.0,
+    "fixed_length": true,
+    "facts": "facts.json",
+    "sources": "sources.json"
+  },
+
+  "acceptance": {
+    "ink_min_pct": 0.2,
+    "ink_gray_threshold": 200,
+    "av_stream_diff_ms_max": 50,
+    "scene_duration_diff_frames": 0,
+    "credit_placeholder_scan": true
+  }
+}

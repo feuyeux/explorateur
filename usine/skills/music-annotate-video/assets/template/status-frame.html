@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Music Annotate · state frame template</title>
+<!--
+  状态帧模板（可跑的最小骨架，不是成品画面）。
+  纪律来源：references/music-av-traps.md
+
+  1. DATA 脚本必须在使用它的脚本之前（§5：const 无提升，后置 = TDZ = 空纸）。
+  2. URL 传裸名（?scene=A），卡片别名显式列全（§6）。
+  3. caption 永远包一层块级 div（§13：裸文本在 flex 列容器里碎成匿名 item）。
+  4. 播放头只有一份实现：这个页面的 JS overlay（§17）。渲染时由 ?ph=<秒>
+     注入；不要再用别的语言把播放头烘进静态 SVG。
+  5. 时间码用 text-anchor="end" 锚在绘图区右缘（§16），不写死
+     「x1 - 180px」——字号/文案变了也不会撞事件标签。
+  6. 波形高度 = maxH * sqrt(v / vmaxRef)，vmaxRef 是**整段摘录**的最响值，
+     不是分镜段的局部最大值（§15）；画面右下角标出这个参照，跨段柱高才可比较。
+  7. 不做 CSS transition/animation：同一 state 每次截图必须逐字节一致。
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #e8e2d4; }
+  body { color: #2c2620; font-family: Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif; }
+
+  .scene {
+    display: none; width: 1920px; height: 1080px; padding: 64px 90px 44px;
+    background: #f7f2e6; flex-direction: column;
+  }
+  .scene.on { display: flex; }
+
+  .head { border-bottom: 2px solid #d9cdb7; padding-bottom: 20px; }
+  .kicker { font-size: 22px; letter-spacing: .35em; color: #b8860b; margin-bottom: 10px; }
+  h1 { font-size: 48px; font-weight: 600; letter-spacing: .02em; }
+  h1 .sub { font-size: 24px; color: #8a7e6c; font-style: italic; margin-left: 22px; }
+
+  /* 永远用块级 div 包 caption —— 裸文本 + <b> + 文本会在 flex 列里
+     变成三个匿名 flex item（§13）。 */
+  .caption { font-size: 24px; line-height: 1.55; margin-top: 18px; color: #5a5142; }
+  .caption b { color: #b8860b; }
+
+  .stage { flex: 1; min-height: 0; position: relative; }
+  .stage svg { width: 100%; height: 100%; display: block; }
+
+  .foot {
+    margin-top: auto; border-top: 1px solid #d9cdb7; padding-top: 14px;
+    display: flex; justify-content: space-between; font-size: 19px; color: #8a7e6c;
+  }
+
+  .card { display: none; width: 1920px; height: 1080px; background: #f7f2e6; }
+  .card.on { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .card .k { font-size: 26px; letter-spacing: .5em; color: #b8860b; margin-bottom: 36px; }
+  .card .t { font-size: 96px; font-weight: 700; letter-spacing: .06em; }
+  .card .s { font-size: 32px; color: #8a7e6c; margin-top: 30px; font-style: italic; }
+
+  /* 高亮状态由 JS 设 class，不做 transition。 */
+  .blk { fill: #e6dcc8; stroke: #d9cdb7; stroke-width: 2; }
+  .blk.past { fill: #d8c9ab; }
+  .blk.cur  { fill: #e9c46a; stroke: #b8860b; stroke-width: 4; }
+  .blk.future { fill: #efe6d5; }
+  .bar { fill: #8f846f; }
+  .ev-line { stroke: #8a7e6c; stroke-width: 1.6; stroke-dasharray: 7 7; opacity: .75; }
+  .ev-tag { fill: #5a5142; font-size: 18px; }
+  .scale-note { fill: #a2967f; font-size: 17px; }
+</style>
+</head>
+<body>
+
+<!-- 卡片：别名必须在分支里显式列全（§6）。URL 传裸名 intro / credit。 -->
+<div class="card" id="card-intro">
+  <div class="k">MUSIC APPRECIATION</div>
+  <div class="t">状态帧模板</div>
+  <div class="s">替换成作品名；这张卡也走同一条截图路径</div>
+</div>
+
+<div class="scene" id="scene-A">
+  <div class="head">
+    <div class="kicker">LISTENING MAP · A</div>
+    <h1>和弦铺底<span class="sub">模板样例，数据全部来自 DATA</span></h1>
+  </div>
+  <div class="caption">
+    每个数字都有出处：<b>时间码来自探针日志</b>，音级来自乐谱真值或 chroma 实测。
+    这张 caption 是块级 div——不要去掉它。
+  </div>
+  <div class="stage" id="viz-A"></div>
+  <div class="foot"><span>Music Annotate Video · state-frame template</span><span>1 / 1</span></div>
+</div>
+
+<div class="card" id="card-credit">
+  <div class="k">PRODUCTION NOTES</div>
+  <div class="t">制作信息</div>
+  <div class="s">由 facts.json 回填；占位符不得流进成片</div>
+</div>
+
+<!-- 顺序纪律（§5）：DATA 先，消费者后。 -->
+<script>
+const DATA = {
+  A: {
+    // 这一段的时长（秒）——播放头 X 映射用。
+    dur: 48,
+    // 绘图区几何：唯一事实源。Python/TS 侧烘焙基图时也必须用同一组数。
+    x0: 40, x1: 1820, yTop: 30, yBot: 520,
+    // 跨段可比较的参照：整段摘录（不是本场景）的最响 RMS。
+    vmaxRef: 0.14,
+    // 静态视觉元素的状态映射：state i 高亮 blocks[current[i]]。
+    current: [0, 1, 2, 3],
+    blocks: [
+      { t0: 0,  t1: 12, label: "D♭" },
+      { t0: 12, t1: 24, label: "A♭/C" },
+      { t0: 24, t1: 36, label: "G♭" },
+      { t0: 36, t1: 48, label: "D♭" }
+    ],
+    events: [
+      { t: 6.0,  label: "主题进入" },
+      { t: 18.5, label: "圆号应答" },
+      { t: 31.0, label: "弱奏" },
+      { t: 42.0, label: "收束" }
+    ],
+    // 48 根柱子 = 每根 1s；数值是实测 RMS，不是装饰性随机数。
+    wave: [
+      0.030,0.041,0.055,0.072,0.090,0.108,0.121,0.130,0.126,0.118,0.104,0.092,
+      0.086,0.094,0.110,0.128,0.140,0.136,0.124,0.111,0.098,0.090,0.084,0.080,
+      0.076,0.082,0.096,0.112,0.125,0.133,0.128,0.117,0.105,0.094,0.086,0.080,
+      0.074,0.070,0.078,0.092,0.108,0.120,0.118,0.108,0.096,0.086,0.078,0.070
+    ]
+  }
+};
+</script>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+function qs(k) { return new URLSearchParams(location.search).get(k); }
+function mk(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+const scene = qs("scene") || "A";
+const state = parseInt(qs("state") || "-1", 10);
+function show(id) { const el = document.getElementById(id); if (el) el.classList.add("on"); }
+
+// 卡片别名显式列全；其余一律当作场景裸名（§6）。
+if (scene === "intro" || scene === "card-intro") show("card-intro");
+else if (scene === "credit" || scene === "card-credit") show("card-credit");
+else {
+  const d = DATA[scene];
+  if (!d) throw new Error("unknown scene: " + scene);
+  show("scene-" + scene);
+  const viz = document.getElementById("viz-" + scene);
+
+  const W = 1920, H = 640;                 // stage 画布坐标（与 CSS 尺寸解耦）
+  const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet" });
+  const { x0, x1, yTop, yBot, dur } = d;
+  const X = (t) => x0 + (t / dur) * (x1 - x0);
+
+  // ---- 和弦块（状态高亮对象）----
+  d.blocks.forEach((b, i) => {
+    const x = X(b.t0) + 3, w = Math.max(1, X(b.t1) - X(b.t0) - 6);
+    const g = mk("g", {});
+    // data-i 必须挂在**被着色的那个元素**上：挂在 <g> 上时 classList 加的是
+    // 组，`.blk.cur` 永远不命中（模板首版自己踩了一次）。
+    g.appendChild(mk("rect", { class: "blk", "data-i": i, x, y: yTop, width: w, height: 58, rx: 8 }));
+    const label = mk("text", {
+      x: x + w / 2, y: yTop + 38, "text-anchor": "middle",
+      "font-size": 26, fill: "#2c2620", "font-weight": "600"
+    });
+    label.textContent = b.label;
+    g.appendChild(label);
+    svg.appendChild(g);
+  });
+
+  // ---- 波形：sqrt 压缩 + 全局 vmaxRef（§15）----
+  const maxH = Math.min(70, (yBot - 300) / 2 - 4);
+  const baseY = yBot - 10;
+  const bw = ((x1 - x0) / d.wave.length) * 0.72;
+  d.wave.forEach((v, i) => {
+    const h = Math.max(2, maxH * Math.sqrt(Math.min(1, v / d.vmaxRef)));
+    const x = x0 + (i + 0.5) * ((x1 - x0) / d.wave.length) - bw / 2;
+    svg.appendChild(mk("rect", { class: "bar", x, y: baseY - h, width: bw, height: h, rx: 1.5 }));
+  });
+
+  // 参照标注：跨段柱高只有在同一 vmaxRef 下才可比较。
+  const note = mk("text", { class: "scale-note", x: x1, y: baseY + 26, "text-anchor": "end" });
+  note.textContent = `柱高参照：全段最响 RMS ${d.vmaxRef}（sqrt 压缩，满高 = ${maxH.toFixed(0)}px）`;
+  svg.appendChild(note);
+
+  // ---- 实测事件线 ----
+  d.events.forEach((ev) => {
+    const x = X(ev.t);
+    svg.appendChild(mk("line", { class: "ev-line", x1: x, y1: yTop - 24, x2: x, y2: baseY + 8 }));
+    const tag = mk("text", { class: "ev-tag", x, y: yTop - 32, "text-anchor": "middle" });
+    tag.textContent = ev.label;
+    svg.appendChild(tag);
+  });
+
+  viz.appendChild(svg);
+
+  // ---- 状态：state i 高亮 current[i]；N = 全部完成 ----
+  const cur = d.current || [];
+  const done = state >= cur.length;
+  const activeIdx = (state >= 0 && state < cur.length) ? cur[state] : -1;
+  viz.querySelectorAll("[data-i]").forEach((el) => {
+    const i = parseInt(el.getAttribute("data-i"), 10);
+    el.classList.remove("cur", "past", "future", "done");
+    if (done || i < activeIdx) el.classList.add("past");
+    else if (i === activeIdx) el.classList.add("cur");
+    else el.classList.add("future");
+  });
+
+  // ---- 播放头：唯一实现是这段 overlay（§17）。渲染时 ?ph=<秒>。----
+  const ph = qs("ph");
+  if (ph !== null && dur) {
+    const t = Math.max(0, Math.min(dur, parseFloat(ph)));
+    const px = X(t);
+    svg.appendChild(mk("rect", {
+      x: x0, y: yTop, width: Math.max(0, px - x0), height: baseY - yTop,
+      fill: "#b8860b", opacity: "0.07"
+    }));
+    svg.appendChild(mk("line", {
+      x1: px, y1: yTop - 14, x2: px, y2: baseY + 12,
+      stroke: "#b8860b", "stroke-width": 3.5
+    }));
+    // 时间码锚在右缘：text-anchor=end + x=x1，字宽变化不会撞事件标签（§16）。
+    const tc = mk("text", {
+      x: x1, y: yTop - 16, "text-anchor": "end",
+      "font-size": 24, fill: "#b8860b", "font-weight": "bold"
+    });
+    tc.textContent = `${t.toFixed(1)}s / ${dur.toFixed(0)}s`;
+    svg.appendChild(tc);
+  }
+}
+</script>
+</body>
+</html>

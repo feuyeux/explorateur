@@ -13,7 +13,7 @@
     python3 read_scoreboard.py master.mp4 --from-probe probe.json --out sb.json
     python3 read_scoreboard.py master.mp4 --crop 480:110:1440:0 --out sb.json
 
-crop 的格式是 ffmpeg 的 `w:h:x:y`。不同转播的比分牌几何不同，**不要抄别人的数字**。
+crop 的格式是 `w:h:x:y`（编码器裁窗参数）。不同转播的比分牌几何不同，**不要抄别人的数字**。
 
 依赖：`pip install rapidocr_onnxruntime`（CPU 即可）。没装就退出非零，不静默跳过。
 """
@@ -147,7 +147,7 @@ def _anchors(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="比分牌 OCR：视频时间 ↔ 比赛时钟")
     ap.add_argument("master", help="母版视频")
-    ap.add_argument("--crop", help="ffmpeg 裁窗 w:h:x:y（与 --from-probe 二选一）")
+    ap.add_argument("--crop", help="裁窗 w:h:x:y（与 --from-probe 二选一）")
     ap.add_argument("--from-probe", help="probe_scoreboard.py 的输出；取 rank 1 的 crop")
     ap.add_argument("--fps", type=float, default=1.0, help="采样帧率（默认 1）")
     ap.add_argument("--out", help="输出 JSON（默认 stdout）")
