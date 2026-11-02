@@ -5,9 +5,12 @@ description: >
   frame-measured "video time ↔ match clock" mapping by cropping and reading the
   broadcast scoreboard (fps=1 sampling), pull lineups / goals / cards /
   substitutions / VAR from official match pages and both teams' season pages
-  (cross-checked), place one three-layer caption window per event (title / say /
-  stat) with narration fitted into measured windows, and assemble with burned
-  captions + sidechain mixing. Use when the user wants a football (or any
+  (cross-checked), read every window's picture from the master itself
+  (kind / visible / see — what is actually on screen, live or replay), write each
+  narration line as match-progress + on-screen action fused into one sentence,
+  place one three-layer caption window per event (title / say / stat) with
+  narration fitted into measured windows, and assemble with burned captions +
+  sidechain mixing. Use when the user wants a football (or any
   timed-sport with an on-screen scoreboard) match explainer — 阵容 / 进球 / 换人
   / VAR — for fans to follow the match, from a highlights master they supply or
   that exists on an official channel. Not for generic live-action subtitle
@@ -23,6 +26,8 @@ description: >
 清晰掌握比赛过程（谁进了球、何时换人、VAR 改了什么）。画面是实拍母版，
 装配机制沿用 `multilingual-video-poetry`；本 skill 的新增物只有一件事——
 **把 95 分钟的比赛坐标映射进 8 分钟的集锦**。
+
+解说按**进程轴 × 画面轴**写：进程轴说清第几分钟、谁、比分与意义，画面轴只承认这一窗画面里看得见的动作；两轴合成一句话，观众既跟得上比赛，也不会听到画面上不存在的东西。
 
 首个完整实现：`usine/examples/derby-2026/`（2026-27 意甲第 10 轮米兰德比，
 AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。**脚手架从那里抄**：
@@ -43,7 +48,8 @@ AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。**脚手架�
 
 ```
 母版下载冻结 → 逐秒实测「视频时间 ↔ 比赛时钟」映射
-    → 官方页取事实 → 交叉核对 → 写事件窗口表
+    → 官方页取事实 → 交叉核对
+    → 逐窗读画面（kind / visible / see + 抽帧存档）→ 双轴写事件窗口表
     → TTS 实测校窗 → 三层字幕卡 → 烧录 + 侧链混音 → 封面 → 发布词
 ```
 
@@ -79,18 +85,65 @@ AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。**脚手架�
 - 球员中文译名全文一致（`配文.ts` 的 `MILAN_XI / INTER_XI` 是唯一名单，
   旁白、字幕卡、封面都从它取，不另抄）。
 
+## 两条轴：进程轴 × 画面轴（解说方法）
+
+**一条成片里有两种事实，分别来自两个地方。** 进程轴回答「第几分钟、比分多少、谁进球 / 换人 / 吃牌、这件事意味着什么」，事实源是比分牌映射 + 官方比赛页 + 赛季页；画面轴回答「此刻屏幕上是谁、在做什么、哪个机位、是直播还是回放、图形页写了什么」，事实源是**母版本身**。前者进字幕的 `title` / `stat` 和旁白的定位拍、落点拍；后者进旁白的画面拍和窗口表的 `see` 字段。
+
+**为什么必须分轴。** 只按进程轴写词，等于把官方页的时间线念一遍：回放段念「第 4 分钟进球」观众以为又进了一个，跳切段念「72 分钟换人」画面里根本没有换人镜头；只按画面写词，球迷看得见动作却不知道这是第几分钟、比分多少、这球对赛季意味着什么。**画面负责「看见」，旁白负责「看懂」**：旁白不复述观众已经看见的动作，而是补画面自证不了的信息（时间、比分、身份、因果），必要时把目光引到关键处（「注意后点」）。
+
+**一句三拍。** 每个窗口的 `say` 最多三拍，拍与拍之间用逗号 / 句号分开：
+
+| 拍 | 回答什么 | 例（示意，不是逐字稿） |
+|---|---|---|
+| 定位拍 | 时间 / 比分 / 谁——让观众知道「现在在哪」 | 第 4 分钟，米兰右路 |
+| 画面拍 | 这一窗**画面上看得见**的动作与关系 | 起球到后点，普利西奇压着后卫起跳 |
+| 落点拍 | 结果与意义——比分、助攻、赛季背景 | 头球破门，德比客场先手 |
+
+- **4s 以上最多三拍，2–4s 两拍，≤2s 一拍**（通常是画面拍）。三拍是上限不是必填：缺的那一拍由 `title` / `stat` 卡补上。字数按中文 TTS 4.5–5.5 字/秒起稿，**判据是 `build_voice` 实测的 slack，不是估算**。
+- 三拍顺序不固定，由镜头类型决定；把定位拍硬放最前，会在动作进行中出现念秒表的旁白，观众已经被画面带走了。
+
+**按镜头类型分工。** 窗口表的 `kind` 决定旁白顺序与禁止项：
+
+| kind | 旁白顺序 | 只准说 | 禁止 |
+|---|---|---|---|
+| `live` 现场 | （定位）→ 画面 → 落点 | 画面上可见的传球 / 跑位 / 射门 + 结果 | 不预告下一拍；球未过线不喊结果；定位只在窗口开头用 3–5 字，不在动作中间插时间 |
+| `replay` 回放 | 定位 → 细节 | 「再看一遍」+ 慢镜才看得出的触球、跑位、门将站位 | **不推进进程**：不说新比分、不说「又进一个」、不报新的比赛分钟 |
+| `graphic` 图形页 | 读页面 → 官方结论 | 页面上实际出现的名字、判罚词、数字 | 不从旁白或比分倒推页面没写的东西 |
+| `jump` 跳切 | 进程 → 影响 | 「这两分钟里」发生了什么 + 战术含义 | **不编画面**：不写跑向边线、教练叮嘱——这些镜头不存在 |
+| `ambient` 氛围 | 落点 → 画面 | 情绪、意义、画面里真实的动作 | 不加新的比赛事实；不把庆祝说成又一次进球 |
+
+**三层字幕与旁白分工。** `title` / `stat` 已经承担事件与数据，`say` 不逐字复述——省下的字给画面拍与落点拍。判据：遮住 `title` 和 `stat` 只听旁白，仍能知道「发生了什么、为什么重要」；静音只看卡片，仍能知道「谁、第几分钟、比分多少」。两边各缺一块，合起来才完整。
+
+**画面事实是第三类事实。** 官方页没有的扑救、中柱、单刀、冲突，只在 `live` / `replay` 窗里写，来源标注是**帧号 + 时间码**；号码 / 人脸读不清时用位置称呼（「国米左中卫」），不猜名字。这和「比赛页没有的东西只能从母版画面里看见的写」是同一条纪律的正反两面。
+
+## 逐窗读画面（写词之前做完）
+
+顺序里新增的一步，夹在「官方页取事实」与「写窗口表」之间：
+
+1. **按镜头切窗**：窗口边界落在场景切点上，**一窗一个镜头状态**（`live` / `replay` / `graphic` / `jump` / `ambient`）。一个事件跨了现场和回放，就拆成两个窗——一窗里既现场又回放，旁白必然有一半对不上画面。
+2. **每窗取头 / 中 / 尾三帧**，记四件事：景别与机位、主体（号码 / 位置 / 动作）、可读屏幕信息（比分牌 MM:SS、比分、图形页文字）、是否回放（慢放 / 换机位 / 回放角标）。
+3. **写 `see`**：一句话写「画面上看见了什么」，只写看得见的，不写推断。
+4. **判 `visible`**：`event`（动作本身可见）/ `aftermath`（只见结果：庆祝、比分牌动画）/ `absent`（事件发生在被跳过的时间里）。`absent` 的窗只能写进程，不能写动作。
+5. **抽帧存档**：`shots/w05-a.jpg` / `-b` / `-c`，与窗口 key 对齐——验收时拿它对照 `see` 与 `say`，不靠回忆。
+
+六个典型场景的写法、声画同步的机械细节与反向验证见 [references/visual-commentary.md](references/visual-commentary.md)。
+
 ## 窗口表 schema
 
-每个事件一个窗口；`title / say / stat` 三层分别进字幕卡的三行：
+每个事件一个窗口；`title / say / stat` 三层分别进字幕卡的三行，`kind / visible / see` 是画面轴的读数列（`see` 只写画面里看得见的；下面文案是写法示意，不是 derby 逐字稿）：
 
 ```ts
-{ key: 'w05', t0: 36, t1: 43,
+{ key: 'w05', t0: 36, t1: 42,
+  kind: 'live',       // live | replay | graphic | jump | ambient
+  visible: 'event',   // event | aftermath | absent
+  see: '右路起球到后点，普利西奇起跳压过后卫，头球入网（远景，门后机位）',
   title: '第4分钟 · 普利西奇破门',          // 第一层：事件标题
-  say: '第四分钟，莫雷拉右路传中，普利西奇抢点头球破门！', // 第二层：旁白正文
+  say: '右路起球到后点，普利西奇压着后卫起跳，头球破门——德比客场先手。', // 第二层：旁白正文（画面拍 + 落点拍）
   stat: '1-0 · 普利西奇 4\' · 助攻 莫雷拉' }  // 第三层：数据条
 ```
 
-- **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡；
+- **一窗一镜态**：窗口按镜头切点分，不按事件名字分；进球包的三段（现场 / 比分动画 / 回放）就是三个窗，信息职责不同——现场讲过程、比分动画讲数据与意义、回放讲细节，不重复同一句话；
+- **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡（`kind: 'graphic'`，名字以卡片上可读的为准）；
 - 旁白落点带 `LEAD`（实测 0.45s）：画面先到位，声音再进来；
 - **TTS 时长是实测的**：每段合成后立刻量，超窗压词不硬塞（build_voice 报
   每段 slack，超窗退出码 1）；
@@ -117,7 +170,9 @@ AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。**脚手架�
 | 事实 | 每个进球/换人/VAR 都能指到官方页条目；主帅指到 Wikipedia infobox |
 | TTS | 每段实测时长 ≤ 窗口；超窗压词（build_voice 退出码 0 = 全部过） |
 | 成片 | ffprobe 通过（**moov atom 找不到 = 渲染被杀，重跑，不要当产物用**）；时长 = 母版时长 |
-| 画面 | 抽帧复核：阵容窗口见阵容卡、每个进球窗口见进球画面 |
+| 画面 | 抽帧复核：阵容窗口见阵容卡、每个进球窗口见进球画面；回放窗见慢放 / 不同机位；跳切窗前后比分牌时间确实跳了 |
+| 画面读数 | 每窗有 `kind` / `visible` / `see`，头 / 中 / 尾三帧存档与 `see` 一致 |
+| 声画对账 | `say` 的每个动作短语能在同窗 `see` 找到主体；回放窗无新进程、跳切窗无动作细节（三条反向验证全抓，见 references） |
 | 混音 | `feuille poetry audio-profile` 配比判据：人声段 − 空档底 ≥ 8 dB（LUFS 口径） |
 | 收尾 | 封面 + 各平台 `publish/*.md`（横屏 → B站） |
 
@@ -148,4 +203,6 @@ AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。**脚手架�
   - `src/render_cover.ts` 封面（3:4，底帧选无比分牌中间态的庆祝帧）
 - [references/match-clock-mapping.md](references/match-clock-mapping.md) —— 比分牌
   映射的实测坑表（先读）
+- [references/visual-commentary.md](references/visual-commentary.md) —— 进程轴 ×
+  画面轴：读画面五步、六个典型场景模板、声画同步与反向验证
 - `multilingual-video-poetry/references/ffmpeg-pitfalls.md` —— 音频三坑

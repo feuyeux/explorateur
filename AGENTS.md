@@ -25,13 +25,14 @@
 
 ## 三、技能库（复用入口）
 
-**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 11 个自建 SKILL（**唯一权威清单是 `usine/skills/*/SKILL.md` 的目录列举**；本表列漏了只会让人少看见一个，不会让路由失效，但漏了就补上）：
+**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 13 个自建 SKILL（**唯一权威清单是 `usine/skills/*/SKILL.md` 的目录列举**；本表列漏了只会让人少看见一个，不会让路由失效，但漏了就补上）：
 
 | skill | 用途 |
 |---|---|
 | `one-page-poster` | 一页纸海报 / 12 语种排版 / 逐字着色 |
 | `vocab-infographic` | 单词语汇图鉴（生成式图像，不走渲染/合片） |
 | `karaoke-video` | 海报/卡片 → 逐词高亮旁白视频 |
+| `music-annotate-video` | 真实录音欣赏科普（乐谱/录音对齐 + 听辨标注 + 帧精确装配） |
 | `multilingual-video-poetry` | 实拍母版 → 配文视频（侧链混音） |
 | `bgm-bed` | BGM 底床生成（Lyria）+ 床位定标 |
 | `lesson-scene` | 课件解析与场景校验 |
@@ -39,7 +40,7 @@
 | `publish-copy` | 发布词写作 |
 | `multilingual-video-publishing` | 平台发布 + 合合集 + 核验 |
 | `storyteller-video` | 多幕评书成片（说书人 + 景/镜/转场） |
-| `match-recap-video` | 赛事集锦解说视频（比分牌实测映射 + 阵容/进球/换人 + 中文播报） |
+| `match-recap-video` | 赛事集锦解说视频（比分牌实测映射 + 进程×画面双轴旁白 + 阵容/进球/换人） |
 | `video-generation` | 视频生成母版（选线/提交确认/取回冻结） |
 
 - **总路由表**：[usine/skills/README.md](usine/skills/README.md)——先判断在哪一层，再选 skill；每个 skill 的 description 自带排除语句（Not for …），路由靠它而不是靠猜。
