@@ -12,6 +12,9 @@
   判据 3（跳切不编画面）kind == jump：
       visible 必须是 absent；say 不得含动作细节词（只有时间、人、战术影响）。
 
+`visible: unread` 是显式降级（运行环境没有视觉输入，画面没读）：判据 1 降 WARN，
+不判 FAIL、也不冒充 PASS——冻结前必须人眼或视觉复核。
+
 §6.4 说词表扫候选「不能自动判 FAIL」——那是**裸词表**的限制：词表不知道自己
 在哪种窗、这窗之前说过什么。本检查带了窗口表上下文（kind / visible / see /
 已陈述集合），上面三小段因此**可以机械判决**，所以判 FAIL。
@@ -123,7 +126,12 @@ def check_window(
 
     # ---- 判据 1：动作可指认 ----
     # 回放窗也要判（§6.1 的对账表里 replay 行同样勾了「say 的动作都能指回 see」）。
-    if not visible_is_absent(win) and say:
+    # visible=unread 是显式降级：本次运行没有视觉输入（模型不能读图 / 视觉代理不可用），
+    # 画面没读就**不能**判动作对不上——降 WARN，交给人眼或视觉复核，不冒充 PASS。
+    if str(win.get("visible", "")).strip().lower() == "unread":
+        add("判据1 动作可指认", "WARN",
+            "visible=unread：画面未读，动作句未作 FAIL；需视觉复核后再冻结")
+    elif not visible_is_absent(win) and say:
         terms = find_terms(say, index)
         missing = [
             (w, h)

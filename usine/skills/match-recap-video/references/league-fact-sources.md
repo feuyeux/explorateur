@@ -13,17 +13,20 @@
 | 联赛 | 比赛页 URL 模式 | 事件流形态 | VAR | 母版从哪来 | 可用性 |
 |---|---|---|---|---|---|
 | **西甲** | `laliga.com/{lang}/match/temporada-{赛季}-{赛事}-{主}-{客}-{id}` | `structured` | ✅ 明列 | 官方频道里找 | ★★★★★ |
-| **英超** | `premierleague.com/en/match/{id}/{主}-vs-{客}` | `prose`（事件在 `/commentary`） | ❌ | 比赛页内嵌 | ★★★★☆ |
-| **德甲** | `bundesliga.com/en/bundesliga/matchday/{赛季}/{轮}/{主}-vs-{客}/liveticker` | `narrative`（编辑文案标题） | ❌ | liveticker 页内 | ★★★☆☆ |
-| **法甲** | `ligue1.com/en/match-sheet/l1_championship_match_{id}` | `none` | ❌ | `/highlights` 标签页 | ★★☆☆☆ |
+| **英超** | `premierleague.com/en/match/{id}/{主}-vs-{客}` | `commentary`（事件在 `/commentary`，需滚动） | ❌ | 比赛页内嵌 | ★★★★☆ |
+| **德甲** | `bundesliga.com/en/bundesliga/matchday/{赛季}/{轮}/{主}-vs-{客}/liveticker` | `structured_liveticker` | ❌ | liveticker 页内 / 官方频道 | ★★★★☆ |
+| **法甲** | `ligue1.com/.../match_{id}` + **psg.fr 比赛页** | `commentary`（psg.fr） | ✅ psg.fr 明列 | Ligue 1 / PSG 官方频道 | ★★★★☆（阵容仍弱） |
 
 **事件流形态**是这份矩阵里最要紧的一列：
 
 - `structured` —— 逐分钟结构化，一行一分钟 + 一行事件句（`Goal!` / `Substitution,` /
   `is shown the yellow card` / `VAR Decision:`）。**解析器能直接吃。**
+- `commentary` —— 逐分钟文字直播：事件句 + 分钟行。页面可能是虚拟列表（英超要滚动）
+  或分月赛程（巴黎要按月抓）。进球/换人/牌/VAR 都能从正文读出来。
+- `structured_liveticker` —— liveticker 里进球是 `## GOAL!` 块（分钟 + 射手 + 比分 +
+  Assist），换人是 `#### Substitution`，牌是黄/红牌图标；`#### 编辑标题` 只是叙述素材。
 - `prose` —— overview 页只有叙述稿与内嵌集锦；逐分钟事件在另一个标签页。
-- `narrative` —— 标题是**编辑文案**（「Dortmund level!」「Off the bar!」），不是
-  `Goal: Silva 88'`。进球分钟抓不到结构化字段。
+- `narrative` —— 标题是**编辑文案**，没有结构化字段（旧结论；德甲已升级）。
 - `none` —— 事件藏在图标图例后面，抓下来的 markdown 里**没有可用事件流**。
 
 ---
@@ -136,13 +139,42 @@ Pablo Ibáñez (Alaves) is shown the yellow card.
 - **比分**藏在图片 alt 里：`LIV 0-1 ARS`（不是独立的 `0-1` 行）；
 - **日期与球场连在同一行**：`Sun 01 NovAnfield`；下一行是主裁（`Andy Madley`）；
 - **官方集锦直接内嵌**：`https://www.youtube.com/watch?v=…`（英超官方频道）——
-  四个联赛里**只有英超能一步拿到母版**；
+  overview 一步拿到母版；
 - overview 页只有叙述稿 + 集锦；**逐分钟事件在 `/commentary`**。
+
+### `/commentary` 的抓法与版式
+
+`/commentary` 是**虚拟列表**：firecrawl 不滚动只能抓到末尾几条，必须
+`--actions` 先 wait 再 scroll 两次（`resolve_match.py` 已内置）。抓到后的版式是：
+
+```
+- 16'
+
+### Goal
+
+Liverpool 0 - 1 Arsenal
+…
+Goal! Liverpool 0, Arsenal 1. Kai Havertz (Arsenal) left footed shot … Assisted by Declan Rice.
+
+- 15'
+
+Attempt missed. Declan Rice (Arsenal) …
+```
+
+两个方向都可能出现：**普通解说句的分钟行在事件后面**；带 `### Goal` /
+`### Substitution` / `### Yellow Card` 标题的块，**分钟行在事件前面**。
+解析器按「块里有没有 `###` 标题」判归属，不能一律按前或按后。
+
+实测（2026-11-02，Liverpool 0-1 Arsenal）：16' Havertz（助攻 Rice）、9 次换人、
+8 张牌全部取出。VAR 仍不单列，正文里的 VAR 句只能当线索。
 
 ### 赛程面的选择
 
-- **赛季页**（`/en/matches/premier-league/2026-27`）带 `FT` 与比分 → 用它；
-- **俱乐部页**（`/en/clubs/14/matches`）只有赛程**与结果页**（无比分）→ 兜底。
+- **赛季页**（`/en/matches/premier-league/2026-27`）带日期 + `FT` + 比分 → 主面。
+  日期有相对写法（`Yesterday` / `Today`），解析器按 asof 换算；
+- **俱乐部页**（`/en/clubs/14/matches`）的结果行**没有日期**（只有 `MW 9`），
+  往回找 80 行会串到上面赛程的 `Sun 08 Nov`。解析器对俱乐部页只看紧邻 8 行，
+  找不到就留空——它的作用只是发现 URL，不负责定序。
 
 ### VAR
 
@@ -150,7 +182,7 @@ Pablo Ibáñez (Alaves) is shown the yellow card.
 
 ---
 
-## 3. 德甲（Bundesliga）—— 赛程面最省事，事件流最弱
+## 3. 德甲（Bundesliga）—— 赛程面最省事，进球是结构化块
 
 ### URL 模式
 
@@ -172,84 +204,131 @@ FC Bayern München   2 - 2   Borussia Dortmund
 [Highlights Matchday 8: …]
 ```
 
-### 事件流：只有换人是结构化的
+### 事件流：进球/换人/牌都有结构化节点
 
-liveticker 的标题是**编辑文案**，不是事件行：
+**旧结论「进球分钟抓不到」是错的。** liveticker 的编辑标题（「Dortmund level!」）
+确实只是叙述，但同一条目下面跟着结构化进球块：
 
 ```
-90' + 4
-#### Off the bar!
-Almost a last-gasp winner for Bayern as Karl strikes the crossbar …
+89'
 
-87'
-#### Substitution
+### [Fabio Silva](…/player/fabio-silva)
+
+## GOAL!
+
+2:2
+
+Assist: [K. Karetsas](…)
 ```
 
-结构化标题只有 `Substitution`、`Full time: Bayern 2-2 Dortmund`。**进球分钟与 VAR
-判决抓不到结构化字段**——`#### Dortmund level!` 这类标题不标分钟归属，需要人工读，
-或改走 DFL 的 `bapi.bundesliga.com` 数据层。
+换人是 `#### Substitution` + 球员头像/文字链接（in / out），牌是
+`![yellowCard]` / `![redCard]` 图标 + 球员链接。`#### 编辑标题` 保留为 `editorial`
+事件，写画面轴时可用，但**不要拿它当进球分钟的事实源**。
 
-比分可以从终场标题 `Full time: Bayern 2-2 Dortmund` 还原。
+实测（2026-11-02，Bayern 2-2 Dortmund）：4 个进球全部取出
+（38' Laimer、60' Guirassy、66' Upamecano、89' F. Silva），8 次换人、3 张牌；
+比分从终场标题 `Full time: Bayern 2-2 Dortmund` 还原，球场 Allianz Arena、
+主裁 Tobias Stieler 也可读。集锦在 liveticker 页内是 JWPlayer（poster 形如
+`assets.bundesliga.com/video/jw/peGVWUsv.jpg`），YouTube 上另有官方频道版。
+
+VAR 仍不单列；正文里提到 VAR 的句子（「VAR spotted a foul」）只能当线索。
+
+### 母版：官方 highlights 可能带采访
+
+2026-11-02 实跑（Bayern 2-2 Dortmund）：BVB 官方 highlights 原片 362.94s，
+前 162s 是集锦本体，之后是球员采访（视频描述里有「I'm glad I was able to help」）。
+**先确认哪一段是集锦**，用比分牌最后一次可读 + 场景切点判断，再裁掉采访；
+否则窗口表会排到采访画面上。
 
 ---
 
-## 4. 法甲（Ligue 1 McDonald's）—— 最弱的一家
+## 4. 法甲（Ligue 1 McDonald's）—— ligue1.com 不行，psg.fr 行
 
-### URL 模式
+### 两套 URL，各管一段
 
 ```
-俱乐部   https://ligue1.com/en/club-sheet/l1_championship_club_2026_13
-赛程     https://ligue1.com/en/club-sheet/l1_championship_club_2026_13/calendar
-比赛页   https://ligue1.com/en/match-sheet/l1_championship_match_73421
-标签页   /summary /formations /stats /highlights
+ligue1.com（阵容/阵型面）
+  俱乐部   https://ligue1.com/en/club-sheet/l1_championship_club_2026_13
+  赛程     https://ligue1.com/en/club-sheet/l1_championship_club_2026_13/calendar
+  比赛页   https://ligue1.com/en/match-sheet/l1_championship_match_73421
+  标签页   /summary /formations /stats /highlights
+
+psg.fr（发现面 + 事件面）
+  月度赛程 https://www.psg.fr/en/mens-football/fixtures?period=Oct
+  比赛页   https://www.psg.fr/en/matches/mens-football/20262027/le-havre-vs-paris-2026-10-30
 ```
 
-- `club_id` 与**赛季**绑定在 URL 里：`l1_championship_club_2026_13` = 26/27 赛季的巴黎；
-- ⚠️ **`club_id 90` 是巴黎 FC（升班马），不是巴黎圣日耳曼**。搞混会整条线跑到另一支队。
+- `club_id` 与**赛季**绑定在 ligue1.com 的 URL 里：`l1_championship_club_2026_13`
+  = 26/27 赛季的巴黎；⚠️ **`club_id 90` 是巴黎 FC（升班马）**，不是巴黎圣日耳曼；
+- psg.fr 的 URL 带**真实日期**（`...-2026-10-30`），比赛页标题也写
+  `Friday 30 October 2026`。
 
-### 事件流：抓不到
+### ligue1.com 仍然不给的两样东西
 
-`/summary` 页抓下来的 markdown 里，事件藏在**图标图例**后面（`But +` / `But -`），
-只剩「Summary」里零星几条（实测只出现 `A. Gory 76'` 一条）。阵容 / 阵型 / 数据 /
-积分都在，**进球时间线不在**。
-
-→ 法甲要事件级事实，得改用**俱乐部官网**（psg.fr）或 LFP 数据层，不要硬啃
-ligue1.com。
-
-### 更硬的一层：「本赛季最新一场」**答不出来**
-
-这比「事件流弱」更致命。实测三个面：
-
-| 面 | 给什么 | 能定「最新一场」吗 |
+| 面 | 给什么 | 缺什么 |
 |---|---|---|
-| 俱乐部页「Calendar」段 | 只有**未赛场次**（`L1 - GW.10 - Friday 6`、`LDC - D.4 - today`） | ❌ 全是未来的 |
-| 俱乐部页「Recent results」段 | 5 个比分（`1 - 2`、`3 - 1` …）**不带日期** | ❌ 没有排序键 |
-| 比赛页 `/summary` | `17 May 2026 - D.34` —— 这是**该轮的名义日期**（第 34 轮），不是实际开球日 | ❌ 同一轮的所有比赛共用一个日期 |
+| 俱乐部页「Calendar」段 | 只有**未赛场次**（`L1 - GW.10 - Friday 6`） | 已赛场次没有日期 |
+| 俱乐部页「Recent results」段 | 5 个比分（`1 - 2`、`3 - 1` …） | **不带日期**，没有排序键 |
+| 比赛页 `/summary` | `17 May 2026 - D.34` | 这是**该轮名义日期**，不是开球日 |
+| 比赛页 `/summary` | 阵容 / 阵型 / 数据 / 积分 | **进球时间线不在**（事件藏在图标图例后） |
 
-也就是说：**ligue1.com 上没有任何一个面能给出「某一场实际是哪天踢的」**。
-`resolve_match.py` 因此对巴黎直接报「候选里没有可排序的最新已完赛」并退出非零，
-而不是猜一个——**这是设计内的失败，不是 bug**。
+所以 `resolve_match.py` **不拿 ligue1.com 定「最新」**；它只把 ligue1.com 当阵容面。
 
-### 控件顺序会骗人（这条是血泪）
+### psg.fr 给的两样关键数据
 
-巴黎的俱乐部页上：
+**(1) 月度赛程页 = 发现面。** 每场一块：
 
-- 轮播区首位是 `HAC vs. PSG`；
-- 「Recent results」首个比分是 `1 - 2`；
-- 而「Match summaries」里最新的官方集锦视频是 `PSG vs. OL (2 - 0)`（6 天前），
-  另一个是 15 天前的 `RCSA 1-3 PSG`。
+```
+## Le Havre AC vs Paris Saint-Germain - 30 October 2026 - 19:00
+[…]（比赛页链接，带日期）
+L1
+Matchweek 9
+![Le Havre logo](…)Le Havre1
+![Paris logo](…)Paris5
+FRIDAY OCTOBER 30 202619:00
+Stade CMA CGM Océane
+```
 
-**三个控件互相指不到同一场。** 所以「最新一场」**只能按日期定序**，页面顺序一律
-不信 —— 这条已经写进 `scripts/resolve_match.py` 的 `select_latest`：没有日期的候选
-不参与评选，并被原样报出来。
+日期、赛事码（L1 / UCL / CDF…）、比分、球场、比赛页链接都在。赛程按**月**分片，
+`resolve_match.py` 自动抓当前月 + 前两个月，取并集后按日期定序。
 
-### 巴黎怎么办（三条路，按推荐顺序）
+**(2) 比赛页 = 事件面。** 有完整逐分钟文字直播（Opta 式）：
 
-1. **手动指定比赛页**（最快）：
-   `python3 scripts/resolve_match.py --team psg --match-url "<match-sheet URL>"`。
-   比赛页能给阵容、阵型、数据、积分；**事件时间线仍然没有**。
-2. **换俱乐部官网**（psg.fr）：当轮赛果与首发通常带真实日期。
-3. **换 LFP / MPG 数据层**：结构化、有日期，但抓取方式与本文档其余部分不同。
+```
+69'
+
+Goal! Le Havre 1, Paris Saint Germain 5. Achraf Hakimi (Paris Saint Germain) with an attempt …
+
+55'
+
+VAR Decision: Goal Le Havre 1-2 Paris Saint Germain (Achraf Hakimi).
+
+87'
+
+Substitution, Paris Saint Germain. David Boly replaces Achraf Hakimi.
+```
+
+进球（射手/助攻/赛后比分）、换人、VAR 判决都能读；主裁形如 `Ref:FrançoisLetexier`
+（页面把空格压掉，解析器在驼峰处补空格）。**唯一缺口是阵容**：psg.fr 比赛页只有
+「Lineups are announced…」占位，没有首发/替补/阵型——这仍要回 ligue1.com 的
+match-sheet。
+
+### 控件顺序仍然不可信
+
+巴黎的 ligue1.com 俱乐部页上：轮播区首位是 `HAC vs. PSG`；「Recent results」首个
+比分是 `1 - 2`；「Match summaries」最新视频是 `PSG vs. OL (2 - 0)`。**三个控件互相
+指不到同一场。** psg.fr 的月度赛程页解决了排序键问题，但「按日期定序」这条纪律不变：
+没有日期的候选不参与评选。
+
+### 巴黎怎么办（现行流程）
+
+1. `python3 scripts/resolve_match.py psg` —— 自动抓 psg.fr 当前月 + 前两个月，
+   出 fact pack（含 `key_events`、比赛页 URL、日期、比分）；
+2. 阵容/阵型另取 `ligue1.com` match-sheet（fact pack 的 `lineups_note` 会提醒）；
+3. 母版用 `find_master.py` 在 **Ligue 1 McDonald's 官方频道（@Ligue1）** 找，
+   标题形如「LE HAVRE AC - PARIS SAINT-GERMAIN (1-5) | Week 9」；PSG 官方频道
+   （@PSG）多为片段；
+4. 手动指定比赛页仍可用 `--match-url` 兜底。
 
 ---
 
@@ -259,8 +338,8 @@ ligue1.com。
 
 | 口径 | 巴萨 | 利物浦 | 多特 | 巴黎 |
 |---|---|---|---|---|
-| 只看联赛 | 6-1 阿拉维斯（10-31，第 11 轮） | 0-1 阿森纳（11-01，第 9 轮） | 2-2 拜仁（10-31，第 8 轮） | 见下 |
-| 含杯赛 / 欧战 | 同上 | 联赛杯 1-1 切尔西（点球 6-5，10-28） | 德国杯 3-2 云达不来梅（10-27） | 欧冠 D.4 vs 比利亚雷亚尔（11-02 当天） |
+| 只看联赛 | 6-1 阿拉维斯（10-31，第 11 轮） | 0-1 阿森纳（11-01，第 9 轮） | 2-2 拜仁（10-31，第 8 轮） | 1-5 勒阿弗尔（10-30，第 9 轮） |
+| 含杯赛 / 欧战 | 同上 | 联赛杯 1-1 切尔西（点球 6-5，10-28） | 德国杯 3-2 云达不来梅（10-27） | 欧冠 D.3 4-2 巴萨（10-20）；下一场 11-03 对比利亚雷亚尔 |
 
 **这不是细节，是解说叙事的分岔**：利物浦的「最新一场」若是联赛杯点球大战，解说轴
 是点球；若是联赛，则是 0-1 主场负。`resolve_match.py --scope league|all` 把这个
@@ -276,9 +355,13 @@ ligue1.com。
 2. `assets/teams.json` —— 加一条：中文名、英文名、`league`、俱乐部 slug 与 id
    （**这两项各联赛含义不同**：英超是数字 id、法甲是赛季绑定的 id、德甲是
    `DFL-CLU-…`、西甲是 slug）、官方集锦频道、品牌色、原声语言、宿敌表。
-3. 跑 `python3 scripts/resolve_match.py --team <key> --dry-run` 看它打算抓哪几个面；
-   再跑真抓，核对 fact pack 的每个字段是否可解析。
-4. 跑 `python3 scripts/check_windows.py --selftest`（回归）与本 skill 的门禁。
+3. 跑 `python3 scripts/resolve_match.py <key> --dry-run` 看它打算抓哪几个面；
+   再跑真抓，核对 fact pack 的每个字段是否可解析。德甲/英超的 fact pack 会带
+   `lineup_url`（liveticker→/lineup、overview→/lineups）；阵容仍要单独取。
+4. 跑 `python3 scripts/resolve_match.py selftest` 与
+   `python3 scripts/check_windows.py selftest`（回归）。
+5. 跑 `python3 scripts/find_master.py <key>` 看官方频道候选是否排得出来；
+   第一名不是官方频道或比分对不上，说明 `official_channels` 或检索词要改。
 
 **不要**把球队专有事实（某场比分、某个进球分钟）写进 `SKILL.md` 或
 `teams.json` —— 那是**每场比赛的事实**，走官方比赛页。注册表只放**不随比赛变的
@@ -292,3 +375,27 @@ ligue1.com。
 里写明这个联赛的事件流形态，`capability_report()` 对 `var_exposed=false` 的联赛
 输出警告。**事实源能力不足时要显式降级，不要用二手数据悄悄补齐** —— 编出来的
 解说比没有解说更糟。
+
+---
+
+## 8. 母版检索：官方频道优先，比分是硬判据
+
+`find_master.py` 用 yt-dlp 的 `ytsearch` 跑两轮（普通 / extended），把候选按三件事排序：
+
+1. **官方频道**（+100）：只认精确的 `uploader_id` / `channel_id`。子串匹配会把
+   `Sky Sports Premier League` 误判成官方，已经用精确 handle 修掉；
+2. **标题比分与 fact pack 一致**（+30；写反了 −50）：同名对手、反向比分（1-0 vs 0-1）
+   在搜索结果里很常见；
+3. **时长**（300–1500s +20）：8 分钟成片需要母版有足够素材；不足 180s 会显式警告。
+
+各队实际排到的官方频道：
+
+| 队伍 | 官方频道 handle | 备注 |
+|---|---|---|
+| 巴塞罗那 | `@FCBarcelona` / `laliga` | LALIGA EA SPORTS 的 3 分钟集锦通常排第一 |
+| 利物浦 | `@LiverpoolFC` / `premierleague` | overview 内嵌的官方视频可作交叉核对 |
+| 多特蒙德 | `@BVB` / `@bundesliga` | BVB 官方 6 分钟版通常排第一 |
+| 巴黎 | `@Ligue1` / `@PSG` | Ligue 1 官方单场集锦（约 5.5 分钟）比 PSG 片段完整 |
+
+⚠️ 排名只是证据，不是拍板。公共搜索结果会变，频道也可能仿冒；`--download`
+只在显式要求时执行，下载后仍要人眼确认是这一场（比分牌 / 队徽 / 日期）。

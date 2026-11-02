@@ -275,3 +275,13 @@ Allow JWPlayer content
 I agree that external content from JWPlayer will be shown to me. This enables personal data to be transmitted to JWPlayer and cookies to be set by JWPlayer. You can find out more about this in [JWPlayer's privacy statement](https://www.jwplayer.com/legal/privacy) \| Edit cookie settings
 
 ![](https://www.bundesliga.com/assets/placeholder/resp_live_placeholder_image_home.jpg)Play video
+
+74'
+
+[**Yellow card**](https://www.bundesliga.com/en/bundesliga/stats/players/yellow-cards)
+
+![yellowCard](https://www.bundesliga.com/assets/liveticker/yellowCard.svg)
+
+[![Konrad Laimer](https://assets.bundesliga.com/player/dfl-obj-0027t1-dfl-clu-00000g-dfl-sea-0001ka-circle.png?fit=64,64)](https://www.bundesliga.com/en/player/konrad-laimer)![](https://www.bundesliga.com/clublogos/DFL-SEA-0001KA/DFL-CLU-00000G.svg?fit=48,48)
+
+[Konrad Laimer](https://www.bundesliga.com/en/player/konrad-laimer)

@@ -4,6 +4,8 @@
     "改 URL 模板前先改这里并重跑 scripts/resolve_match.py --selftest；不要把链接抄进 SKILL.md 正文。",
     "event_stream 是这个联赛官方页**实际能给出的事件流形态**，不是它「应该有」什么：",
     "  structured = 逐分钟结构化（进球/换人/牌/VAR 分行）；prose = 只有叙述稿，事件在另一个标签页；",
+    "  commentary = 逐分钟文字直播（事件句 + 分钟行），页面可能是虚拟列表/分月分页；",
+    "  structured_liveticker = liveticker 的进球/换人/牌是结构化节点，编辑标题只是叙述素材；",
     "  narrative = 叙述式直播，标题是编辑文案（进球分钟要人工读或另找数据源）；none = 抓不到可用事件流。",
     "highlights.strategy 决定母版从哪来：'match_page_embedded' = 比赛页自带官方集锦链接；",
     "  'league_channel_search' = 联赛官方频道里找；'match_sheet_tab' = 比赛页有独立集锦标签页。"
@@ -60,6 +62,9 @@
       "highlights": {
         "strategy": "league_channel_search",
         "channel_url": "https://www.youtube.com/user/laliga",
+        "official_channels": [
+          "https://www.youtube.com/user/laliga"
+        ],
         "note": "比赛页不内嵌集锦视频 URL，只有图片与官方频道入口；母版要按队名+比分去官方频道找。"
       },
       "verified": {
@@ -100,9 +105,9 @@
           "{season_fixtures_url}",
           "{club_matches_url}"
         ],
-        "fixtures_surfaces_note": "赛季页带 FT 与比分，俱乐部页只有赛程（无结果），所以优先赛季页。"
+        "fixtures_surfaces_note": "赛季页带日期（含 Today/Yesterday 相对日期）+ FT 比分，是定「最新」的主面；俱乐部页的结果行**没有日期**，只作 URL 发现兜底（解析器对俱乐部页只看紧邻 8 行内的日期，避免串到上面的赛程）。"
       },
-      "event_stream": "prose",
+      "event_stream": "commentary",
       "yields": [
         "score",
         "date",
@@ -110,12 +115,20 @@
         "referee",
         "lineups",
         "report_text",
-        "highlights_video"
+        "highlights_video",
+        "timeline:goal",
+        "timeline:substitution",
+        "timeline:card",
+        "timeline:penalty",
+        "timeline:var_hint"
       ],
       "var_exposed": false,
-      "var_note": "英超官方比赛页不单独列 VAR 判决；逐分钟事件在 /commentary 标签页。判罚要读 commentary 全文，不要从赛果反推。",
+      "var_note": "英超官方页不单独列 VAR 判决；逐分钟事件在 /commentary 标签页（虚拟列表，抓取要滚动）。判罚要从 commentary 全文读，不要从赛果反推。",
       "highlights": {
         "strategy": "match_page_embedded",
+        "official_channels": [
+          "https://www.youtube.com/premierleague"
+        ],
         "note": "比赛页内嵌官方集锦（YouTube 官方频道），直接从 /overview 抓 watch?v= 链接。"
       },
       "verified": {
@@ -123,7 +136,7 @@
         "sample_match": "https://www.premierleague.com/en/match/2645281/liverpool-vs-arsenal/overview",
         "sample_result": "Liverpool 0-1 Arsenal, Sun 01 Nov 2026, Anfield, Havertz 16'",
         "sample_highlights": "https://www.youtube.com/watch?v=Zt1VugPdwFw",
-        "parsed": "比分 0-1 / 球场 Anfield / 主裁 Andy Madley / 官方集锦链接 均还原正确"
+        "parsed": "比分 0-1 / 球场 Anfield / 主裁 Andy Madley / 官方集锦链接 均还原正确；/commentary 滚动抓取后解析出 16' Havertz 进球（助攻 Rice）、9 次换人、8 张牌"
       },
       "league_competition_tokens": [
         "Premier League"
@@ -150,34 +163,46 @@
         ],
         "fixtures_surfaces_note": "俱乐部页的「Fixtures & Results」块带日期与比分，是德甲最省事的入口。 俱乐部页给的是「日期 + 比分 + 主客缩写」，日期在 20 行开外，解析器往回找最近日期。"
       },
-      "event_stream": "narrative",
+      "event_stream": "structured_liveticker",
       "yields": [
         "score",
         "date",
         "kickoff",
         "venue",
+        "referee",
         "formations",
         "lineups",
         "standings",
+        "timeline:goal",
         "timeline:substitution",
-        "timeline:narrative"
+        "timeline:card",
+        "timeline:narrative",
+        "highlights_video_id"
       ],
       "var_exposed": false,
-      "var_note": "德甲 liveticker 是叙述式直播：标题是编辑文案（「Dortmund level!」「Off the bar!」），只有换人与终场是结构化标题。**进球分钟与 VAR 判决抓不到结构化字段**——需要人工读 liveticker，或改用 DFL 的 bapi 数据层。",
+      "var_note": "德甲 liveticker 的进球/换人/牌是结构化节点（`## GOAL!` + 分钟 + 比分 + Assist、`#### Substitution`、黄/红牌图标）；`#### 编辑标题`（「Dortmund level!」）只是叙述素材。VAR 判决仍不单列，正文里提到 VAR 的句子只能当线索。",
       "highlights": {
         "strategy": "match_page_embedded",
-        "note": "俱乐部页每场有「Highlights Matchday N」缩略图，链接指向 liveticker 页，集锦视频在该页内（JWPlayer）。"
+        "official_channels": [
+          "https://www.youtube.com/@bundesliga",
+          "https://www.youtube.com/@BVB"
+        ],
+        "note": "俱乐部页每场有「Highlights Matchday N」缩略图，链接指向 liveticker 页，集锦视频在该页内（JWPlayer）。YouTube 上还有官方频道版，可按队名+比分检索。"
       },
       "verified": {
         "at": "2026-11-02",
         "sample_match": "https://www.bundesliga.com/en/bundesliga/matchday/2026-2027/8/fc-bayern-muenchen-vs-borussia-dortmund/liveticker",
         "sample_result": "FC Bayern München 2-2 Borussia Dortmund, Matchday 8, Saturday 31 October",
-        "parsed": "比分 2-2 从「Full time: Bayern 2-2 Dortmund」标题还原；事件流 13 条（10 条 editorial / 3 条 substitution）"
+        "parsed": "比分 2-2；4 个进球全部还原分钟 + 射手 + 助攻（38' Laimer、60' Guirassy、66' Upamecano/Kane、89' F. Silva/Karetsas）；8 次换人、3 张牌；JWPlayer 集锦 id 可读"
       },
       "league_competition_tokens": [
         "Bundesliga"
       ],
-      "match_url_carries_team_slug": true
+      "match_url_carries_team_slug": true,
+      "scoreboard": {
+        "clock_format": "minute",
+        "note": "实跑 2026-11-02 拜仁 2-2 多特：比分牌显示 60' 与 FCB:BVB / 1-1，只有分钟没有秒；OCR 读数粒度 1 分钟。"
+      }
     },
     "ligue1": {
       "zh": "法甲",
@@ -206,51 +231,66 @@
         ],
         "fixtures_surfaces_note": "matches 页的控件顺序不可信（轮播首位与官方集锦视频列表指向不同场次）；calendar 页只有未赛场次。最新一场要靠日期定序，必要时开比赛页核。"
       },
-      "event_stream": "none",
+      "event_stream": "commentary",
       "yields": [
         "score",
         "date",
         "kickoff",
         "venue",
+        "referee",
         "lineups",
         "formations",
         "standings",
+        "timeline:goal",
+        "timeline:substitution",
+        "timeline:card",
+        "timeline:var",
         "highlight_clips"
       ],
-      "var_exposed": false,
-      "var_note": "**法甲官方比赛页在抓下来的 markdown 里不暴露可用事件流**——事件藏在图标图例后面，只剩 Summary 里零星几条。要进球/换人/牌的时间线，得改用俱乐部官网或 LFP 数据层，或人工读 /summary 页。",
+      "var_exposed": true,
+      "var_note": "**ligue1.com 的比赛页仍然不暴露可用事件流**（事件藏在图标图例后面）。但 psg.fr 的俱乐部比赛页有完整逐分钟文字直播：`Goal!` / `Substitution,` / `VAR Decision:` 都能读，VAR 判决确实明列。阵容/阵型仍回 ligue1.com match-sheet；psg.fr 页面没有阵容。",
+      "lineups_note": "lineups / formations 来自 ligue1.com match-sheet；psg.fr 比赛页只有「Lineups are announced…」占位。",
       "highlights": {
-        "strategy": "match_sheet_tab",
-        "note": "比赛页有独立 /highlights 标签页；官网另有逐段短片（官方频道），不是一条完整母版——法甲的「母版」要先确认口径。"
+        "strategy": "official_channel_search",
+        "channel_url": "https://www.youtube.com/@Ligue1",
+        "official_channels": [
+          "https://www.youtube.com/@Ligue1",
+          "https://www.youtube.com/@PSG"
+        ],
+        "note": "psg.fr 比赛页只链接社交频道，不内嵌集锦。完整单场集锦优先 Ligue 1 McDonald's 官方频道（@Ligue1，标题形如「LE HAVRE AC - PARIS SAINT-GERMAIN (1-5) | Week 9」）；PSG 官方频道多为片段。"
       },
       "verified": {
         "at": "2026-11-02",
-        "sample_match": "https://ligue1.com/en/match-sheet/l1_championship_match_73421",
-        "sample_result": "Paris FC - PSG",
-        "parsed": "阵容 / 阵型 / 数据 / 积分可读；事件流不可用（event_stream=none）"
+        "sample_match": "https://www.psg.fr/en/matches/mens-football/20262027/le-havre-vs-paris-2026-10-30",
+        "sample_result": "Le Havre AC 1-5 Paris Saint-Germain, Ligue 1 Matchweek 9, Friday 30 October 2026, Stade CMA CGM Océane",
+        "parsed": "比分 1-5 / 6 个进球（Maja 18'、Godts 26'、Hakimi 28' 55' 69'、Mayulu 62'）/ 8 次换人（双方）/ 1 条 VAR 判决 / 主裁 Letexier 均还原正确；psg.fr 月度赛程页按日期定序出「最新一场」"
       },
       "league_competition_tokens": [
         "Ligue 1 McDonald's",
         "Ligue 1"
       ],
       "match_url_carries_team_slug": false,
-      "fixture_surface_limitation": "实抓结论：ligue1.com 的俱乐部页**只列未赛场次**（L1 - GW.10 - Friday 6 这类），已赛场次只在「Recent results」控件里出现且**不带日期**；比赛页给的是**轮次名义日期**（如「17 May 2026 - D.34」= 该轮名义日期），不是实际开球日。因此「本赛季最新一场」**无法从 ligue1.com 单独解出**。",
+      "fixture_surface_limitation": "ligue1.com 的俱乐部页**只列未赛场次**，已赛场次只在「Recent results」控件里出现且**不带日期**；比赛页给的是**轮次名义日期**，不是实际开球日。因此「本赛季最新一场」**无法从 ligue1.com 单独解出**——改由 psg.fr 的月度赛程页（真实日期 + 比分 + 比赛页链接）解决；ligue1.com 退为阵容/阵型面。",
       "supplemental_fact_sources": [
         {
-          "what": "俱乐部官网赛果页（含真实开球日与首发）",
-          "how": "psg.fr 的 matches/news 栏目"
+          "what": "俱乐部官网赛程页（真实日期 + 比分 + 比赛页）",
+          "how": "psg.fr/{lang}/mens-football/fixtures?period={Mon}（resolve_match.py 自动抓当前月 + 前两个月）"
         },
         {
-          "what": "LFP / MPG 数据层",
-          "how": "mpg.football / lfp.fr"
+          "what": "俱乐部官网比赛页（逐分钟文字直播 + VAR）",
+          "how": "psg.fr/{lang}/matches/mens-football/{season}/{slug}-{YYYY-MM-DD}"
+        },
+        {
+          "what": "阵容 / 阵型",
+          "how": "ligue1.com match-sheet（psg.fr 页面不含阵容）"
         },
         {
           "what": "当轮官方集锦视频（逐段短片，含日期字幕）",
-          "how": "ligue1.com/en/videos 与官方频道"
+          "how": "PSG 官方频道 / ligue1.com/en/videos"
         },
         {
           "what": "手动指定比赛页（兜底）",
-          "how": "把 match-sheet URL 直接喂给 resolve_match.py 的 --match-url"
+          "how": "把比赛页 URL 直接喂给 resolve_match.py 的 --match-url"
         }
       ]
     },

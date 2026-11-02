@@ -75,7 +75,7 @@
       "club_slug": "borussia-dortmund",
       "club_id": "DFL-CLU-000007",
       "official_channel": {
-        "youtube": "https://www.youtube.com/@Borussia Dortmund",
+        "youtube": "https://www.youtube.com/@BVB",
         "site": "https://www.bvb.de"
       },
       "brand": { "primary": "#FDE100", "secondary": "#000000", "accent": "#FFFFFF" },
@@ -90,6 +90,12 @@
       "league": "ligue1",
       "club_slug": "paris-saint-germain",
       "club_id": "13",
+      "club_site": {
+        "fixtures_url": "https://www.psg.fr/{lang}/mens-football/fixtures?period={period}",
+        "lang": "en",
+        "match_url_pattern": "https://www.psg.fr/en/matches/mens-football/20262027/",
+        "note": "ligue1.com 答不出真实开球日；psg.fr 月度赛程页有日期 + 比分 + 比赛页，且比赛页有逐分钟文字直播。阵容/阵型仍要回 ligue1.com match-sheet。"
+      },
       "official_channel": {
         "youtube": "https://www.youtube.com/@PSG",
         "site": "https://www.psg.fr"
