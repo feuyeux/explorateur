@@ -30,6 +30,7 @@ import tempfile
 from pathlib import Path
 
 MINUTE_RE = re.compile(r"(?<!\d)(\d{1,3})\s*'")
+CLOCK_RE = re.compile(r"(?<!\d)(\d{1,3}):(\d{2})(?!\d)")
 SCORE_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[-:]\s*(\d{1,2})(?!\d)")
 TEAMS_RE = re.compile(r"\b([A-Z]{1,4})\s*[:.]\s*([A-Z]{1,4})\b")
 
@@ -70,12 +71,29 @@ def _extract(master: Path, crop: str, fps: float, out_dir: Path) -> list[Path]:
 
 def _parse(texts: list[str]) -> dict:
     joined = " | ".join(texts)
+    mc = CLOCK_RE.search(joined)
     mm = MINUTE_RE.search(joined)
     ms = SCORE_RE.search(joined)
     mt = TEAMS_RE.search(joined)
+    minute = second = None
+    clock = None
+    if mc:
+        minute, second = int(mc.group(1)), int(mc.group(2))
+        clock = f"{minute:02d}:{second:02d}"
+    elif mm:
+        minute = int(mm.group(1))
+        clock = f"{minute}'"
+    score = None
+    if ms:
+        # MM:SS 时钟本身也能被 SCORE_RE 命中（07:52 → 7-52）；同一段文本是时钟就跳过。
+        same_as_clock = mc is not None and ms.group(0) == mc.group(0)
+        if not same_as_clock:
+            score = f"{ms.group(1)}-{ms.group(2)}"
     return {
-        "minute": int(mm.group(1)) if mm else None,
-        "score": f"{ms.group(1)}-{ms.group(2)}" if ms else None,
+        "minute": minute,
+        "second": second,
+        "clock": clock,
+        "score": score,
         "teams": f"{mt.group(1)}:{mt.group(2)}" if mt else None,
     }
 
@@ -86,11 +104,12 @@ def _fill(rows: list[dict]) -> None:
     插值只用于**粗定位**；它不改变原始读数。跳切段的斜率会明显异常，
     所以同时输出 `minute_slope` 供人复核。
     """
-    pts = [(r["t"], r["minute"]) for r in rows if r["minute"] is not None]
+    pts = [(r["t"], r["minute"] + (r.get("second") or 0) / 60.0)
+           for r in rows if r["minute"] is not None]
     pts.sort()
     for r in rows:
         if r["minute"] is not None:
-            r["minute_est"] = r["minute"]
+            r["minute_est"] = round(r["minute"] + (r.get("second") or 0) / 60.0, 2)
             r["minute_interpolated"] = False
             continue
         t = r["t"]
@@ -133,7 +152,8 @@ def _anchors(rows: list[dict]) -> tuple[list[dict], list[dict]]:
         last_score = s
 
     jumps: list[dict] = []
-    known = [(r["t"], r["minute"]) for r in rows if r["minute"] is not None]
+    known = [(r["t"], r["minute"] + (r.get("second") or 0) / 60.0)
+             for r in rows if r["minute"] is not None]
     for (t0, m0), (t1, m1) in zip(known, known[1:]):
         dt = t1 - t0
         dm = m1 - m0

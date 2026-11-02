@@ -32,9 +32,11 @@ description: >
 解说按**进程轴 × 画面轴**写：进程轴说清第几分钟、谁、比分与意义，画面轴只承认这一窗画面里看得见的动作；两轴合成一句话，观众既跟得上比赛，也不会听到画面上不存在的东西。
 
 首个完整实现是 2026-27 意甲第 10 轮米兰德比（AC米兰 3-1 国际米兰，485.48s 母版 →
-8 分钟成片）。第二个实跑是 `examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方
-highlights 裁到 162s，16 窗；无视觉输入，用 `read_scoreboard.py` OCR 读数、
-窗口标 `visible: unread`，画面轴待人工复核）。**装配脚手架不在本 skill 里**——从 `multilingual-video-poetry` 的入库
+8 分钟成片）。同一产线已实跑四场：`examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方
+highlights 裁到 162s）、`examples/barcelona-2026/`（巴萨 6-1 阿拉维斯，192s）、
+`examples/psg-2026/`（勒阿弗尔 1-5 巴黎，330s）、`examples/liverpool-2026/`
+（利物浦 0-1 阿森纳，120s）。后三场同样无视觉输入，用 `read_scoreboard.py`
+OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。**装配脚手架不在本 skill 里**——从 `multilingual-video-poetry` 的入库
 样例抄：`assets/example/配文.py`（文案与名单的单一事实源）· `build_voice.py`
 （edge-tts 合成 + 实测校窗）· `subtitles.py`（三层字幕卡 → 透明层 → 烧录）·
 `mix.py`（BGM + 旁白侧链混音）· `封面.py`（封面）。底层能力用 `packages/core/src/`
@@ -275,7 +277,7 @@ WARN，不冒充 FAIL。
 ```
 
 - **一窗一镜态**：窗口按镜头切点分，不按事件名字分；进球包的三段（现场 / 比分动画 / 回放）就是三个窗，信息职责不同——现场讲过程、比分动画讲数据与意义、回放讲细节，不重复同一句话；
-- **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡（`kind: 'graphic'`，名字以卡片上可读的为准）；
+- **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡（`kind: 'graphic'`，名字以卡片上可读的为准）；**没有可靠首发数据时只出「比分 + 赛事信息」开场卡，不编阵容**（巴萨/巴黎/利物浦实跑中，psg.fr 无阵容、PL/西甲阵容页只是可选面，均用开场卡降级）；
 - 旁白落点带 `LEAD`（实测 0.45s）：画面先到位，声音再进来；
 - **TTS 时长是实测的**：每段合成后立刻量，超窗压词不硬塞（build_voice 报
   每段 slack，超窗退出码 1）；
