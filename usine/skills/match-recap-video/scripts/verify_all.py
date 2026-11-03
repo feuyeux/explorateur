@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """verify_all.py — match-recap-video 的一条命令全验收。
 
-SKILL.md 的「每一步的验收判据」有多行，能离线机检的是八个 selftest；验收靠
-agent 逐条记得跑，缺一环就是静默半成品。本脚本把八个 selftest 聚合成一个
+SKILL.md 的「每一步的验收判据」有多行，能离线机检的是十个 selftest；验收靠
+agent 逐条记得跑，缺一环就是静默半成品。本脚本把十个 selftest 聚合成一个
 退出码（任何一环非零 = 整体非零），可选 `--windows` 连窗口表判决一起跑。
 
 用法：
-    python3 scripts/verify_all.py                     # 八个 selftest（全离线，不联网）
+    python3 scripts/verify_all.py                     # 十个 selftest（全离线，不联网）
     python3 scripts/verify_all.py --windows win.json  # 加判一次窗口表（FAIL → 退出码 1）
 
 各 selftest 只需要 python3 与外部工具解析器能找到的工具（探针的合成视频用
@@ -29,8 +29,12 @@ HERE = Path(__file__).resolve().parent
 SELFTESTS: list[tuple[str, list[str]]] = [
     ("resolve_match（解析夹具 + 判别逻辑负例）",
      [sys.executable, str(HERE / "resolve_match.py"), "selftest"]),
-    ("check_windows（四个坏例 + 输入契约）",
+    ("check_windows（四个坏例 + 输入契约 + anchor/align）",
      [sys.executable, str(HERE / "check_windows.py"), "selftest"]),
+    ("place_voice（绝对锚点落点 + 早/晚/叠音/缺段反例）",
+     [sys.executable, str(HERE / "place_voice.py"), "selftest"]),
+    ("check_roster（球衣印字 ≠ 解说称呼 + 缺字段/重名反例 + CLI 真路径）",
+     [sys.executable, str(HERE / "check_roster.py"), "selftest"]),
     ("find_master（排序判据回归）",
      [sys.executable, str(HERE / "find_master.py"), "--selftest"]),
     ("probe_scoreboard（合成视频探针回归）",
@@ -54,7 +58,7 @@ def run(name: str, cmd: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(description="match-recap-video 全验收聚合（八个 selftest + 可选窗口表）")
+    ap = argparse.ArgumentParser(description="match-recap-video 全验收聚合（十个 selftest + 可选窗口表）")
     ap.add_argument("--windows", help="窗口表 JSON 路径；给了就连 check_windows 判决一起跑")
     args = ap.parse_args(argv)
 

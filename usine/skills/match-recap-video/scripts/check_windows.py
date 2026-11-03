@@ -25,7 +25,11 @@
     `visible` ∈ event|aftermath|absent|unread——枚举写错会让判据 2/3 整段
     跳过（fail-open），必须在门口拦下；
   - 时间区间认 `src`（"36.2-42.0"）**或** `t0`/`t1`（SKILL.md 窗口表 schema 的
-    字段）；两处同给时 `t0`/`t1` 优先。
+    字段）；两处同给时 `t0`/`t1` 优先；
+  - `anchor`（可选，秒）必须落在本窗区间内——它是旁白要对齐的那一帧，
+    写到窗外就不是对齐失败而是表写错了（`place_voice.py` 拿它算落点）；
+  - `align` ∈ start|end（缺省 start）：起句还是收句对齐 anchor。
+    `align: end` 必须同时给 anchor——没有锚点的「收在某一刻」无从落位。
 
 §6.4 说词表扫候选「不能自动判 FAIL」——那是**裸词表**的限制：词表不知道自己
 在哪种窗、这窗之前说过什么。本检查带了窗口表上下文（kind / visible / see /
@@ -172,6 +176,23 @@ def validate_table(doc: object) -> list[str]:
         iv = _interval(win)
         if iv is not None and iv[1] <= iv[0]:
             errors.append(f"{key}: 时间区间非法（起点 ≥ 结点：{iv[0]}-{iv[1]}）")
+        anchor = win.get("anchor")
+        if anchor is not None:
+            try:
+                a = float(anchor)
+            except (TypeError, ValueError):
+                errors.append(f"{key}: anchor 必须是秒数，实为 {anchor!r}")
+            else:
+                if iv is not None and not (iv[0] - 1e-6 <= a <= iv[1] + 1e-6):
+                    errors.append(
+                        f"{key}: anchor {a}s 不在窗口 {iv[0]}–{iv[1]}s 内"
+                        "（旁白要对齐的那一帧必须在本窗画面里）")
+        align = win.get("align")
+        if align is not None:
+            if str(align).strip().lower() not in ("start", "end"):
+                errors.append(f"{key}: align 必须是 start|end，实为 {align!r}")
+            elif str(align).strip().lower() == "end" and anchor is None:
+                errors.append(f"{key}: align=end 必须给 anchor（收句对到哪一帧）")
     return errors
 
 
@@ -268,6 +289,15 @@ def check_window(
             )
         else:
             prior["last_end"] = e
+        # 长窗没有 anchor：旁白只能贴 t0 进，而动作多半在窗内后半段——听着就是「声音早了」。
+        # 不判 FAIL（有些窗确实整段都在说同一件事），但必须在落点前显式给锚点。
+        if e - s > 4.0 and win.get("anchor") is None and str(win.get("say", "") or "").strip():
+            add(
+                "结构 落点对齐",
+                "WARN",
+                f"窗口 {e - s:.1f}s 但没给 anchor：旁白会贴在 {s}s 进，"
+                "动作若在窗内后半段就会抢在画面前面",
+            )
 
     # ---- 结构项：字幕与旁白打架 ----
     for card in ("title", "stat"):
@@ -371,6 +401,15 @@ def selftest() -> int:
         ("区间倒挂", {"windows": [
             {"key": "w1", "kind": "live", "visible": "event", "t0": 30, "t1": 20,
              "say": "", "see": ""}]}, True),
+        ("anchor 不在窗内", {"windows": [
+            {"key": "w1", "kind": "live", "visible": "event", "t0": 10, "t1": 20,
+             "anchor": 25, "say": "", "see": ""}]}, True),
+        ("anchor 不是秒数", {"windows": [
+            {"key": "w1", "kind": "live", "visible": "event", "t0": 10, "t1": 20,
+             "anchor": "后半段", "say": "", "see": ""}]}, True),
+        ("合法 anchor 过契约", {"windows": [
+            {"key": "w1", "kind": "live", "visible": "event", "t0": 10, "t1": 20,
+             "anchor": 18.4, "say": "", "see": ""}]}, False),
         ("合法表过契约", {"windows": [
             {"key": "w1", "kind": "live", "visible": "event", "t0": 1, "t1": 2,
              "say": "", "see": ""}]}, False),
@@ -419,6 +458,21 @@ def selftest() -> int:
         bad += 1
         for f in res["findings"]:
             print(f"        [{f['level']}] {f['window']} {f['criterion']} — {f['why']}")
+
+    # ---- 语义锁：长窗缺 anchor 只 WARN（落点判据在 place_voice.py 里判决） ----
+    doc_long = {"windows": [
+        {"key": "w1", "kind": "live", "visible": "event", "t0": 10.0, "t1": 18.0,
+         "see": "右路起球，前锋头球攻门（远景）",
+         "title": "第4分钟 · 头球", "stat": "1-0",
+         "say": "右路起球，前锋头球攻门"},
+    ]}
+    res = check_table(doc_long)
+    hit = [f for f in res["findings"] if f["criterion"] == "结构 落点对齐"]
+    ok = res["pass"] and hit and hit[0]["level"] == "WARN"
+    print(f"{'PASS' if ok else 'FAIL'}  语义锁 长窗缺 anchor 记 WARN: "
+          f"fail={res['fail']} warn={res['warn']}")
+    if not ok:
+        bad += 1
 
     print()
     print(f"反向验证：{'全部通过' if not bad else f'{bad} 条不通过'}")

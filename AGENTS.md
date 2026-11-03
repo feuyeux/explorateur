@@ -40,7 +40,7 @@
 | `publish-copy` | 发布词写作 |
 | `multilingual-video-publishing` | 平台发布 + 合合集 + 核验 |
 | `storyteller-video` | 多幕评书成片（说书人 + 景/镜/转场） |
-| `match-recap-video` | 赛事集锦解说视频（比分牌实测映射 + 进程×画面双轴旁白 + 阵容/进球/换人） |
+| `match-recap-video` | 赛事集锦解说视频（比分牌实测映射 + 进程×画面双轴旁白 + 旁白锚点绝对落位 + 阵容/进球/换人；无 BGM） |
 | `video-generation` | 视频生成母版（选线/提交确认/取回冻结） |
 
 - **总路由表**：[usine/skills/README.md](usine/skills/README.md)——先判断在哪一层，再选 skill；每个 skill 的 description 自带排除语句（Not for …），路由靠它而不是靠猜。
