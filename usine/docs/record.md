@@ -128,6 +128,10 @@ pnpm exec feuille publish check-plan $P\publish\manifest.json --root $P
 带音符的词典形（阿拉伯语 سُوشِي、希伯来语 סוּשִׁي）**只进发布词注记**，画面用通行形
 （无音符）。未证实的说法不写（「俄语 суши 兼指风干鱼」等一律不落笔）。
 
+**2026-11-03 内容修订（粉丝反馈）**：韩语格 스시 → **초밥**（汉字词「醋饭」，초 醋＋밥 饭），旁白句改「초밥은 일본 요리입니다」，转写 cho bap，来源标签改「汉字词 · 醋饭」。依据：粉丝提供的 Naver 词典词条与搜索结果量对比 ＋ namu.wiki 词条（日常多说 초밥，说 스시 人们也听得懂）（**스시 不是错词**，也通用，降为评论区与补充短内容里的备注）。其余 11 期韩语词条同日核查（ep02–ep12 共 11 个词条），均为标准常用词，无同类问题。数据已改并重生成源文件：句子门 12/12、`sentence_gate`＋`video_style_pins` 单测 18/18 绿；上表「菜名 12 形」记的是已交付手写版，保留 스시 作历史。用户已明确**已发布原片不替换**，因此这里不再以重发原片为收尾；若日后重渲原母版，再删除 `check_ep01_regression.mjs` 里 `REVISED` 的 ko-KR 条目。选词流程同日加「母语用量校验」门，见 `tools/foodnames/USAGE_CHECK.md`。
+
+**修正短片（2026-11-03）**：`examples/sushi-fix-chobap/` 新做 5 镜，横版 `sushi_fix.mp4`（1920×1080）与竖版 `sushi_fix_vertical.mp4`（1080×1920）均为 **25.434 秒 / 30fps / 763 帧**，音视频时长差约 1.3ms；同步门横竖各 **15/15**，白帧门各 **25 帧采样、0 白帧**，Chrome 重渲后已抽帧人工复核片头、场景、跟读与片尾。发布侧三平台 `copy check --facts --strict` 全绿，`publish check-plan` **3/3 无阻塞**；小红书／抖音封面为 1080×1440，B 站封面为 1920×1080 且中央 1440×1080 信息流裁切已人工复核。实际平台发布与原片评论尚未完成；B 站责任项已由用户拍板为分区 `知识`、创作声明 `内容无需标注`，项目脚本显式传入且不回退为其它声明。
+
 ## 6 本轮新暴露的坑
 
 | # | 现象 | 根因 | 修法 |
@@ -251,6 +255,24 @@ fps / 分辨率 / 旁白实测电平 / 床实测电平与时长 / 增益）；�
 | 44 | 机制计数**求和** ⇒ 结论被「被掐死的那几条事件数天然偏少」污染 | 演化臂有 2 条被提供方掐死，事件流只有几十条；把它们和跑满全程的几条求和，比出来的 shell 用量差可能只是「它被掐早了」，不是它更省 shell | 机制计数**逐条统计、按「计入 / 作废」分组**，只比**计入条目的均值**。2026-10-22 实测：求和口径下演化臂 pwsh 79 次看着比基准臂 77 次还多；分组求均值后是基准 19.2 / 演化 24.5 / 第三臂 **5.4**——第三臂那条通用回退规则压 shell 用量的效果才显出来（它压到约 1/4），而它救不了产线专有的版式规则 |
 
 | 45 | 判据把**「量不到」当成「达标」**——一个只渲染当前词、其余全藏起来的页面白拿一分 | `check_scene_tokens.mjs` 原来写的是 `const opacityOk = m.minOpacity === null ? true : m.minOpacity >= 0.45`：**量不到暗词不透明度（null）⇒ 判通过**。2026-10-22 实测：RSI B 线第三臂 r5 的交付页有 12 个 `.tok`，但**只渲染当前那一个**，其余 11 个 `display:none` / 零尺寸 ⇒ `minOpacity` 量不到 ⇒ 这条判据被记成通过（0.5 分里有一分是假的）。它同时也不满足另一条（中性灰高亮），真值应是 0 分 | 「量不到」有三种归宿，**没有一种叫「达标」**：① 门跑不成（页面上一个可见 token 都没有）⇒ `measurable=false`，整条 rollout 不进分布；② **量到了「看不见」这个事实**（非当前 token 一个都没渲染）⇒ **判红**，证据要写清「N 个 token、可见 M 个、其中非当前 0 个」；③ 量到了具体的低不透明度 ⇒ 判红。修法：`m.minOpacity !== null && m.minOpacity >= TH.other_token_opacity`，并把 token 计数带进证据。**同一个洞在生产门 `check_video_layout.mjs` 里也有一份**（`dom.others_opacity === null || ...`）——一并修了；已记的读数**可证不受影响**（2026-10-22 复核：24 期报告 576 条 `others_opacity` **无一条 null**，取值只有 0.18 与 0.45） |
+
+## 10 存草稿模式 + 双语字幕卡（2026-11-03）
+
+这一轮做了两件事：**给发布器加「存草稿」模式**（只存不发布）与**给赛事成片加双语字幕卡**（覆盖 `languages/` 注册表全部 14 语种）。发布侧的平台机制实测结论沉淀在 [multilingual-video-publishing/references/platform-capabilities.md §12](../skills/multilingual-video-publishing/references/platform-capabilities.md)，本节只留**仓库级**的坑与可复算数字。
+
+**可复算数字**：B站草稿箱 **4 条**（巴萨 10:49:30 / 利物浦 10:51:01 / 巴黎 11:04:43 / 拜仁 11:06:07），4 条**全带封面**；抖音 4 条**逐条上传 + 点「暂存离开」成功**，但 PC 端 22 个只读探测（作品列表接口 `status=0..12` × 2 种 `scene`，外加 `web/api/media/aweme/draft/` 的 5 种参数组合）**没有任何响应出现我们的标题**，上传页 47 个请求里也没有草稿接口 ⇒ **PC 端列不出抖音草稿**，只能上手机 App。双语卡 14 语种真实渲染 exit 0，`render_cards.py --selftest` **9/9**。
+
+**本轮新暴露的坑**
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 46 | 新增 CLI 路由组（`textlayer`）后，全量 `pnpm verify` 里 parity 用例红：「CLI 组 textlayer 没有对应的 argv 家族工具」 | parity 契约是**双向**的：CLI 侧每加一个路由组，dsh 工具面就得有对应的 argv 家族工具；本轮只加了 CLI 叶子，忘了工具面那一半 | 在 `packages/dsh-plugin/src/tools.ts` 加 `argvTool({ name: 'usine_textlayer', actions: { shoot: (argv) => textlayer.mainShoot(argv) } })`（工具面 17→18），并同步**四处钉死的计数**：`src/toolnames.ts` 名单、`test/plugin-parity.test.ts` 的家族名单与工具名名单、`test/plugin.test.ts` 的四处计数、`docs/{guide,dsh}.md` 与 `docs/dsh-architecture/index.html`。**不加豁免**——豁免会把「漏挂工具」永久合法化。另：dsh-plugin 的用例吃**构建产物** `dist/index.mjs`，改完 `src/tools.ts` 必须先 `pnpm --filter @feuille/dsh-plugin build` 再跑用例 |
+| 47 | `page.evaluate` 里的具名内部函数在浏览器上下文报 `ReferenceError: __name is not defined` | tsx/esbuild 的 `keepNames` 把 `const f = () => {}` 改写成带 `__name(f, "f")` 的形式，而 `__name` 只存在于**打包产物作用域**，不在页面里 ⇒ 注入进去就是未定义引用 | 探针里**不许定义具名内部函数**：一律内联展开，或用匿名箭头函数。这类错误只发生在浏览器里，Node 侧 typecheck 与 lint 都抓不到 |
+| 48 | 探针写成 `.mjs` 却带 TS 标注 ⇒ `SyntaxError: Unexpected token ':'` | `.mjs` 不做类型擦除 | 探针一律 `.ts` + `node --import tsx`；且 **cwd 必须在 `usine/`**——tsx 只在 `usine/` 的依赖树里可解析，在仓库根跑找不到 |
+| 49 | 长跑子进程「失败且**没有任何输出**」，一度看着像测试本身炸了 | PowerShell 里 `… \| Select-Object -First N` 在取到 N 行后**关闭上游管道** ⇒ 在跑的子进程收到 broken pipe 被杀；同时**退出码被管道吞掉** | 要限量输出就**先把输出落文件**再读文件；`Select-Object -Last N` 缓冲到末尾才输出，可以安全用 |
+| 50 | Edge 已在跑时启动发布器 ⇒ 「正在现有浏览器会话中打开」+ `Target page, context or browser has been closed` | 发布器用 `launchPersistentContext` 指向**真实存档目录**，而该目录已被一个正在运行的 Edge 占着 ⇒ 新实例被并进已有会话，页面句柄随即失效 | 跑之前把 Edge 进程杀干净（它会被自动重启，要连杀两次）；跑完再把存档还原回去并重开 Edge |
+| 51 | 把 Edge 存档目录复制到别处再跑 ⇒ cookie 一行不剩（登录态全丢） | Edge 的 cookie 是 **App-Bound 加密**（`enc=v20`），密文绑死在**原存档路径**上 ⇒ Chromium 认路径不对就把整行删了 | 必须用**真实路径** + **Edge 二进制**；要动存档先整份备份（关 Edge 后拷 `Local State` + `Default`），跑完还原 |
+| 52 | `page.evaluate('() => {…}')` 传**箭头函数字符串** ⇒ 浏览器里那段代码**根本没跑**，却**不报错**、只返回 `undefined` | Playwright 对字符串参数只做**表达式求值**：`'() => {…}'` 求值出来是个函数对象，函数体不会被调用；函数对象又不可序列化 ⇒ 返回 `undefined` | 浏览器侧代码一律**传真函数**（`page.evaluate(() => {…}, arg)`）。2026-11-03 探针实测：字符串版 `window.__side` 保持 `undefined`、返回 `undefined`；函数版副作用生效、返回 43。⚠️ **纯表达式**字符串（`'window.innerHeight'`）是好的，别一起改。遗留未修：`xhs.ts`（封面像素探针 `pixelProbe` / 滚动）、`collections.ts`（几何滚动）、`veriflive.ts`（分页探针）——小红书发布路径会在这条上抛 TypeError **崩掉该条**（fail-closed，不是假绿灯），另两处是无声 no-op |
 
 ## 附：`usine/人物宣传图.zip` —— 一个被登记下来的孤立大文件（不删）
 

@@ -111,6 +111,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 | no-hard-wrap 零违规 | `check_no_hard_wrap` | 段内硬换行 → diff 噪声放大 + CJK 边界伪影 |
 | AI 指纹零命中（读者面） | `check_ai_fingerprint` | 字面签名（yyds/绝绝子/宝藏…）、句首「原来…」、连叹号、「像 X 一样的 Y」、一行 emoji 滥用 → **可枚举的 AI 味已机器拦截**；语感仍归编辑走查 |
 | 数字可溯源（`--facts facts.json` 给了才跑） | `check_fact_provenance` | 读者面文字里的数字对不上事实表 → 编造规格嫌疑；**未给 `--facts` 时 SKIP，SKIP 不是 PASS** |
+| 只查选中的平台（`--platform bilibili,douyin`） | `checkPublishDir` 的 platforms 参数 | 不给＝三平台齐为硬门（缺一个文件判 FAIL）；**双平台产线用 `--platform` 挑要查的**，未选中的平台报「没查，不是 PASS」 |
 
 **机检门过了还有编辑层**——`feuille copy check` 不查的：引文是否逐字取自
 事实源、序号是否对时间轴（「第 7 个」类位置引用）、题眼是否到位、成品自检三问、
@@ -123,7 +124,7 @@ Proven on the 12-language "one book" karaoke video (portrait → 小红书 + 抖
 1. **挖题眼（先于一切）**：通读内容事实源——诗行/译文/幕名这些真正写了东西的文件，不是只读 README 的规格数字。抄下可逐字引用的句子，找跨语种/跨条目的母题，用一句话说出"观众为什么要看完这条"。规格数字随后读，作佐证与发布贴士。
 2. **Pick platforms** by format (pairing rule above) and confirm the goal (拉新 vs 带货 vs 导流) — copy shape changes accordingly.
 3. **Write one file per platform**, each self-contained: 标题 → 正文 → 话题标签 → 发布贴士. Same spine, different voice.
-4. **Check** — run `feuille copy check <publish_dir> --facts facts.json`（机检门与「验收判据」表一一对应；facts.json 只抄实测数——ffprobe 时长、manifest 条目数、bgm 边车数字，键随意、值必须可核对；没给 `--facts` 数字溯源是 SKIP 不是 PASS）。Then layer the editorial checks the script can't do: 引文逐字对事实源, 序号对时间轴, 题眼, 成品自检三问. **机检 0 违规 + 编辑三问全 YES 才算过**。
+4. **Check** — run `feuille copy check <publish_dir> --facts facts.json`（机检门与「验收判据」表一一对应；facts.json 只抄实测数——ffprobe 时长、manifest 条目数、bgm 边车数字，键随意、值必须可核对；没给 `--facts` 数字溯源是 SKIP 不是 PASS）。**只投部分平台时加 `--platform bilibili,douyin`**（逗号分隔）：不给就按三平台齐为硬门，缺一个平台的文件判 FAIL——那是「稿子没交齐」的真实投诉；**双平台产线**（如赛事解说线只投 B站 + 抖音）用 `--platform` 挑要查的，未选中的平台会明说「没查，不是 PASS」。Then layer the editorial checks the script can't do: 引文逐字对事实源, 序号对时间轴, 题眼, 成品自检三问. **机检 0 违规 + 编辑三问全 YES 才算过**。
 5. **Update the project README** to mention `publish/`.
 
 ## 与发布执行的接缝

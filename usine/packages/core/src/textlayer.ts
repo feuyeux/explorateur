@@ -23,7 +23,7 @@
 //
 // 浏览器一律经 `platform` 解析，绝不写死路径（跨平台约定 1）。
 import { execFileSync } from "node:child_process"
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -184,6 +184,23 @@ export async function shootMatte(
   outPng: string,
   opts: { width: number; canvasH: number; browser?: string | null; workdir?: string; budgetMs?: number },
 ): Promise<string> {
+  const r = await shootMatteMeasured(htmlFn, outPng, opts)
+  return r.png
+}
+
+/** matte 渲染 + **实测层盒**（双语字幕卡的排版判据要用真实几何，不许拍脑袋估）。
+ *
+ * 模板可以自己在 `<title>` 里写一份 JSON 载荷（例：`{"layers":{"say":{"h":120}}}`），
+ * 本函数从 `--dump-dom` 的输出里把它取出来。Edge 的 `--dump-dom` 与 `--screenshot`
+ * **可以同一次运行同时出**（实测：png 落盘 + stdout 有 DOM），所以测量**不额外花钱**。
+ *
+ * 取不到载荷就返回 null——判不出就是判不出，不许拿猜的值当实测。
+ */
+export async function shootMatteMeasured(
+  htmlFn: (bg: string) => string,
+  outPng: string,
+  opts: { width: number; canvasH: number; browser?: string | null; workdir?: string; budgetMs?: number },
+): Promise<{ png: string; measure: Record<string, any> | null }> {
   const browser = opts.browser ?? requireBrowser()
   const out = shotTarget(outPng)
   const workdir = resolve(opts.workdir ?? process.cwd())
@@ -191,20 +208,94 @@ export async function shootMatte(
   const [, winH] = viewportDeficit(opts.canvasH, { browser, workdir })
   const stem = basename(out).replace(/\.png$/, "")
   const shots: string[] = []
+  let measure: Record<string, any> | null = null
   for (const [tag, bg] of [["_w", "#FFFFFF"], ["_b", "#000000"]] as const) {
     const hPath = join(workdir, `${stem}${tag}.html`)
     writeFileSync(hPath, htmlFn(bg), "utf8")
     const png = join(workdir, `${stem}${tag}.png`)
     rmSync(png, { force: true })
-    execFileSync(
+    const stdout = execFileSync(
       browser,
-      shotArgs(browser, opts.width, winH, png, hPath, opts.budgetMs ?? 1600),
-      { timeout: 180_000, stdio: ["ignore", "pipe", "pipe"] },
+      // ⚠️ `--dump-dom` 必须插在 **URL 之前**：放在 URL 后面会被浏览器当成第二个
+      // 要打开的地址。实测 Edge 的 `--screenshot` 与 `--dump-dom` 同一次运行
+      // 可以既落 png 又吐 DOM（测量因此不额外花一次浏览器启动）。
+      [
+        ...shotArgs(browser, opts.width, winH, png, hPath, opts.budgetMs ?? 1600)
+          .slice(0, -1),
+        "--dump-dom",
+        pathToFileURL(hPath).href,
+      ],
+      { timeout: 180_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     )
+    if (measure === null) measure = titlePayload(stdout)
     await cropTo(png, opts.width, opts.canvasH)
     shots.push(png)
   }
   const combined = await matteCombineBuffer(shots[0]!, shots[1]!)
   writeFileSync(out, combined)
-  return out
+  return { png: out, measure }
+}
+
+/** 从 `--dump-dom` 的输出里取 `<title>` 里的 JSON 载荷（模板自测写进去的）。 */
+export function titlePayload(dom: string): Record<string, any> | null {
+  const m = /<title>([\s\S]*?)<\/title>/.exec(dom)
+  if (!m) return null
+  try {
+    const v: unknown = JSON.parse(m[1]!)
+    return v !== null && typeof v === 'object' ? (v as Record<string, any>) : null
+  } catch {
+    return null
+  }
+}
+
+// ── CLI 适配层（commands.ts 路由叶子；业务在上面，这里只接线） ───────────────
+
+/** 模板里代表「底色」的占位符（双 matte 要两份除底色外逐字节同构的 HTML）。 */
+export const BG_TOKEN = "__BG__"
+
+/**
+ * commands.ts 路由入口：
+ * `feuille textlayer shoot --html <tpl.html> --out <out.png> [--width 1920] [--height 1080]`
+ *
+ * 产出两张东西：
+ * 1. `<out>` —— **透明叠加层** PNG（白底/黑底双截 → matte，出精确 alpha）；
+ * 2. `<out>.measure.json` —— 模板写进 `<title>` 的测量载荷（取不到就不写这份文件：
+ *    **判不出就是判不出**，不许拿猜的值充实测）。
+ *
+ * 用途：任何要往画面上压文字的产线（字幕卡 / 片头 / 水印）都能用它出层，
+ * 并用同一份渲染里量到的层盒判越界——不用再为「量几何」单独开一次浏览器。
+ */
+export async function mainShoot(argv: string[]): Promise<number> {
+  if (resolveBrowser() === null) {
+    throw new FeuilleError("缺 Chromium 内核浏览器（resolver 未找到；文字渲染走 Edge headless）")
+  }
+  const get = (flag: string): string | undefined => {
+    const i = argv.indexOf(flag)
+    return i >= 0 ? argv[i + 1] : undefined
+  }
+  const htmlPath = get("--html")
+  const outPng = get("--out")
+  if (!htmlPath || !outPng) {
+    throw new FeuilleError(
+      "用法：feuille textlayer shoot --html <tpl.html> --out <out.png> [--width 1920] [--height 1080]",
+    )
+  }
+  const width = Number(get("--width") ?? "1920")
+  const height = Number(get("--height") ?? "1080")
+  const tpl = readFileSync(htmlPath, "utf8")
+  if (!tpl.includes(BG_TOKEN)) {
+    throw new FeuilleError(
+      `模板里没有底色占位符 ${BG_TOKEN}——双 matte 靠它做两份除底色外同构的 HTML`,
+    )
+  }
+  const r = await shootMatteMeasured((bg) => tpl.split(BG_TOKEN).join(bg), outPng, {
+    width,
+    canvasH: height,
+    workdir: get("--workdir"),
+  })
+  if (r.measure !== null) {
+    writeFileSync(`${r.png}.measure.json`, `${JSON.stringify(r.measure, null, 1)}\n`, "utf8")
+  }
+  console.log(`透明层 → ${r.png}`)
+  return 0
 }

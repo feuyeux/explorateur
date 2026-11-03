@@ -1,4 +1,4 @@
-// result.ts —— 工具面统一结果契约（17 个工具同一套 schema）。
+// result.ts —— 工具面统一结果契约（18 个工具同一套 schema）。
 //
 // 为什么统一：dsh 按 output.schema 机检每次成功调用的返回值（additionalProperties /
 // enum / required 全部强制执行，见 dsh-tools 的 assertSupportedJsonSchema + 运行时校验），

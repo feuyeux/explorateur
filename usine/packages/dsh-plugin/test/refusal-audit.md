@@ -1,6 +1,6 @@
 # Approval-gated refusal audit（已填）
 
-审计范围：packages/dsh-plugin 登记的全部 usine_* 工具面（src/tools.ts）。全仓核对：`approval.request` 只在 videoGenerationTool 的 submit 动作出现一处（src/tools.ts）——**唯一的 approval 门控工具是 usine_video_generation**。usine_publish 的门是 config 门（`config.publish === true` 才注册——「发布不可达」红线），不是 approval 门，不进本表。usine_verify / usine_quota / 13 个 argv 家族工具均无 approval 门控。
+审计范围：packages/dsh-plugin 登记的全部 usine_* 工具面（src/tools.ts）。全仓核对：`approval.request` 只在 videoGenerationTool 的 submit 动作出现一处（src/tools.ts）——**唯一的 approval 门控工具是 usine_video_generation**。usine_publish 的门是 config 门（`config.publish === true` 才注册——「发布不可达」红线），不是 approval 门，不进本表。usine_verify / usine_quota / 14 个 argv 家族工具均无 approval 门控。
 
 ## 2026-10-20 架构变更：审批从工具体内搬到了 dispatch 层
 

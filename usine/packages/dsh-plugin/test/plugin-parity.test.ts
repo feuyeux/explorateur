@@ -110,12 +110,12 @@ describe("工具面 ↔ CLI 路由双向对账", () => {
   const tools = familyTools()
   const names = tools.map((t) => t.name)
 
-  it("13 个 argv 家族工具，注册名与覆盖面逐字钉死（面变 = 门禁红，逼迫显式更新）", () => {
+  it("14 个 argv 家族工具，注册名与覆盖面逐字钉死（面变 = 门禁红，逼迫显式更新）", () => {
     expect([...names].sort()).toEqual([
       "usine_bgm", "usine_copy", "usine_cover", "usine_framehash",
       "usine_karaoke", "usine_ledger", "usine_lesson", "usine_persona",
       "usine_poetry", "usine_poster", "usine_scene", "usine_storyteller",
-      "usine_theme",
+      "usine_textlayer", "usine_theme",
     ])
   })
 
@@ -171,7 +171,7 @@ describe("工具面 ↔ CLI 路由双向对账", () => {
 // ---------------------------------------------------------------------------
 
 describe("工具面契约 ↔ 代码", () => {
-  it("契约里的 17 个工具名与家族+独立工具的实现逐字一致", () => {
+  it("契约里的 18 个工具名与家族+独立工具的实现逐字一致", () => {
     const implemented = [usineVersion.name, ...familyTools().map((t) => t.name),
       "usine_verify", "usine_quota", "usine_video_generation"]
     expect([...implemented].sort()).toEqual([...TOOL_NAMES].sort())

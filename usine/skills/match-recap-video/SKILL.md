@@ -10,7 +10,11 @@ description: >
   narration line as match-progress + on-screen action fused into one sentence,
   place one three-layer caption window per event (title / say / stat) with
   narration fitted into measured windows, and assemble with burned captions +
-  sidechain mixing. Ships runnable resolvers for FC Barcelona, Liverpool,
+  sidechain mixing. Then close out with the two-platform deliverables: a B站
+  landscape homepage image (1920×1080, every text block inside the central 4:3
+  safe area) and a 抖音 portrait one (1080×1440, native 3:4), plus one
+  publishing description per platform (publish-copy contract, checked by
+  `feuille copy check`). Ships runnable resolvers for FC Barcelona, Liverpool,
   Borussia Dortmund and Paris Saint-Germain (latest league match, official
   highlights search included). Use when the user wants a football match
   explainer — 阵容 / 进球 / 换人 / VAR — for fans to follow the match, from a
@@ -95,7 +99,9 @@ description: >
     → 官方页取事实（多页：英超 overview + /commentary）→ 交叉核对
     → 逐窗读画面（kind / visible / see + 抽帧存档）→ 双轴写事件窗口表
     → 机检三条硬判据（check_windows.py）
-    → TTS 实测校窗 → 三层字幕卡 → 烧录 + 侧链混音 → 封面 → 发布词
+    → TTS 实测校窗 → 三层字幕卡 → 烧录 + 侧链混音
+    → 双平台收尾：B站横版首页图 + 抖音竖版首页图（make_covers.py）
+    → 双平台发布描述 + 数字溯源表 → 判据门（feuille copy check）
 ```
 
 **先定「哪一场」，再取母版。** 「当前赛季最新一场」本身有歧义：联赛 vs 所有赛事、
@@ -300,6 +306,47 @@ WARN，不冒充 FAIL。
   每段 slack，超窗退出码 1）；
 - 结尾必有一段「回顾」窗口（全场进球 / 换人次数汇总），球迷的收获沉淀在这。
 
+## 双语字幕卡（解说语 + 中文）
+
+一条成片的**旁白是什么语言，字幕就必须是那个语言**。原来三层卡写死中文，解说换成外文
+就变成「听得懂英文、看的是中文字幕」——两头别扭，字幕等于没有。
+
+所以卡片分两种版式（`render_cards.py` 的 `LAYOUTS`）：
+
+| 版式 | 何时 | 层 |
+|---|---|---|
+| `mono` | 解说语 == 中文 | `title` / `say` / `stat` 三层，**逐坐标与现有着色卡一致**（578 / 682 / 912）——已有成片不变形 |
+| `bilingual` | 解说语 ≠ 中文 | 解说语 `title`（白大）/ `say`（金大）+ **中文 `zh`（淡小）** + `stat` |
+
+**解说语 == 中文时不出中文层**（同一句话印两遍是噪音）。**不做平台字幕文件（.txt）**——
+平台字幕轨与卡片是两回事。
+
+四条纪律：
+
+1. **版式是数据**（`LAYOUTS` 逐层声明 `top` / `h` / `size` / `color` / `weight`），不是代码里写死的坐标。`h` 只参与判据、不进渲染 HTML ⇒ 调 `h` 改判据口径，画面不变。
+2. **`h` 按实测反推**（单行实测高 + 2px 余量），不按估算。踩过的坑：按估算写 60/66 ⇒ **14 个语种全报「超出声明盒」而画面没问题**——那是「判据比被改进对象更严」，改的是声明盒不是画面。
+3. **排版判据用实测层盒**（浏览器量出的文本高度），不是字符数估算——外文比中文长 1.5–2 倍，德/法/俄的 `say` 实测折两行（119px vs 英文 60px），希伯来/阿拉伯还多一层行距。
+4. **字体栈与书写方向取 `languages/<locale>/manifest.json`**（唯一事实源，不另抄）：`fontCss` / `displayFontCss` / `dir`（`ar-SA`、`he-IL` = rtl）。中文辅助层恒 `ltr`，不管解说语是不是 RTL。
+
+```bash
+python3 scripts/render_cards.py --windows windows.json \
+    --i18n i18n.json --lang en-US --out cards
+python3 scripts/render_cards.py --i18n assets/fixtures/i18n/bilingual-cards.json \
+    --lang all --out build/cards     # 注册表 14 语种全覆盖
+python3 scripts/render_cards.py --selftest
+```
+
+**覆盖 `languages/` 注册表全部 14 语种**（ar-SA / de-DE / el-GR / en-US / es-ES / fr-FR /
+he-IL / hi-IN / it-IT / ja-JP / ko-KR / ru-RU / zh-CN / zh-HK）——能力夹具
+`assets/fixtures/i18n/bilingual-cards.json` 给出同一窗口在 14 语种下的解说语文案。
+
+**脚本分工照 `make_covers.py` 的先例**：Python 只做编排 + 判据，渲染交给 TS 运行时
+（`pnpm exec feuille textlayer shoot`，一次运行同时出双 matte 与实测层盒，测量不额外
+花一次浏览器启动）。**输入契约**：解说语窗口表缺窗口 ⇒ 退出码 2，不拿别的语言文案顶替。
+
+完整契约——版式表、`h` 的定法、实测层高表（14 语种）、坑表、已知缺口——见
+[references/bilingual-cards.md](references/bilingual-cards.md)。
+
 ## 装配（沿用 multilingual-video-poetry，不另写）
 
 - 三层字幕卡 = 透明 PNG 逐张 overlay 串接烧录；**卡片走单帧输入，不加
@@ -312,6 +359,33 @@ WARN，不冒充 FAIL。
 - 床位增益必须用**成片轨**量出的旁白电平反推（loudnorm 后语音段比单段 mp3
   高 ~6.9 dB，口径混了床会白生成）；
 - 大段音频定位不了时用 `mix.py` 的**分轨模式**落盘逐段对齐（另带片段预览模式，先看一段再跑全片）。
+
+## 双平台收尾：发布描述 + 首页图
+
+成片是**同一条横版**（16:9）。收尾出两个平台的发布物，各两件：
+
+| 平台 | 首页图 | 发布描述 |
+|---|---|---|
+| B站 | **横版 16:9**（1920×1080），文字块整体落在**中央 4:3 安全区**（x 240–1680）——平台首页推荐按 4:3 裁、个人空间按 16:9 裁，两个框都得有字 | `publish/bilibili.md`（标题 / 简介 / 标签 / 发布贴士，标题 ≤80 字） |
+| 抖音 | **竖版 3:4**（1080×1440），**零裁切**——竖封面槽的原生比例（传 9:16 会被居中裁掉上下各 240px，标题带正好被切没）；16:9 画面完整内嵌 + 模糊铺底，比分牌留在画内 | `publish/douyin.md`（文案 / 话题 / 发布贴士，首行即标题 ≤30 字，末话题后留一个尾随空格） |
+
+```bash
+python3 scripts/make_covers.py --pack packs/barcelona.json --facts cover_facts.json \
+    --master master.mp4 --backdrop-time 42.5 --out build/cover --name barcelona-alaves
+python3 scripts/build_publish_facts.py --pack packs/barcelona.json \
+    --video build/final.mp4 --master master.mp4 --windows windows.json --out publish/facts.json
+pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish/facts.json
+```
+
+**只查这两个平台**：成片是横版，小红书吃竖屏，本线**不投小红书**——判据门用 `--platform bilibili,douyin` 挑要查的（不给就是三平台齐为硬门，缺 `xiaohongshu.md` 会判 FAIL，那一行与稿子质量无关）。
+
+三条纪律：
+
+1. **数字不许编**：封面上的比分对着 fact pack 校（不符 → 退出码 1）；文案里每个数字对着 `facts.json` 溯源（没出处 → 判红）。**fact pack 没解析出比赛就不许出封面**（没有事实源的封面比没有封面更糟）。
+2. **底图不许带字幕**：从**无字幕母版**抽帧——成片已烧了三层字幕卡，再叠封面标题就是两层字打架。
+3. **文字不许落在安全区外**：版式是**数据**（`make_covers.py` 的 `LAYOUTS`：画布 / 安全区 / 四行文字块的盒子与字号），越界由 `assert_layout` 判，`selftest` 有反向用例盯着。
+
+样例见 `assets/publish/`（《巴萨 6-1 阿拉维斯》成稿 + 配套事实表，两份都能过判据门）。完整契约——两道比例门的口径差、抖音封面「发布后补」与每支 5 次修改额度、B站合集 Lv2 门槛、**两平台存草稿的落点差异与封面安全区**、已知缺口（本轮不做竖版成片）——见 [references/publishing-and-covers.md](references/publishing-and-covers.md)。
 
 ## 每一步的验收判据
 
@@ -328,7 +402,8 @@ WARN，不冒充 FAIL。
 | 画面读数 | 每窗有 `kind` / `visible` / `see`，头 / 中 / 尾三帧存档与 `see` 一致；无视觉输入时 `visible=unread` 且必须写明「画面未验收」，不能拿 WARN 当 PASS |
 | 声画对账 | `say` 的每个动作短语能在同窗 `see` 找到主体；回放窗无新进程、跳切窗无动作细节（三条反向验证全抓，见 references） |
 | 混音 | `feuille poetry audio-profile` 配比判据：人声段 − 空档底 ≥ 8 dB（LUFS 口径） |
-| 收尾 | 封面 + 各平台 `publish/*.md`（横屏 → B站） |
+| 双语卡 | `render_cards.py --lang all` 退出码 0：注册表 **14 语种**每种都出卡，且**每一层的实测高度都在自己的声明盒里**（层高超出 / 压到下一层 / 拿不到实测盒都算失败）；`cards-report.json` 落盘；`--selftest` 反向用例全抓。解说语 == 中文时**不许出中文层**（同一句话印两遍） |
+| 收尾 | 首页图两张：B站 1920×1080（文字块在中央 4:3 安全区内）+ 抖音 1080×1440（零裁切），尺寸由脚本自检、**展示裁切靠 `preview_*.png` 人眼判**；发布描述两份 `publish/bilibili.md` / `publish/douyin.md` 过 `feuille copy check --platform bilibili,douyin --facts publish/facts.json`（0 违规；数字溯源 SKIP 不算过） |
 
 ⚠️ **渲染被中断的 mp4 是半成品**：ffmpeg 中途被杀（会话结束、断电）留下
 没有 moov atom 的文件，ffprobe 直接报 Invalid data。判定口径只有 ffprobe，
@@ -345,8 +420,11 @@ WARN，不冒充 FAIL。
 - 出母版（无现成集锦、要生成画面）→ `video-generation`；但**官方集锦优先**——
   生成画面出不了真实比赛
 - 生成 BGM 床 / 定床位 → `bgm-bed`
-- 发布词 → `publish-copy`；发布执行 → `multilingual-video-publishing`
+- 发布词 → `publish-copy`（本 skill 给的是**赛事域事实面与平台配对**，写与判都归它：
+  `feuille copy check --platform bilibili,douyin`）；发布执行 → `multilingual-video-publishing`
   （永不自动，用户喊了才发）
+- 首页图的**版式与取帧**归本 skill（`make_covers.py`），**渲染机制**归 library 的 `core.covers`
+  （`feuille cover make`）——本 skill 不另写渲染器
 - 泛化到其他运动：比分牌映射法适用于任何**带屏幕比分牌的计时运动**
   （篮球 / 网球…），但事实源与窗口 schema 的样例目前只有足球——
   换运动先重新探针比分牌几何，且联赛适配器要新写（`leagues.json` 里没有）
@@ -355,16 +433,18 @@ WARN，不冒充 FAIL。
 
 拥有模块：（无）
 
-本 skill 只有说明书与 skill 内脚本（`scripts/` 下五个 Python：resolve_match / find_master / probe_scoreboard / read_scoreboard / check_windows，每个都带离线 selftest）——装配层的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio`），与 `multilingual-video-poetry` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
+本 skill 只有说明书与 skill 内脚本（`scripts/` 下八个 Python：resolve_match / find_master / probe_scoreboard / read_scoreboard / check_windows / make_covers / build_publish_facts / render_cards，每个都带离线 selftest）——装配层与封面、发布词判据的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio` / `copy`），与 `multilingual-video-poetry`、`publish-copy` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## Requirements (fresh machine)
 
-- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的五个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
-- **ffmpeg / ffprobe**（PATH，或 `FEUILLE_FFMPEG` / `FEUILLE_FFPROBE` 指路径）：探针、抽帧、读数都要。
+- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的八个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
+- **ffmpeg / ffprobe**（PATH，或 `FEUILLE_FFMPEG` / `FEUILLE_FFPROBE` 指路径）：探针、抽帧、读数、首页图底图与裁切预览都要。
+- **Node ≥ 24 + pnpm**（`pnpm exec feuille …`）：首页图渲染走 `feuille cover make`（封面机制在 library 的 `core.covers`，本 skill 不另写渲染器）；发布描述判据走 `feuille copy check`。
+- **Edge 或 Chrome**（PATH，渲字必需）：封面上的中文标题由浏览器渲——`core.covers` 经 `core.platform` 解析浏览器路径，探测不到就显式失败，不静默换人。
 - **firecrawl**（PATH）：四个联赛页面都是 JS 渲染，直连只能拿到壳（`resolve_match.py` 内置滚动抓取）。
 - **yt-dlp**（PATH）：`find_master.py` 的检索与 `--download`。
 - **rapidocr_onnxruntime**（可选，`pip install rapidocr_onnxruntime`）：只在**无视觉输入**时给 `read_scoreboard.py` 用；`selftest` 不需要它。
-- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——五个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
+- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——八个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
 
 ## Resources
 
@@ -385,6 +465,7 @@ WARN，不冒充 FAIL。
 - `assets/leagues.json` —— 联赛适配器（URL 模板 / 事件流形态 / VAR 是否明列 /
   母版策略 / 实测验证记录）
 - `assets/action-families.json` —— 动作词族表（判据机检的受控词表，事实源唯一）
+- `assets/publish/` —— 赛事域发布描述**成稿样例** + 配套事实表（`bilibili.md` / `douyin.md` / `facts.example.json`；两份稿都能过 `feuille copy check --platform bilibili,douyin`）
 - `assets/fixtures/` —— 机检夹具：窗口表好例与四个坏例（A/B/C 语义坏例 + D：jump 窗 `see` 混动作词）+ 四个联赛的实抓页面样本
 - `scripts/resolve_match.py` —— 「当前赛季最新一场」解析器（出 fact pack + `key_events` + 来源；
   英超自动补抓 `/commentary`，巴黎自动抓 psg.fr 月度赛程 + 比赛页；
@@ -395,7 +476,10 @@ WARN，不冒充 FAIL。
   `selftest` 用 lavfi 合成视频离线回归）
 - `scripts/read_scoreboard.py` —— 比分牌 OCR（逐帧分钟/比分/比分变化/跳切候选；`60'` 与 `89:58` 两种时钟都认；零读数退出码 1；`selftest` 纯函数回归，不需要 OCR 依赖）
 - `scripts/check_windows.py` —— 三条硬判据机检（含 §6.3 反向验证 + 输入契约；`visible=unread` 降 WARN）
-- `scripts/verify_all.py` —— 一条命令跑全验收（五个 selftest + 可选窗口表判决，聚合退出码）
+- `scripts/make_covers.py` —— 双平台首页图（B站 1920×1080 + 抖音 1080×1440）：版式是数据（`LAYOUTS` 带安全区）、数字对着 fact pack 校、底图从无字幕母版抽、出裁切预览；`selftest` 含版式越界与事实对账的反向用例
+- `scripts/build_publish_facts.py` —— 发布描述的数字溯源表（fact pack + ffprobe + 窗口表 → `facts.json`；每一项都有出处，不许手填）
+- `scripts/render_cards.py` —— 双语字幕卡（解说语 + 中文）：版式是数据（`LAYOUTS` 的 mono / bilingual）、字体栈与书写方向取 `languages/<locale>/manifest.json`、排版判据用**实测层盒**（`textlayer shoot` 同一次运行出图 + 量盒）；`--lang all` 覆盖注册表 14 语种；`--selftest` 含版式越界与缺测量的反向用例
+- `scripts/verify_all.py` —— 一条命令跑全验收（八个 selftest + 可选窗口表判决，聚合退出码）
 
 **参考文档**
 
@@ -405,4 +489,9 @@ WARN，不冒充 FAIL。
   映射的实测坑表（先读）
 - [references/visual-commentary.md](references/visual-commentary.md) —— 进程轴 ×
   画面轴：读画面五步、六个典型场景模板、声画同步与反向验证
+- [references/publishing-and-covers.md](references/publishing-and-covers.md) —— 双平台
+  收尾契约：发布描述的事实面与钩子、首页图两版规格与安全区、两道比例门的口径差、
+  抖音封面后补与修改额度、存草稿模式的两平台落点差异、已知缺口（本轮不做竖版成片）
+- [references/bilingual-cards.md](references/bilingual-cards.md) —— 双语字幕卡契约：
+  版式表（mono / bilingual）、`h` 按实测反推、14 语种实测层高表、坑表、已知缺口
 - `multilingual-video-poetry/references/ffmpeg-pitfalls.md` —— 音频三坑

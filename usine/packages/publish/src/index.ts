@@ -23,6 +23,7 @@
 
 export * as base from './base.js'
 export * as login from './login.js'
+export * as draft from './draft.js'
 export * as douyin from './douyin.js'
 export * as xhs from './xhs.js'
 export * as bilibili from './bilibili.js'

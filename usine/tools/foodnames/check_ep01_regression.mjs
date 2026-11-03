@@ -16,6 +16,13 @@ const DATA = join(here, 'data', 'ep01-sushi.json')
 const GEN = join(USINE, 'examples', 'foodnames-ep01-sushi')      // 生成器重出
 const HAND = join(USINE, 'examples', 'sushi-12lang')             // 已交付手写版
 
+// 有意的**内容修订**（不是回归）：粉丝反馈后改教更通用的说法。
+// 手写版是 2026-10-20 交付的旧稿，重渲前它与新数据必然不同——
+// 这一格只检生成器侧，手写版侧登记为已知差异，重渲后把条目从表里删掉。
+const REVISED = new Map([
+  ['ko-KR', '2026-11-03 韩语格 스시 → 초밥（粉丝反馈：초밥 才是日常通用说法；스시 降为备注）'],
+])
+
 const problems = []
 const eq = (what, a, b) => {
   if (a !== b) problems.push(`${what}：生成器「${a}」≠ 手写版「${b}」`)
@@ -35,6 +42,10 @@ for (const w of d.words) {
     `id="sc-${w.locale}"[\\s\\S]{0,6000}?</section>`,
   )
   for (const [label, dir] of [['生成器', GEN], ['手写版', HAND]]) {
+    if (label === '手写版' && REVISED.has(w.locale)) {
+      console.log(`ℹ 已知内容修订 ${w.locale}：${REVISED.get(w.locale)}（跳过手写版比对）`)
+      continue
+    }
     const html = readFileSync(join(dir, 'video_src.html'), 'utf8')
     const m = re.exec(html)
     if (!m) { problems.push(`${label} 的 video_src 缺 ${w.locale} 场景`); continue }

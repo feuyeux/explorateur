@@ -12,17 +12,38 @@
 // - 修改预算（纪律 20）：抖音每个作品**最多修改 5 次，补封面算 1 次**——
 //   批量补之前先单条验证落库（fixCovers 只筛要补的条目，不盲目全跑）。
 // - 补完必须用 veriflive.verify 回查缩略图确认有文字。
+// - 存草稿模式（--draft）：填完点「存草稿」就停，**不点发布**；找不到草稿键
+//   就放弃这一条（fail-closed），绝不退而求其次去点发布（见 draft.ts）。
 import { existsSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
 import * as base from './base.js'
 import * as clock from './clock.js'
+import * as draft from './draft.js'
+
+// 浏览器侧全局（本包 tsconfig 的 lib 只有 ES2023，没有 DOM）。
+// evaluate 的函数体跑在浏览器上下文里，类型检查只认本包的 lib → 按 any 声明。
+declare const document: any
 
 export const UPLOAD_URL = 'https://creator.douyin.com/creator-micro/content/upload'
 export const MANAGE_URL = 'https://creator.douyin.com/creator-micro/content/manage'
 
 // 抖音登录墙面板文案（实测词表）
 export const DOUYIN_WALL: readonly string[] = ['扫码登录', '验证码登录', '密码登录', '手机号登录']
+
+/**
+ * 抖音「稿子还在」的横幅文案（落库判据用）。
+ *
+ * 实测（2026-11-03）：
+ * - 点「暂存离开」后，上传页顶部出现「⚠️ 你还有上次未发布的视频，是否继续编辑？」，
+ *   旁边两个键：「继续编辑」/「放弃」。
+ * - 该横幅**新开浏览器后仍在** ⇒ 稿子存在服务端，不是页内会话态。
+ * - 抖音 PC 端**没有草稿列表页**：内容管理只有「作品(N)」/「作品合集(N)」，
+ *   「审核状态」下拉只有 全部/已发布/审核中/未通过；作品列表接口
+ *   `janus/douyin/creator/pc/work_list` 的 status=2/3 返回空。
+ * ⇒ 这个横幅是抖音 PC 端唯一能判「稿子还在」的信号。
+ */
+export const DRAFT_LANDED_BANNER: readonly string[] = ['你还有上次未发布的视频']
 
 // ── 登录 ──────────────────────────────────────────────────────────────
 
@@ -43,7 +64,8 @@ export async function ensureLogin(page: base.AnyPage, waitMin = 10): Promise<boo
 
   // 登录后如果被踢回首页，再去一次上传页
   const suffix = UPLOAD_URL.split('/creator-micro').slice(-1)[0] ?? ''
-  if (!page.url.includes(suffix) && !page.url.includes('upload')) {
+  const curUrl = await base.pageUrl(page)
+  if (!curUrl.includes(suffix) && !curUrl.includes('upload')) {
     await page.goto(UPLOAD_URL, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await clock.sleep(3)
   }
@@ -52,6 +74,18 @@ export async function ensureLogin(page: base.AnyPage, waitMin = 10): Promise<boo
 
 // ── 页面杂务 ──────────────────────────────────────────────────────────
 
+/**
+ * 清掉「你还有上次未发布的视频」横幅。
+ *
+ * ⚠️ **存草稿模式下不许调它**——「放弃」是**删除**上一条草稿。
+ *
+ * 实测（2026-11-03）：抖音 PC 端的「暂存离开」把稿子存在**单槽位**里
+ * （上传页顶部横幅「你还有上次未发布的视频，是否继续编辑？」/「继续编辑」/「放弃」）。
+ * 一条一条存草稿时，每条开头都点「放弃」= 把上一条刚存的稿子删掉 ⇒ 4 条只剩 1 条。
+ *
+ * 所以存草稿模式改走 `dismissUnpublishedBanner`：只把横幅**折叠掉**，
+ * 不点「放弃」（不删东西）。横幅不是模态层，不挡住上传区，实测能直接继续送文件。
+ */
 export async function cleanDraftBanner(page: base.AnyPage): Promise<void> {
   try {
     const btn = page.locator("button:has-text('放弃'), a:has-text('放弃'), span:has-text('放弃')").first()
@@ -68,6 +102,88 @@ export async function cleanDraftBanner(page: base.AnyPage): Promise<void> {
   } catch {
     // 草稿横幅不存在是常态
   }
+}
+
+/**
+ * 只折叠「你还有上次未发布的视频」横幅，**不删**槽位里的稿子。
+ *
+ * 存草稿模式专用。横幅上只点「继续编辑」是不行的（那会跳进旧稿的编辑态，
+ * 标题框会带着上一条的内容，污染这一条）；「放弃」会删稿。
+ * ⇒ 首选「点横幅右上角的关闭 ×」；没有 × 时才退回「直接无视横幅继续上传」
+ * （横幅不是模态，不挡上传区）。
+ *
+ * 返回是否折叠成功（失败不阻断：横幅存在不妨碍送文件）。
+ */
+export async function dismissUnpublishedBanner(page: base.AnyPage): Promise<boolean> {
+  try {
+    const banner = page.getByText('你还有上次未发布的视频', { exact: false }).first()
+    if (!(await base.visibleWithin(banner, 1500))) return false
+    // 找横幅容器里的关闭按钮（× / close 图标）
+    for (const sel of [
+      "div[class*='banner'] [class*='close'], div[class*='notice'] [class*='close']",
+      "[class*='banner'] svg[class*='close'], [class*='banner'] i[class*='close']",
+      "[aria-label='close'], [aria-label='Close']",
+    ]) {
+      const x = page.locator(sel).first()
+      if (await base.visibleWithin(x, 600)) {
+        await x.click()
+        console.log('      ✓ 已折叠「上次未发布」横幅（未删除任何稿子）')
+        await clock.sleep(0.8)
+        return true
+      }
+    }
+    console.log('      ℹ️ 「上次未发布」横幅留着（不点放弃＝不删稿），它不挡上传')
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 等**上传真正完成**（字节数走完），不是等「发布按钮解禁」。
+ *
+ * ⚠️ 踩过的坑：原来的判据是「发布按钮解禁了就算转码完成」——
+ * **假绿灯**。实测（2026-11-03）`predraft-01.png` 显示点存草稿那一刻
+ * 视频才上传到 `已上传: 40.7MB/176.3MB 23%`，而日志却写着「转码完成」。
+ * 23% 的文件当然存不进草稿——平台拿到的是一段没传完的字节。
+ *
+ * 正确判据：抖音右侧上传面板印着「已上传: X MB / Y MB」，
+ * 等 X === Y（或出现「上传完成」）才算传完。
+ */
+export async function waitUploadComplete(
+  page: base.AnyPage,
+  opts: { timeoutS?: number; pollS?: number } = {},
+): Promise<boolean> {
+  const timeoutS = opts.timeoutS ?? 600
+  const pollS = opts.pollS ?? 2
+  const deadline = clock.now() + timeoutS
+  let last = ''
+  // **至少查一遍**（先判后超时）：写成 `while (now < deadline)` 时 timeoutS=0
+  // 会一次都不查 ⇒ 「查了一次」和「一次都没查」分不开（与 draft.waitDraftSaved 同款纪律）。
+  for (;;) {
+    try {
+      const st = await page.evaluate(() => {
+        const t = document.body ? (document.body.innerText || '') : ''
+        const m = t.match(/已上传[:：]\s*([\d.]+)\s*MB\s*\/\s*([\d.]+)\s*MB/)
+        const done = /上传完成|上传成功/.test(t)
+        return {
+          cur: m ? m[1] : null,
+          total: m ? m[2] : null,
+          done,
+          pct: (t.match(/([\d.]+)\s*%/) || [])[1] ?? null,
+        }
+      })
+      if (st.done) return true
+      if (st.cur !== null && st.total !== null && Number(st.cur) >= Number(st.total)) return true
+      last = st.cur !== null ? `${st.cur}/${st.total}MB ${st.pct ?? ''}%` : (st.pct ?? '?')
+    } catch {
+      last = '读不到进度'
+    }
+    if (clock.now() >= deadline) break
+    await clock.sleep(pollS)
+  }
+  console.log(`   ⚠️ 上传未在时限内完成（最后进度 ${last}）`)
+  return false
 }
 
 /**
@@ -143,7 +259,7 @@ export async function publishOne(
   page: base.AnyPage,
   t: base.Task,
   auto: boolean,
-  opts: { logDir: string },
+  opts: { logDir: string; draft?: boolean },
 ): Promise<base.PubResult> {
   const vid = t['video']
   const cov = t['cover']
@@ -159,11 +275,17 @@ export async function publishOne(
     return res
   }
 
-  if (!page.url.includes('upload')) {
+  if (!(await base.pageUrl(page)).includes('upload')) {
     await page.goto(UPLOAD_URL, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await clock.sleep(3)
   }
-  await cleanDraftBanner(page)
+  // 存草稿模式：横幅里的「放弃」= **删掉上一条草稿**，只折叠不删。
+  // 发布模式：横幅是上次的残留，点「放弃」清掉是原行为（保持不变）。
+  if (opts.draft) {
+    await dismissUnpublishedBanner(page)
+  } else {
+    await cleanDraftBanner(page)
+  }
 
   await page.locator('input[type="file"]').first().setInputFiles(vid)
   console.log('   ✓ 已送入上传通道，等待解析…')
@@ -268,8 +390,21 @@ export async function publishOne(
   // 缩略图确认有文字（PUBLISH-RULES.md 规则 1/3）。
   // 这里不阻断发布，但要如实标成「封面待补」，不许算作完成。
 
-  // 等转码完成（发布按钮解禁）
-  console.log('   ⏳ 等待上传与转码…')
+  // 等上传真正传完（字节走完），再等发布按钮解禁（转码完成）。
+  //
+  // ⚠️ 顺序不能反、也不能只要后者：原来只看「发布按钮解禁」是**假绿灯**——
+  // 实测点存草稿那一刻视频才传到 23%（`predraft-01.png`），日志却报「转码完成」。
+  // 23% 的字节存不进草稿，平台那边拿到的是残片。
+  console.log('   ⏳ 等待上传完成…')
+  const uploaded = await waitUploadComplete(page, { timeoutS: 900 })
+  if (!uploaded) {
+    res['stage'] = '上传未完成'
+    console.log('   ❌ 视频没传完 → 中止本条（存进草稿的是残片）')
+    return res
+  }
+  console.log('   ✓ 视频已完整上传')
+
+  console.log('   ⏳ 等待转码（发布按钮解禁）…')
   let ok = false
   for (let i = 0; i < 150; i++) {
     await dismissCoverModal(page)
@@ -291,9 +426,13 @@ export async function publishOne(
     await clock.sleep(1)
   }
   if (!ok) {
-    res['stage'] = '转码超时'
-    console.log('   ❌ 转码等待超时')
-    return res
+    if (!opts.draft) {
+      res['stage'] = '转码超时'
+      console.log('   ❌ 转码等待超时')
+      return res
+    }
+    // 存草稿模式：转码没在时限内解禁也先试存草稿（草稿键若在就存，找不到就 fail-closed）
+    console.log('   ⚠️ 转码未在时限内解禁，仍尝试存草稿')
   }
 
   if (!auto) {
@@ -313,6 +452,22 @@ export async function publishOne(
       logDir,
       shotName: `dryrun-douyin-${base.pad2(t['no'])}.png`,
       blocking: () => blockingModals(page),
+    })
+  }
+
+  // 存草稿模式：填完存草稿就停，**绝不点发布**（找不到草稿键 = 放弃本条）
+  if (opts.draft) {
+    return draft.saveDraft(page, res, {
+      platform: 'douyin',
+      logDir,
+      no: t['no'],
+      // 抖音的落库信号（实测）：点完「暂存离开」，上传页顶部出现
+      // 「你还有上次未发布的视频，是否继续编辑？」横幅。
+      // 这个横幅**跨浏览器重启仍在**（实测：新开浏览器后仍在 ⇒ 服务端状态，
+      // 不是页内会话态），而抖音 PC 端没有草稿列表页、内容管理页的
+      // 「审核状态」下拉也只有「全部/已发布/审核中/未通过」——
+      // ⇒ 这个横幅就是抖音 PC 端**唯一**能判「稿子还在」的信号。
+      landedWords: DRAFT_LANDED_BANNER,
     })
   }
 
@@ -396,7 +551,7 @@ export async function publishOne(
   // 等确认
   const deadline = clock.now() + 180
   while (clock.now() < deadline) {
-    if (page.url.includes('content/manage')) {
+    if ((await base.pageUrl(page)).includes('content/manage')) {
       res['ok'] = true
       res['stage'] = !res['cover'] ? '已发布·封面待补' : '已发布'
       console.log('   ✅ 发布成功（已跳转作品管理）')
@@ -434,7 +589,7 @@ export async function publishOne(
     // 截图只是留证
   }
   try {
-    console.log(`   当前 URL: ${page.url}`)
+    console.log(`   当前 URL: ${await base.pageUrl(page)}`)
   } catch {
     // URL 读不到也如实收尾
   }
@@ -459,6 +614,8 @@ export interface PublishOpts {
   frm?: number | null
   dryRun?: number
   headless?: boolean
+  /** 存草稿模式：填完存草稿就停，不点发布。 */
+  draft?: boolean
 }
 
 /** 批量发布（骨架在 base.runTasks：异常隔离 + 循环内节流 + result JSON）。 */
@@ -483,6 +640,7 @@ export async function publish(tasks: readonly base.Task[], opts: PublishOpts): P
         logDir: opts.logDir,
         betweenS: 3,
         dryRun: opts.dryRun ?? 0,
+        draft: opts.draft ?? false,
         resultJson: 'publish-douyin-result.json',
       })
     },
@@ -611,7 +769,7 @@ export async function fixOne(
 
   await eds.nth(idx).click()
   await clock.sleep(7)
-  console.log(`   编辑页: ${page.url}`)
+  console.log(`   编辑页: ${await base.pageUrl(page)}`)
 
   const ok = await setCover(page, task['cover'], base.pad2(task['no']), { logDir })
   if (ok) {
@@ -694,5 +852,6 @@ export async function main(argv: string[]): Promise<number> {
     frm: a.frm,
     dryRun: a.dryRun,
     headless: a.headless,
+    draft: a.draft,
   })
 }

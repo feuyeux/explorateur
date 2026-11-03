@@ -29,6 +29,7 @@ import * as bilibili from '../src/bilibili.js'
 // （Python 侧同款：collections / veriflive 只进 import 名单）
 import * as collections from '../src/collections.js'
 import * as douyin from '../src/douyin.js'
+import * as draft from '../src/draft.js'
 import * as login from '../src/login.js'
 import * as veriflive from '../src/veriflive.js'
 import * as xhs from '../src/xhs.js'
@@ -108,6 +109,72 @@ const MOCK_C = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <p> Scan to verify —— 请稍后再试 </p>
 </body></html>`
 
+// D：存草稿页——真草稿键 + 三个诱饵（「草稿箱」导航 / 「保存并发布」/ 真·发布键）
+const MOCK_D = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>mock-D 存草稿页</title></head><body>
+<nav><button id="nav-drafts" onclick="clickLog('nav-草稿箱')">草稿箱</button></nav>
+<p>（诱饵 1：导航「草稿箱」——含「草稿」子串，但不是存草稿动作）</p>
+<button id="save-and-publish" onclick="clickLog('trap-保存并发布')">保存并发布</button>
+<p>（诱饵 2：「保存并发布」——是另一个动作，点了就发布了）</p>
+<button id="real-publish" class="semi-button primary" onclick="clickLog('real-发布')">发布</button>
+<p>（诱饵 3：真·发布键——存草稿模式下**绝不能**点它）</p>
+<div style="height:400px"></div>
+<button id="save-draft" onclick="clickLog('draft-保存草稿');document.getElementById('tip').textContent='草稿保存成功'">保存草稿</button>
+<div id="tip"></div>
+<div id="clicklog">[]</div>
+<script>
+window.__CLICKS = [];
+function clickLog(w){ window.__CLICKS.push(w); document.getElementById('clicklog').textContent = JSON.stringify(window.__CLICKS); }
+</script>
+</body></html>`
+
+// E：没有草稿键的投稿页（只有发布键）——存草稿模式必须 fail-closed，一个键都不许点
+const MOCK_E = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>mock-E 无草稿键</title></head><body>
+<button id="real-publish" class="semi-button primary" onclick="clickLog('real-发布')">发布</button>
+<div id="clicklog">[]</div>
+<script>
+window.__CLICKS = [];
+function clickLog(w){ window.__CLICKS.push(w); document.getElementById('clicklog').textContent = JSON.stringify(window.__CLICKS); }
+</script>
+</body></html>`
+
+// F：草稿键**不是 <button>**（抖音/B 站的「存草稿」多半是 div/span）——
+// 只有 looksClickable 真跑起来才找得到；evaluate 传字符串时它恒 undefined ⇒ 找不到
+const MOCK_F = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>mock-F div 版草稿键</title></head><body>
+<div style="height:300px"></div>
+<div id="save-draft" class="semi-button secondary" onclick="clickLog('draft-保存草稿');document.getElementById('tip').textContent='草稿保存成功'">保存草稿</div>
+<div id="tip"></div>
+<div id="clicklog">[]</div>
+<script>
+window.__CLICKS = [];
+function clickLog(w){ window.__CLICKS.push(w); document.getElementById('clicklog').textContent = JSON.stringify(window.__CLICKS); }
+</script>
+</body></html>`
+
+// G：B站投稿页的**真实**草稿键结构（2026-11-03 DOM 探针实测）。
+// 真键 = `<span class="submit-draft">存草稿</span>`：tag 是 span、role 空、
+// class 是 `submit-draft`（既不含 `button` 也不含 `btn`）⇒ 旧版 looksClickable
+// 的结构路全不命中 ⇒ 候选被跳过 ⇒ 每一条都「找不到存草稿键」fail-closed 放弃
+// （2026-11-03 10:37 那轮就是这么全灭的）。
+// 唯一能用的信号是浏览器算出来的 `cursor: pointer`（实测该节点上没有 React props
+// ⇒ 也不是靠 React 事件委托挂的）。
+const MOCK_G = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>mock-G B站真实草稿键</title></head><body>
+<div style="height:300px"></div>
+<div class="submit-container">
+  <span class="submit-draft" style="cursor:pointer" onclick="clickLog('draft-存草稿');document.getElementById('tip').textContent='草稿保存成功'">存草稿</span>
+  <div class="submit-actions"><span class="submit-button-anchor"><span class="submit-add">立即投稿</span></span></div>
+</div>
+<div id="tip"></div>
+<div id="clicklog">[]</div>
+<script>
+window.__CLICKS = [];
+function clickLog(w){ window.__CLICKS.push(w); document.getElementById('clicklog').textContent = JSON.stringify(window.__CLICKS); }
+</script>
+</body></html>`
+
 // verify_platform 的 ALLOWED 之外不许出现写死可执行路径（缺陷③）
 const WIN_EXE = /[A-Za-z]:\\?[A-Za-z0-9_ .\\-]+\.(?:exe|cmd|bat)\b/i
 const MAC_APP = /\/Applications\/[\w .]+\.app\//
@@ -155,9 +222,214 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
     // 「源码面零静态 playwright 依赖」两行合证同一契约
     const mod = await import('../src/index.js')
     expect(Object.keys(mod).sort()).toEqual(
-      ['base', 'bilibili', 'check_plan', 'collections', 'douyin', 'login', 'veriflive', 'xhs'],
+      ['base', 'bilibili', 'check_plan', 'collections', 'douyin', 'draft', 'login', 'veriflive', 'xhs'],
     )
     expect(base.filterTasks([{ no: 1, lang: 'x' }])).toEqual([{ no: 1, lang: 'x' }])
+  })
+
+  it('--draft：旗标解析（给了=存草稿，没给=false），其余参数不受影响', () => {
+    const a = base.manifestArgs(['--log-dir', 'D', '--draft', 'm.json'], 'feuille publish douyin')
+    expect('rc' in a).toBe(false)
+    if ('rc' in a) return
+    expect(a.draft).toBe(true)
+    expect(a.logDir).toBe('D')
+    expect(a.manifest).toBe('m.json')
+    const b = base.manifestArgs(['--log-dir', 'D', 'm.json'], 'feuille publish douyin')
+    expect('rc' in b).toBe(false)
+    if ('rc' in b) return
+    expect(b.draft, '没给 --draft 就是真发布模式（默认不改变既有行为）').toBe(false)
+  })
+
+  it('存草稿键候选与发布键文本**不相交**（点下去的绝不可能是发布键）', () => {
+    for (const [plat, texts] of Object.entries(draft.DRAFT_BTN_TEXTS)) {
+      for (const t of texts) {
+        expect(draft.PUBLISH_BTN_TEXTS.includes(t),
+          `${plat} 的草稿候选「${t}」与发布键文本撞了——绝不能`).toBe(false)
+      }
+    }
+    expect(draft.DRAFT_BTN_TEXTS['douyin']).toContain('存草稿')
+    expect(draft.DRAFT_BTN_TEXTS['douyin']).toContain('暂存离开')
+    expect(draft.DRAFT_BTN_TEXTS['bilibili']).toContain('保存草稿')
+    // 「暂存离开」是实测文案；「暂存」不能与发布键文本相交
+    expect(draft.PUBLISH_BTN_TEXTS.includes('暂存离开')).toBe(false)
+  })
+
+  it('存草稿键候选与「会删东西」的键**不相交**（「放弃」= 删上一条草稿）', () => {
+    // 抖音横幅「你还有上次未发布的视频」上的「放弃」是**删除**上一条已存草稿。
+    // 存草稿模式下一条一条存，每条开头点「放弃」= 把上一条删掉 ⇒ 4 条只剩 1 条，
+    // 而脚本还会自报「已存草稿」。这条护栏把那个坑钉死在测试里。
+    for (const [plat, texts] of Object.entries(draft.DRAFT_BTN_TEXTS)) {
+      for (const t of texts) {
+        expect(draft.DESTRUCTIVE_BTN_TEXTS.includes(t),
+          `${plat} 的草稿候选「${t}」是会删东西的键——绝不能`).toBe(false)
+      }
+    }
+    expect(draft.DESTRUCTIVE_BTN_TEXTS.includes('放弃')).toBe(true)
+  })
+
+  it('B站草稿键 = 「存草稿」（实测真键，不是「保存草稿」）', () => {
+    // 实测（2026-11-03，DOM 探针 probe_bili_draftbtn.ts）：B站的键是
+    // `<span class="submit-draft">存草稿</span>`，在页面底部的 `.submit-container` 里。
+    // 原来候选表里只有「保存草稿」在前——真键在列表里但优先级靠后，
+    // 匹配是按候选顺序逐个找的，所以两条都得留着（枚举不是猜测）。
+    expect(draft.DRAFT_BTN_TEXTS['bilibili']).toContain('存草稿')
+    expect(draft.DRAFT_BTN_TEXTS['bilibili']).toContain('保存草稿')
+  })
+
+  it('B站落库判据覆盖实测的落点 URL（upload-manager = 草稿箱）', () => {
+    // 实测（2026-11-03，probe_bili_draftclick.ts）：点「存草稿」⇒
+    // POST /x/vupre/web/draft/add ⇒ 页面跳到
+    // `member.bilibili.com/platform/upload-manager/article?group=draft`。
+    // **没有任何成功 toast**（页面上只有两行 tips）⇒ URL 落地是 B站唯一的真判据。
+    expect(draft.DRAFT_LANDED_URLS['bilibili']).toContain('upload-manager')
+    // 落库判据不许退化成「站投稿页也算落库」——投稿页 URL 不含这些片段。
+    expect('https://member.bilibili.com/platform/upload/video/frame'.includes('upload-manager'))
+      .toBe(false)
+  })
+
+  it('B站创作声明：「自制」是**同一个 select 的选项**（不是独立字段）', () => {
+    // 实测（2026-11-03，probe_bili_statement.ts / probe_bili_selfmade.ts）：
+    // 声明区 `div.statement-main div.bcc-select` 计数 = 1，展开后完整列表 13 项，
+    // 「内容为自制：未经作者允许，禁止转载」与「内容无需标注」并列。
+    // 旧版把它当「必填 + 选填」两件事办 ⇒ 同一个 input 被后写覆盖 ⇒ 4 条全被中止。
+    // 「首选值」必须包含「自制」，且它**就是**首选（用户要的就是它）。
+    expect(bilibili.BILI_STMT_REQUIRED[0]).toBe('内容为自制：未经作者允许，禁止转载')
+    expect(bilibili.BILI_STMT_OPTIONAL).toBe('内容为自制：未经作者允许，禁止转载')
+    // 它必须同时出现在必填候选里（否则选不上 → fail-closed 放弃每一条）
+    expect(bilibili.BILI_STMT_REQUIRED
+      .some((k) => bilibili.BILI_STMT_OPTIONAL.includes(k))).toBe(true)
+    // 旧版注释断言「自制填不满必填字段」——实测推翻：它就是必填字段的一个选项。
+    expect(bilibili.BILI_STMT_REQUIRED.length).toBeGreaterThan(1)
+  })
+
+  it('落库横幅判据：抖音的「你还有上次未发布的视频」是**唯一**的落库信号', async () => {
+    // 实测（2026-11-03）：抖音 PC 端没有草稿列表页（内容管理只有「作品/作品合集」，
+    // 「审核状态」下拉只有 全部/已发布/审核中/未通过，作品列表接口 status=2/3 返回空），
+    // 点完「暂存离开」后上传页顶部出现横幅「你还有上次未发布的视频，是否继续编辑？」，
+    // 且该横幅**新开浏览器后仍在** ⇒ 稿子在服务端。
+    expect(douyin.DRAFT_LANDED_BANNER).toContain('你还有上次未发布的视频')
+    // 判据实现：landedWords 命中 ⇒ 判成功（这一路是「点击后才算」的新证据）
+    const hit = (words: string[]): any => ({
+      url: () => 'https://creator.douyin.com/creator-micro/content/upload',
+      getByText: (k: string) => ({
+        count: async () => (words.includes(k) ? 1 : 0),
+        first: () => ({ isVisible: async () => true }),
+      }),
+    })
+    expect(await draft.waitDraftSaved(hit(['你还有上次未发布的视频']), [], [], 0,
+      douyin.DRAFT_LANDED_BANNER),
+    '落库横幅出现 ⇒ 判已存草稿').toBe(true)
+    expect(await draft.waitDraftSaved(hit([]), [], [], 0, douyin.DRAFT_LANDED_BANNER),
+    '横幅没出现 ⇒ 不得判已存草稿').toBe(false)
+  })
+
+  it('上传未完成就点存草稿 = 存进残片（判据必须挡）', async () => {
+    // 实测：原判据只看「发布按钮解禁」⇒ 假绿灯——点存草稿那一刻视频才传到 23%
+    //（predraft-01.png: 已上传 40.7MB/176.3MB 23%），日志却报「转码完成」。
+    // 23% 的字节平台收不到完整文件，存进草稿的是残片。
+    // 这里断言：上传未走完时 waitUploadComplete 返回 false。
+    const partial = (txt: string): any => ({
+      evaluate: async () => {
+        const m = txt.match(/已上传[:：]\s*([\d.]+)\s*MB\s*\/\s*([\d.]+)\s*MB/)
+        return {
+          cur: m ? m[1] : null,
+          total: m ? m[2] : null,
+          done: /上传完成|上传成功/.test(txt),
+          pct: (txt.match(/([\d.]+)\s*%/) || [])[1] ?? null,
+        }
+      },
+    })
+    expect(await douyin.waitUploadComplete(partial('已上传： 40.7MB/176.3MB 23%'),
+      { timeoutS: 0, pollS: 0 }),
+    '上传只到 23% ⇒ 不得判上传完成').toBe(false)
+    expect(await douyin.waitUploadComplete(partial('已上传： 176.3MB/176.3MB 100%'),
+      { timeoutS: 0, pollS: 0 }),
+    '上传走完 ⇒ 判上传完成').toBe(true)
+    expect(await douyin.waitUploadComplete(partial('上传完成'),
+      { timeoutS: 0, pollS: 0 }),
+    '出现「上传完成」⇒ 判上传完成').toBe(true)
+  })
+
+  it('存草稿成功判定：URL 判据是**命中式**（还在投稿页时不得判成功）', async () => {
+    // ⚠️ 桩对象的契约必须与真 Playwright Page 一致：`url` 是**方法** `url()`，
+    // 不是字符串属性（Python 侧才是 property）。上一版桩里写成了字符串属性，
+    // 于是测的是一个虚构契约——真页面上 `page.url.includes` 直接抛 TypeError。
+    const stub = (u: string): any => ({
+      url: () => u,
+      // 可见文本一条都没有 ⇒ 文案判据恒不命中，只剩 URL 判据在起作用
+      getByText: () => ({ count: async () => 0 }),
+    })
+    // 真实投稿页 URL 形态（抖音 creator-micro / B 站创作中心）
+    const dyUpload = 'https://creator.douyin.com/creator-micro/content/upload'
+    const biliUpload = 'https://member.bilibili.com/platform/upload/video/frame'
+    const dyLanded = draft.DRAFT_LANDED_URLS['douyin']!
+    const biliLanded = draft.DRAFT_LANDED_URLS['bilibili']!
+    // 不变式：落地片段不许出现在投稿页 URL 里——撞上了 URL 判据就退化成假绿灯
+    expect(dyLanded.some((u) => dyUpload.includes(u)),
+      '抖音投稿页 URL 命中了草稿列表标志片段 ⇒ URL 判据会退化成假绿灯').toBe(false)
+    expect(biliLanded.some((u) => biliUpload.includes(u)),
+      'B 站投稿页 URL 命中了草稿列表标志片段 ⇒ URL 判据会退化成假绿灯').toBe(false)
+    // 反向复现：停在投稿页 ⇒ 不得判「已存草稿」
+    // （旧实现写成「URL 里不再含落地片段」，投稿页当场返回 true ⇒ 每条都假成功）
+    expect(await draft.waitDraftSaved(stub(dyUpload), ['已保存草稿'], dyLanded, 0),
+      '还在投稿页、也没有成功文案 ⇒ 不得判「已存草稿」').toBe(false)
+    // 正向：真的落到草稿列表 ⇒ 判成功
+    expect(await draft.waitDraftSaved(stub('https://creator.douyin.com/creator-micro/content/manage'),
+      ['已保存草稿'], dyLanded, 0),
+      '已落到草稿列表 ⇒ 判成功').toBe(true)
+  })
+
+  it('pageUrl：Playwright 的 page.url 是**方法** url()（Python 侧才是 property）', async () => {
+    // 移植坑：Python 侧 `page.url` 是 property，照抄到 TS 就成了「拿函数当字符串用」。
+    expect(await base.pageUrl({ url: () => 'https://x/y' } as any),
+      '方法形态（真 Playwright）：调用它').toBe('https://x/y')
+    expect(await base.pageUrl({ url: 'https://x/y' } as any),
+      '字符串属性形态（桩）：直接用').toBe('https://x/y')
+    expect(await base.pageUrl({} as any), '读不到 → 空串（不许抛）').toBe('')
+    // 反向复现：旧写法把 page.url 当字符串用 ⇒ TypeError
+    expect(() => ({} as any).url.includes('x')).toThrow(TypeError)
+  })
+
+  it('发布路径上的 evaluate 一律传真函数（传字符串 ⇒ 返回 undefined ⇒ 静默失效）', () => {
+    // 踩过的坑：JS 版 Playwright 的 `evaluate` 收到**字符串**时，只把它当表达式求值——
+    // `'(e) => {...}'` 求值出来是函数对象 → 不可序列化 → 返回 undefined。
+    // （Python 版传字符串会执行函数；移植时同一个坑栽过。）
+    // 后果不是报错而是**静默失效**：jsClick 假装点过、looksClickable 恒假、
+    // 诊断清单恒空。
+    //
+    // 边界写明：这条只管**发布路径**的四个模块（B 站 + 抖音）。
+    // collections（合集）/ veriflive（直播核验）/ xhs（小红书）里还有同款字符串
+    // evaluate——不在本轮发布路径上，已在交付说明里点名另开一轮修。
+    const pathFiles = ['base.ts', 'bilibili.ts', 'douyin.ts', 'draft.ts']
+    const srcDir = join(ROOT, 'packages', 'publish', 'src')
+    const offenders: string[] = []
+    for (const f of pathFiles) {
+      // 只查**代码行**：纯注释行（// 开头、* 开头、/* 开头）里引用这个写法是文档，
+      // 不该被当成违规——注释里常要写「传字符串会失效」这句话本身。
+      readFileSync(join(srcDir, f), 'utf-8').split('\n').forEach((line, i) => {
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
+        if (/\.evaluate\(\s*['"`]/.test(line)) offenders.push(`${f}:${i + 1}`)
+      })
+    }
+    expect(offenders,
+      '发布路径上的 evaluate 传了字符串 ⇒ JS Playwright 只求值不执行 ⇒ 恒 undefined ⇒ 静默失效')
+      .toEqual([])
+  })
+
+  it('读 URL 一律走 base.pageUrl（page.url 是方法，直接碰就是拿函数当字符串）', () => {
+    // 同族移植坑：Python 侧 `page.url` 是 property，JS 侧是方法 `url()`。
+    // 直接写 `page.url.includes(...)` ⇒ `TypeError: page.url.includes is not a function`
+    // ——抖音发布路径第一行就踩着（实测整批直接崩）。
+    // 收口只有一个入口：base.pageUrl(page)。这条门禁盯着别再散着写。
+    const srcDir = join(ROOT, 'packages', 'publish', 'src')
+    const offenders: string[] = []
+    for (const f of readdirSync(srcDir).filter((n) => n.endsWith('.ts'))) {
+      readFileSync(join(srcDir, f), 'utf-8').split('\n').forEach((line, i) => {
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
+        if (/\bpage\.url\b/.test(line)) offenders.push(`${f}:${i + 1}`)
+      })
+    }
+    expect(offenders, 'publish 包源码里不许直接出现 page.url（走 base.pageUrl）').toEqual([])
   })
 
   it('publish 包源码零写死可执行路径 + 零静态 playwright 依赖', () => {
@@ -357,6 +629,100 @@ describe.skipIf(!hasPw || pt.browserPath() === null)(
           await page.goto(pathToFileURL(join(td, 'mock-a.html')).href)
           expect(await base.riskHit(page)).toBe(false)
           expect(await base.loginWall(page), '干净页：risk_hit / login_wall 均 False').toBe(false)
+        },
+      )
+    } finally {
+      rmSync(td, { recursive: true, force: true })
+    }
+  })
+
+  it('mock-D/E/F/G 存草稿：只点草稿键 / 找不到草稿键就 fail-closed / div 版草稿键也认 / B站真实 span 键也认', async () => {
+    const td = mkdtempSync(join(tmpdir(), 'feuille-publish-draft-'))
+    mkdirSync(EV, { recursive: true })
+    for (const [name, html] of [
+      ['mock-d', MOCK_D], ['mock-e', MOCK_E], ['mock-f', MOCK_F], ['mock-g', MOCK_G],
+    ] as const) {
+      writeFileSync(join(td, `${name}.html`), html)
+      writeFileSync(join(EV, `${name}.html`), html) // 证据副本
+    }
+    try {
+      await base.launch(
+        join(td, 'profile'),
+        { headless: true, viewport: { width: 1280, height: 800 } },
+        async (_ctx, page) => {
+          // ---- D. 找得到草稿键 ⇒ 只点它，诱饵与发布键零点击 ----
+          await page.goto(pathToFileURL(join(td, 'mock-d.html')).href)
+          await page.waitForLoadState('load')
+          const found = await draft.findDraftButton(page, 'douyin')
+          expect(found, 'mock-D：找得到真·保存草稿键').not.toBeNull()
+          expect(await found!.el.getAttribute('id'),
+            'findDraftButton 选中真·保存草稿键 #save-draft'
+            + '（text-is 精确；「草稿箱」导航 / 「保存并发布」/ 真·发布键 全躲开）').toBe('save-draft')
+          await page.screenshot({ path: join(EV, 'mock-d-before.png') })
+          const res = { no: 1, lang: 'zh', ok: false, stage: '' } as base.PubResult
+          const out = await draft.saveDraft(page, res, {
+            platform: 'douyin', logDir: EV, no: 1, waitS: 5, timeoutS: 5,
+          })
+          const clicks = await page.evaluate('window.__CLICKS')
+          expect(clicks,
+            '存草稿模式只点草稿键：「草稿箱」导航 /「保存并发布」/真·发布键 全零点击')
+            .toEqual(['draft-保存草稿'])
+          expect(out.ok, `mock-D：点了保存草稿且出现「草稿保存成功」⇒ 判成功（stage=${out.stage}）`).toBe(true)
+          expect(out.stage).toBe('已存草稿')
+          await page.screenshot({ path: join(EV, 'mock-d-after.png') })
+
+          // ---- E. 找不到草稿键 ⇒ fail-closed，一个键都不许点 ----
+          await page.goto(pathToFileURL(join(td, 'mock-e.html')).href)
+          await page.waitForLoadState('load')
+          expect(await draft.findDraftButton(page, 'douyin'),
+            'mock-E：只有发布键 ⇒ findDraftButton 返回 null（不退回发布键）').toBeNull()
+          const res2 = { no: 2, lang: 'zh', ok: false, stage: '' } as base.PubResult
+          const out2 = await draft.saveDraft(page, res2, {
+            platform: 'douyin', logDir: EV, no: 2, waitS: 2, timeoutS: 2,
+          })
+          expect(out2.ok, 'mock-E：找不到草稿键 ⇒ 如实报失败，不谎报成功').toBe(false)
+          expect(out2.stage, '失败原因要点名「找不到存草稿键」').toContain('找不到存草稿键')
+          expect(await page.evaluate('window.__CLICKS'),
+            'mock-E：发布键零点击（绝不退而求其次去点发布）').toEqual([])
+          await page.screenshot({ path: join(EV, 'mock-e-after.png') })
+
+          // ---- F. 草稿键不是 <button>（div）⇒ 只有 looksClickable 真跑起来才找得到 ----
+          await page.goto(pathToFileURL(join(td, 'mock-f.html')).href)
+          await page.waitForLoadState('load')
+          const f = await draft.findDraftButton(page, 'douyin')
+          expect(f, 'mock-F：草稿键是 div（不是 button）⇒ 照样找得到').not.toBeNull()
+          expect(await f!.el.getAttribute('id'),
+            'mock-F：选中的就是那个 div 草稿键 #save-draft').toBe('save-draft')
+          const resF = { no: 3, lang: 'zh', ok: false, stage: '' } as base.PubResult
+          const outF = await draft.saveDraft(page, resF, {
+            platform: 'douyin', logDir: EV, no: 3, waitS: 5, timeoutS: 5,
+          })
+          expect(await page.evaluate('window.__CLICKS'),
+            'mock-F：点的是 div 草稿键').toEqual(['draft-保存草稿'])
+          expect(outF.ok, `mock-F：div 版草稿键也要能存成（stage=${outF.stage}）`).toBe(true)
+
+          // ---- G. B站真实结构：<span class="submit-draft">存草稿</span> ----
+          // 真键不是 button/div，是 span：结构路（tag/role/class）全不命中，
+          // 只有浏览器算出来的 `cursor: pointer` 能认出它 ⇒ 少了这一路，
+          // B站每一条都会「找不到存草稿键」fail-closed。
+          await page.goto(pathToFileURL(join(td, 'mock-g.html')).href)
+          await page.waitForLoadState('load')
+          const g = await draft.findDraftButton(page, 'bilibili')
+          expect(g, 'mock-G：B站真键是 span.submit-draft ⇒ 找得到').not.toBeNull()
+          expect(await g!.el.evaluate((e: any) => e.tagName.toLowerCase()),
+            'mock-G：选中的是那个 span 草稿键（不是外层容器，也不是「立即投稿」）').toBe('span')
+          expect(await g!.el.getAttribute('class'),
+            'mock-G：选中的 class 是 submit-draft').toBe('submit-draft')
+          expect(((await g!.el.innerText()) ?? '').trim(),
+            'mock-G：选中的文本是「存草稿」').toBe('存草稿')
+          const resG = { no: 4, lang: 'zh', ok: false, stage: '' } as base.PubResult
+          const outG = await draft.saveDraft(page, resG, {
+            platform: 'bilibili', logDir: EV, no: 4, waitS: 5, timeoutS: 5,
+          })
+          expect(await page.evaluate('window.__CLICKS'),
+            'mock-G：只点草稿键，「立即投稿」零点击').toEqual(['draft-存草稿'])
+          expect(outG.ok, `mock-G：B站 span 版草稿键也要能存成（stage=${outG.stage}）`).toBe(true)
+          expect(outG.stage).toBe('已存草稿')
         },
       )
     } finally {

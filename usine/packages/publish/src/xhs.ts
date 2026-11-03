@@ -617,7 +617,7 @@ export async function publishOne(
   }
 
   res['stage'] = '已提交未确认'
-  console.log(`   ⚠️ 已提交但未确认，URL=${page.url}`)
+  console.log(`   ⚠️ 已提交但未确认，URL=${await base.pageUrl(page)}`)
   return res
 }
 
@@ -677,6 +677,16 @@ export async function publish(tasks: readonly base.Task[], opts: XhsPublishOpts)
 export async function main(argv: string[]): Promise<number> {
   const a = base.manifestArgs(argv, 'feuille publish xhs')
   if ('rc' in a) return a.rc
+  // 小红书没实现存草稿模式：**宁可不做，也不假装做了**——
+  // 收了 --draft 却照发 = 把「存草稿」变成「发布」，是不可撤销的那种错。
+  if (a.draft) {
+    process.stderr.write(
+      'feuille publish xhs: 暂不支持 --draft（存草稿）模式——'
+      + '小红书发布器只实现了真发布路径。\n'
+      + '要存草稿请用抖音/哔哩哔哩发布器；本条**没有发布任何内容**。\n',
+    )
+    return 2
+  }
   const tasks = base.manifestTasks(a.manifest, 'xiaohongshu')
   return publish(tasks, {
     logDir: a.logDir,

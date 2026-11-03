@@ -403,18 +403,37 @@ export const CHECKS: Array<[string, (path: string, platform: string) => string[]
 //  Top-level orchestrator
 // ============================================================
 
-const USAGE = 'usage: feuille copy check <publish_dir> [--facts facts.json] [--strict]'
+const USAGE = 'usage: feuille copy check <publish_dir> [--facts facts.json] [--platform bilibili,douyin] [--strict]'
 
-/** 检查 publish_dir 下的所有平台文件。返回非零退出码当存在 FAIL。
+/** 检查 publish_dir 下的平台文件。返回非零退出码当存在 FAIL。
  *
  * 缺失的 `xiaohongshu.md` / `douyin.md` / `bilibili.md` 是真实投诉
  * （写者没交齐），不是静默 SKIP。
  * facts：--facts 事实表（给了才跑数字溯源；没给 = SKIP，SKIP 不是 PASS）。
+ * platforms：只查这几个平台（`--platform bilibili,douyin`）。
+ *
+ * **为什么要有 platforms**：不是所有产线都投三个平台——赛事解说线只投 B站 +
+ * 抖音（成片是横版，小红书吃竖屏）。没有这个口子时，双平台产线的稿子会被
+ * 「缺 xiaohongshu.md」判成 FAIL，而那一行与稿子质量无关。
+ * **未选中的平台明确报「未选中（没查）」**，不许读成「过了」——SKIP 不是 PASS。
  */
-export function checkPublishDir(publishDir: string, facts?: Record<string, unknown>): number {
+export function checkPublishDir(
+  publishDir: string,
+  facts?: Record<string, unknown>,
+  platforms?: readonly string[],
+): number {
   let rc = 0
   let anyFile = false
-  for (const [platform, spec] of Object.entries(PLATFORM)) {
+  const selected = platforms && platforms.length > 0
+    ? platforms
+    : Object.keys(PLATFORM)
+  for (const platform of selected) {
+    const spec = PLATFORM[platform]
+    if (spec === undefined) {
+      throw new FeuilleError(
+        `未知平台：${platform}（合法：${Object.keys(PLATFORM).sort().join(' / ')}）`,
+      )
+    }
     const path = `${publishDir}/${spec.filename}`
     console.log(`\n=== ${platform}（${spec.filename}）===`)
     if (!existsSync(path)) {
@@ -459,6 +478,13 @@ export function checkPublishDir(publishDir: string, facts?: Record<string, unkno
     if (title !== '') console.log(`  ℹ️  标题实测 ${[...title].length}/${spec.titleMax} 字`)
   }
 
+  // 未选中的平台：明说「没查」——不许读成「过了」（SKIP 不是 PASS）
+  for (const platform of Object.keys(PLATFORM)) {
+    if (selected.includes(platform)) continue
+    console.log(`\n=== ${platform}（${PLATFORM[platform]!.filename}）===`)
+    console.log(`  ⏭️  未选中（本命令只查 ${selected.join(' / ')}）——没查，不是 PASS`)
+  }
+
   // 其它 *.md 文件：WARN（不 FAIL——可能用户加了其它平台，留个口子）
   const known = new Set(Object.values(PLATFORM).map((s) => s.filename))
   const extras = (() => {
@@ -474,7 +500,8 @@ export function checkPublishDir(publishDir: string, facts?: Record<string, unkno
   }
 
   if (!anyFile) {
-    console.log(`\n❌ publish_dir=${publishDir} 下没有任何已知平台文件`)
+    console.log(`\n❌ publish_dir=${publishDir} 下没有本次要查的平台文件`
+      + `（查的是 ${selected.join(' / ')}）`)
     return 1
   }
   console.log(`\n${rc === 0 ? '✅ 全部通过' : '❌ 存在 FAIL，见上'}`)
@@ -485,6 +512,7 @@ export function main(argv: string[]): number {
   let dir: string | undefined
   let facts: Record<string, unknown> | undefined
   let strict = false // 预留：把 WARN 升级为 FAIL
+  let platforms: string[] | undefined
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i]!
     const take = (): string => {
@@ -494,6 +522,21 @@ export function main(argv: string[]): number {
     }
     if (t === '--facts') {
       facts = JSON.parse(readText(take())) as Record<string, unknown>
+    } else if (t === '--platform') {
+      const list = take().split(',').map((s) => s.trim()).filter((s) => s !== '')
+      if (list.length === 0) {
+        throw new FeuilleError(
+          `--platform 要给平台名（逗号分隔，如 bilibili,douyin；合法：${Object.keys(PLATFORM).sort().join(' / ')}）`,
+        )
+      }
+      for (const p of list) {
+        if (PLATFORM[p] === undefined) {
+          throw new FeuilleError(
+            `未知平台：${p}（合法：${Object.keys(PLATFORM).sort().join(' / ')}）`,
+          )
+        }
+      }
+      platforms = list
     } else if (t === '--strict') {
       strict = true
     } else if (t.startsWith('--')) {
@@ -512,5 +555,5 @@ export function main(argv: string[]): number {
     console.error(USAGE)
     return 2
   }
-  return checkPublishDir(dir, facts)
+  return checkPublishDir(dir, facts, platforms)
 }

@@ -101,8 +101,8 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 `apply(ctx, config)` 按固定顺序做六件事：
 
 1. **纪律 systemPrompt 节**：`feuille:discipline`（order 10150，插在 WEB_SURFACE 与 DEPLOYMENT_PERSONA_SUFFIX 之间），7 条红线文本进 system prompt——**文本管「知道」，机制管「做到」，两层缺一不可**。走 `ctx.inject(['systemPrompt'], …)`：宿主没这个服务就安静跳过（少一段文本，**工具面照常**）。
-2. **注册 13 个 argv 家族工具 + `usine_version` + `usine_verify` / `usine_quota` / `usine_video_generation`**：每个产线家族一个工具，覆盖面与 CLI 路由表一一对应。
-3. **自检工具面**：实际注册名单必须与 [src/toolnames.ts](../packages/dsh-plugin/src/toolnames.ts) 的 17 个字面名字逐字相同，不一致**当场抛**（装配失败当场红，而不是等一次真实对话才发现工具全没了）。
+2. **注册 14 个 argv 家族工具 + `usine_version` + `usine_verify` / `usine_quota` / `usine_video_generation`**：每个产线家族一个工具，覆盖面与 CLI 路由表一一对应。
+3. **自检工具面**：实际注册名单必须与 [src/toolnames.ts](../packages/dsh-plugin/src/toolnames.ts) 的 18 个字面名字逐字相同，不一致**当场抛**（装配失败当场红，而不是等一次真实对话才发现工具全没了）。
 4. **装派发层额度门**：`ctx.on('tools/pre-execute', …)`（见 [src/gate.ts](../packages/dsh-plugin/src/gate.ts)）。门只对 `usine_video_generation` 的 `submit` 动作摆卡；**不合规的提交不占用一次人工审批**（门放行，工具体回 `invalid`）。
 5. **注册技能资产**：`FileSystemSkillProvider` 只扫 `usineRoot()/skills`（`includeDefaultRoots: false`，零机器路径）；宿主没装 skills 服务时整段跳过——**结构性可选，不炸加载，也不影响工具面**。
 6. **`config.publish === true` 时才注册 `usine_publish`**：动态 import `@feuille/publish`（playwright 是可选依赖，只有真发布路径才碰）；异步注册完成前 fiber 销毁则直接放弃。
@@ -119,7 +119,7 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 
 ### 4.2 统一结果契约（result.ts）
 
-全部 17 个工具返回**同一套**形状，dsh 按 `output.schema` 机检每次返回值（`additionalProperties` / `enum` / `required` 全部强制执行）：
+全部 18 个工具返回**同一套**形状，dsh 按 `output.schema` 机检每次返回值（`additionalProperties` / `enum` / `required` 全部强制执行）：
 
 ```jsonc
 { "ok": true, "status": "ok", "output": "人类可读输出全文", "detail": { "exit_code": 0 } }
@@ -179,8 +179,8 @@ dsh（DeepSeek Harness）以 **Cordis 插件形状**对外扩展：`export const
 |---|---|---|
 | `plugin.test.ts` | **构建产物** `dist/index.mjs`（宿主实际加载的那个文件） | 整链一次验：esbuild 打包 + external 解析 + 插件形状 + 工具注册 + 进程内 main 调用 + **派发门的决策**（合规 → ask / 不合规 → 放行）+ publish 条件注册 + **统一结果契约**（全部工具同一 schema）+ 捕获的上下文作用域（并发不交错、宿主噪声不串窗） |
 | `plugin-parity.test.ts` | **src 源**（wave 实际编辑的面） | 四方对账：tools.ts 的 action 枚举 ↔ `@feuille/cli` COMMANDS 路由表 ↔ 工具面契约 `toolnames.ts` ↔ SKILL.md 规格与积分速查；**旗标层**新增一条——SKILL.md 写的每个 CLI 旗标都必须在库层真实存在（旗标改名 → 说明书漂移 → 红）；inject 声明 ↔ apply 取用的服务（少声明与多声明两个方向都钉） |
-| `preflight`（零 LLM） | 真宿主 | **四道机械检查**：① 产物自足加载（纯 node，不靠 require 垫片）② dsh 钉版一致（宿主 runtime 版本 == package.json 钉版）③ 宿主起得来 ④ **插件真的挂上去了**（装配清单新鲜 + 工具面 17 个逐字相符）。第 ④ 条是 2026-10-18 首测事故的直接补丁：dsh 静默吞 apply 错，宿主照常启动而工具面全空——只「start 一下就 close」的预检查不出这个 |
-| `host-run`（真宿主实跑） | 真宿主 + 真 LLM | 装配链与红线的**最终证据**：插件挂上（17 个工具逐字相符）、会话日志里有 `approval/asked` + `approval/decided`（原生审计，不是插件自述）、视频 submit 在工具体执行之前被拦、全程无 task_id、拒绝是 dsh 原生语义。产物写 `docs/dsh-host-evidence.ndjson` + `docs/dsh-host-summary.json` |
+| `preflight`（零 LLM） | 真宿主 | **四道机械检查**：① 产物自足加载（纯 node，不靠 require 垫片）② dsh 钉版一致（宿主 runtime 版本 == package.json 钉版）③ 宿主起得来 ④ **插件真的挂上去了**（装配清单新鲜 + 工具面 18 个逐字相符）。第 ④ 条是 2026-10-18 首测事故的直接补丁：dsh 静默吞 apply 错，宿主照常启动而工具面全空——只「start 一下就 close」的预检查不出这个 |
+| `host-run`（真宿主实跑） | 真宿主 + 真 LLM | 装配链与红线的**最终证据**：插件挂上（18 个工具逐字相符）、会话日志里有 `approval/asked` + `approval/decided`（原生审计，不是插件自述）、视频 submit 在工具体执行之前被拦、全程无 task_id、拒绝是 dsh 原生语义。产物写 `docs/dsh-host-evidence.ndjson` + `docs/dsh-host-summary.json` |
 | 真宿主实录（历史） | dsh web + patch | 早期 P1 骨架阶段的启动实录（原文在 `usine/migration/README.md`，该文件已于 2026-10-19 随 Python 金样本一并删除，结论已并入本文与 `docs/record.md`） |
 
 **分工**：vitest 的**假 ctx**（fakeCtx）结构上**测不到宿主的服务解析**——inject 语义、approval 服务、审计事件全都看不见。所以「宿主里到底挂上没有」归 preflight 与 host-run 管，不归 vitest 管。唯一的例外是 inject 的 AND 语义：`plugin.test.ts` 里为此单开了一条**真 cordis context**（`new Context()` + `provide`）的用例，因为那一条在假 ctx 上永远测不出来。

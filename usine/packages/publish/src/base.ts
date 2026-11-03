@@ -26,6 +26,12 @@ import { FeuilleError, platform as pt } from '@feuille/core'
 
 import * as clock from './clock.js'
 
+// ── 浏览器侧全局（本包是 Node 包，tsconfig 的 lib 只有 ES2023，没有 DOM）──
+// evaluate 的函数体**跑在浏览器上下文里**，但类型检查只认本包的 lib。
+// 按 any 声明这两个全局，只为让类型检查过；运行期由浏览器提供。
+declare const document: any
+declare function getComputedStyle(el: any): any
+
 export type AnyPage = any
 export type AnyCtx = any
 export type Task = Record<string, any>
@@ -109,11 +115,25 @@ function expanduser(p: string): string {
   return p
 }
 
-/** 平台持久 profile 目录（展开后的绝对路径）。 */
+/**
+ * 平台持久 profile 目录（展开后的绝对路径）。
+ *
+ * **可用环境变量 `FEUILLE_PROFILE_<平台名大写>` 覆盖**（如 `FEUILLE_PROFILE_DOUYIN`）。
+ *
+ * 为什么需要这个入口：Chromium 的 **App-Bound 加密（cookie v20）**把解密密钥
+ * 绑在「浏览器二进制 + user-data-dir 的**路径**」上。把已有存档**复制**到另一个目录，
+ * 同一个二进制也解不开——解不开的行还会被 Chromium 直接删掉（登录态静默丢失，
+ * 而且**不报错**）。所以想复用一份现成的登录态，只能让发布器**用那个存档目录本身**跑，
+ * 而不是拷贝一份。
+ *
+ * 覆盖只影响带这个环境变量的那一次运行；不带就是原来的默认目录。
+ */
 export function profileDir(platformKey: string): string {
   if (!(platformKey in PROFILES)) {
     throw new FeuilleError(`未知平台 ${pyRepr(platformKey)}（合法：${pyList(Object.keys(PROFILES))}）`)
   }
+  const over = process.env[`FEUILLE_PROFILE_${platformKey.toUpperCase()}`]
+  if (over && over.trim()) return resolve(expanduser(over.trim()))
   return resolve(expanduser(PROFILES[platformKey]!))
 }
 
@@ -361,6 +381,28 @@ export async function visibleTextHit(page: AnyPage, words: readonly string[]): P
 }
 
 /**
+ * 当前页面 URL（字符串）。
+ *
+ * ⚠️ **Playwright 的 `Page.url` 是方法 `page.url()`**，不是字符串属性。
+ * Python 侧 Playwright 的 `page.url` 是 property，照抄到 TS 就成了「拿函数当字符串用」——
+ * 症状是 `TypeError: page.url.includes is not a function`（函数对象没有 `.includes`）。
+ * 本仓移植时栽在这里：判据里凡是「读 URL」的地方都栽了同一个坑。
+ *
+ * 这里统一收口：函数就调用它，字符串属性（桩对象）直接用，都读不到就返回空串。
+ * **判据里读 URL 一律走这个函数**，不许再直接碰 `page.url`（有源码级门禁盯着）。
+ */
+export async function pageUrl(page: AnyPage): Promise<string> {
+  try {
+    const u = page?.['url']
+    if (typeof u === 'function') return String(await u.call(page))
+    if (typeof u === 'string') return u
+    return ''
+  } catch {
+    return ''
+  }
+}
+
+/**
  * 成功判定（带阶段名）。命中全词 → [true, "已发布"]；
  * URL 离开投稿页（url_gone 里的子串全都不在了）→ [true, "已跳转"]；
  * 超时 → [false, "已提交未确认"]。
@@ -382,11 +424,8 @@ export async function waitSuccessStage(
   while (clock.now() < deadline) {
     if (await visibleTextHit(page, words)) return [true, '已发布']
     if (urlGone.length) {
-      try {
-        if (!urlGone.some((u) => page.url.includes(u))) return [true, '已跳转']
-      } catch {
-        // URL 读不到就继续轮询文案
-      }
+      const cur = await pageUrl(page)
+      if (cur && !urlGone.some((u) => cur.includes(u))) return [true, '已跳转']
     }
     await clock.sleep(pollS)
   }
@@ -418,20 +457,27 @@ export async function riskHit(page: AnyPage, kws: readonly string[] = RISK_WORDS
   return visibleTextHit(page, kws)
 }
 
-/** 读遮罩浮层的几何与样式（display/opacity/宽高）——「遮罩还在不在」的判据。 */
+/**
+ * 读遮罩浮层的几何与样式（display/opacity/宽高）——「遮罩还在不在」的判据。
+ *
+ * ⚠️ **evaluate 必须传真函数，不能传字符串**。
+ * JS 版 Playwright 的 `evaluate` 收到字符串时，只把它**当表达式求值**：
+ * `'(sel) => {...}'` 求值出来是个函数对象 → 不可序列化 → 返回 `undefined`。
+ * （Python 版传字符串会执行函数——移植时同一个坑栽过一次。）
+ * 传字符串时这里恒返回 undefined ⇒ 遮罩判据恒为「没有遮罩」⇒ 判据形同虚设。
+ */
 export async function modalMask(
   page: AnyPage,
   sel = '.d-modal-mask, .d-modal-wrapper',
 ): Promise<Record<string, any> | null> {
   try {
-    return await page.evaluate(`(sel) => {
-            const m = document.querySelector(sel);
-            if (!m) return null;
-            const r = m.getBoundingClientRect();
-            const cs = getComputedStyle(m);
-            return {w: Math.round(r.width), h: Math.round(r.height),
-                    disp: cs.display, opa: cs.opacity};
-        }`, sel)
+    return await page.evaluate((s: string) => {
+      const m = document.querySelector(s)
+      if (!m) return null
+      const r = m.getBoundingClientRect()
+      const cs = getComputedStyle(m)
+      return { w: Math.round(r.width), h: Math.round(r.height), disp: cs.display, opa: cs.opacity }
+    }, sel)
   } catch {
     return null
   }
@@ -502,7 +548,7 @@ export type PublishOneFn = (
   page: AnyPage,
   t: Task,
   auto: boolean,
-  opts: { logDir: string },
+  opts: { logDir: string; draft?: boolean },
 ) => Promise<PubResult>
 
 export interface RunTasksOpts {
@@ -511,6 +557,8 @@ export interface RunTasksOpts {
   betweenS?: number
   dryRun?: number
   resultJson?: string
+  /** 存草稿模式：单条走「存草稿」而不是「发布」（见 draft.ts）。 */
+  draft?: boolean
 }
 
 /**
@@ -548,7 +596,7 @@ export async function runTasks(
       } catch {
         // 截图失败不拦发布
       }
-      results.push(await publishOne(page, t, auto, { logDir }))
+      results.push(await publishOne(page, t, auto, { logDir, draft: opts.draft ?? false }))
     } catch (e) {
       // 一条挂掉不能带走整批
       console.log(`\n💥 [${pad2(t['no'])}] ${t['lang']} 异常 ${errName(e)}: ${clip(errStr(e), 120)}`)
@@ -623,6 +671,8 @@ export interface ManifestArgs {
   frm: number | null
   dryRun: number
   headless: boolean
+  /** 存草稿模式：填完存草稿就停，不点发布（见 draft.ts）。 */
+  draft: boolean
   /** bilibili 叶子加 --subs-dir（参数表公共部分 + 平台差异项，约定见 manifestArgs）。 */
   subsDir: string | null
 }
@@ -646,13 +696,14 @@ export function manifestArgs(
   if (extra.subsDir) valueFlags.push('--subs-dir')
   const usage =
     `usage: ${prog} [-h] --log-dir LOG_DIR [--only ONLY] [--frm FRM]`
-    + `${extra.subsDir ? ' [--subs-dir SUBS_DIR]' : ''} [--dry-run N] [--headless] manifest`
+    + `${extra.subsDir ? ' [--subs-dir SUBS_DIR]' : ''} [--dry-run N] [--headless] [--draft] manifest`
   const fail = (why: string): { rc: 2 } => {
     process.stderr.write(`${usage}\n${prog}: error: ${why}\n`)
     return { rc: 2 }
   }
   const m = new Map<string, string>()
   let headless = false
+  let draft = false
   const positional: string[] = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
@@ -662,6 +713,10 @@ export function manifestArgs(
     }
     if (a === '--headless') {
       headless = true
+      continue
+    }
+    if (a === '--draft') {
+      draft = true
       continue
     }
     let key = a
@@ -705,6 +760,7 @@ export function manifestArgs(
     frm,
     dryRun: dryRun ?? 0,
     headless,
+    draft,
     subsDir: m.get('--subs-dir') ?? null,
   }
 }

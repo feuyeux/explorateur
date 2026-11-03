@@ -1,0 +1,116 @@
+{
+  "_about": "双语字幕卡的能力夹具：同一个中文窗口（w02）在注册表全部 14 个语种里的解说语版本。用它跑 `render_cards.py` 就能证明双语卡对 14 个语种都排得下（外文比中文长 1.5–2 倍，希伯来/阿拉伯还多一层行距）。**文案是夹具，不是事实源**——真项目的解说语文案由项目自己的窗口表给。",
+  "windows": [
+    {
+      "key": "w02",
+      "t0": 10.24,
+      "t1": 20.04,
+      "title": "第8分钟 · 拉菲尼亚破门",
+      "say": "第八分钟，费尔明右路传中，拉菲尼亚后点包抄破门，一比零。",
+      "stat": "0-0 · 第8分钟前",
+      "kind": "live",
+      "visible": "unread",
+      "see": "比分牌 OCR：08:32（t≈20s）"
+    }
+  ],
+  "i18n": {
+    "zh-CN": {
+      "w02": {
+        "title": "第8分钟 · 拉菲尼亚破门",
+        "say": "第八分钟，费尔明右路传中，拉菲尼亚后点包抄破门，一比零。",
+        "stat": "0-0 · 第8分钟前"
+      }
+    },
+    "zh-HK": {
+      "w02": {
+        "title": "第8分鐘 · 拉菲尼亞破門",
+        "say": "第八分鐘，費爾明右路傳中，拉菲尼亞後點包抄破門，一比零。",
+        "stat": "0-0 · 第8分鐘前"
+      }
+    },
+    "en-US": {
+      "w02": {
+        "title": "8' · Raphinha scores",
+        "say": "Eighth minute: Ferran crosses from the right, Raphinha finishes at the far post.",
+        "stat": "0-0 · before the 8th minute"
+      }
+    },
+    "es-ES": {
+      "w02": {
+        "title": "8' · Gol de Raphinha",
+        "say": "Minuto ocho: Ferran centra desde la derecha y Raphinha remata en el farol.",
+        "stat": "0-0 · antes del minuto 8"
+      }
+    },
+    "fr-FR": {
+      "w02": {
+        "title": "8' · But de Raphinha",
+        "say": "Huitième minute : Ferran centre depuis la droite, Raphinha termine au second poteau.",
+        "stat": "0-0 · avant la 8e minute"
+      }
+    },
+    "de-DE": {
+      "w02": {
+        "title": "8' · Tor durch Raphinha",
+        "say": "Achte Minute: Ferran flankt von rechts ein, Raphinha verwertet am zweiten Pfosten.",
+        "stat": "0-0 · vor der 8. Minute"
+      }
+    },
+    "it-IT": {
+      "w02": {
+        "title": "8' · Gol di Raphinha",
+        "say": "Ottavo minuto: Ferran crossa dalla destra, Raphinha conclude di seconda.",
+        "stat": "0-0 · prima dell'8º minuto"
+      }
+    },
+    "ja-JP": {
+      "w02": {
+        "title": "8' ラフィーニャのゴール",
+        "say": "8分目、フェランが右のサイドからクロスを上げ、ラフィーニャがファoyantで仕留める。",
+        "stat": "0-0 · 8分目以前"
+      }
+    },
+    "ko-KR": {
+      "w02": {
+        "title": "8' 라피냐의 골",
+        "say": "8분, 페란이 오른쪽에서 크로스를 올리고 라피냐가 파르 포스트에 마무리한다.",
+        "stat": "0-0 · 8분 이전"
+      }
+    },
+    "ru-RU": {
+      "w02": {
+        "title": "8' · Гол Рафиньи",
+        "say": "Восьмая минута: Ферран простреливает справа, Рафинья забивает в дальний угол.",
+        "stat": "0-0 · до 8-й минуты"
+      }
+    },
+    "ar-SA": {
+      "w02": {
+        "title": "8' هدف رافينيا",
+        "say": "في الدقيقة الثامنة: فيران يمرر عرضية من اليمين، ورافينيا يسجل في القائم البعيد.",
+        "stat": "0-0 · قبل الدقيقة الثامنة"
+      }
+    },
+    "he-IL": {
+      "w02": {
+        "title": "8' · שער של רפיניה",
+        "say": "בדקה השמינית: פראן מרים כדור אופקי מימין, ורפיניה מכניס אותו בעמוד הרחוק.",
+        "stat": "0-0 · לפני הדקה השמינית"
+      }
+    },
+    "hi-IN": {
+      "w02": {
+        "title": "8' · राफिन्हा का गोल",
+        "say": "आठवें मिनट: फ़ेर्रान दाएँ तरफ़ से क्रॉस भेजता है, राफिन्हा दूसरे खंभे पर गोल करता है।",
+        "stat": "0-0 · 8वें मिनट से पहले"
+      }
+    },
+    "el-GR": {
+      "w02": {
+        "title": "8' · Γκολ του Ραφίνια",
+        "say": "Όγδο λεπτό: ο Φεράν στέλνει σταυρό από τα δεξιά, ο Ραφίνια βάζει στο δεύτερο δοκάρι.",
+        "stat": "0-0 · πριν από το όγδο λεπτό"
+      }
+    }
+  }
+}

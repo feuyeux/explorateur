@@ -102,7 +102,7 @@ async function visibleTexts(page: base.AnyPage): Promise<string[]> {
  * （适配点：原版用全局 CUR 标记当前平台——不可测；改为显式 name 参数，逻辑不变。）
  */
 export async function probe(page: base.AnyPage, name: string): Promise<[boolean, string]> {
-  const url = page.url || ''
+  const url = await base.pageUrl(page)
   const vis = await visibleTexts(page)
   if (!vis.length) return [false, '页面尚未渲染出可判定特征']
 
@@ -151,7 +151,7 @@ export async function waitLogin(ctx: base.AnyCtx, name: string, minutes = 6): Pr
 export async function doOne(
   name: string,
   wait = true,
-  opts: { shotDir?: string | null } = {},
+  opts: { shotDir?: string | null; minutes?: number } = {},
 ): Promise<boolean> {
   const site = SITES[name]!
   const profile = base.profileDir(name)
@@ -180,7 +180,9 @@ export async function doOne(
       console.log('   ⚠️  未登录。需你本人在弹出的 Chrome 窗口扫码/登录。')
     } else {
       console.log('   👉 请在弹出的 Chrome 窗口中扫码登录（脚本会等，登录后自动继续）')
-      ok = await waitLogin(ctx, name)
+      // 等多久由调用方定：默认仍是 6 分钟（二维码 1–3 分钟就过期，页面会自动换新码，
+      // 换句话说「等久一点」等于「等得更久的那张新码」——人不在跟前时必须给足时间）。
+      ok = await waitLogin(ctx, name, opts.minutes ?? 6)
       if (ok && opts.shotDir != null) {
         try {
           await page.screenshot({ path: join(opts.shotDir, `login-${name}-ok.png`) })
@@ -202,7 +204,7 @@ export async function doOne(
  */
 export async function login(
   names: readonly string[] | null = null,
-  opts: { wait?: boolean; shotDir?: string | null } = {},
+  opts: { wait?: boolean; shotDir?: string | null; minutes?: number } = {},
 ): Promise<number> {
   const wait = opts.wait ?? true
   const list = names && names.length ? [...names] : [...ORDER]
@@ -215,7 +217,7 @@ export async function login(
   const results: Record<string, boolean> = {}
   for (const n of list) {
     try {
-      results[n] = await doOne(n, wait, { shotDir: opts.shotDir ?? null })
+      results[n] = await doOne(n, wait, { shotDir: opts.shotDir ?? null, minutes: opts.minutes })
     } catch (e) {
       console.log(`=== ${n} 异常: ${base.errStr(e)}`)
       results[n] = false

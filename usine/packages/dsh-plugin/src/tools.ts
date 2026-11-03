@@ -24,7 +24,7 @@ import { resolve } from 'node:path'
 import {
   parse_scene, scene_schema, scene_draft, scene_audio, lesson,
   persona, covers, framehash, ledger, themes, VERSION,
-  platform,
+  platform, textlayer,
 } from '@feuille/core'
 import { checkPublishCopy } from '@feuille/copy'
 import { gen_bgm } from '@feuille/bgm'
@@ -226,6 +226,12 @@ export function familyTools(): ToolDefinition[] {
       description: '产物缓存账本：谁过期了、因为什么（有过期 → 退出码 1）。',
       actions: { status: ledger.mainStatus },
       argvDoc: '残余参数，与 `feuille ledger status` 一致（--root 可参数化）',
+    }),
+    argvTool({
+      name: 'usine_textlayer',
+      description: '透明叠加层：HTML 模板（__BG__ 占位）→ 透明 PNG + 同次运行的层盒测量（字幕卡/片头/水印都走它）。',
+      actions: { shoot: (argv) => textlayer.mainShoot(argv) },
+      argvDoc: '残余参数，与 `feuille textlayer shoot` 一致（--html/--out/--bg 等）',
     }),
     argvTool({
       name: 'usine_theme',

@@ -334,18 +334,18 @@
       "natv": "한국어 · 한글",
       "natv_class": "f-kr",
       "script": "kr",
-      "word": "스시",
-      "inline": "스시",
+      "word": "초밥",
+      "inline": "초밥",
       "ko_syllables": [
-        "스",
-        "시"
+        "초",
+        "밥"
       ],
-      "tag": "借自日语",
-      "translit_html": "<span class=\"c\">s</span><span class=\"v\">eu</span> <span class=\"c\">s</span><span class=\"v\">i</span>",
-      "sentence": "스시는 일본 요리입니다",
+      "tag": "汉字词 · 醋饭",
+      "translit_html": "<span class=\"c\">ch</span><span class=\"v\">o</span> <span class=\"c\">b</span><span class=\"v\">ap</span>",
+      "sentence": "초밥은 일본 요리입니다",
       "tokens": [
-        "스시",
-        "는",
+        "초밥",
+        "은",
         "일본",
         "요리",
         "입니다"

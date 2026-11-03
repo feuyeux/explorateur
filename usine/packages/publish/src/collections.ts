@@ -404,11 +404,11 @@ export async function fixCollection(
   await page.getByText('保存', { exact: true }).first().click()
   await clock.sleep(7)
   await shot(page, outDir, 'fix-05-saved.png')
-  console.log(`  URL ${page.url}`)
+  console.log(`  URL ${await base.pageUrl(page)}`)
   // 判据只信可见文本（inner_text('body') 会被隐藏层文案骗，login.probe 同源教训）
   const back = await base.visibleTextHit(page, [opts.title])
   console.log(`  返回列表页: ${back}`)
-  log.push({ stage: 'saved', url: page.url, back_to_list: back })
+  log.push({ stage: 'saved', url: await base.pageUrl(page), back_to_list: back })
   try {
     const b2 = await page.innerText('body', { timeout: 10000 })
     for (const kw of ['保存成功', '操作成功', '创建成功']) {
@@ -528,7 +528,7 @@ export async function createCollection(
   console.log('\n  ✓ 点「创建」')
   await clock.sleep(6)
   await shot(page, outDir, 'create-05-created.png')
-  console.log(`  URL ${page.url}`)
+  console.log(`  URL ${await base.pageUrl(page)}`)
   // 判据只信可见文本（同 fixCollection 的 back 判据口径）
   const ok = await base.visibleTextHit(page, [opts.title])
   console.log(`  页面含新合集名（可见）：${ok}`)

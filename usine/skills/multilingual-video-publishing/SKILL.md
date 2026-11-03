@@ -7,7 +7,9 @@ description: >
   deliverables live — from either production line (karaoke-video or
   multilingual-video-poetry) — when building a Douyin collection, when
   Bilibili collection or upload form controls seem unreachable, when a publish
-  batch reports success but the work must be verified in the manage list, or
+  batch reports success but the work must be verified in the manage list, when
+  a batch must stop at draft state (saved but not published) and the draft
+  landing has to be verified, or
   when routing a publish run through feuille's manifest and CLI layer. Also
   use when a publish script must not guess asset filenames or platform
   limits. Not for writing the publishing copy (that is publish-copy) and not
@@ -90,6 +92,32 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 3. **文本过滤词 = 静默漏挂源**（§2b 坑②）：面板候选一律「未添加的全返回」，数量核对交给
    调用方——JS 里 `includes(项目词)` 会把不含关键词的条目静默吞掉。
 4. **跨项目复用前先用探针重摸**：上一项目实测的常量，在下一个项目一律当作未验证。
+5. **浏览器侧代码要传函数，不传字符串。** `page.evaluate('() => {…}')` 里的函数体**根本不会执行**——Playwright 对字符串参数只做表达式求值，返回 `undefined` 且**不报错**（无声 no-op）。要传 `page.evaluate(() => {…}, arg)`。纯**表达式**字符串（`'window.innerHeight'`）是好的，别一起改。
+
+## 存草稿模式：只存不发，但落库判据一样不能靠脚本自报
+
+`publish --draft` 是「**投递到平台的草稿态，不发布**」。它比发布**多**两道闸门：① 落库判据（平台凭什么说它存下来了）；② 素材完整性（存进去的不能是残片）。
+
+**两平台的机制完全不同，照「点完就算」写会静默丢稿**：
+
+| | 抖音 | B站 |
+|---|---|---|
+| 草稿键 | 「**暂存离开**」（`button.…cancel-btn-…`，`cursor:pointer`） | `<span class="submit-draft">存草稿</span>`——**是 span**，tag/role/class 全不命中「按钮」结构路 |
+| 落库信号 | 点键后**新出现**的横幅「你还有上次未发布的视频，是否继续编辑？」 | `POST /x/vupre/web/draft/add` ⇒ URL 跳 `upload-manager/article?group=draft` |
+| 能否回列表核验 | **PC 端不能**——没有列表页也没有接口（2026-11-03 穷举 22 个只读探测全空）；只能上手机 App | **能**——草稿箱列出全部草稿（条目**带封面缩略图**） |
+| 成功 toast | 没有；横幅**短命**（同一天 8:07 在、11:10 没） | 没有；只有两行 tips（草稿最多 30 个、暂不保存卡片/章节配置） |
+
+三条硬纪律：
+
+1. **「点击前就存在的词」不算证据。** 抖音存第 2 条时横幅还占着第 1 条的位置，点下去当场命中 ⇒ 假绿灯。落库词必须是**点击后才出现**的。
+2. **存草稿模式绝不能点横幅上的「放弃」。** 那个「放弃」= **删除**上一条已存草稿。批量存 N 条时每条开头只**折叠**横幅，不点任何按钮。
+3. **存草稿前必须确认上传真的走完。** 抖音的「转码完成」是假绿灯（平台在**点存草稿那一刻**才真正开始上传，实测点下去瞬间是「已上传 40.7MB/176.3MB 23%」）；B站的「标题框出现」≠「视频传完」（实测 256.4MB 时仍显示「剩余时间 >1天」）。两处都要**等平台自己显示「上传完成」**，等不到就**中止本条**。
+
+**判据不许比被改进对象更严**：抖音的落库信号是平台给我们的**唯一**信号——它短命、PC 端列不出，判据就只能看「点键后新出现的横幅」，**不许**再去要求一个平台根本不提供的列表核验；核验不到的部分**如实报「未确认」**，不许拿「应该存下了」糊过去。
+
+**别拿「按钮清单」判断平台上有没有草稿键**：B站真键是 `span`，按 `button,[role=button],.semi-button,.bcc-button,a` 查清单压根查不到它，看着像「这平台没有草稿键」。要判就查 DOM——该节点 `getComputedStyle(el).cursor === 'pointer'`（浏览器算出来的光标形态，与框架无关），别靠 class 名猜「可点」。
+
+实测细节（探针怎么摸、22 个探测的具体组合、B站草稿箱 DOM 结构与删除流程）见 [references/platform-capabilities.md §12](references/platform-capabilities.md)。
 
 ## 素材命名：让存在性校验替你抓错
 
@@ -155,6 +183,7 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 4. B 站：分区与创作声明是用户拍板的值，**没替用户勾任何对外声明**
 5. 说不清的部分**已经如实说明**，没有拿「大概可以」糊过去
 6. 本批用到的平台能力条目**没过保质期**：`references/platform-capabilities.md` 每条结论都带验证方式与日期——跨项目复用、或平台改版风声后，先用探针重摸再承诺（选择器纪律第 4 条）
+7. 存草稿批次的**核验边界写清楚了**：平台给了列表（B站）就回列表核到每一条；平台没给（抖音 PC 端）就**如实报「逐条上传 + 点存草稿键成功，但平台不提供列表，无法证明并存」**，不拿脚本自报或横幅当长期凭据
 
 ## 手册与代码
 

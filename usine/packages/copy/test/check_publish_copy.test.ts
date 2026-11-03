@@ -322,7 +322,7 @@ describe('checkPublishDir / main', () => {
     writeFileSync(join(d, 'note.md'), '# 随手记\n', 'utf8')
     const { log } = captureLog()
     expect(cpc.checkPublishDir(d)).toBe(1)
-    expect(log.join('\n')).toContain('下没有任何已知平台文件')
+    expect(log.join('\n')).toContain('下没有本次要查的平台文件')
   })
 
   it('main：缺位置参数 → usage + rc 2；未知旗标 → FeuilleError', () => {
@@ -337,4 +337,59 @@ describe('checkPublishDir / main', () => {
     writeFileSync(p, JSON.stringify(obj), 'utf8')
     return p
   }
+})
+
+// ============ 指定平台（双平台产线：赛事解说线只投 B站 + 抖音） ============
+
+describe('--platform：只查选中的平台（缺小红书的双平台稿不再被误判）', () => {
+  function twoPlatformDir(): string {
+    const d = tmp()
+    writeFileSync(join(d, 'bilibili.md'),
+      '## 标题\n【西甲】巴萨 6-1 阿拉维斯：莱万梅开二度，3 分钟看完这场球\n\n'
+      + '## 简介\n莱万梅开二度，全场 7 粒进球、10 次换人、1 次 VAR 判罚。'
+      + '想看哪一球的过程，评论区报个时间点；下一场想看哪支，评论区点单。\n\n'
+      + '## 标签\n西甲 巴萨 莱万 进球解说 足球\n\n'
+      + '## 发布贴士\n发布后自己置顶一条（"我先来：莱万那两球看了三遍"）\n', 'utf8')
+    writeFileSync(join(d, 'douyin.md'),
+      '## 文案\n巴萨 6-1 阿拉维斯，3 分钟看完\n\n'
+      + '莱万梅开二度，全场 7 粒进球、10 次换人、1 次 VAR 判罚。\n\n'
+      + '想看哪一球，评论区报个时间点；下一场想看哪支，评论区点单。\n\n'
+      + '## 话题\n#西甲 #巴萨 #莱万 #足球解说 \n\n'
+      + '## 发布贴士\n发布后自己置顶一条（"我先来：莱万那两球"）\n', 'utf8')
+    return d
+  }
+
+  it('不给 --platform → 缺 xiaohongshu 判 FAIL；给了 → 0', () => {
+    const d = twoPlatformDir()
+    const { log } = captureLog()
+    expect(cpc.checkPublishDir(d)).toBe(1)
+    expect(log.join('\n')).toContain('文件缺失')
+    const { log: log2 } = captureLog()
+    expect(cpc.checkPublishDir(d, undefined, ['bilibili', 'douyin'])).toBe(0)
+    expect(log2.join('\n')).toContain('✅ 全部通过')
+  })
+
+  it('未选中的平台明说「没查」——不许读成「过了」（SKIP 不是 PASS）', () => {
+    const d = twoPlatformDir()
+    const { log } = captureLog()
+    expect(cpc.checkPublishDir(d, undefined, ['douyin'])).toBe(0)
+    const out = log.join('\n')
+    expect(out).toContain('未选中（本命令只查 douyin）——没查，不是 PASS')
+    expect(out).toContain('xiaohongshu.md')
+  })
+
+  it('main：--platform 走同一套门；未知平台 / 空值 → FeuilleError', () => {
+    const d = twoPlatformDir()
+    captureLog()
+    expect(cpc.main([d, '--platform', 'bilibili,douyin'])).toBe(0)
+    expect(() => cpc.main([d, '--platform', 'nope'])).toThrow(FeuilleError)
+    expect(() => cpc.main([d, '--platform', ''])).toThrow(FeuilleError)
+  })
+
+  it('选中平台里仍有缺失 → FAIL（筛平台不等于放宽）', () => {
+    const d = twoPlatformDir()
+    rmSync(join(d, 'douyin.md'))
+    captureLog()
+    expect(cpc.checkPublishDir(d, undefined, ['bilibili', 'douyin'])).toBe(1)
+  })
 })

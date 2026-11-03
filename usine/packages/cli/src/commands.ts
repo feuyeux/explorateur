@@ -167,6 +167,13 @@ export const COMMANDS: Record<string, CommandLeaf> = {
   // bilibili 挂 main 适配层；login 无参可调用，按 Python 侧 `fn(argv) if argv
   // else fn()` 形态接线。清单组装（build_manifest）没有叶子——它吃带闭包的
   // plans 契约，只能从项目脚本调用。
+  // ---- 透明文字层（压字产线共用：字幕卡 / 片头 / 水印）----
+  // 双 matte 出精确 alpha；模板写进 <title> 的层盒测量同一次运行取回
+  //（测量不额外花一次浏览器启动）。
+  'textlayer/shoot': {
+    load: () => import('./leaves/textlayer-shoot.js'),
+    desc: '透明叠加层：HTML 模板（__BG__ 占位）→ 透明 PNG + 同次运行的层盒测量',
+  },
   'publish/login': {
     load: () => import('./leaves/publish-login.js'),
     desc: '平台扫码登录：登录态存盘到持久 profile（默认四平台全扫）',

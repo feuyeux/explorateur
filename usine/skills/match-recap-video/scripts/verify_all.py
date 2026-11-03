@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """verify_all.py — match-recap-video 的一条命令全验收。
 
-SKILL.md 的「每一步的验收判据」有 12 行，能离线机检的是五个 selftest；验收靠
-agent 逐条记得跑，缺一环就是静默半成品。本脚本把五个 selftest 聚合成一个
+SKILL.md 的「每一步的验收判据」有多行，能离线机检的是八个 selftest；验收靠
+agent 逐条记得跑，缺一环就是静默半成品。本脚本把八个 selftest 聚合成一个
 退出码（任何一环非零 = 整体非零），可选 `--windows` 连窗口表判决一起跑。
 
 用法：
-    python3 scripts/verify_all.py                     # 五个 selftest（全离线，不联网）
+    python3 scripts/verify_all.py                     # 八个 selftest（全离线，不联网）
     python3 scripts/verify_all.py --windows win.json  # 加判一次窗口表（FAIL → 退出码 1）
 
 各 selftest 只需要 python3 与外部工具解析器能找到的工具（探针的合成视频用
 lavfi 生成，不需要真集锦）；OCR 依赖不需要（read_scoreboard 的 selftest 是
-纯函数回归）。
+纯函数回归）。首页图与事实表的 selftest 也是纯函数回归——**不碰浏览器、不渲图**
+（渲染链路由 `make_covers.py` 的实跑路径负责）。双语卡的 selftest 同理：纯函数
+回归，**不启浏览器**（真渲染走 `render_cards.py` 的实跑路径）。
 """
 
 from __future__ import annotations
@@ -35,6 +37,12 @@ SELFTESTS: list[tuple[str, list[str]]] = [
      [sys.executable, str(HERE / "probe_scoreboard.py"), "selftest"]),
     ("read_scoreboard（读数纯函数回归）",
      [sys.executable, str(HERE / "read_scoreboard.py"), "selftest"]),
+    ("make_covers（版式安全区 + 事实对账 + 反向用例）",
+     [sys.executable, str(HERE / "make_covers.py"), "selftest"]),
+    ("build_publish_facts（数字溯源表回归）",
+     [sys.executable, str(HERE / "build_publish_facts.py"), "selftest"]),
+    ("render_cards（双语卡版式 + 实测层盒判据 + 反向用例）",
+     [sys.executable, str(HERE / "render_cards.py"), "--selftest"]),
 ]
 
 
@@ -46,7 +54,7 @@ def run(name: str, cmd: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(description="match-recap-video 全验收聚合（五个 selftest + 可选窗口表）")
+    ap = argparse.ArgumentParser(description="match-recap-video 全验收聚合（八个 selftest + 可选窗口表）")
     ap.add_argument("--windows", help="窗口表 JSON 路径；给了就连 check_windows 判决一起跑")
     args = ap.parse_args(argv)
 
