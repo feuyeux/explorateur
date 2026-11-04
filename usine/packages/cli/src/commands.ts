@@ -130,6 +130,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/music-source.js'),
     desc: '录音来源台账：Commons 检索 → 读出处页 → 许可/署名/直链（署名不信 extmetadata.Artist）',
   },
+  'music/narrate': {
+    load: () => import('./leaves/music-narrate.js'),
+    desc: '旁白分段 TTS（每段一个 mp3；标点在源头剥；内容寻址缓存，命中零请求）',
+  },
   'music/source-batch': {
     load: () => import('./leaves/music-source-batch.js'),
     desc: '整张作品表过一遍来源台账（串行 + 间隔；失败逐条记，不静默跳过）',

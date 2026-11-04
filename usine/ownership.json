@@ -61,7 +61,7 @@
     },
     "character-rig": {},
     "music-annotate-video": {
-      "music": "音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描），消费 library 的 FFT / WAV / 帧网格唯一实现，包内零重复"
+      "music": "音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描 / source 录音来源台账 / narrate 旁白分段 TTS），消费 library 的 FFT / WAV / 帧网格 / edge-tts 唯一实现，包内零重复"
     },
     "match-recap-video": {}
   },

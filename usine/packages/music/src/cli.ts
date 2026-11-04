@@ -22,6 +22,7 @@ export const FLAGS = {
   'scan-ink': ['--fps', '--gray', '--min-pct', '--json', '--self-test'],
   source: ['--out-dir', '--id', '--download', '--limit'],
   'source-batch': ['--out', '--limit', '--interval', '--id-prefix', '--resume'],
+  narrate: ['--out', '--cache'],
 } as const
 
 export interface ParsedArgs {

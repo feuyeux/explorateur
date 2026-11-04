@@ -23,7 +23,7 @@ import { platform } from '@feuille/core'
 
 import { FLAGS } from '../src/cli.js'
 import type * as source_1 from '../src/source.js'
-import { align, build, chord, dsp, midi, probe, scan_ink, source } from '../src/index.js'
+import { align, build, chord, dsp, midi, narrate, probe, scan_ink, source } from '../src/index.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 const HAS_FFMPEG = platform.ffmpeg() !== null
@@ -625,6 +625,38 @@ describe('source：CSV 解析与检索词', () => {
     expect(res[0]!.recording!.attribution_error).toBe('')
   })
 
+  it('续跑时旧选中项不可用（广播引子）→ **重查**，不能把这条丢掉', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'feuille-recheck-'))
+    const csvPath = join(dir, 'works.csv')
+    writeFileSync(csvPath, 'entry,composer_en,work_en\n901,Composer B,Work Two\n', 'utf8')
+    const ledger = join(dir, 'ledger.json')
+    // 旧台账里这一件的选中项是广播引子 → 不可用
+    writeFileSync(ledger, JSON.stringify({
+      works: [{
+        entry: '901', composer: 'Composer B', work: 'Work Two', candidates: 1, usable: 1,
+        recording: {
+          id: 'src-901', kind: 'recording', title: 'Inleiding Something (audio).mp3',
+          url: 'https://example.invalid/p', license: 'CC BY-SA 4.0', license_url: '',
+          attribution: 'Someone · CC BY-SA 4.0 via Wikimedia Commons', retrieved: '', sha256: '',
+        },
+        pageUrl: 'https://example.invalid/p', license: 'CC BY-SA 4.0',
+        attribution: 'Someone · CC BY-SA 4.0 via Wikimedia Commons', durationS: 100,
+      }],
+    }), 'utf8')
+
+    const res = await source.sourceBatch(csvPath, {
+      ledgerPath: ledger, resume: true, limit: 1, intervalMs: 0,
+      searchFn: async () => [{
+        title: 'good.ogg', url: 'https://example.invalid/g.ogg', pageUrl: 'p',
+        size: 1, duration: 10, mime: 'audio/ogg', license: 'CC0', licenseUrl: '', attribution: '',
+      }],
+      attributionFn: async (cs) => cs.map((c) => ({ ...c, attribution: 'ok' })),
+    })
+    // 这一件**必须重查到**，不能被丢掉
+    expect(res.map((w) => w.entry)).toEqual(['901'])
+    expect(res[0]!.recording!.title).toBe('good.ogg')
+  })
+
   it('needsAttribution：把署名未知的件挑出来（含上一版写成 Public domain 的历史记录）', () => {
     const mk = (entry: string, license: string, attribution: string, err = '') => ({
       entry, composer: 'C', work: 'W', candidates: 1, usable: 1,
@@ -701,6 +733,40 @@ describe('source：批量台账的续跑与逐件落盘', () => {
 // `FLAGS` 既是给人看的清单，也是门禁（plugin-parity 的「旗标词表 ↔
 // SKILL.md」）认的事实源——所以它自己必须与实现一致：表里有的必须真被读到，
 // 实现里读的必须表里有。两边任一侧漂了，说明书与实现就开始各说各话。
+describe('narrate：旁白分段的 TTS 输入与校验', () => {
+  it('标点在源头剥掉（标点 → 空格），字母数字与词内撇号保留', () => {
+    expect(narrate.stripPunctuation('这一段不解释，先让你听。')).toBe('这一段不解释 先让你听')
+    expect(narrate.stripPunctuation("L'homme arme!")).toBe("L'homme arme")
+    expect(narrate.stripPunctuation('a——b')).toBe('a b')
+  })
+
+  it('narration.json 校验：缺 id / 重复 id / 空 text / 缺 locale 都明确报错', () => {
+    const base = { id: 'a', locale: 'zh-CN', text: 'x' }
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({ segments: [base] }))).not.toThrow()
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({ segments: [] }))).toThrow(/segments/)
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({
+      segments: [{ ...base, id: '' }],
+    }))).toThrow(/id/)
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({
+      segments: [base, { ...base }],
+    }))).toThrow(/重复/)
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({
+      segments: [{ ...base, text: '  ' }],
+    }))).toThrow(/text/)
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({
+      segments: [{ ...base, locale: '' }],
+    }))).toThrow(/locale/)
+  })
+
+  it('没有声线 → 明确报错（不许默默挑一个默认声线）', async () => {
+    const spec = narrate.parseNarrationSpec(JSON.stringify({
+      segments: [{ id: 'a', locale: 'zh-CN', text: '测试' }],
+    }))
+    await expect(narrate.narrateSegments(spec, { outDir: mkdtempSync(join(tmpdir(), 'feuille-narr-')) }))
+      .rejects.toThrow(/声线/)
+  })
+})
+
 describe('cli：旗标词表与实现一致', () => {
   const leafFile: Record<string, string> = {
     probe: 'probe.ts',
@@ -709,6 +775,7 @@ describe('cli：旗标词表与实现一致', () => {
     'scan-ink': 'scan_ink.ts',
     source: 'source.ts',
     'source-batch': 'source.ts',
+    narrate: 'narrate.ts',
   }
 
   it('FLAGS 里每个旗标都在对应模块里真被读到（numOpt / strOpt / flags.has / opts[…]）', () => {

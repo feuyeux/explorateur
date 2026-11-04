@@ -700,7 +700,9 @@ export async function sourceBatch(
       const prevIsBad = !!prev.recording
         && (isRadioStub(prev.recording.title) || isScoreOnly(prev.recording.title))
       if (prevIsBad) {
-        // 旧选中项不可用 → 这一件要**重查**（不落回台账，直接走下面的检索）。
+        // 旧选中项不可用 → 这一件要**重查**：把它从「已完成」里摘掉，
+        // **不落回台账**，直接掉到下面的检索分支（第一版在这里 `continue`
+        // 了，于是这一件被整条丢掉——台账少了 19 件）。
         done.delete(entry)
         process.stderr.write(`  [${n}] ${entry} 旧选中项不可用（${
           isScoreOnly(prev.recording!.title) ? 'MIDI 乐谱' : '广播引子'
@@ -739,10 +741,12 @@ export async function sourceBatch(
           continue
         }
       }
-      if (!prev) continue   // 旧选中项不可用 → 落到下面重新检索
-      out.push(prev)
-      process.stderr.write(`  [${n}] ${entry} 跳过（台账已有）\n`)
-      continue
+      if (prev) {
+        out.push(prev)
+        process.stderr.write(`  [${n}] ${entry} 跳过（台账已有）\n`)
+        continue
+      }
+      // prev 为空 = 旧选中项不可用 → **落到下面重新检索**（不许 continue）。
     }
     if (!composer || !work) {
       out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, attributionError: '', durationS: null, error: '表里缺 composer_en / work_en' })

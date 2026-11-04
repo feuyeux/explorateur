@@ -80,7 +80,7 @@
 | `karaoke` | karaoke-video | 单卡片成片产线编排（gen_tts / build_video / verify_sync / scan_blank） |
 | `storyteller` | storyteller-video | 多幕评书成片产线编排（render_act_frames / assemble_storyteller） |
 | `bgm` | bgm-bed | BGM 床生成（gen_bgm：Lyria realtime + 实测判据） |
-| `music` | music-annotate-video | 音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描） |
+| `music` | music-annotate-video | 音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描 / source 录音来源台账 / narrate 旁白分段 TTS） |
 | `poetry` | multilingual-video-poetry | 实拍母版线诊断（audio_profile / color_contrast） |
 | `copy` | publish-copy | 发布词自检（check_publish_copy：三平台判据 + --facts 数字溯源） |
 | `publish`（base / login / douyin / xhs / bilibili / collections / veriflive / check_plan / clock） | multilingual-video-publishing | Playwright 发布器本体；对包内其他模块零依赖，自成一体 |
