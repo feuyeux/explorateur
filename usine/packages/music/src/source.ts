@@ -457,6 +457,34 @@ export function toLedgerItem(
   }
 }
 
+/**
+ * 这条文件是**广播电台的节目引子**，不是该作品的录音。
+ *
+ * 判据：文件名以 `Inleiding ` 开头（荷兰语「引子」）。Commons 有一批这样的
+ * 文件：它们是荷兰广播电台某期节目的开场音频，内容是**另一首**作品。
+ * 实测：`Inleiding deFilharmonie - Edo de Waart (audio).mp3` 的正文写的是
+ * 「deFilharmonie olv. Edo De Waart gaat de indrukwekkende Turangalîla
+ * Symfonie van Olivier Messiaen te lijf」——这段音频是梅西安，不是它被挂到
+ * 的那篇条目对应的作品；`Inleiding Cecil Taylor (audio).mp3` 同理。
+ *
+ * 为什么这条必须机器判：这类文件在 Commons 上有几十个，检索时会系统性地
+ * 命中「作曲家名 + 作品名」的查询，因为它们被链接在那些作品的条目页上。
+ * 106 件里中了 13 件——**逐条人眼看不过来，也不该由人眼看**。
+ */
+export function isRadioStub(fileTitle: string | undefined | null): boolean {
+  return /^inleiding\s/i.test((fileTitle ?? '').trim())
+}
+
+/**
+ * 这条文件是 **MIDI**（乐谱），不是录音。
+ *
+ * 音乐上「录音」与「乐谱」是两回事：成片要的是能听的声音。乐谱的
+ * 价值在 Tier A 对拍（当 `score`），不当 `recording`。
+ */
+export function isScoreOnly(fileTitle: string | undefined | null): boolean {
+  return /\.(mid|midi|musicxml|xml)$/i.test((fileTitle ?? '').trim())
+}
+
 /** 校验一个候选是否可以进成片（许可白名单）。 */
 export function isUsableLicense(license: string): boolean {
   const l = license.toLowerCase()
@@ -570,6 +598,12 @@ export interface SourcedWork {
   usable: number
   /** 选中的录音（无则 null）。 */
   recording: LedgerItem | null
+  /**
+   * 选中项的**种类**：`recording`（是录音）/ `score`（是 MIDI 乐谱，不是
+   * 录音）/ `stub`（是广播节目引子，内容是另一首作品）。
+   * 后两种**不能当录音进成片**——这是实测出来的系统性问题，不是个别手滑。
+   */
+  pickKind?: 'recording' | 'score' | 'stub' | null
   /** 出处页（选中项）。 */
   pageUrl: string | null
   license: string | null
@@ -653,7 +687,7 @@ export async function sourceBatch(
     const composer = (r[iComp] ?? '').trim()
     const work = (r[iWork] ?? '').trim()
     n++
-    const prev = done.get(entry)
+    let prev: SourcedWork | undefined = done.get(entry)
     if (prev) {
       // 台账里已有这条：**该跳过的跳过，但署名未知的要修**。
       //
@@ -661,7 +695,18 @@ export async function sourceBatch(
       // 领域——第一版把失败写成「Public domain」，于是台账里混进了 16 条伪造
       // 的许可声明。续跑时顺手把这些条目的出处页重读一遍（只读页，不重检索：
       // 检索贵、读页便宜），修好再落盘。
-      if (prev.recording && needsAttribution([prev]).length > 0) {
+      // 旧的选中项若是**广播引子**或**MIDI 乐谱**，它不能当录音进成片：
+      // 这一件要**重查**（不进「原样带过来」那一支）。
+      const prevIsBad = !!prev.recording
+        && (isRadioStub(prev.recording.title) || isScoreOnly(prev.recording.title))
+      if (prevIsBad) {
+        // 旧选中项不可用 → 这一件要**重查**（不落回台账，直接走下面的检索）。
+        done.delete(entry)
+        process.stderr.write(`  [${n}] ${entry} 旧选中项不可用（${
+          isScoreOnly(prev.recording!.title) ? 'MIDI 乐谱' : '广播引子'
+        }）→ 重查\n`)
+        prev = undefined
+      } else if (prev.recording && needsAttribution([prev]).length > 0) {
         try {
           // **不重检索**——检索贵（要走 Commons 全文搜索），而要修的只是
           // 出处页上的一行署名。直接拿台账里那条的标题重读出处页。
@@ -694,6 +739,7 @@ export async function sourceBatch(
           continue
         }
       }
+      if (!prev) continue   // 旧选中项不可用 → 落到下面重新检索
       out.push(prev)
       process.stderr.write(`  [${n}] ${entry} 跳过（台账已有）\n`)
       continue
@@ -731,6 +777,7 @@ export async function sourceBatch(
         candidates: cands.length,
         usable: usable.length,
         recording: pick ? toLedgerItem(pick, id) : null,
+        pickKind: pick ? (isScoreOnly(pick.title) ? 'score' : isRadioStub(pick.title) ? 'stub' : 'recording') : null,
         pageUrl: pick?.pageUrl ?? null,
         license: pick?.license ?? null,
         attribution: pick?.attribution ?? null,
