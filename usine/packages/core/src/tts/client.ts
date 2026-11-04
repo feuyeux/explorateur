@@ -10,6 +10,17 @@
 // - 403 带服务端 Date 头：读出时钟偏斜、修正后重试一次（drift 机器常见）。
 // - NoAudioReceived：偶发瞬时抖动，同文本重试即成功；参数错误稳定复现——
 //   只对它重试，其余异常第一次就抛。
+// - **连接类错误（2026-11-04 实测新增）**：到 speech.platform.bing.com 的
+//   TCP 连接受网络侧影响，只有一部分 SYN 会被应答。Node 的 `ws` 走
+//   `autoSelectFamily`，每个地址只等 `autoSelectFamilyAttemptTimeout`
+//   （默认 250ms）就换下一个地址，于是 4 个地址全被放弃 → 抛
+//   AggregateError（内含 ETIMEDOUT / ENETUNREACH）。实测同一台机器上
+//   6 次尝试只成 2 次；同机 `curl` 单地址长等待（0.8–18s）却 5/6 成。
+//   结论：**这不是「端点不可达」，是「给每个地址的等待太短」**。修法两条：
+//   ① 把 `autoSelectFamilyAttemptTimeout` 抬到秒级；
+//   ② 连接类错误按线性退避**重试**（不是第一次就抛）。
+//   注意 `speech.service.bing.com` 证书不匹配是**另一个主机**（本次问题
+//   与它无关），别据此判断本产线的 TTS 不可用。
 //
 // 长文本分片（edge-tts 7.3.1 口径）：转义+清洗后按 4096 字节切（split.ts），
 // 每段各开一条连接、各重置 chunkAudioBytes、各享一次 403 偏斜重试；段间
@@ -32,6 +43,48 @@ export let RETRY_BACKOFF = 1.2
 export const RETRY_TRIES = 5
 export function setRetryBackoffForTests(seconds: number): void {
   RETRY_BACKOFF = seconds
+}
+
+/** 连接类错误的 socket errno 集合（见文件头「连接类错误」段）。 */
+const CONNECT_ERROR_CODES = new Set([
+  "ETIMEDOUT",
+  "ENETUNREACH",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "EHOSTDOWN",
+  "ENETDOWN",
+  "EPIPE",
+  "EAI_AGAIN",
+  "EAI_FAIL",
+])
+
+/** `autoSelectFamily` 每个地址的等待（毫秒）。默认 250ms 太短——见文件头。 */
+export const CONNECT_FAMILY_ATTEMPT_TIMEOUT_MS = 2_000
+
+/** 连接类错误的重试次数（线性退避）。环境变量可覆盖，给批量预生成留余量。 */
+function connectRetryTries(): number {
+  const raw = process.env["FEUILLE_TTS_CONNECT_TRIES"]
+  const n = raw ? Number.parseInt(raw, 10) : Number.NaN
+  return Number.isFinite(n) && n > 0 ? n : 6
+}
+
+/** 从错误（及其 AggregateError 内层）里收集 socket errno 码。 */
+function collectErrorCodes(e: unknown, out: string[]): string[] {
+  if (typeof e !== "object" || e === null) return out
+  const code = (e as { code?: unknown }).code
+  if (typeof code === "string") out.push(code)
+  const errors = (e as { errors?: unknown }).errors
+  if (Array.isArray(errors)) {
+    for (const inner of errors) collectErrorCodes(inner, out)
+  }
+  return out
+}
+
+/** 这个错误是不是「连不上」类（可重试）？ */
+export function isConnectError(e: unknown): boolean {
+  const codes = collectErrorCodes(e, [])
+  return codes.length > 0 && codes.every((c) => CONNECT_ERROR_CODES.has(c))
 }
 
 export class NoAudioReceived extends Error {
@@ -189,7 +242,15 @@ async function* streamOnce(
     `${WSS_URL}&ConnectionId=${connectionId}` +
     `&Sec-MS-GEC=${generateSecMsGecV2()}` +
     `&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`
-  const ws = new WebSocket(url, { headers: headersWithMuid(), handshakeTimeout: 10_000 })
+  const ws = new WebSocket(url, {
+    headers: headersWithMuid(),
+    handshakeTimeout: 10_000,
+    // 见文件头：默认 250ms 会把慢应答的地址全放弃掉。
+    // 这个键住在 net.TcpSocketConnectOpts（@types/node net.d.ts:68），
+    // ws 的 ClientOptions 类型没收它，但 ws 把整个 options 透传给
+    // http.request → net.connect，运行时有效——所以这里带一道窄 cast。
+    autoSelectFamilyAttemptTimeout: CONNECT_FAMILY_ATTEMPT_TIMEOUT_MS,
+  } as WebSocket.ClientOptions & { autoSelectFamilyAttemptTimeout: number })
 
   const queue = new AsyncQueue<{ data: Buffer; isBinary: boolean }>()
   let openError: Error | undefined
@@ -216,7 +277,14 @@ async function* streamOnce(
   )
   ws.on("close", () => queue.finish())
 
-  await opened
+  try {
+    await opened
+  } catch (e) {
+    // 握手失败时必须自己收尾：下面的 finally 只覆盖「已连上」的流，
+    // 连不上时它根本不执行 → 每次失败漏一个 socket。
+    ws.terminate()
+    throw e
+  }
   const wordBoundary = true
   ws.send(
     `X-Timestamp:${dateToString()}\r\n` +
@@ -337,8 +405,24 @@ export async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
   )
   for (const segment of segments) {
     state.chunkAudioBytes = 0
+    yield* streamSegment(req, segment, state)
+  }
+}
+
+/** 一段的完整重试语义：403 偏斜修一次；连不上则线性退避重试。
+ *
+ * 两类重试都不会重复吐音频：403 与连接错误都发生在握手阶段，
+ * 也就是本段一个 chunk 都还没 yield 出去。 */
+async function* streamSegment(
+  req: TTSRequest,
+  segment: Buffer,
+  state: StreamState,
+): AsyncGenerator<Chunk> {
+  const tries = connectRetryTries()
+  for (let attempt = 1; ; attempt++) {
     try {
       yield* streamOnce(req, segment, state)
+      return
     } catch (e) {
       if (e instanceof HttpHandshakeError && e.status === 403) {
         if (!e.serverDate) throw new Error("No server date in headers.")
@@ -349,9 +433,11 @@ export async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
         adjustClockSkewSeconds(serverTs - currentUnixTimestamp())
         state.chunkAudioBytes = 0
         yield* streamOnce(req, segment, state)
-      } else {
-        throw e
+        return
       }
+      if (!isConnectError(e) || attempt >= tries) throw e
+      state.chunkAudioBytes = 0
+      await new Promise((r) => setTimeout(r, RETRY_BACKOFF * attempt * 1000))
     }
   }
 }
