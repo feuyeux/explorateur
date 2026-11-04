@@ -195,13 +195,14 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
   // （esbuild 打的 12 包 bundle），冷启动比纯单测贵一个量级。超时预算统一在
   // `vitest.config.ts` 的 `testTimeout` 里给，不在这里逐条写：这是同一类病
   // （按需加载大模块），逐条加会漏。
-  it("apply() 默认注册 18 个工具（version + 14 家族 + verify/quota/video-generation），publish 不在——发布不可达是设计不是报错", async () => {
+  it("apply() 默认注册 19 个工具（version + 15 家族 + verify/quota/video-generation），publish 不在——发布不可达是设计不是报错", async () => {
     const plugin = await loadPlugin()
     const ctx = fakeCtx()
     plugin.apply(ctx)
     expect(names(ctx)).toEqual([
       "usine_bgm", "usine_copy", "usine_cover", "usine_framehash",
-      "usine_karaoke", "usine_ledger", "usine_lesson", "usine_persona",
+      "usine_karaoke", "usine_ledger", "usine_lesson", "usine_music",
+      "usine_persona",
       "usine_poetry", "usine_poster", "usine_quota", "usine_scene",
       "usine_storyteller", "usine_textlayer", "usine_theme", "usine_verify",
       "usine_version", "usine_video_generation",
@@ -224,7 +225,7 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     const ctx = fakeCtx()
     plugin.apply(ctx)
     expect([...(plugin.toolNames ?? [])].sort()).toEqual(names(ctx))
-    expect(plugin.toolNames?.length).toBe(18)
+    expect(plugin.toolNames?.length).toBe(19)
   })
 
   // 这条用**真 cordis context**（不是 fakeCtx）：fakeCtx 不做服务解析，
@@ -259,7 +260,7 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
 
     // 对照组：宿主有 systemPrompt → 工具面全 + 纪律文本节挂上。
     const full = await boot(true)
-    expect(full.registered.length).toBe(18)
+    expect(full.registered.length).toBe(19)
     expect(full.sections).toEqual(["feuille:discipline"])
 
     // 实验组：宿主没有 systemPrompt → 纪律文本节挂不上（可选服务缺席），
@@ -270,7 +271,7 @@ describe("工具面注册（吃构建产物 dist/index.mjs）", () => {
     expect(
       bare.registered.length,
       "宿主缺 systemPrompt 时插件仍应注册全部工具（inject 只声明 tools）",
-    ).toBe(18)
+    ).toBe(19)
   })
 
   it("config.publish === true 才注册 usine_publish；fiber 先销毁则异步注册放弃", async () => {

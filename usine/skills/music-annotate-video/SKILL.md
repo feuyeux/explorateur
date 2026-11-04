@@ -33,18 +33,18 @@ description: >
 
 ## 现状与事实源（开工前先认）
 
-本产线是「纪律 + 原语 + 模板」已入库、**端到端 CLI 尚未归流**：
+本产线的纪律与模板已入库，**端到端 CLI 已于 2026-11-04 归流为 `@feuille/music`**：
 
 | 能力 | 事实源 | 状态 |
 |---|---|---|
-| FFT / WAV / 频段分布 | `@feuille/bgm`：`rfftMag`（`packages/bgm/src/gen_bgm.ts:185`）、`readWav`（`:209`）、`bandShare`（`:655`） | 可直接调用 |
-| 30fps 网格 / headless 截图 / 分段编码 | `@feuille/karaoke`：`d30`（`packages/karaoke/src/build_video.ts:52`）、`renderChrome`（`:73`）、分段编码（`:157-180`） | 可直接调用 |
+| FFT / WAV / 频段分布 | `@feuille/core` 的 `core.dsp`：`rfftMag` / `readWav`（原在 `@feuille/bgm`，因 music-annotate-video 也要用而搬进 library） | 可直接调用 |
+| 30fps 网格 / headless 截图 / 分段编码 | 帧网格吸附在 `@feuille/core` 的 `core.grid`（`snapToGrid` / `framesFor`）；截图与分段编码在 `@feuille/karaoke` | 可直接调用 |
 | 状态帧 / 装配 / 账本模板 | `assets/template/`（本 skill 内，见 Resources） | 可复制后改 |
-| 含墨扫描 | `assets/template/ink-scan.mjs` | 已实测（反向自测 + 真实成片） |
+| 含墨扫描 | `@feuille/music` 的 `scan_ink`（原为 `assets/template/ink-scan.mjs` 独立 mjs，现已进包） | 已实测（反向自测 + 真实成片） |
 | 事实/许可账本校验 | `assets/template/validate-facts.mjs` | 已实测（反向自测） |
 | 史料图检索 | `firecrawl search`（images 源）+ `firecrawl scrape`（外部 CLI） | 可用；需 `FIRECRAWL_API_KEY`，搜索计 credits |
 | 完整历史实现 | `assets/example/`（《自新世界》Python 快照） | **只读参考，不要运行** |
-| `feuille music probe\|align\|build\|scan-ink` | —— | **不存在**；不要引用、不要假装跑过 |
+| `feuille music probe\|align\|build\|scan-ink` | `@feuille/music`（`packages/music/src/`） | **2026-11-04 归流**：可用；`probe` 探针、`align` 对齐（Tier A/B）、`build` 帧精确装配、`scan-ink` 含墨扫描 |
 
 **不要引用 `usine/examples/dvorak-new-world/` 作为可复用脚手架**：它在本机存在，
 但落在工作区 `.gitignore` 的 `examples/` 规则下，永不入库，新克隆没有。完整
@@ -283,12 +283,23 @@ firecrawl scrape "<File: 页 URL>" -o .firecrawl/license.md
 
 ## 代码归属
 
-拥有模块：（无）
+拥有模块：`music`
 
-本产线不拥有 TS 模块：分析原语在 `@feuille/bgm`，装配与截图基座在
-`@feuille/karaoke`，TTS 在 `@feuille/core`；模板与只读样例在 `assets/`。
-事实源见 `usine/ownership.json`，由 `@feuille/gate` 的 vitest 门禁（`pnpm verify`）
-与本行双向机检。
+本产线的实现在 `@feuille/music`（probe 探针 / align 对齐 / build 帧精确装配 /
+scan_ink 含墨扫描）。分析原语（FFT / WAV 读取）在 `@feuille/core` 的
+`core.dsp`，帧网格吸附在 `core.grid`，TTS 在 `core.tts`；模板与只读样例
+在 `assets/`。事实源见 `usine/ownership.json`，由 `@feuille/gate` 的 vitest
+门禁（`pnpm verify`）与本行双向机检。
+
+**2026-11-04 归流说明**：本 SKILL.md 此前写「`feuille music probe|align|build|scan-ink`
+不存在」——那是真话（2026-11-04 实测确认 CLI 里没有 `music` 组）。现在这四个
+叶子已归流为 `@feuille/music`，下面两处纪律随之更新：
+
+- `feuille music probe|align|build|scan-ink` **现在存在**；含墨扫描已进
+  `@feuille/music` 的 `scan_ink`（不再需要另跑独立 mjs）。
+- `feuille karaoke build` 的音频仍是固定增益 `amix`，**仍然表达不了**本产线
+  的「摘录绝对偏移 + 旁白期 ducking + 聆听段全电平」——所以本产线走
+  `feuille music build`（`audio.tracks[]` 的 envelope 由它实现）。
 
 ## 边界
 

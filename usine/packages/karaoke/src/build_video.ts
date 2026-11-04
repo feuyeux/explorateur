@@ -24,7 +24,7 @@ import { pathToFileURL } from 'node:url'
 
 import sharp from 'sharp'
 
-import { FeuilleError, audio, platform } from '@feuille/core'
+import { FeuilleError, audio, platform, snapToGrid } from '@feuille/core'
 
 const FPS = 30
 
@@ -48,9 +48,13 @@ function sh(args: Array<string | number>, timeout?: number): { stdout: string } 
   return { stdout: r.stdout ?? '' }
 }
 
-/** 时长吸附 fps 网格——时间线逐帧精确（references/av-sync.md）。 */
+/** 时长吸附 fps 网格——时间线逐帧精确（references/av-sync.md）。
+ *
+ * 实现搬到了 @feuille/core 的 grid.ts（帧网格吸附是 karaoke-video 与
+ * music-annotate-video 共用的底座，属于 library 层，不许两份实现）。
+ * 这里保留同名导出，避免既有调用点改动。 */
 export function d30(d: number): number {
-  return Math.ceil(d * FPS - 1e-9) / FPS
+  return snapToGrid(d, FPS)
 }
 
 /** 近纯白像素占比（min(R,G,B) >= 250；PIL getdata 口径的 sharp 对应）。 */

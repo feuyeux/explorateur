@@ -108,6 +108,24 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/storyteller-assemble.js'),
     desc: '评书成片组装：幕帧 → 叠化转场 → 醒木混音（单画幅 mp4）',
   },
+  // ---- music-annotate-video 归流（@feuille/music；FFT/WAV 读 @feuille/bgm，
+  // 帧网格 @feuille/core；不引入 librosa/pyin/DTW）----
+  'music/probe': {
+    load: () => import('./leaves/music-probe.js'),
+    desc: '录音探针：RMS 包络 / 频段占比 / 起音 → notes/probe（摘录边界的唯一背书）',
+  },
+  'music/align': {
+    load: () => import('./leaves/music-align.js'),
+    desc: '对齐：Tier A 谱面真值对拍（落带内 + 音级交集 ≥2/3）/ Tier B 录音实测 f0',
+  },
+  'music/build': {
+    load: () => import('./leaves/music-build.js'),
+    desc: '状态帧渲染 + 帧精确装配 + 旁白期 ducking（逐场景对账 0 帧）',
+  },
+  'music/scan-ink': {
+    load: () => import('./leaves/music-scan_ink.js'),
+    desc: '含墨覆盖率扫描（空帧闸；阈值 0.2%，反向自测同时证坏帧被抓/好帧不误杀）',
+  },
   // ---- P5-7e one-page-poster 归流（@feuille/poster；浏览器解析消费 core
   // 唯一实现，零额度——fetch_fonts 只打 Google Fonts css2 免费子集端点）----
   'poster/fetch-fonts': {

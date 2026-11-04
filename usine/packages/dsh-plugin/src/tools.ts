@@ -35,6 +35,7 @@ import {
   fit_diag, verify_colors, check_overlay, make_covers, measure_korean,
 } from '@feuille/poster'
 import { render_act_frames, assemble_storyteller } from '@feuille/storyteller'
+import { probe, align, build, scan_ink } from '@feuille/music'
 
 import { runMain } from './capture.js'
 import { RESULT_SCHEMA, failed, fromExitCode, invalid, ok, renderResult } from './result.js'
@@ -261,6 +262,17 @@ export function familyTools(): ToolDefinition[] {
         'scan-blank': scan_blank.main,
       },
       argvDoc: '残余参数，与 `feuille karaoke <子命令>` 一致',
+    }),
+    argvTool({
+      name: 'usine_music',
+      description: '古典音乐赏析产线：probe 录音探针（RMS/频段/起音，摘录边界的唯一背书）→ align 对齐（Tier A 谱面真值对拍 / Tier B 录音实测 f0）→ build 状态帧渲染 + 帧精确装配 + 旁白期 ducking → scan-ink 含墨扫描（空帧闸）。零平台流量、零额度。',
+      actions: {
+        probe: probe.main,
+        align: align.main,
+        build: build.main,
+        'scan-ink': scan_ink.main,
+      },
+      argvDoc: '残余参数，与 `feuille music <子命令>` 一致',
     }),
     argvTool({
       name: 'usine_poetry',

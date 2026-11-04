@@ -34,7 +34,7 @@
 下面三个小节的**模块清单**由 packages/gate 的 vitest 门禁与 ownership.json 双向对账：
 改归属不改地图（或新入层忘了画），`pnpm verify` 当场 FAIL。
 
-### library —— 16 个（被 ≥2 个 skill 共用，或跨产线的判定源）
+### library —— 18 个（被 ≥2 个 skill 共用，或跨产线的判定源）
 
 | 模块 | 职责 | 谁在用 |
 |---|---|---|
@@ -54,6 +54,8 @@
 | `core.scenes` | 背景场景原语：65 注册场景 + prerender_bg + DrawScaled | character-rig + lesson-scene（doctor 合法值） |
 | `core.persona` | 人设契约校验器（`feuille persona validate` 直调） | character-rig + lesson-scene（doctor 班底体检） |
 | `core.themes` | 教学视频垂域主题匹配器（`feuille theme match` 直调） | karaoke + poster |
+| `core.grid` | 帧网格吸附（时长向上吸附到整帧 / 帧数换算） | karaoke + music-annotate |
+| `core.dsp` | 自写 FFT（radix-2 + Bluestein 任意 N）与 WAV 读取 | bgm + music-annotate |
 
 ### infrastructure —— 10 个（与业务无关的底座）
 
@@ -70,7 +72,7 @@
 | `core.imaging` | 成像底座：sharp 解码/编码 + @napi-rs/canvas 绘制（Pillow 语义镜像），唯一成像实现 |
 | `dsh-plugin` | dsh 原生智能体插件：17 工具面 + 统一结果契约 + dispatch 层额度审批门 + systemPrompt 纪律节 |
 
-### skill 专属 —— 13 个（只被这一个 skill 用的业务实现）
+### skill 专属 —— 14 个（只被这一个 skill 用的业务实现）
 
 | 模块 | 归属 | 职责 |
 |---|---|---|
@@ -78,6 +80,7 @@
 | `karaoke` | karaoke-video | 单卡片成片产线编排（gen_tts / build_video / verify_sync / scan_blank） |
 | `storyteller` | storyteller-video | 多幕评书成片产线编排（render_act_frames / assemble_storyteller） |
 | `bgm` | bgm-bed | BGM 床生成（gen_bgm：Lyria realtime + 实测判据） |
+| `music` | music-annotate-video | 音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描） |
 | `poetry` | multilingual-video-poetry | 实拍母版线诊断（audio_profile / color_contrast） |
 | `copy` | publish-copy | 发布词自检（check_publish_copy：三平台判据 + --facts 数字溯源） |
 | `publish`（base / login / douyin / xhs / bilibili / collections / veriflive / check_plan / clock） | multilingual-video-publishing | Playwright 发布器本体；对包内其他模块零依赖，自成一体 |

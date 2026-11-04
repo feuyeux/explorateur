@@ -23,7 +23,9 @@
     "core.rig": "人物 rig 本体：色表 / 随机与物理 / 插值缓动 / FACE_SPECS / MOOD_FACE / POSE_CODES 等规格注册表。character-rig（选型与排障说明书）与 lesson-scene（core.scene_schema / core.scene_draft / core.lesson 的校验判据现取）共用；draw_character 的契约测试在 @feuille/core 测试套",
     "core.scenes": "背景场景原语：@scene 注册表 65 名 + prerender_bg + DrawScaled 超采样。character-rig（说明书）与 lesson-scene（doctor 的场景合法值现取）共用",
     "core.persona": "人设契约校验器：validate_persona / validate_roster（personas/schema.md 的机器判定，纯函数）。character-rig（说明书）与 lesson-scene（doctor 班底体检）共用；CLI 叶子 `feuille persona validate` 直调",
-    "core.themes": "教学视频垂域主题自动匹配器（原 skills/match_theme.py 升包，karaoke-video 与 one-page-poster 两个 skill 共用 → library 层）。CLI 叶子 `feuille theme match` 直调"
+    "core.themes": "教学视频垂域主题自动匹配器（原 skills/match_theme.py 升包，karaoke-video 与 one-page-poster 两个 skill 共用 → library 层）。CLI 叶子 `feuille theme match` 直调",
+    "core.grid": "帧网格吸附（时长向上吸附到整帧 / 帧数换算）。karaoke-video 与 music-annotate-video 共用——时间轴是累计的，每段各自向上取整才不会滚雪球",
+    "core.dsp": "自写 FFT（radix-2 + Bluestein 任意 N）与 WAV 读取的唯一实现。bgm-bed（频段分布）与 music-annotate-video（探针 / 对齐）共用"
   },
 
   "skills": {
@@ -58,7 +60,9 @@
       "core.section_patch": "按 `### NN · 语种` 边界整节替换发布文案（幂等，不用行号）"
     },
     "character-rig": {},
-    "music-annotate-video": {},
+    "music-annotate-video": {
+      "music": "音乐赏析产线编排（probe 探针 / align 对齐 / build 帧精确装配 / scan_ink 含墨扫描），消费 library 的 FFT / WAV / 帧网格唯一实现，包内零重复"
+    },
     "match-recap-video": {}
   },
 

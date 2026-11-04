@@ -47,6 +47,9 @@ importers:
       '@feuille/karaoke':
         specifier: workspace:*
         version: link:../karaoke
+      '@feuille/music':
+        specifier: workspace:*
+        version: link:../music
       '@feuille/poetry':
         specifier: workspace:*
         version: link:../poetry
@@ -114,6 +117,9 @@ importers:
       '@feuille/karaoke':
         specifier: workspace:*
         version: link:../karaoke
+      '@feuille/music':
+        specifier: workspace:*
+        version: link:../music
       '@feuille/poetry':
         specifier: workspace:*
         version: link:../poetry
@@ -174,6 +180,12 @@ importers:
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@24.19.2)
+
+  packages/music:
+    dependencies:
+      '@feuille/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/poetry:
     dependencies:

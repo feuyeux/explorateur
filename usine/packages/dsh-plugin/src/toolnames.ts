@@ -21,6 +21,7 @@ export const TOOL_NAMES = [
   'usine_copy',
   'usine_bgm',
   'usine_karaoke',
+  'usine_music',
   'usine_poetry',
   'usine_poster',
   'usine_storyteller',

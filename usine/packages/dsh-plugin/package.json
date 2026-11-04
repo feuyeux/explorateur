@@ -21,6 +21,7 @@
     "@feuille/copy": "workspace:*",
     "@feuille/core": "workspace:*",
     "@feuille/karaoke": "workspace:*",
+    "@feuille/music": "workspace:*",
     "@feuille/poetry": "workspace:*",
     "@feuille/poster": "workspace:*",
     "@feuille/publish": "workspace:*",

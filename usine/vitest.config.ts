@@ -10,6 +10,7 @@ const EDGE_FILES = [
   'packages/core/test/covers.test.ts',
   'packages/core/test/textlayer.test.ts',
   'packages/karaoke/test/karaoke.test.ts',
+  'packages/music/test/music.test.ts',
   'packages/poster/test/measure_korean.test.ts',
   'packages/poster/test/poster.test.ts',
   'packages/publish/test/publish.test.ts',

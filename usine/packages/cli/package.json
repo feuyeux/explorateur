@@ -14,6 +14,7 @@
     "@feuille/bgm": "workspace:*",
     "@feuille/publish": "workspace:*",
     "@feuille/karaoke": "workspace:*",
+    "@feuille/music": "workspace:*",
     "@feuille/poetry": "workspace:*",
     "@feuille/poster": "workspace:*",
     "@feuille/storyteller": "workspace:*"

@@ -110,10 +110,11 @@ describe("工具面 ↔ CLI 路由双向对账", () => {
   const tools = familyTools()
   const names = tools.map((t) => t.name)
 
-  it("14 个 argv 家族工具，注册名与覆盖面逐字钉死（面变 = 门禁红，逼迫显式更新）", () => {
+  it("15 个 argv 家族工具，注册名与覆盖面逐字钉死（面变 = 门禁红，逼迫显式更新）", () => {
     expect([...names].sort()).toEqual([
       "usine_bgm", "usine_copy", "usine_cover", "usine_framehash",
-      "usine_karaoke", "usine_ledger", "usine_lesson", "usine_persona",
+      "usine_karaoke", "usine_ledger", "usine_lesson", "usine_music",
+      "usine_persona",
       "usine_poetry", "usine_poster", "usine_scene", "usine_storyteller",
       "usine_textlayer", "usine_theme",
     ])
