@@ -12,14 +12,14 @@
 //
 // 反向验证纪律：每个正向用例都要配一个「坏例必须被抓」的用例。
 import { spawnSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { platform } from '@feuille/core'
+import { platform, readWav } from '@feuille/core'
 
 import { FLAGS } from '../src/cli.js'
 import type * as source_1 from '../src/source.js'
@@ -93,6 +93,29 @@ describe('MIDI 解析：SMF → 音符', () => {
     expect(meta.notes[0]!.start).toBeCloseTo(0, 3)
     // 480 ticks @ 120bpm = 0.5s
     expect(meta.notes[0]!.end).toBeCloseTo(0.5, 3)
+  })
+
+  it('format 1：conductor 轨的全局 tempo 与音符中途变速都生效', () => {
+    const header = Buffer.from([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, 2, 0x01, 0xe0])
+    const conductor = [
+      0x00, 0xff, 0x51, 0x03, 0x0f, 0x42, 0x40, // 60 BPM
+      0x83, 0x60, 0xff, 0x51, 0x03, 0x07, 0xa1, 0x20, // tick 480 → 120 BPM
+    ]
+    const notes = [
+      0x00, 0x90, 60, 100,
+      0x87, 0x40, 0x80, 60, 0, // tick 960 → note off
+    ]
+    const chunks = [conductor, notes].map((track) => {
+      const len = Buffer.alloc(4)
+      len.writeUInt32BE(track.length)
+      return Buffer.concat([Buffer.from([0x4d, 0x54, 0x72, 0x6b]), len, Buffer.from(track)])
+    })
+    const meta = midi.parseMidi(Buffer.concat([header, ...chunks]))
+    expect(meta.tracks).toBe(2)
+    expect(meta.notes).toHaveLength(1)
+    // 前 480 tick 用 60 BPM = 1s，后 480 tick 用 120 BPM = 0.5s。
+    expect(meta.notes[0]!.end).toBeCloseTo(1.5, 6)
+    expect(meta.duration).toBeCloseTo(1.5, 6)
   })
 
   it('坏例：不是 MThd 开头 → 报错（不静默当空曲）', () => {
@@ -421,6 +444,63 @@ describe('探针：RMS 包络 + 频段 + 起音 + 候选边界', () => {
 })
 
 // ============================================================
+//  母版音频轨与编码帧对账
+// ============================================================
+
+describe.runIf(HAS_FFMPEG)('build：母版音频轨与独立帧数测量', () => {
+  it('audio.tracks[] 按 offset + masterStart 切片，envelope 改变实测增益', () => {
+    const root = tmp()
+    makeWav(join(root, 'master.wav'), 5, 440)
+    const scene: build.Scene = { id: 'A', states: [] }
+    const makeProject = (offsetS: number, envelopeStart: number): build.MusicProject => ({
+      work: { title: 'test' }, recording: { file: 'master.wav' }, status_frame_html: 'unused.html',
+      scenes: [scene],
+      audio: { tracks: [{
+        role: 'music', file: 'master.wav', offset_s: offsetS,
+        envelope: [
+          { from_s: envelopeStart, to_s: envelopeStart + 1, gain: 0.25 },
+          { from_s: envelopeStart + 1, to_s: envelopeStart + 2, gain: 1 },
+        ],
+      }] },
+    })
+    const out = join(root, 'out.wav')
+    const reference = join(root, 'reference.wav')
+    // 两条路径都取源文件 2–4s：offset=1/master=1 与 offset=0/master=2 必须一致。
+    build.buildSceneAudio(makeProject(1, 1), scene, root, out, 2, 1)
+    build.buildSceneAudio(makeProject(0, 2), scene, root, reference, 2, 2)
+    const got = readWav(out)
+    expect(got.data.equals(readWav(reference).data)).toBe(true)
+
+    const rms = (fromS: number, toS: number): number => {
+      let sum = 0
+      let count = 0
+      for (let frame = Math.floor(fromS * got.sampleRate); frame < Math.floor(toS * got.sampleRate); frame++) {
+        for (let channel = 0; channel < got.channels; channel++) {
+          const value = got.data.readInt16LE((frame * got.channels + channel) * 2) / 32768
+          sum += value * value
+          count++
+        }
+      }
+      return Math.sqrt(sum / count)
+    }
+    const quiet = rms(0.1, 0.9)
+    const full = rms(1.1, 1.9)
+    expect(full).toBeGreaterThan(0.1)
+    expect(quiet / full).toBeCloseTo(0.25, 1)
+  }, 120_000)
+
+  it('坏例：编码产物少一帧 → reconciliation 必须报告 -1，而不是计划数自证为零', () => {
+    const root = tmp()
+    const video = join(root, 'short.mp4')
+    ffmpeg(['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=64x64:r=30',
+      '-frames:v', '11', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', video])
+    const result = build.reconcileVideoFrames('A', 12, video)
+    expect(result.actualFrames).toBe(11)
+    expect(result.diff).toBe(-1)
+  }, 120_000)
+})
+
+// ============================================================
 //  §14 逐场景对账 + §8 preroll 音画差（端到端，真浏览器）
 // ============================================================
 
@@ -523,6 +603,73 @@ describe.runIf(HAS_BROWSER && HAS_FFMPEG)('端到端：状态帧 → 装配 → 
     const rep = await scan_ink.scanInk(out, { minPct: 0.2 })
     expect(rep.status).toBe('ok')
   }, 300_000)
+
+  it('生成器输出与 shipped renderer 契约一致，after_listening 在摘录后播放', () => {
+    const root = tmp()
+    mkdirSync(join(root, 'notes', 'probe'), { recursive: true })
+    mkdirSync(join(root, 'tts'), { recursive: true })
+    writeFileSync(join(root, 'tts', 'narration-durations.json'), JSON.stringify({
+      durations: { 'intro.zh-CN': 2, 'debrief.zh-CN': 1.5 },
+    }), 'utf8')
+    writeFileSync(join(root, 'notes', 'probe', 'opening.json'), JSON.stringify({
+      hopSec: 0.5, rms: { max: 0.2, envelope: Array.from({ length: 40 }, () => 0.1) },
+    }), 'utf8')
+    writeFileSync(join(root, 'notes', 'opening-align.json'), JSON.stringify({
+      chords: [{ start_s: 10, end_s: 14, label: 'C' }],
+      melody: [{ start_s: 10, end_s: 12, midi: 60 }],
+    }), 'utf8')
+    const layout = {
+      work: { title: 'test' },
+      recording: { file: 'assets/rec.wav' },
+      recordings: { opening: { file: 'assets/rec.wav' } },
+      scenes: [{
+        id: 'A', kind: 'music', movement: 'opening', excerpt: [10, 14], bucket_sec: 4,
+        narration: [{ id: 'intro' }, { id: 'debrief', at: 'after_listening' }],
+        data: { events: [{ t: 11, label: 'entry' }] },
+      }],
+    }
+    const layoutPath = join(root, 'layout.json')
+    writeFileSync(layoutPath, JSON.stringify(layout), 'utf8')
+    const script = fileURLToPath(new URL(
+      '../../../skills/music-annotate-video/assets/template/make-project.mjs', import.meta.url,
+    ))
+    const generatedRun = spawnSync(process.execPath, [
+      script, '--layout', layoutPath, '--root', root, '--out', 'project.json',
+    ], { encoding: 'utf8' })
+    expect(generatedRun.status, generatedRun.stderr).toBe(0)
+    const project = JSON.parse(readFileSync(join(root, 'project.json'), 'utf8')) as build.MusicProject
+    const scene = project.scenes[0]!
+    expect(scene.music_at).toBeCloseTo(3.1, 6)
+    expect(scene.narration?.map((n) => n.at_s)).toEqual([0.8, 7.1])
+    expect(scene.narration![1]!.at_s).toBeGreaterThanOrEqual(scene.music_at! + 4)
+
+    const data = scene.data as {
+      schema: string
+      blocks: Array<{ t0: number; t1: number }>
+      events: Array<{ t: number }>
+    }
+    expect(data.schema).toBe('music-scene/v1')
+    expect(data.blocks).toEqual([{ t0: 0, t1: 4, label: 'C' }])
+    expect(data.events).toEqual([{ t: 1, label: 'entry' }])
+
+    const templatePath = fileURLToPath(new URL(
+      '../../../skills/music-annotate-video/assets/template/status-frame.html', import.meta.url,
+    ))
+    const injectedPath = join(root, 'status-frame.html')
+    writeFileSync(injectedPath, build.injectData(readFileSync(templatePath, 'utf8'), { A: scene.data }), 'utf8')
+    const url = new URL(pathToFileURL(injectedPath).href)
+    url.searchParams.set('scene', 'A')
+    url.searchParams.set('state', '0')
+    url.searchParams.set('ph', '1')
+    const browser = platform.requireTool(platform.browserPath(), 'Chromium')
+    const rendered = spawnSync(browser, [
+      '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
+      '--virtual-time-budget=1000', '--dump-dom', url.toString(),
+    ], { encoding: 'utf8', maxBuffer: 1 << 24 })
+    expect(rendered.status, rendered.stderr).toBe(0)
+    expect(rendered.stdout).toContain('<svg')
+    expect(rendered.stdout).toContain('data-i="0"')
+  }, 120_000)
 })
 
 // ============================================================
@@ -680,12 +827,25 @@ describe('source：CSV 解析与检索词', () => {
     expect(list.map((w) => w.entry)).toEqual(['2', '3'])
   })
 
-  it('isUsableLicense：PD / CC0 / CC BY 收，unknown / 自定许可不收', () => {
+  it('isUsableLicense：PD / CC0 / CC BY / CC BY-SA 的短名与 URL 精确收', () => {
     expect(source.isUsableLicense('Public domain')).toBe(true)
     expect(source.isUsableLicense('CC0')).toBe(true)
+    expect(source.isUsableLicense('CC BY 4.0')).toBe(true)
     expect(source.isUsableLicense('CC BY-SA 4.0')).toBe(true)
+    expect(source.isUsableLicense('https://creativecommons.org/licenses/by-sa/4.0/')).toBe(true)
+    expect(source.isUsableLicense('https://creativecommons.org/publicdomain/zero/1.0/')).toBe(true)
     expect(source.isUsableLicense('unknown')).toBe(false)
     expect(source.isUsableLicense('Custom license')).toBe(false)
+  })
+
+  it('isUsableLicense：所有 NC / ND 组合及 URL 形态都必须拒绝', () => {
+    for (const license of [
+      'CC BY-NC 4.0', 'CC BY-ND 4.0', 'CC BY-NC-ND 4.0', 'CC BY-NC-SA 4.0',
+      'cc-by-nc-4.0', 'https://creativecommons.org/licenses/by-nc/4.0/',
+      'https://creativecommons.org/licenses/by-nd/4.0/',
+      'https://creativecommons.org/licenses/by-nc-nd/4.0/',
+      'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+    ]) expect(source.isUsableLicense(license), license).toBe(false)
   })
 })
 

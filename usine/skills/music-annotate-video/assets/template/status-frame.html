@@ -96,6 +96,7 @@
 <script>
 const DATA = {
   A: {
+    schema: "music-scene/v1",
     // 这一段的时长（秒）——播放头 X 映射用。
     dur: 48,
     // 绘图区几何：唯一事实源。Python/TS 侧烘焙基图时也必须用同一组数。
@@ -146,6 +147,14 @@ else if (scene === "credit" || scene === "card-credit") show("card-credit");
 else {
   const d = DATA[scene];
   if (!d) throw new Error("unknown scene: " + scene);
+  if (d.schema !== "music-scene/v1") throw new Error("unsupported scene DATA schema: " + scene);
+  for (const key of ["x0", "x1", "yTop", "yBot", "dur", "vmaxRef"]) {
+    if (typeof d[key] !== "number") throw new Error(`scene ${scene}: numeric field ${key} is required`);
+  }
+  for (const key of ["blocks", "events", "wave", "current"]) {
+    if (!Array.isArray(d[key])) throw new Error(`scene ${scene}: array field ${key} is required`);
+  }
+  if (d.wave.length === 0) throw new Error(`scene ${scene}: wave must not be empty`);
   show("scene-" + scene);
   const viz = document.getElementById("viz-" + scene);
 

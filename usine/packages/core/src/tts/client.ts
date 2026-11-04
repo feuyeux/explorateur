@@ -409,10 +409,18 @@ export async function* stream(req: TTSRequest): AsyncGenerator<Chunk> {
   }
 }
 
-/** 一段的完整重试语义：403 偏斜修一次；连不上则线性退避重试。
- *
- * 两类重试都不会重复吐音频：403 与连接错误都发生在握手阶段，
- * 也就是本段一个 chunk 都还没 yield 出去。 */
+/** 单次尝试先收完再发布：中途断流时，失败尝试的前缀不能进入最终音频。 */
+async function* bufferedStreamOnce(
+  req: TTSRequest,
+  segment: Buffer,
+  state: StreamState,
+): AsyncGenerator<Chunk> {
+  const pending: Chunk[] = []
+  for await (const chunk of streamOnceImpl(req, segment, state)) pending.push(chunk)
+  yield* pending
+}
+
+/** 一段的完整重试语义：403 偏斜修一次；连不上则线性退避重试。 */
 async function* streamSegment(
   req: TTSRequest,
   segment: Buffer,
@@ -421,7 +429,7 @@ async function* streamSegment(
   const tries = connectRetryTries()
   for (let attempt = 1; ; attempt++) {
     try {
-      yield* streamOnce(req, segment, state)
+      yield* bufferedStreamOnce(req, segment, state)
       return
     } catch (e) {
       if (e instanceof HttpHandshakeError && e.status === 403) {
@@ -432,7 +440,7 @@ async function* streamSegment(
         }
         adjustClockSkewSeconds(serverTs - currentUnixTimestamp())
         state.chunkAudioBytes = 0
-        yield* streamOnce(req, segment, state)
+        yield* bufferedStreamOnce(req, segment, state)
         return
       }
       if (!isConnectError(e) || attempt >= tries) throw e
@@ -492,8 +500,13 @@ export async function synthLine(
   throw last
 }
 
-// 反向验证的测试接缝（Python 侧靠 monkeypatch tts._synth_once；ESM 导出
-// 绑定不可外部改写，故显式开口）。生产代码不碰。
+// 反向验证的测试接缝（ESM 导出绑定不可外部改写，故显式开口）。生产代码不碰。
+type StreamOnceFn = (req: TTSRequest, segment: Buffer, state: StreamState) => AsyncGenerator<Chunk>
+let streamOnceImpl: StreamOnceFn = streamOnce
+export function overrideStreamOnceForTests(fn: StreamOnceFn | null): void {
+  streamOnceImpl = fn ?? streamOnce
+}
+
 type SynthOnceFn = (req: TTSRequest) => Promise<{ mp3: Uint8Array; words: Word[] }>
 let synthOnceOverride: SynthOnceFn | null = null
 export function overrideSynthOnceForTests(fn: SynthOnceFn | null): void {

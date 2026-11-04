@@ -44,6 +44,17 @@ function sineBed(seconds: number, freq = 1000, amp = 12000, rate = 48000): Buffe
 
 // ---------- 纯函数判据（verify_skill_scripts.py §2 的机器形态） ----------
 
+describe('旧公开 DSP 面的兼容', () => {
+  it('gen_bgm 命名空间继续导出全部函数与 WavInfo 类型', () => {
+    expect(g.fftPow2).toBeTypeOf('function')
+    expect(g.dftAny).toBeTypeOf('function')
+    expect(g.rfftMag).toBeTypeOf('function')
+    expect(g.readWav).toBeTypeOf('function')
+    const wav: gen_bgm.WavInfo = { sampleRate: 48000, channels: 2, data: Buffer.alloc(0) }
+    expect(wav.sampleRate).toBe(48000)
+  })
+})
+
 describe('垫量与床长判据（§2 移植）', () => {
   it('pad_request：目标 80→92、62→71.3（×1.15 垫量，不是原值）', () => {
     expect(g.padRequest(80)).toBe(92)

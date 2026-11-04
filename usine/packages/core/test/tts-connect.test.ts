@@ -9,13 +9,22 @@
 //
 // 本用例离线跑：只断言**判定口径**与**超时值**，不触网。
 // 「真的连得上」由真机批量预生成验证，不在单测里做网络依赖断言。
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 
 import {
   CONNECT_FAMILY_ATTEMPT_TIMEOUT_MS,
   isConnectError,
   NoAudioReceived,
+  overrideStreamOnceForTests,
+  setRetryBackoffForTests,
+  synthOnce,
 } from "../src/tts/client.js"
+
+afterEach(() => {
+  overrideStreamOnceForTests(null)
+  setRetryBackoffForTests(1.2)
+  delete process.env["FEUILLE_TTS_CONNECT_TRIES"]
+})
 
 /** 造一个带 socket errno 的错误。 */
 function sockErr(code: string): Error {
@@ -50,6 +59,29 @@ describe("连接类错误判定（isConnectError）", () => {
   it("混合 errno（有一个不是连接错）→ 不算连接错误（不重试）", () => {
     // 口径是「全是连接错才重试」：混进别的错误说明根因不是网络，别烧重试。
     expect(isConnectError(aggErr("ETIMEDOUT", "EACCES"))).toBe(false)
+  })
+})
+
+describe("连接错误重试的发布边界", () => {
+  it("首次尝试已产出音频和词边界后断流 → 重试不得重复发布", async () => {
+    process.env["FEUILLE_TTS_CONNECT_TRIES"] = "2"
+    setRetryBackoffForTests(0)
+    let attempt = 0
+    overrideStreamOnceForTests(async function* () {
+      attempt++
+      if (attempt === 1) {
+        yield { type: "audio", data: new Uint8Array([1, 2]) }
+        yield { type: "WordBoundary", offset: 0, duration: 1_000_000, text: "bad" }
+        throw sockErr("ECONNRESET")
+      }
+      yield { type: "audio", data: new Uint8Array([3, 4]) }
+      yield { type: "WordBoundary", offset: 2_000_000, duration: 1_000_000, text: "good" }
+    })
+
+    const out = await synthOnce({ text: "hello", voice: "v", rate: "+0%", pitch: "+0Hz" })
+    expect(attempt).toBe(2)
+    expect([...out.mp3]).toEqual([3, 4])
+    expect(out.words).toEqual([{ t: 0.2, d: 0.1, w: "good" }])
   })
 })
 

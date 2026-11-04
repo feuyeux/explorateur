@@ -48,6 +48,51 @@ function readVarLen(buf: Buffer, pos: number): { value: number; next: number } {
   return { value, next: p }
 }
 
+interface RawNote {
+  pitch: number
+  startTick: number
+  endTick: number
+}
+
+interface TempoEvent {
+  tick: number
+  usPerBeat: number
+  order: number
+}
+
+interface RawTrack {
+  notes: RawNote[]
+  tempos: TempoEvent[]
+  endTick: number
+}
+
+/** 为一条时间轴构造分段恒定 tempo 的 tick→秒换算。 */
+function tickConverter(events: TempoEvent[], ticksPerBeat: number): (tick: number) => number {
+  const sorted = [...events].sort((a, b) => a.tick - b.tick || a.order - b.order)
+  const changes: Array<{ tick: number; sec: number; usPerBeat: number }> = []
+  let sec = 0
+  let lastTick = 0
+  let usPerBeat = 500000
+  for (const event of sorted) {
+    sec += ((event.tick - lastTick) / ticksPerBeat) * (usPerBeat / 1e6)
+    lastTick = event.tick
+    usPerBeat = event.usPerBeat
+    changes.push({ tick: lastTick, sec, usPerBeat })
+  }
+  return (tick: number): number => {
+    let baseSec = 0
+    let baseTick = 0
+    let currentUs = 500000
+    for (const change of changes) {
+      if (tick <= change.tick) break
+      baseSec = change.sec
+      baseTick = change.tick
+      currentUs = change.usPerBeat
+    }
+    return baseSec + ((tick - baseTick) / ticksPerBeat) * (currentUs / 1e6)
+  }
+}
+
 /** 解析 SMF 字节。 */
 export function parseMidi(buf: Buffer): MidiMeta {
   if (buf.length < 14 || buf.toString("latin1", 0, 4) !== "MThd") {
@@ -62,19 +107,8 @@ export function parseMidi(buf: Buffer): MidiMeta {
   const ticksPerBeat = division
 
   let pos = 8 + headerLen
-  const notes: MidiNote[] = []
-  let duration = 0
-  let tick = 0
-  let tempoUsPerBeat = 500000
-  let secAtTick = 0
-  let lastTick = 0
-
-  const tempoAt = (t: number, usPerBeat: number): void => {
-    // tick→秒的分段恒定 tempo： tempo 变化点重新起算。
-    secAtTick = secAtTick + ((t - lastTick) / ticksPerBeat) * (tempoUsPerBeat / 1e6)
-    lastTick = t
-    tempoUsPerBeat = usPerBeat
-  }
+  let tempoOrder = 0
+  const rawTracks: RawTrack[] = []
 
   for (let tr = 0; tr < nTracks && pos + 8 <= buf.length; tr++) {
     const id = buf.toString("latin1", pos, pos + 4)
@@ -83,12 +117,9 @@ export function parseMidi(buf: Buffer): MidiMeta {
     pos += 8 + len
     if (id !== "MTrk") continue
 
-    tick = 0
-    secAtTick = 0
-    lastTick = 0
-    tempoUsPerBeat = 500000
-    const open = new Map<number, { pitch: number; sec: number }>()
-
+    let tick = 0
+    const raw: RawTrack = { notes: [], tempos: [], endTick: 0 }
+    const open = new Map<number, { pitch: number; startTick: number }>()
     let p = 0
     let runningStatus = -1
     while (p < body.length) {
@@ -105,20 +136,18 @@ export function parseMidi(buf: Buffer): MidiMeta {
       }
 
       if (status === 0xff) {
-        // meta 事件
         const type = body[p]!
         p++
         const { value: mlen, next: p2 } = readVarLen(body, p)
         p = p2
         if (type === 0x51 && mlen === 3) {
-          const us = (body[p]! << 16) | (body[p + 1]! << 8) | body[p + 2]!
-          tempoAt(tick, us)
+          const usPerBeat = (body[p]! << 16) | (body[p + 1]! << 8) | body[p + 2]!
+          raw.tempos.push({ tick, usPerBeat, order: tempoOrder++ })
         }
         p += mlen
         continue
       }
       if (status === 0xf0 || status === 0xf7) {
-        // sysex：变长长度
         const { value: slen, next: p2 } = readVarLen(body, p)
         p = p2 + slen
         continue
@@ -130,14 +159,13 @@ export function parseMidi(buf: Buffer): MidiMeta {
         const pitch = body[p]!
         const vel = body[p + 1]!
         p += 2
-        const sec = secAtTick + ((tick - lastTick) / ticksPerBeat) * (tempoUsPerBeat / 1e6)
+        const key = (channel << 8) | pitch
         if (kind === 0x90 && vel > 0) {
-          open.set((channel << 8) | pitch, { pitch, sec })
+          open.set(key, { pitch, startTick: tick })
         } else {
-          const key = (channel << 8) | pitch
           const on = open.get(key)
           if (on) {
-            notes.push({ pitch: on.pitch, start: on.sec, end: Math.max(on.sec, sec) })
+            raw.notes.push({ pitch: on.pitch, startTick: on.startTick, endTick: Math.max(on.startTick, tick) })
             open.delete(key)
           }
         }
@@ -147,18 +175,30 @@ export function parseMidi(buf: Buffer): MidiMeta {
         p += 1
         continue
       }
-      // 其余控制类事件（0xa0/0xb0/0xe0）：2 字节数据
       p += 2
     }
-    // 轨尾仍未关闭的音符：按该轨结束时刻收口（谱面里没写 note-off 的常见写法）
-    const endSec = secAtTick + ((tick - lastTick) / ticksPerBeat) * (tempoUsPerBeat / 1e6)
+    // 轨尾仍未关闭的音符按该轨结束 tick 收口。
     for (const on of open.values()) {
-      notes.push({ pitch: on.pitch, start: on.sec, end: Math.max(on.sec, endSec) })
+      raw.notes.push({ pitch: on.pitch, startTick: on.startTick, endTick: Math.max(on.startTick, tick) })
     }
-    duration = Math.max(duration, endSec)
+    raw.endTick = tick
+    rawTracks.push(raw)
   }
 
-  for (const n of notes) duration = Math.max(duration, n.end)
+  // Format 1 的 tempo 属于整张文件的 conductor 时间轴，常见于独立第 0 轨。
+  const sharedTempos = rawTracks.flatMap((track) => track.tempos)
+  const notes: MidiNote[] = []
+  let duration = 0
+  for (const raw of rawTracks) {
+    const toSec = tickConverter(format === 1 ? sharedTempos : raw.tempos, ticksPerBeat)
+    for (const note of raw.notes) {
+      const start = toSec(note.startTick)
+      const end = Math.max(start, toSec(note.endTick))
+      notes.push({ pitch: note.pitch, start, end })
+      duration = Math.max(duration, end)
+    }
+    duration = Math.max(duration, toSec(raw.endTick))
+  }
   notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch)
   return { duration, notes, tracks: nTracks, ticksPerBeat }
 }

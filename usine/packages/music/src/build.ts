@@ -14,8 +14,8 @@
 //
 // 场景时长模型（验收公式）：`d30(pre + body + done + tail)`。
 // **总帧数一次算定**（framesFor(pre+body+done+tail)），各段按自己的时长
-// 分配帧数，最后一段吸收舍入余数 —— 于是逐场景对账**天然**是 0 帧，
-// 不会像「各段各自 d30 再相加」那样多出几帧。
+// 分配帧数，最后一段吸收舍入余数；编码后再用 ffprobe 独立数帧对账，
+// 不能拿同一份计划数同时充当预期值与实测值。
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -342,6 +342,7 @@ export function buildProject(
   const segAudio: string[] = []
   const reconciliation: BuildResult['reconciliation'] = []
   let totalFrames = 0
+  let masterStartSec = 0
 
   for (const scene of project.scenes) {
     const t = sceneTiming(scene, fps)
@@ -413,17 +414,13 @@ export function buildProject(
     segVideo.push(sceneVideo)
     totalFrames += t.totalFrames
 
-    // 音频段：摘录绝对偏移 + 旁白期 ducking + 聆听段全电平
+    // 音频段：场景摘录或母版轨 + 旁白期 ducking + 聆听段全电平
     const sceneAudio = join(workDir, `_a_${scene.id}.wav`)
-    buildSceneAudio(project, scene, root, sceneAudio, t.durationSec, fps)
+    buildSceneAudio(project, scene, root, sceneAudio, t.durationSec, masterStartSec)
+    masterStartSec += t.durationSec
     segAudio.push(sceneAudio)
 
-    reconciliation.push({
-      scene: scene.id,
-      expectedFrames: t.totalFrames,
-      actualFrames: counts.reduce((a, b) => a + b, 0),
-      diff: counts.reduce((a, b) => a + b, 0) - t.totalFrames,
-    })
+    reconciliation.push(reconcileVideoFrames(scene.id, t.totalFrames, sceneVideo))
   }
 
   // ---- 拼接 ----
@@ -478,6 +475,30 @@ export function probeDuration(path: string): number {
   return Number.parseFloat(r.stdout.trim())
 }
 
+/** 独立解码并数出视频流实际帧数。 */
+export function probeVideoFrames(path: string): number {
+  const r = spawnSync(ffprobeBin(), [
+    '-v', 'error', '-count_frames', '-select_streams', 'v:0',
+    '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', path,
+  ], { encoding: 'utf8' })
+  if (r.status !== 0) throw new FeuilleError(`ffprobe 数帧失败：${path}\n${(r.stderr ?? '').slice(-500)}`)
+  const frames = Number.parseInt(r.stdout.trim(), 10)
+  if (!Number.isFinite(frames) || frames < 0) {
+    throw new FeuilleError(`ffprobe 没返回有效帧数：${path}（${r.stdout.trim()}）`)
+  }
+  return frames
+}
+
+/** 用编码产物的实测帧数做逐场景对账。 */
+export function reconcileVideoFrames(
+  scene: string,
+  expectedFrames: number,
+  sceneVideo: string,
+): BuildResult['reconciliation'][number] {
+  const actualFrames = probeVideoFrames(sceneVideo)
+  return { scene, expectedFrames, actualFrames, diff: actualFrames - expectedFrames }
+}
+
 /** 视频流与音频流的时长差（毫秒）。 */
 export function streamDiffMs(path: string): number {
   const r = spawnSync(ffprobeBin(), [
@@ -499,26 +520,29 @@ export function streamDiffMs(path: string): number {
  * 造一个场景的音频段（长度精确等于场景时长）。
  *
  * 音频图：
- *   音乐轨：录音的摘录 [start_s, end_s) → adelay 到场景内落点 →
- *           volume 包络（旁白期 ducking 到 music_gain，聆听段 1.0）
+ *   场景音乐轨：录音摘录 → adelay 到场景内落点 → 旁白期 ducking。
+ *   母版音频轨：有 audio.tracks[] 时取代场景摘录，按 masterStartSec 切当前
+ *               场景，并把母版绝对秒 envelope 平移成场景内秒。
  *   旁白轨：各 mp3 → adelay 到 at_s → volume gain
  *   混合：amix normalize=0（保住人声电平）→ apad → -t 场景时长
  */
-function buildSceneAudio(
+export function buildSceneAudio(
   project: MusicProject,
   scene: Scene,
   root: string,
   outWav: string,
   durationSec: number,
-  fps: number,
+  masterStartSec = 0,
 ): void {
   const FF = ffmpegBin()
   const musicGain = project.audio?.ducking?.music_gain ?? 0.25
   const inputs: string[] = []
   const filters: string[] = []
 
+  const globalTracks = project.audio?.tracks ?? []
   const musicAt = scene.music_at ?? scene.preroll ?? 0.8
-  const ex = scene.recording_excerpt
+  // 母版轨已经表达整条音乐床；再叠加场景摘录会把同一录音混两遍。
+  const ex = globalTracks.length === 0 ? scene.recording_excerpt : undefined
   if (ex) {
     // 场景自带录音文件优先（多乐章作品），否则用项目级那一份。
     const recFile = scene.recording_file ?? project.recording.file
@@ -541,6 +565,27 @@ function buildSceneAudio(
     )
   }
 
+  const globalInputs: string[] = []
+  for (let i = 0; i < globalTracks.length; i++) {
+    const track = globalTracks[i]!
+    inputs.push('-i', resolve(root, track.file))
+    const idx = inputs.length / 2 - 1
+    const sourceStart = (track.offset_s ?? 0) + masterStartSec
+    const sourceEnd = sourceStart + durationSec
+    const expression = (track.envelope ?? [])
+      .filter((w) => w.to_s > w.from_s)
+      .reduceRight((fallback, w) => {
+        const from = w.from_s - masterStartSec
+        const to = w.to_s - masterStartSec
+        return `if(between(t,${from.toFixed(3)},${to.toFixed(3)}),${w.gain},${fallback})`
+      }, '1')
+    filters.push(
+      `[${idx}:a]atrim=start=${sourceStart.toFixed(6)}:end=${sourceEnd.toFixed(6)},`
+      + `asetpts=PTS-STARTPTS,volume=volume='${expression}':eval=frame[g${i}]`,
+    )
+    globalInputs.push(`[g${i}]`)
+  }
+
   const nars = scene.narration ?? []
   const nInputs: string[] = []
   for (let i = 0; i < nars.length; i++) {
@@ -554,7 +599,7 @@ function buildSceneAudio(
     nInputs.push(`[n${i}]`)
   }
 
-  const mixInputs = [...(ex ? ['[m]'] : []), ...nInputs]
+  const mixInputs = [...(ex ? ['[m]'] : []), ...globalInputs, ...nInputs]
   const nMix = mixInputs.length
   if (nMix === 0) {
     // 没有音乐也没有旁白 → 纯静音（不能拼出 inputs=0 的 amix）
@@ -575,7 +620,6 @@ function buildSceneAudio(
     '-filter_complex', filters.join(';'),
     '-map', '[am]', '-t', durationSec.toFixed(6),
     '-ar', '48000', '-ac', '2', outWav], 900)
-  void fps
 }
 
 // ============================================================

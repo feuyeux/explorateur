@@ -41,12 +41,13 @@ import { basename, dirname, join, resolve } from 'node:path'
 
 import {
   FeuilleError, roundHalfEven, audio, platform, data,
-  rfftMag, readWav,
+  fftPow2, dftAny, rfftMag, readWav,
 } from '@feuille/core'
 
 // FFT / WAV 读取搬去了 @feuille/core（library：bgm-bed 与 music-annotate-video
 // 共用）。这里原样再导出一次——本包的公开面不变，既有调用点不用改。
-export { rfftMag, readWav }
+export { fftPow2, dftAny, rfftMag, readWav }
+export type { WavInfo } from '@feuille/core'
 
 // 文档声明的流格式（Lyria RealTime 模型卡：48 kHz / Stereo / Raw 16-bit PCM）。
 // 服务端没给协商字段，只能按文档解读——并用实测拍速反查，见 verifyRate。

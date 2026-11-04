@@ -215,28 +215,26 @@ for (const s of layout.scenes) {
     const { probe, align } = movement(s.movement)
     const [start, end] = s.excerpt
     const bucketSec = s.bucket_sec ?? 4
-    const nars = (s.narration ?? []).map((n) => narr(n.id))
+    const nars = (s.narration ?? []).map((n) => ({ ...narr(n.id), at: n.at }))
 
-    // 旁白 A 在场景开头；旁白 B 在聆听之后（"after_listening"）
+    // 聆听前旁白先顺排；聆听后旁白不参与 musicAt 的计算。
     let cursor = 0.8
     const narration = []
-    let musicAt = null
-    nars.forEach((n) => {
-      if (n.at === 'after_listening') {
-        if (musicAt === null) musicAt = cursor
-        narration.push({ file: n.file, at_s: Number(cursor.toFixed(3)), gain: 1.0 })
-        cursor += n.dur + 0.3
-      } else {
-        narration.push({ file: n.file, at_s: Number(cursor.toFixed(3)), gain: 1.0 })
-        cursor += n.dur + 0.3
-      }
-    })
-    if (musicAt === null) musicAt = cursor   // 没有「聆听后」的旁白：音乐接在旁白后
+    for (const n of nars.filter((n) => n.at !== 'after_listening')) {
+      narration.push({ file: n.file, at_s: Number(cursor.toFixed(3)), gain: 1.0 })
+      cursor += n.dur + 0.3
+    }
+    const musicAt = cursor
 
     const listenSec = end - start
     const listenEnd = musicAt + listenSec
-    // 场景尾部：最后一段旁白讲完 + 0.5s 余量
-    const bodyEnd = Math.max(listenEnd, cursor)
+    // 聆听后旁白从摘录结束处开始顺排，场景尾部必须覆盖最后一段。
+    let afterCursor = listenEnd
+    for (const n of nars.filter((n) => n.at === 'after_listening')) {
+      narration.push({ file: n.file, at_s: Number(afterCursor.toFixed(3)), gain: 1.0 })
+      afterCursor += n.dur + 0.3
+    }
+    const bodyEnd = Math.max(listenEnd, cursor, afterCursor)
     const PREROLL = 0.8
     const TAIL = 0.5
 
@@ -271,12 +269,20 @@ for (const s of layout.scenes) {
 
     const data = {
       ...(s.data ?? {}),
+      schema: 'music-scene/v1',
       kind: 'music',
       x0: s.data?.x0 ?? 40, x1: s.data?.x1 ?? 1820,
+      yTop: s.data?.yTop ?? 30, yBot: s.data?.yBot ?? 520,
       dur: Number(listenSec.toFixed(3)),
       // 跨段可比较的参照：**整个乐章**的最响 RMS（不是本场景的局部最大）
       vmaxRef: Number(probe.rms.max.toFixed(4)),
-      chords: blocks,
+      // status-frame.html 的 v1 契约：块名 blocks，时间是摘录内相对秒。
+      blocks: blocks.map((b) => ({
+        t0: Number((b.start_s - start).toFixed(3)),
+        t1: Number((b.end_s - start).toFixed(3)),
+        label: b.label,
+      })),
+      events: s.data?.events ?? [],
       melody: melodyFor(align, start, end),
       wave: waveFor(probe, start, end, bucketSec),
       // 引子段（音乐还没进）**不高亮任何块**：current 的第一项给 null。

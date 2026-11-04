@@ -487,12 +487,24 @@ export function isScoreOnly(fileTitle: string | undefined | null): boolean {
 
 /** 校验一个候选是否可以进成片（许可白名单）。 */
 export function isUsableLicense(license: string): boolean {
-  const l = license.toLowerCase()
-  if (l.includes('unknown')) return false
-  return (
-    l.includes('public domain') || l.includes('cc0') || l.includes('cc by')
-    || l.includes('cc-by') || l.includes('publicdomain')
-  )
+  const raw = license.trim().toLowerCase()
+  let normalized = raw
+  try {
+    const url = new URL(raw)
+    if (url.hostname !== 'creativecommons.org' && url.hostname !== 'www.creativecommons.org') return false
+    const parts = url.pathname.split('/').filter(Boolean)
+    if (parts[0] === 'publicdomain' && parts[1] === 'zero') normalized = 'cc0'
+    else if (parts[0] === 'publicdomain' && parts[1] === 'mark') normalized = 'public-domain'
+    else if (parts[0] === 'licenses' && parts[1]) normalized = `cc-${parts[1]}`
+    else return false
+  } catch {
+    // 普通许可短名（CC BY-SA 4.0 / Public domain）在下面规范化。
+  }
+  normalized = normalized.replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  if (/^public-?domain(?:-mark)?(?:-\d+(?:\.\d+)*)?$/.test(normalized)) return true
+  if (/^cc0(?:-\d+(?:\.\d+)*)?(?:-universal)?$/.test(normalized)) return true
+  // 只收严格的 CC BY / CC BY-SA；NC、ND 及其组合绝不能靠前缀混进来。
+  return /^cc-by(?:-sa)?(?:-\d+(?:\.\d+)*)?(?:-international)?$/.test(normalized)
 }
 
 /** 工具探测（下载用 curl；ffprobe 用于时长复核）。 */
