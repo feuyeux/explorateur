@@ -321,7 +321,7 @@ describe('assemble e2e：合成帧 → 叠化转场 + 醒木混音成片', () =>
   const d = mkdtempSync(join(tmpdir(), 'storyteller-assemble-'))
   afterAll(() => rmSync(d, { recursive: true, force: true }))
 
-  it('两幕 + 转场 + gavel → 单画幅 mp4（24 帧 @5fps）', { timeout: 180_000 }, async () => {
+  it('两幕 + 转场 + gavel → 单画幅 mp4（26 帧 @5fps）', { timeout: 180_000 }, async () => {
     const F = join(d, 'frames')
     mkdirSync(F, { recursive: true })
     mkdirSync(join(d, 'tts'), { recursive: true })
@@ -336,7 +336,11 @@ describe('assemble e2e：合成帧 → 叠化转场 + 醒木混音成片', () =>
         text: '开讲一段。',
         tokens: [{ text: '开讲', start: 0.2 }, { text: '一段', start: 0.8 }],
       }))
-      for (let k = 0; k < 9; k++) {
+      // 幕帧数 = preroll(1) + 词段(3+5) + done(1) = 10 @5fps。
+      // 词段为什么是 3+5：词表尾推的词跨度合计 = adur + tail - t0 = 1.44 + 0.2 - 0.2 = 1.44s，
+      // ×5fps = 7.2 帧 → 分成两段后向上取整共 8 帧（ceil 逐段取，不是合并取）。
+      // （2026-11-04 修正：原来只造 9 帧，装配器按上式要第 10 帧 → 直接崩。）
+      for (let k = 0; k < 10; k++) {
         await solidPng(join(F, `f${aid}-${String(k).padStart(4, '0')}.png`), col as [number, number, number])
       }
     }
@@ -349,9 +353,9 @@ describe('assemble e2e：合成帧 → 叠化转场 + 醒木混音成片', () =>
     const rc = await st.assemble_storyteller.main([join(d, 'acts.json'), F, out])
     expect(rc).toBe(0)
     expect(existsSync(out)).toBe(true)
-    // cover 2 + a1 9 + 转场 2 + a2 9 + outro 2 = 24 帧 @5fps = 4.8s
+    // cover 2 + a1 10 + 转场 2 + a2 10 + outro 2 = 26 帧 @5fps = 5.2s
     const dur = audio.probeDuration(out)
-    expect(Math.abs(dur - 4.8)).toBeLessThan(0.3)
+    expect(Math.abs(dur - 5.2)).toBeLessThan(0.3)
     const r = spawnSync(platform.ffmpeg()!, ['-hide_banner', '-i', out], { encoding: 'utf8' })
     expect(r.stderr).toMatch(/Audio: aac/)
   })

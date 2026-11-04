@@ -213,7 +213,14 @@ describe("离线端到端：预置缓存 → runScene 全程零网络", () => {
     expect(tl.lines[1].dur).toBeGreaterThan(1.9)
     // start 累进：start[1] = dur[0] + gap
     expect(tl.lines[1].start).toBe(tl.lines[0].dur + 0.35)
-    expect(tl.totalDur).toBeCloseTo(tl.lines[0].dur + tl.lines[1].dur, 5)
+    // totalDur 累的是**排程用的 speech_dur**（3 位小数的舍入值），不是原始 dur。
+    // 原始 dur 是 effectiveDurOf 的未舍入词级真值；两者差 ≤ 1ms/行（舍入残差）。
+    // （2026-11-04 修正：原断言拿 dur 比 totalDur，差 0.45ms → 一直红；
+    //   实现本身自洽，错的是断言取错了字段。）
+    for (const ln of tl.lines) {
+      expect(Math.abs(ln.dur - ln.speech_dur)).toBeLessThanOrEqual(0.001)
+    }
+    expect(tl.totalDur).toBeCloseTo(tl.lines[0].speech_dur + tl.lines[1].speech_dur, 5)
     expect(tl.spanDur).toBeCloseTo(tl.totalDur + 0.35, 5)
     // 产物位逐行 mp3
     expect(readFileSync(join(outDir, "line-00.mp3")).length).toBeGreaterThan(0)
