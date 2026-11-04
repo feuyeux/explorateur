@@ -53,11 +53,19 @@ export interface AudioCandidate {
   licenseUrl: string
   /** 署名行（从 File: 页 wikitext 的 author/credit 读，不信 extmetadata.Artist）。 */
   attribution: string
+  /** 读出处页失败的原因（空/缺省 = 读成功）。有值 → 署名未知，**不是**「公有领域」。 */
+  attributionError?: string
 }
 
 export interface SourceOptions {
   /** 每个作品取几个候选。 */
   limit?: number
+  /**
+   * 读出处的接缝（**给门禁用**）：默认打 Commons 的 `action=parse`。
+   * 注入时必须不打网络——否则「读不到出处页」这条路径只能靠真的 429 来测，
+   * 而门禁就变成了可用性测试。
+   */
+  readPage?: (title: string) => Promise<string>
   /** 最短时长（秒）——太短的片段不作数。 */
   minDurationSec?: number
   /** 下载并算 sha256。 */
@@ -257,10 +265,15 @@ export async function fillAttribution(
   for (const c of candidates) {
     const page = `File:${c.title}`
     try {
-      const parsed = await fetchJson({
-        action: 'parse', format: 'json', prop: 'wikitext', page,
-      }) as { parse?: { wikitext?: { '*'?: string } } }
-      const wt = parsed.parse?.wikitext?.['*'] ?? ''
+      let wt: string
+      if (opts.readPage) {
+        wt = await opts.readPage(c.title)
+      } else {
+        const parsed = await fetchJson({
+          action: 'parse', format: 'json', prop: 'wikitext', page,
+        }) as { parse?: { wikitext?: { '*'?: string } } }
+        wt = parsed.parse?.wikitext?.['*'] ?? ''
+      }
       // 署名优先级：许可模板的 author（= 录音作者/演出者）→ Description 里的
       // 演出者 → Information 的 |author= → credit。**不采信 extmetadata.Artist**
       // （实测它写的是作曲家）。
@@ -272,8 +285,15 @@ export async function fillAttribution(
       c.attribution = who
         ? `${who} · ${c.license} via Wikimedia Commons`
         : `${c.license} via Wikimedia Commons`
-    } catch {
-      c.attribution = 'Public domain, via Wikimedia Commons'
+      c.attributionError = ''
+    } catch (e) {
+      // **读不到出处页时绝不许编一个署名。** 第一版在这里写
+      // `Public domain, via Wikimedia Commons`，于是 CC BY-SA 的录音被记成
+      // 公有领域——那是一条伪造的许可声明，比空着危险得多（实测 16/64 条
+      // 中招，多为 429）。这里只记错误 + 留空，`needsAttribution` 会把它们
+      // 挑出来重读。
+      c.attribution = ''
+      c.attributionError = String((e as Error).message ?? e).slice(0, 160)
     }
     await sleep(interval)
   }
@@ -379,11 +399,33 @@ export interface LedgerItem {
   license: string
   license_url: string
   attribution: string
+  /** 读出处页失败的原因（`''` = 读成功）。有值时署名未知，**不是**「公有领域」。 */
+  attribution_error?: string
   retrieved: string
   sha256: string
   local_path?: string
   duration_s?: number | null
   notes?: string
+}
+
+/**
+ * 把台账里**署名未知**的件挑出来（读出处页失败的、以及上一版把失败写成
+ * 「Public domain」的历史记录）。
+ *
+ * 为什么要专门一条：署名是靠**读网页**得来的，而读网页会 429。读失败 ≠ 公有
+ * 领域。这条把「还得再读一次」的件列出来，让续跑有的放矢，而不是把一份带
+ * 假署名的台账当成品。
+ */
+export function needsAttribution(
+  works: readonly SourcedWork[],
+): SourcedWork[] {
+  return works.filter((w) => {
+    if (!w.recording) return false
+    if (w.attributionError) return true
+    const a = w.attribution ?? ''
+    // 历史记录里那批被写成「Public domain」的：许可是 CC 就不是公有领域。
+    return a === '' || (/^public domain/i.test(a) && !/^public domain$/i.test(w.license ?? ''))
+  })
 }
 
 /** 今天的日期（YYYY-MM-DD）。 */
@@ -406,6 +448,7 @@ export function toLedgerItem(
     license: c.license,
     license_url: c.licenseUrl,
     attribution: c.attribution,
+    attribution_error: c.attributionError ?? '',
     retrieved: today(),
     sha256: opts.sha256 ?? '',
     local_path: opts.localPath,
@@ -531,6 +574,8 @@ export interface SourcedWork {
   pageUrl: string | null
   license: string | null
   attribution: string | null
+  /** 读出处页失败的原因（`''` = 读成功）。 */
+  attributionError: string
   durationS: number | null
   /** 文件名与作品名的契合度（0–1）——**建议**，不是判据：低分不代表错，高分不代表对。 */
   affinity?: number
@@ -610,12 +655,51 @@ export async function sourceBatch(
     n++
     const prev = done.get(entry)
     if (prev) {
+      // 台账里已有这条：**该跳过的跳过，但署名未知的要修**。
+      //
+      // 为什么要修：署名是**读网页**得来的，读网页会 429。读失败不等于公有
+      // 领域——第一版把失败写成「Public domain」，于是台账里混进了 16 条伪造
+      // 的许可声明。续跑时顺手把这些条目的出处页重读一遍（只读页，不重检索：
+      // 检索贵、读页便宜），修好再落盘。
+      if (prev.recording && needsAttribution([prev]).length > 0) {
+        try {
+          // **不重检索**——检索贵（要走 Commons 全文搜索），而要修的只是
+          // 出处页上的一行署名。直接拿台账里那条的标题重读出处页。
+          const cand: AudioCandidate = {
+            title: prev.recording.title,
+            url: prev.recording.notes?.replace(/^直链 /, '') ?? '',
+            pageUrl: prev.recording.url,
+            size: 0, duration: prev.durationS, mime: 'audio/ogg',
+            license: prev.license ?? '', licenseUrl: prev.recording.license_url,
+            attribution: '',
+          }
+          const filled = await (opts.attributionFn ?? ((cs: AudioCandidate[]) => fillAttribution(cs, opts)))([cand])
+          const c2 = filled[0] ?? cand
+          const fixed: SourcedWork = {
+            ...prev,
+            attribution: c2.attribution || null,
+            attributionError: c2.attributionError ?? '',
+            recording: prev.recording
+              ? { ...prev.recording, attribution: c2.attribution, attribution_error: c2.attributionError ?? '' }
+              : null,
+          }
+          out.push(fixed)
+          done.set(entry, fixed)
+          process.stderr.write(`  [${n}] ${entry} 修署名：${fixed.attribution || '（仍失败）'}\n`)
+          flush()
+          continue
+        } catch (e) {
+          out.push(prev)
+          process.stderr.write(`  [${n}] ${entry} 修署名失败：${String((e as Error).message ?? e).slice(0, 80)}\n`)
+          continue
+        }
+      }
       out.push(prev)
       process.stderr.write(`  [${n}] ${entry} 跳过（台账已有）\n`)
       continue
     }
     if (!composer || !work) {
-      out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, durationS: null, error: '表里缺 composer_en / work_en' })
+      out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, attributionError: '', durationS: null, error: '表里缺 composer_en / work_en' })
       flush()
       continue
     }
@@ -627,7 +711,13 @@ export async function sourceBatch(
       const usable = cands.filter((c) => isUsableLicense(c.license))
       // 只给**要选中的那一条**读出处页：逐个候选都读会让整批慢十倍，而
       // 台账只需要选中项的署名。
-      let pick = usable[0] ?? cands[0] ?? null
+      // 选择顺序：可许用许可中**已取到署名**的优先——读出处页失败的候选不该
+      // 压过能读到署名的（否则台账里会多一条署名未知的选中项）。
+      const ranked = [
+        ...usable.filter((x) => !x.attributionError),
+        ...usable.filter((x) => x.attributionError),
+      ]
+      let pick = ranked[0] ?? cands[0] ?? null
       if (pick) {
         // 署名接缝可能返回**新对象**（纯函数式实现），所以要接住返回值，
         // 不能假定它原地改。
@@ -644,12 +734,13 @@ export async function sourceBatch(
         pageUrl: pick?.pageUrl ?? null,
         license: pick?.license ?? null,
         attribution: pick?.attribution ?? null,
+        attributionError: pick?.attributionError ?? '',
         durationS: pick?.duration ?? null,
         affinity: pick ? Number(titleAffinity(pick.title, work).toFixed(2)) : 0,
         error: pick ? undefined : '没有命中音频文件',
       })
     } catch (e) {
-      out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, durationS: null, error: String((e as Error).message ?? e).slice(0, 200) })
+      out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, attributionError: '', durationS: null, error: String((e as Error).message ?? e).slice(0, 200) })
     }
     process.stderr.write(`  [${n}] ${entry} ${composer} ${work} → ${out[out.length - 1]?.license ?? 'none'}\n`)
     flush()

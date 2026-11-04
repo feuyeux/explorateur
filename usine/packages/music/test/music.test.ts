@@ -558,6 +558,89 @@ describe('source：CSV 解析与检索词', () => {
     expect(bad).toBe(0)
   })
 
+  it('读出处页失败**不许编署名**：attribution 留空 + 记错误（上一版写成 Public domain，= 伪造许可）', async () => {
+    // 门禁绝不真联网：读页接缝直接抛（模拟 429）。
+    const out = await source.fillAttribution(
+      [{
+        title: 'x.ogg', url: 'https://example.invalid/x.ogg',
+        pageUrl: 'https://example.invalid/p', size: 1, duration: 1, mime: 'audio/ogg',
+        license: 'CC BY-SA 4.0', licenseUrl: '', attribution: '',
+      }],
+      { intervalMs: 0, readPage: async () => { throw new Error('HTTP 429') } },
+    )
+    expect(out[0]!.attribution).toBe('')
+    expect(out[0]!.attributionError).toBeTruthy()
+    expect(out[0]!.attribution).not.toContain('Public domain')
+  })
+
+  it('署名取许可模板的 |author=（演出者），不取 Information 的 |author=（作曲家）', async () => {
+    const wt = [
+      '{{Information',
+      '|description={{en|1=Performed by John Harrison}}',
+      '|author=Antonio Vivaldi',
+      '}}',
+      '{{self|cc-by-sa-4.0|author=John Harrison}}',
+    ].join('\n')
+    const out = await source.fillAttribution(
+      [{
+        title: 'y.ogg', url: 'https://example.invalid/y.ogg', pageUrl: 'p',
+        size: 1, duration: 1, mime: 'audio/ogg', license: 'CC BY-SA 4.0', licenseUrl: '', attribution: '',
+      }],
+      { intervalMs: 0, readPage: async () => wt },
+    )
+    expect(out[0]!.attribution).toBe('John Harrison · CC BY-SA 4.0 via Wikimedia Commons')
+    expect(out[0]!.attribution).not.toContain('Vivaldi')
+  })
+
+  it('续跑会**修**署名未知的台账条目（只重读出处页，不重检索）', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'feuille-repair-'))
+    const csvPath = join(dir, 'works.csv')
+    writeFileSync(csvPath, 'entry,composer_en,work_en\n901,Composer B,Work Two\n', 'utf8')
+    const ledger = join(dir, 'ledger.json')
+    // 预置一条署名被写成「Public domain」的旧记录（伪造许可的形态）
+    writeFileSync(ledger, JSON.stringify({
+      version: 1,
+      works: [{
+        entry: '901', composer: 'Composer B', work: 'Work Two', candidates: 1, usable: 1,
+        recording: {
+          id: 'src-901', kind: 'recording', title: 'b-two.ogg',
+          url: 'https://example.invalid/p', license: 'CC BY-SA 4.0', license_url: '',
+          attribution: 'Public domain, via Wikimedia Commons', retrieved: '2026-11-04', sha256: '',
+        },
+        pageUrl: 'https://example.invalid/p', license: 'CC BY-SA 4.0',
+        attribution: 'Public domain, via Wikimedia Commons', durationS: 120,
+      }],
+    }), 'utf8')
+
+    const res = await source.sourceBatch(csvPath, {
+      ledgerPath: ledger, resume: true, limit: 1, intervalMs: 0,
+      // 检索接缝**不该被调用**（只重读出处页）
+      searchFn: async () => { throw new Error('不该重新检索') },
+      attributionFn: async (cs) => cs.map((c) => ({
+        ...c, attribution: 'Fixed Performer · CC BY-SA 4.0 via Wikimedia Commons', attributionError: '',
+      })),
+    })
+    expect(res[0]!.attribution).toBe('Fixed Performer · CC BY-SA 4.0 via Wikimedia Commons')
+    expect(res[0]!.recording!.attribution).toContain('Fixed Performer')
+    expect(res[0]!.recording!.attribution_error).toBe('')
+  })
+
+  it('needsAttribution：把署名未知的件挑出来（含上一版写成 Public domain 的历史记录）', () => {
+    const mk = (entry: string, license: string, attribution: string, err = '') => ({
+      entry, composer: 'C', work: 'W', candidates: 1, usable: 1,
+      recording: { id: entry, kind: 'recording' as const, title: 't', url: 'u', license,
+        license_url: '', attribution, retrieved: '', sha256: '' },
+      pageUrl: 'p', license, attribution, attributionError: err, durationS: 1,
+    })
+    const list = source.needsAttribution([
+      mk('1', 'CC BY-SA 4.0', 'John Harrison · CC BY-SA 4.0 via Wikimedia Commons'),
+      mk('2', 'CC BY-SA 4.0', 'Public domain, via Wikimedia Commons'),
+      mk('3', 'CC BY-SA 4.0', '', 'HTTP 429'),
+      mk('4', 'Public domain', 'Public domain, via Wikimedia Commons'),
+    ])
+    expect(list.map((w) => w.entry)).toEqual(['2', '3'])
+  })
+
   it('isUsableLicense：PD / CC0 / CC BY 收，unknown / 自定许可不收', () => {
     expect(source.isUsableLicense('Public domain')).toBe(true)
     expect(source.isUsableLicense('CC0')).toBe(true)
@@ -598,6 +681,7 @@ describe('source：批量台账的续跑与逐件落盘', () => {
     // 台账必须已经写到盘上（逐件 flush），两件都在。
     expect(existsSync(ledger)).toBe(true)
     const after = JSON.parse(readFileSync(ledger, 'utf8')) as { works: Array<{ entry: string }> }
+    expect(after.works.map((w) => w.entry)).toEqual(['900', '901'])
     expect(after.works.map((w) => w.entry)).toEqual(['900', '901'])
 
     // 900 原样带过来（没有重查），901 走接缝命中。
