@@ -12,6 +12,7 @@
 //
 // 反向验证纪律：每个正向用例都要配一个「坏例必须被抓」的用例。
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,7 +21,9 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import { platform } from '@feuille/core'
 
-import { align, build, chord, dsp, midi, probe, scan_ink } from '../src/index.js'
+import { FLAGS } from '../src/cli.js'
+import type * as source_1 from '../src/source.js'
+import { align, build, chord, dsp, midi, probe, scan_ink, source } from '../src/index.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 const HAS_FFMPEG = platform.ffmpeg() !== null
@@ -238,6 +241,58 @@ describe('谱块：按起音分组 + 顺序对拍的两条判据', () => {
     const res = align.alignBlocks(blocks, observed)
     expect(res.pairs[0]!.intersectOk).toBe(false)
     expect(res.pairs[0]!.ok).toBe(false)
+  })
+
+  it('零分布用**循环平移**：p 有下界，永不返回 0（打乱配对会给出虚高的显著性）', () => {
+    const n = 60
+    const a = Array.from({ length: n }, (_, k) => [(k * 5) % 12, (k * 5 + 4) % 12])
+    const b = a.map((x) => [...x])
+    const d = align.measureDiscrimination(a, b, 500, 7)
+    expect(d.pathMean).toBe(1)            // 完全对应
+    expect(d.pValue).toBeGreaterThan(0)   // +1 保底
+    expect(d.pValue).toBeLessThanOrEqual(1)
+    // 同一个种子两次跑必须一样（否则同一份输入会给出两个 p）
+    expect(align.measureDiscrimination(a, b, 500, 7).pValue).toBe(d.pValue)
+    // 太少配对时不给判定
+    expect(align.measureDiscrimination([[0, 4, 7]], [[0, 4, 7]], 500).pValue).toBe(1)
+  })
+
+  // ============================================================
+  //  判据 3 的阴性对照（**这条测试是「量具没通过」的档案**）
+  // ============================================================
+  //
+  // 2026-11-04 实测（真录音 + 真谱面 MIDI）：春的录音配**秋**的谱，
+  // 置换检验同样 p=0.0005，而且路径交集 0.646 比正确谱的 0.409 还高。
+  //
+  // 结论不是「把门限调严」——那只是把结论调成想要的。**结论是：这个量具
+  // 没有辨别力，Tier A 不能用来落摘录时间码。** `validated` 因此恒为
+  // false，CLI 默认 fail-closed。这一条测试锁住那个事实，防止有人把它
+  // 悄悄改回「已验证」。
+  it('阴性对照：配错谱同样「显著」→ validated 必须为 false（不许当已验证读）', () => {
+    // 造一份「音级排列与录音几乎无关」的谱块序列与一段观测：因为模板只有
+    // 12 类，随便怎么配交集都高——正是实测里配错谱也过 55% 的原因。
+    const obs: align.ObservedChords = {
+      hopSec: 0.05,
+      labels: Array.from({ length: 40 }, (_, k) =>
+        chord.CHORD_TEMPLATES[k % chord.CHORD_TEMPLATES.length]!),
+      scores: Array.from({ length: 40 }, () => 1),
+      pcsPerFrame: Array.from({ length: 40 }, (_, k) => [k % 12, (k + 4) % 12, (k + 7) % 12]),
+      segments: Array.from({ length: 40 }, (_, k) => ({
+        start: k, end: k + 1,
+        label: chord.CHORD_TEMPLATES[k % chord.CHORD_TEMPLATES.length]!.id,
+        pcs: [k % 12, (k + 4) % 12, (k + 7) % 12],
+        score: 1,
+      })),
+    }
+    // 谱块：与观测**错开**的序列（阴性对照）
+    const wrong = Array.from({ length: 40 }, (_, k) => ({
+      onset: k * 0.5, end: k * 0.5 + 0.4,
+      pcs: [(k + 6) % 12, (k + 10) % 12, (k + 1) % 12], noteCount: 3,
+    }))
+    const res = align.alignBlocks(wrong, obs)
+    // 不管 p 是多少，都**不许**声称验证过。
+    expect(res.validated).toBe(false)
+    expect(res.validationNote).toContain('测不出')
   })
 })
 
@@ -468,4 +523,138 @@ describe.runIf(HAS_BROWSER && HAS_FFMPEG)('端到端：状态帧 → 装配 → 
     const rep = await scan_ink.scanInk(out, { minPct: 0.2 })
     expect(rep.status).toBe('ok')
   }, 300_000)
+})
+
+// ============================================================
+//  source：来源台账（许可 + 署名 + 续跑）
+// ============================================================
+//
+// 这里的用例**全部离线**：Commons 的取数纪律（UA / 间隔 / 429）由实现承担，
+// 门禁只验「解析与判定」这一层——因为网络在门禁里不可复现，而解析错了会
+// 让台账**看起来是对的**却写错署名（见 §许可模板 author 那条）。
+describe('source：CSV 解析与检索词', () => {
+  it('parseCsv：双引号包字段、"" 转义、CRLF', () => {
+    const rows = source.parseCsv('a,b\r\n"x,y","he said ""hi"""\r\n')
+    expect(rows).toEqual([['a', 'b'], ['x,y', 'he said "hi"']])
+  })
+
+  it('workTokens：编号与调性词被剔掉，短词也剔掉', () => {
+    const t = source.workTokens("Missa L'homme arme in D minor, Op. 11")
+    expect(t).toContain('Missa')
+    expect(t).toContain("L'homme")
+    expect(t).toContain('arme')
+    // 'in'（虚词）、'D'（单字母）、'Op'、'minor'、'11' 都不该留
+    expect(t).not.toContain('in')
+    expect(t).not.toContain('D')
+    expect(t).not.toContain('Op')
+    expect(t).not.toContain('minor')
+    expect(t).not.toContain('11')
+  })
+
+  it('titleAffinity：文件名命中的作品词越多分越高；无关名字分低', () => {
+    const good = source.titleAffinity('Guillaume Dufay - Se la face ay pale.ogg', 'Se la face ay pale')
+    const bad = source.titleAffinity('Bundesarchiv Bild 102-08918.ogg', 'Se la face ay pale')
+    expect(good).toBeGreaterThan(bad)
+    expect(bad).toBe(0)
+  })
+
+  it('isUsableLicense：PD / CC0 / CC BY 收，unknown / 自定许可不收', () => {
+    expect(source.isUsableLicense('Public domain')).toBe(true)
+    expect(source.isUsableLicense('CC0')).toBe(true)
+    expect(source.isUsableLicense('CC BY-SA 4.0')).toBe(true)
+    expect(source.isUsableLicense('unknown')).toBe(false)
+    expect(source.isUsableLicense('Custom license')).toBe(false)
+  })
+})
+
+describe('source：批量台账的续跑与逐件落盘', () => {
+  it('续跑跳过已有录音的件，且**逐件落盘**（中途被打断也留证据）', async () => {
+    const root = tmp()
+    const csvPath = join(root, 'works.csv')
+    writeFileSync(csvPath, [
+      'entry,period,title_zh,title_en,work_zh,work_en,composer_zh,composer_en,slug,status,tier,recording_id,notes',
+      '900,测试,一,One,作品一,Work One,某作曲家,Composer A,work-900,,, ,',
+      '901,测试,二,Two,作品二,Work Two,某作曲家,Composer B,work-901,,, ,',
+    ].join('\n'), 'utf8')
+
+    // 预置台账：900 已有录音 → 必须跳过，**不许联网**。
+    const ledger = join(root, 'ledger.json')
+    writeFileSync(ledger, JSON.stringify({
+      works: [{ entry: '900', composer: 'Composer A', work: 'Work One', candidates: 2, usable: 1, recording: { id: 'src-900' }, pageUrl: 'p', license: 'CC0', attribution: 'a', durationS: 100 }],
+    }), 'utf8')
+
+    // 901 没有预置 → 走注入的检索接缝（**门禁绝不真联网**：否则这条就变成
+    // 「今天 Commons 通不通」的可用性测试，红绿与代码无关）。
+    const fakeCand = (title: string, license: string): source_1.AudioCandidate => ({
+      title, url: `https://example.invalid/${title}`, pageUrl: 'https://example.invalid/p',
+      size: 1024, duration: 120, mime: 'audio/ogg', license, licenseUrl: '', attribution: '',
+    })
+    const res = await source.sourceBatch(csvPath, {
+      ledgerPath: ledger, resume: true, limit: 1, intervalMs: 0,
+      searchFn: async (_c, w) => (w === 'Work Two' ? [fakeCand('b-two.ogg', 'CC0')] : []),
+      attributionFn: async (cs) => cs.map((c) => ({ ...c, attribution: 'injected' })),
+    })
+
+    // 台账必须已经写到盘上（逐件 flush），两件都在。
+    expect(existsSync(ledger)).toBe(true)
+    const after = JSON.parse(readFileSync(ledger, 'utf8')) as { works: Array<{ entry: string }> }
+    expect(after.works.map((w) => w.entry)).toEqual(['900', '901'])
+
+    // 900 原样带过来（没有重查），901 走接缝命中。
+    const skipped = res.find((w) => w.entry === '900')!
+    expect(skipped.recording).not.toBeNull()
+    const fresh = res.find((w) => w.entry === '901')!
+    expect(fresh.recording).not.toBeNull()
+    expect(fresh.license).toBe('CC0')
+    expect(fresh.attribution).toBe('injected')
+  }, 120_000)
+})
+
+// ============================================================
+//  旗标词表 ↔ 实现
+// ============================================================
+//
+// `FLAGS` 既是给人看的清单，也是门禁（plugin-parity 的「旗标词表 ↔
+// SKILL.md」）认的事实源——所以它自己必须与实现一致：表里有的必须真被读到，
+// 实现里读的必须表里有。两边任一侧漂了，说明书与实现就开始各说各话。
+describe('cli：旗标词表与实现一致', () => {
+  const leafFile: Record<string, string> = {
+    probe: 'probe.ts',
+    align: 'align.ts',
+    build: 'build.ts',
+    'scan-ink': 'scan_ink.ts',
+    source: 'source.ts',
+    'source-batch': 'source.ts',
+  }
+
+  it('FLAGS 里每个旗标都在对应模块里真被读到（numOpt / strOpt / flags.has / opts[…]）', () => {
+    const dir = new URL('../src/', import.meta.url)
+    const missing: string[] = []
+    for (const [leaf, flags] of Object.entries(FLAGS)) {
+      const src = readFileSync(fileURLToPath(new URL(leafFile[leaf]!, dir)), 'utf8')
+      for (const flag of flags) {
+        const key = flag.slice(2)
+        const used =
+          src.includes(`'${key}'`) || src.includes(`\`${key}\``) || src.includes(`"${key}"`)
+        if (!used) missing.push(`${leaf}: ${flag}`)
+      }
+    }
+    expect(missing, 'FLAGS 里登记了实现不认的旗标——模型会照着拼一个不存在的参数').toEqual([])
+  })
+
+  it('反向：实现里读到的旗标都在 FLAGS 里（新加旗标必须登记）', () => {
+    const dir = new URL('../src/', import.meta.url)
+    const registered = new Set<string>(Object.values(FLAGS).flat())
+    const unregistered: string[] = []
+    for (const [leaf, file] of Object.entries(leafFile)) {
+      const src = readFileSync(fileURLToPath(new URL(file, dir)), 'utf8')
+      for (const m of src.matchAll(/(?:numOpt|strOpt)\(args, '([a-z][a-z0-9-]*)'/g)) {
+        if (!registered.has(`--${m[1]!}`)) unregistered.push(`${leaf}: --${m[1]!}`)
+      }
+      for (const m of src.matchAll(/flags\.has\('([a-z][a-z0-9-]*)'\)/g)) {
+        if (!registered.has(`--${m[1]!}`)) unregistered.push(`${leaf}: --${m[1]!}`)
+      }
+    }
+    expect(unregistered, '实现读了未登记的旗标——它会隐身，说明书与门禁都看不见它').toEqual([])
+  })
 })

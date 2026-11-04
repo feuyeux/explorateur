@@ -35,7 +35,7 @@ import {
   fit_diag, verify_colors, check_overlay, make_covers, measure_korean,
 } from '@feuille/poster'
 import { render_act_frames, assemble_storyteller } from '@feuille/storyteller'
-import { probe, align, build, scan_ink } from '@feuille/music'
+import { probe, align, build, scan_ink, source } from '@feuille/music'
 
 import { runMain } from './capture.js'
 import { RESULT_SCHEMA, failed, fromExitCode, invalid, ok, renderResult } from './result.js'
@@ -271,6 +271,8 @@ export function familyTools(): ToolDefinition[] {
         align: align.main,
         build: build.main,
         'scan-ink': scan_ink.main,
+        source: source.main,
+        'source-batch': source.batchMain,
       },
       argvDoc: '残余参数，与 `feuille music <子命令>` 一致',
     }),

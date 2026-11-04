@@ -47,6 +47,10 @@ export interface AlignOptions {
   bandToleranceSec?: number
   /** 判定音级交集的窗口（秒）。 */
   intersectWindowSec?: number
+  /** 置换检验次数（判据 3）。 */
+  permutations?: number
+  /** 置换的随机种子——**固定种子**，否则同一份输入两次跑出两个 p。 */
+  seed?: number
 }
 
 const DEFAULTS: Required<AlignOptions> = {
@@ -56,6 +60,8 @@ const DEFAULTS: Required<AlignOptions> = {
   minSegmentFrames: 2,
   bandToleranceSec: 0.35,
   intersectWindowSec: 0.6,
+  permutations: 2000,
+  seed: 20261104,
 }
 
 /** 帧号 → 秒。 */
@@ -174,14 +180,14 @@ export function scoreBlocks(midi: MidiMeta, onsetTolerance = 0.06): ScoreBlock[]
 export interface PairVerdict {
   blockIndex: number
   segmentIndex: number
-  /** 谱面时间（秒）。 */
+  /** 谱面时间（秒）——作曲谱上的位置，不是录音里的位置。 */
   scoreTime: number
-  /** 观测段的时间带（秒）。 */
+  /** 观测段的录音时间带（秒）。 */
   segStart: number
   segEnd: number
-  /** 落带内？ */
+  /** 该段的录音时间是否与**全局速度拟合**一致（残差 ≤ 容差）。 */
   inBand: boolean
-  /** 起点后窗口内的最强音级交集。 */
+  /** 该段录音里真听到的音级与谱块音级的交集比例。 */
   intersection: number
   /** 交集 ≥ 2/3？ */
   intersectOk: boolean
@@ -196,19 +202,83 @@ export interface AlignResult {
   pairs: PairVerdict[]
   /** 全部配对都过？ */
   allOk: boolean
-  /** 谱面时间 → 录音时间的映射（由通过的配对线性拟合）。 */
+  /**
+   * 谱面时间 → 录音时间的线性映射 `t_obs ≈ scale · t_score + offset`。
+   * 演出是自由速度（rubato）与不同版本，所以这是一个**近似**：用它落摘录
+   * 时间码之前，必须回头对着 `notes/probe` 的起音与段落收口核一遍。
+   */
   offsetSec: number
   scale: number
+  /** 拟合残差的中位数（秒）——演出偏离恒定速度多少，**只作诊断**。 */
+  medianResidualSec: number
+  /** 局部速度比的中位数（录音秒 / 谱面秒）——判据 2 的基准。 */
+  medianLocalRatio: number
+  /** 这条路到底「配得比乱配好多少」——判据 3 的读数。 */
+  discrimination: Discrimination
+  /**
+   * 这条路能不能当真值用。
+   *
+   * **恒为 `false`**——2026-11-04 实测：判据 3 也测不出「这份谱配不配这段
+   * 录音」。阴性对照（春的录音 × 秋的谱）同样 p=0.0005，而且路径交集
+   * 0.646 比正确谱的 0.409 **还高**。原因是 DTW 的跳过代价：56 个谱块对
+   * 767 个观测段时路径可以自由挑最像的 56 段（711 段被跳过），而 457 个
+   * 谱块几乎要用掉所有段——两者不可比，错误谱反而更「好配」。
+   *
+   * 在这一条被真正的特征（旋律轮廓对拍，而不是 12 类和弦模板）换掉之前，
+   * Tier A **不许用来落摘录时间码**；摘录边界一律走 `notes/probe` 的
+   * 起音与段落证据。见 `alignNegativeControlDoesNotDiscriminate` 测试。
+   */
+  validated: boolean
+  /** 为什么不 validated——逐条写明，不写「差不多」。 */
+  validationNote: string
 }
 
 /**
- * 按谱块顺序对拍。
+ * 对拍的**辨别力**：DTW 路径上的音级交集均值，对比「同边距分布下随机配对」
+ * 的零分布。
  *
- * 顺序约束：谱块 i 只能匹配**观测段里时间不早于上一次匹配**的那些段
- * （单调）。单调 + 音级相似度打分，就是「按乐谱块顺序对拍」。
+ * 为什么要这一条：逐对判据（交集 ≥ 2/3、局部速度比在带内）在**配错**的谱上
+ * 也大量通过——和弦模板只有 12 个音级类别，任何两条古典乐句的交集都过 2/3，
+ * 而速度比的带只看「有没有突变」。实测：春的录音配春的谱通过 64.5%，配**秋**
+ * 的谱通过 55.4%——这个差距不足以下任何结论。逐对判据是**必要条件**，不是
+ * 「配对了」的证据。
  *
- * 去重组：匹配到的模板 index 记进 used，同音级集的后续谱块去匹配别的段
- * （traps §1 的坑）。
+ * 于是判据 3 量的是**增量**：路径上的平均交集 vs 置换零分布（把配对随机打乱，
+ * 边距分布不变），单侧精确置换检验。零分布宽度只报不判，判决用 `pValue`。
+ */
+export interface Discrimination {
+  /** DTW 路径上的平均音级交集。 */
+  pathMean: number
+  /** 置换零分布的均值。 */
+  nullMean: number
+  /** 零分布的标准差——「差别有多大才算大」的量纲。 */
+  nullSd: number
+  /** 单侧精确置换检验的 p（`permutations + 1` 为分母，不会给出 0）。 */
+  pValue: number
+  /** 做了多少次置换。 */
+  permutations: number
+}
+
+/** 判定「配对了」的 p 门限。取 0.01：这是**量具**不是**臂对照**，量具要更严。 */
+export const ALIGN_P_VALUE = 0.01
+
+/**
+ * 谱块顺序 ↔ 观测段顺序的 **DTW 对拍**。
+ *
+ * 为什么不能「按谱面时间比录音时间」（第一版就是这样，实测 457 个谱块通过
+ * 0 个）：谱块带的是**作曲谱上的时间**（第一个谱块 onset=0），观测段带的是
+ * **这段录音里的时间**（可能从 48s 才开始）。两者之间隔着「演出速度 + 版本
+ * 差异 + 可能被剪掉的部分」，没有可比性。真正可比的是**顺序与音级内容**，
+ * 于是用序列对拍（DTW）求出路径，再由路径反推时间映射。
+ *
+ * 两条判据都量**录音侧**的事实：
+ * 1. `intersectOk` —— 在该观测段的帧区间上，真听到的音级与谱块音级的
+ *    交集 ≥ 2/3。这是「谱上这组音，录音里此刻真在响」的检验。
+ * 2. `inBand` —— 该段的录音时间与全局速度拟合（一条 least-squares 直线）
+ *    的残差在容差内。残差大 = 这一处与整体速度不一致（自由速度、剪接、
+ *    或者配错了）。**不用绝对时间容差**：演出速度未知，绝对容差没有意义。
+ *
+ * fail-closed：没有匹配到、音级不交集、或偏离拟合线，都记不成立。
  */
 export function alignBlocks(
   blocks: readonly ScoreBlock[],
@@ -217,83 +287,275 @@ export function alignBlocks(
 ): AlignResult {
   const o = { ...DEFAULTS, ...opts }
   const hop = o.hopSec
-  const used = new Set<number>()
+
+  // 只看有分类标签的观测段（无标签 = 该段没测出和弦，不能拿来配）。
+  const segs = observed.segments.filter((s) => s.label)
+
+  // 合并相邻同音级集的谱块：同一和弦被拆成多块（不同声部先后起音）时，
+  // 逐块对拍会让 DTW 反复配到同一段上。
+  type Blk = { onset: number; end: number; pcs: number[] }
+  const merged: Blk[] = []
+  for (const b of blocks) {
+    const prev = merged[merged.length - 1]
+    const same = prev && prev.pcs.length === b.pcs.length
+      && prev.pcs.every((p, i) => p === b.pcs[i])
+    if (same) prev.end = Math.max(prev.end, b.end)
+    else merged.push({ onset: b.onset, end: b.end, pcs: b.pcs })
+  }
+
+  const n = merged.length
+  const m = segs.length
+  if (!n || !m) {
+    return {
+    pairs: [], allOk: false, offsetSec: 0, scale: 1,
+    medianResidualSec: 0, medianLocalRatio: 1,
+    discrimination: { pathMean: 0, nullMean: 0, nullSd: 0, pValue: 1, permutations: 0 },
+    validated: false, validationNote: '没有可配对的谱块或观测段',
+  }
+  }
+
+  // 代价：1 − 模糊 Jaccard（音级集越像越便宜）。
+  const cost = (i: number, j: number): number => {
+    const a = merged[i]!.pcs
+    const b = segs[j]!.pcs
+    return 1 - fuzzyOf(a, b)
+  }
+
+  // 跳过一方的代价：谱块或观测段被跳过说明演奏/版本有差异，罚一半——
+  // 既不禁止（真会有反复、删节、装饰），也不免费（否则可以把整条路径
+  // 用跳过凑成零代价）。
+  const SKIP = 0.5
+
+  // DP：D[i][j] = 前 i 个谱块 与 前 j 个观测段 的最小累计代价。
+  const D: Float64Array[] = Array.from({ length: n + 1 }, () => new Float64Array(m + 1))
+  for (let i = 1; i <= n; i++) D[i]![0] = D[i - 1]![0]! + SKIP
+  for (let j = 1; j <= m; j++) D[0]![j] = D[0]![j - 1]! + SKIP
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      const diag = D[i - 1]![j - 1]! + cost(i - 1, j - 1)
+      const up = D[i - 1]![j]! + SKIP
+      const left = D[i]![j - 1]! + SKIP
+      D[i]![j] = Math.min(diag, up, left)
+    }
+  }
+
+  // 回溯：只有 **diag** 步骤算「配对」，up/left 是被跳过的一方。
+  const matched: Array<{ bi: number; si: number }> = []
+  let i = n
+  let j = m
+  while (i > 0 && j > 0) {
+    const d = D[i]![j]!
+    if (Math.abs(d - (D[i - 1]![j - 1]! + cost(i - 1, j - 1))) < 1e-9) {
+      matched.push({ bi: i - 1, si: j - 1 })
+      i--; j--
+    } else if (Math.abs(d - (D[i - 1]![j]! + SKIP)) < 1e-9) {
+      i--
+    } else {
+      j--
+    }
+  }
+  matched.reverse()
+
+  // 同一个谱块可能被路径配到**多个**观测段（斜着走之前连续 hit 同一块）——
+  // 上面的回溯里每个 diag 步都推进两边，所以每个块至多一对。这里无需再去重。
+
+  // 全局速度拟合：t_obs ≈ scale·t_score + offset。少于两对时用恒等映射
+  // （没有信息可拟合，**不许**假装拟合出来了）。
+  let scale = 1
+  let offsetSec = 0
+  if (matched.length >= 2) {
+    const xs = matched.map((p) => merged[p.bi]!.onset)
+    const ys = matched.map((p) => frameTime(segs[p.si]!.start, hop))
+    const mx = xs.reduce((a, b) => a + b, 0) / xs.length
+    const my = ys.reduce((a, b) => a + b, 0) / ys.length
+    let num = 0
+    let den = 0
+    for (let k = 0; k < xs.length; k++) {
+      num += (xs[k]! - mx) * (ys[k]! - my)
+      den += (xs[k]! - mx) ** 2
+    }
+    if (den > 1e-9) {
+      scale = num / den
+      offsetSec = my - scale * mx
+    } else {
+      // 所有谱块同一时刻（单和弦作品）：只能给平移。
+      scale = 1
+      offsetSec = my - mx
+    }
+  }
+
+  // 局部速度比必须在**一个窗口**上量，不能拿相邻两对直接除：观测段的平均
+  // 长度（≈0.28s，hop 0.05 下的和弦分段）与谱块的平均长度（≈0.13s 谱面秒 ×
+  // 速度 ≈0.46s 录音秒）是同一个量级，相邻两对的比值里带着半段的量化误差，
+  // 噪声达到 ±2 倍——那是**量具的分辨率**，不是演奏的速度。窗口取 8 对
+  // （≈1 秒谱面、≈3.6 秒录音），量化误差被平均掉，剩下的是真的速度。
+  const W = 8
+  const segStartOf = (k: number): number => frameTime(segs[matched[k]!.si]!.start, hop)
+  const scoreOf = (k: number): number => merged[matched[k]!.bi]!.onset
+  const localRatio: number[] = []
+  for (let k = 0; k < matched.length; k++) {
+    const lo = Math.max(0, k - Math.floor(W / 2))
+    const hi = Math.min(matched.length - 1, lo + W)
+    const lo2 = Math.max(0, hi - W)
+    const dScore = scoreOf(hi) - scoreOf(lo2)
+    const dObs = segStartOf(hi) - segStartOf(lo2)
+    // 谱面上同一时刻（和弦内的分声部）或窗口没有跨度：量不出速度。
+    localRatio.push(dScore > 0.02 ? dObs / dScore : NaN)
+  }
+  const finite = localRatio.filter((r) => Number.isFinite(r) && r > 0)
+  const medianRatio = finite.length
+    ? [...finite].sort((a, b) => a - b)[Math.floor(finite.length / 2)]!
+    : 1
+
+  // 判定阈值（**明写的阈值**，不是「差不多」）：局部速度比落在
+  // [中位数 / 2, 中位数 × 2] 内算跟得上。取 2 倍的理由：一个乐章内的自由速度
+  // 与段落伸缩常在 ±50% 内，2 倍已经在带外缘；而**配错**的路径给出的是十倍
+  // 以上的跳变（见 `alignBlocks` 的阴性对照测试）。改这个数要连着改本注释、
+  // 下面的 reason，以及那条测试。
+  const RATIO_FACTOR = 2
+
+  // 逐对判定。
   const pairs: PairVerdict[] = []
-  let cursor = 0
-  let offsetAcc: number[] = []
-  let scaleAcc: number[] = []
-
-  for (let bi = 0; bi < blocks.length; bi++) {
-    const b = blocks[bi]!
-    let best = -1
-    let bestScore = -1
-    for (let si = cursor; si < observed.segments.length; si++) {
-      const seg = observed.segments[si]!
-      if (!seg.label) continue
-      const tmpl = CHORD_TEMPLATES.find((t) => t.id === seg.label)
-      if (!tmpl) continue
-      if (used.has(tmpl.index)) continue
-      // 相似度：模板与谱块音级集的模糊 Jaccard
-      const sim = fuzzyOf(b.pcs, tmpl.pcs)
-      if (sim > bestScore) {
-        bestScore = sim
-        best = si
-      }
-    }
-    if (best < 0) {
-      pairs.push({
-        blockIndex: bi, segmentIndex: -1, scoreTime: b.onset,
-        segStart: 0, segEnd: 0, inBand: false, intersection: 0,
-        intersectOk: false, ok: false, reason: "没有可用观测段（候选都被去重组排除了）",
-      })
-      continue
-    }
-    const seg = observed.segments[best]!
-    const tmpl = CHORD_TEMPLATES.find((t) => t.id === seg.label)!
-    used.add(tmpl.index)
-
+  const residuals: number[] = []
+  for (let k = 0; k < matched.length; k++) {
+    const { bi, si } = matched[k]!
+    const b = merged[bi]!
+    const seg = segs[si]!
     const segStart = frameTime(seg.start, hop)
     const segEnd = frameTime(seg.end, hop)
-    // 观测段的中点当作这次配对的录音时刻
-    const obsTime = (segStart + segEnd) / 2
-    const delta = obsTime - b.onset
 
-    const inBand = Math.abs(delta) <= o.bandToleranceSec + (segEnd - segStart) / 2
-    // 起点后窗口内的最强音级交集
-    const w0 = b.onset + 0.05
-    const w1 = Math.min(b.onset + o.intersectWindowSec, segEnd)
-    const pcsInWindow = new Set<number>()
-    for (let f = Math.round(w0 / hop); f <= Math.round(w1 / hop); f++) {
-      for (const p of observed.pcsPerFrame[f] ?? []) pcsInWindow.add(p)
+    // 判据 1：在这段的录音帧上真听到的音级与谱块音级的交集。
+    const pcsInSeg = new Set<number>()
+    for (let f = seg.start; f <= seg.end; f++) {
+      for (const p of observed.pcsPerFrame[f] ?? []) pcsInSeg.add(p % 12)
     }
     const bSet = new Set(b.pcs.map((p) => p % 12))
     let inter = 0
-    for (const p of bSet) if (pcsInWindow.has(p)) inter++
+    for (const p of bSet) if (pcsInSeg.has(p)) inter++
     const intersection = bSet.size === 0 ? 0 : inter / bSet.size
     const intersectOk = intersection >= 2 / 3
 
-    pairs.push({
-      blockIndex: bi,
-      segmentIndex: best,
-      scoreTime: b.onset,
-      segStart,
-      segEnd,
-      inBand,
-      intersection,
-      intersectOk,
-      ok: inBand && intersectOk,
-      reason: inBand ? (intersectOk ? "两条判据都过" : `音级交集 ${intersection.toFixed(2)} < 2/3`) : "谱块起点不在观测段带内",
-    })
-    if (inBand && intersectOk) {
-      offsetAcc.push(delta)
-      scaleAcc.push(b.onset)
+    // 判据 2：这一对所在窗口的局部速度比是否在带内。量不出速度
+    // （和弦内分声部 / 窗口无跨度）→ 不给判定（fail-closed，不当「过」）。
+    const r = localRatio[k]
+    const rs = Number.isFinite(r) ? [r] : []
+    const ratioOk = rs.length === 0
+      ? false
+      : rs.every((x) => x! > medianRatio / RATIO_FACTOR && x! < medianRatio * RATIO_FACTOR)
+    const inBand = ratioOk
+
+    // 残差只作诊断（自由速度下它本来就该大于容差，不能当判据）。
+    residuals.push(Math.abs(segStart - (scale * b.onset + offsetSec)))
+
+    const ok = inBand && intersectOk
+    let reason: string
+    if (ok) reason = '两条判据都过'
+    else if (!intersectOk && !ratioOk) {
+      reason = `音级交集 ${intersection.toFixed(2)} < 2/3；且局部速度比 ${rs.map((r) => r!.toFixed(1)).join('/')} 出带 `
+        + `[${(medianRatio / RATIO_FACTOR).toFixed(1)}, ${(medianRatio * RATIO_FACTOR).toFixed(1)}]`
+    } else if (!intersectOk) reason = `音级交集 ${intersection.toFixed(2)} < 2/3`
+    else if (rs.length === 0) reason = '只有一对，量不出局部速度比——不判定（fail-closed）'
+    else {
+      reason = `局部速度比 ${rs.map((r) => r!.toFixed(1)).join('/')} 出带 `
+        + `[${(medianRatio / RATIO_FACTOR).toFixed(1)}, ${(medianRatio * RATIO_FACTOR).toFixed(1)}]`
     }
-    cursor = best
+
+    pairs.push({
+      blockIndex: bi, segmentIndex: si, scoreTime: b.onset,
+      segStart, segEnd, inBand, intersection, intersectOk, ok, reason,
+    })
   }
 
-  const offsetSec = offsetAcc.length ? offsetAcc.reduce((a, b) => a + b, 0) / offsetAcc.length : 0
-  const scale = scaleAcc.length ? 1 : 1
-  return { pairs, allOk: pairs.length > 0 && pairs.every((p) => p.ok), offsetSec, scale }
+  residuals.sort((a, b) => a - b)
+  const medianResidualSec = residuals.length
+    ? residuals[Math.floor(residuals.length / 2)]!
+    : 0
+
+  // 判据 3：辨别力。
+  const discrimination = measureDiscrimination(
+    matched.map((p) => merged[p.bi]!.pcs),
+    matched.map((p) => segs[p.si]!.pcs),
+    o.permutations,
+    o.seed,
+  )
+
+  return {
+    pairs,
+    allOk: pairs.length > 0 && pairs.every((p) => p.ok),
+    offsetSec,
+    scale,
+    medianResidualSec,
+    medianLocalRatio: medianRatio,
+    discrimination,
+    validated: false,
+    validationNote: '判据 3 测不出「这份谱配不配这段录音」：'
+      + '阴性对照（配错谱）同样显著，且路径交集更高。'
+      + '摘录时间码请走 notes/probe；Tier A 只作研究用。',
+  }
+}
+
+/**
+ * 置换检验：路径上的平均音级交集 vs **循环平移**零分布。
+ *
+ * 零分布为什么必须是循环平移、不能是「打乱配对」：打乱配对只检验「这段录音
+ * 里有和弦结构」——任何一份古典谱都能通过。实测：春的录音配**秋**的谱，
+ * 打乱配对也给出 p=0.0005，而且秋谱的路径交集（0.646）比春谱（0.409）还高。
+ * 打乱的那个零分布太低，谁都能赢它。
+ *
+ * 循环平移保留双方的**序列统计**（同一组弦、同样的进行密度），只破坏「哪一块
+ * 对应哪一段」这一个事实——这正是要检验的那件事。
+ *
+ * 单侧 p = (更极端的平移数 + 1) / (n + 1)。`+1` 是保守项：**不许返回 0**。
+ * 平移量用固定种子生成（`seed` 进、可复现）。
+ */
+export function measureDiscrimination(
+  scorePcs: readonly (readonly number[])[],
+  obsPcs: readonly (readonly number[])[],
+  permutations = 2000,
+  seed = 20261104,
+): Discrimination {
+  const n = Math.min(scorePcs.length, obsPcs.length)
+  if (n < 4) {
+    // 少于 4 对时循环平移几乎等于原配对（可用平移量只有 1~2 个），量不出
+    // 辨别力。不给判决（p=1），交给调用方 fail-closed。
+    return { pathMean: 0, nullMean: 0, nullSd: 0, pValue: 1, permutations: 0 }
+  }
+  const meanAtShift = (shift: number): number => {
+    let acc = 0
+    for (let k = 0; k < n; k++) acc += fuzzyOf(scorePcs[k]!, obsPcs[(k + shift) % n]!)
+    return acc / n
+  }
+  const pathMean = meanAtShift(0)
+
+  // 可用平移量：1 … n-1（0 就是路径本身）。
+  const shifts = Array.from({ length: n - 1 }, (_, i) => i + 1)
+  // xorshift32：小、可复现、无依赖。
+  let st = seed | 0 || 1
+  const rnd = (): number => {
+    st ^= st << 13; st |= 0
+    st ^= st >>> 17
+    st ^= st << 5; st |= 0
+    return ((st >>> 0) % 1000000) / 1000000
+  }
+  let hits = 0
+  const nulls: number[] = []
+  for (let p = 0; p < permutations; p++) {
+    const shift = shifts[Math.floor(rnd() * shifts.length)]!
+    const v = meanAtShift(shift)
+    nulls.push(v)
+    if (v >= pathMean) hits++
+  }
+  const nullMean = nulls.reduce((a, b) => a + b, 0) / (nulls.length || 1)
+  const variance = nulls.length
+    ? nulls.reduce((a, b) => a + (b - nullMean) ** 2, 0) / nulls.length
+    : 0
+  return {
+    pathMean,
+    nullMean,
+    nullSd: Math.sqrt(variance),
+    pValue: (hits + 1) / (permutations + 1),
+    permutations,
+  }
 }
 
 /** 模糊 Jaccard（与 chord.ts 同一口径，这里局部复算以免 import 循环语义）。 */
@@ -537,7 +799,8 @@ export async function main(argv: string[]): Promise<number> {
   const args = parseArgs(argv)
   const src = args.positional[0]
   if (!src) {
-    console.error('usage: feuille music align <recording> [--score <midi>] [--out <dir>] [--name <n>]')
+    console.error('usage: feuille music align <recording> [--score <midi>] [--out <dir>] '
+      + '[--name <n>] [--hop 0.05] [--experimental]')
     return 2
   }
   const outDir = strOpt(args, 'out', 'notes')
@@ -579,6 +842,12 @@ export async function main(argv: string[]): Promise<number> {
       pairs: result.pairs,
       allOk: result.allOk,
       offsetSec: result.offsetSec,
+      scale: result.scale,
+      medianResidualSec: result.medianResidualSec,
+      medianLocalRatio: result.medianLocalRatio,
+      discrimination: result.discrimination,
+      validated: result.validated,
+      validationNote: result.validationNote,
     }
   })
 
@@ -588,12 +857,26 @@ export async function main(argv: string[]): Promise<number> {
     const ok = payload.pairs.filter((p) => p.ok).length
     console.log(`align (Tier A): ${src} × ${payload.score}`)
     console.log(`  谱块 ${payload.scoreBlocks} · 观测段 ${payload.observedSegments} · `
-      + `判定通过 ${ok}/${payload.pairs.length} · 偏移 ${payload.offsetSec.toFixed(3)}s`)
+      + `判定通过 ${ok}/${payload.pairs.length}`)
+    console.log(`  速度拟合 t_obs ≈ ${payload.scale.toFixed(3)}·t_score `
+      + `${payload.offsetSec >= 0 ? '+' : '−'} ${Math.abs(payload.offsetSec).toFixed(2)}s · `
+      + `残差中位数 ${payload.medianResidualSec.toFixed(2)}s`)
+    console.log(`  局部速度比中位数 ${payload.medianLocalRatio.toFixed(2)}（录音秒/谱面秒，判据 2 的基准）`)
     console.log(`  → ${outPath}`)
+    const d = payload.discrimination
+    console.log(`  辨别力：路径交集 ${d.pathMean.toFixed(3)} vs 零分布 `
+      + `${d.nullMean.toFixed(3)}±${d.nullSd.toFixed(3)} · p=${d.pValue.toFixed(4)} `
+      + `（${d.permutations} 次置换，门限 ${ALIGN_P_VALUE}）`)
+
+    if (!payload.validated) {
+      // 默认 fail-closed：这条路径**没有**被验证过，不许拿来落摘录时间码。
+      console.error(`  未验证：${payload.validationNote}`)
+      if (!args.flags.has('experimental')) return 1
+      console.error('  （--experimental：只输出研究用的路径，结果不许进成片。）')
+    }
     if (!payload.allOk) {
-      console.error('  判定未全过：两条判据（落带内 + 音级交集 ≥ 2/3）有不过的配对——'
-        + '不许当「差不多」读，按 notes/probe 的日志复核后再取摘录。')
-      return 1
+      console.log(`  逐对判据 ${ok}/${payload.pairs.length} 通过（必要条件，非证据）——`
+        + '未过的配对按 unverified 记，摘录时间码以 notes/probe 的起音为准，不按谱面推。')
     }
   } else {
     console.log(`align (Tier B · 录音实测): ${src}`)

@@ -126,6 +126,14 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/music-scan_ink.js'),
     desc: '含墨覆盖率扫描（空帧闸；阈值 0.2%，反向自测同时证坏帧被抓/好帧不误杀）',
   },
+  'music/source': {
+    load: () => import('./leaves/music-source.js'),
+    desc: '录音来源台账：Commons 检索 → 读出处页 → 许可/署名/直链（署名不信 extmetadata.Artist）',
+  },
+  'music/source-batch': {
+    load: () => import('./leaves/music-source-batch.js'),
+    desc: '整张作品表过一遍来源台账（串行 + 间隔；失败逐条记，不静默跳过）',
+  },
   // ---- P5-7e one-page-poster 归流（@feuille/poster；浏览器解析消费 core
   // 唯一实现，零额度——fetch_fonts 只打 Google Fonts css2 免费子集端点）----
   'poster/fetch-fonts': {

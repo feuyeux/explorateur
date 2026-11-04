@@ -6,6 +6,24 @@
 // 解析器，缺失值当场报「用法」，不静默吞掉。
 import { FeuilleError } from '@feuille/core'
 
+/**
+ * 本包四个叶子**接受的全部旗标**，按叶子分组。
+ *
+ * 为什么要一张显式的表：旗标是「说明书 ↔ 实现」最容易漂的一处——SKILL.md
+ * 写了一个实现不认的旗标，模型就会照着拼一个不存在的参数，而错误发生在
+ * 使用者那边。门禁（`plugin-parity.test.ts` 的「旗标词表 ↔ SKILL.md」）是按
+ * **源码里的字符串字面量**收集旗标的，所以这张表既是清单，也是那个门禁的
+ * 事实源；写在这里的每一个都必须真被 `parseArgs` 的消费者读到。
+ */
+export const FLAGS = {
+  probe: ['--out', '--name', '--hop', '--window'],
+  align: ['--out', '--name', '--score', '--hop', '--experimental'],
+  build: ['--out', '--credit-pass', '--width', '--height'],
+  'scan-ink': ['--fps', '--gray', '--min-pct', '--json', '--self-test'],
+  source: ['--out-dir', '--id', '--download', '--limit'],
+  'source-batch': ['--out', '--limit', '--interval', '--id-prefix', '--resume'],
+} as const
+
 export interface ParsedArgs {
   /** 位置参数。 */
   positional: string[]

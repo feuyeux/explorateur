@@ -45,15 +45,20 @@ description: >
 | 史料图检索 | `firecrawl search`（images 源）+ `firecrawl scrape`（外部 CLI） | 可用；需 `FIRECRAWL_API_KEY`，搜索计 credits |
 | 完整历史实现 | `assets/example/`（《自新世界》Python 快照） | **只读参考，不要运行** |
 | `feuille music probe\|align\|build\|scan-ink` | `@feuille/music`（`packages/music/src/`） | **2026-11-04 归流**：可用；`probe` 探针、`align` 对齐（Tier A/B）、`build` 帧精确装配、`scan-ink` 含墨扫描 |
+| `feuille music source\|source-batch` | 同上（`src/source.ts`） | **2026-11-05**：录音来源台账。`source` 单件、`source-batch` 整表；读 Commons 出处页取许可与署名（**不采信 `extmetadata.Artist`**，它常写作曲家）；三档检索梯度；`--resume` 续跑 + 逐件落盘 |
 
 **不要引用 `usine/examples/dvorak-new-world/` 作为可复用脚手架**：它在本机存在，
 但落在工作区 `.gitignore` 的 `examples/` 规则下，永不入库，新克隆没有。完整
 样例已快照到 `assets/example/`（只读），现行写法以本文件与模板为准。
 
-**已知缺口（别假装已有）**：`feuille music` 叶子尚未归流；`inkCoverage` 还没
-进 `@feuille/core`（先用 `assets/template/ink-scan.mjs`）；`gen_tts` 仍靠调用方
-剥标点、未在源头收口；`feuille karaoke build` 的音频仍是固定增益 `amix`，
-`audio.tracks[]` 的 envelope 要自建 builder 或等归流。
+**已知缺口（别假装已有）**：
+
+- **谱面侧仍全靠手取**：`align` 的 Tier A 要一份 MIDI/谱面，但 `feuille music`
+  没有 `score` 叶子（不做 IMSLP/Mutopia 抓取、不做 MusicXML→MIDI）。Mutopia 的
+  `*-mids.zip` 手工可取（`https://www.mutopiaproject.org/ftp/<Composer>/<Cat>/<work>/<work>-mids.zip`），抓取没归流。
+- **Tier A 的判别力没通过（2026-11-04 实测 → `align` 默认 fail-closed）**：拿 Vivaldi《四季》「春」的录音（John Harrison，CC BY-SA 4.0，215.28s）配 Mutopia 的春谱（MIDI 58.5s），实际速度比 3.68、DTW 拟合出 3.637（差 1%），说明**路径是对的**；但拿**秋**的谱做阴性对照，置换检验同样 p=0.0005，而且路径交集 0.646 比正确谱的 0.409 **还高**。原因是 DTW 的跳过代价：56 个谱块对 767 个观测段时可以自由挑最像的 56 段，457 个谱块几乎要用掉所有段——两者不可比。**所以逐对判据（交集 ≥ 2/3、局部速度比在带内）只是必要条件，不是「配对了」的证据；`validated` 恒为 false，`feuille music align` 默认退出 1，`--experimental` 才输出研究用路径。** 在这一条被真正的特征（旋律轮廓对拍，而不是 12 类和弦模板）换掉之前，**摘录时间码一律走 `notes/probe` 的起音与段落证据，不按谱面推**。
+- **`--score` 走不通时 Tier B 是正常路径**：`align` 无 `--score` 给的是泛音和声评分 f0 → 旋律段（春的录音：767 观测段 / 352 旋律段），它量的是「录音里此刻哪个音最响」，不声称与谱面对齐。
+- `inkCoverage` 还没进 `@feuille/core`（`@feuille/music` 的 `scan_ink` 可用）；`gen_tts` 仍靠调用方剥标点、未在源头收口；`feuille karaoke build` 的音频仍是固定增益 `amix`（本 skill 的 `build` 已自带 envelope/ducking，不走那条）。
 
 ## 时长定标（多乐章作品）
 
@@ -295,7 +300,10 @@ scan_ink 含墨扫描）。分析原语（FFT / WAV 读取）在 `@feuille/core`
 不存在」——那是真话（2026-11-04 实测确认 CLI 里没有 `music` 组）。现在这四个
 叶子已归流为 `@feuille/music`，下面两处纪律随之更新：
 
-- `feuille music probe|align|build|scan-ink` **现在存在**；含墨扫描已进
+- `feuille music probe|align|build|scan-ink` **现在存在**；录音来源台账
+  `source|source-batch` 也已归流（许可与署名从出处页读，检索用三档梯度——
+  只用「作曲家 + 全名」会漏掉大量真实录音，实测 Dufay《Missa L'homme arme》
+  这样查询命中 0，而 `Dufay` 命中 6，其中就有可用的）；含墨扫描已进
   `@feuille/music` 的 `scan_ink`（不再需要另跑独立 mjs）。
 - `feuille karaoke build` 的音频仍是固定增益 `amix`，**仍然表达不了**本产线
   的「摘录绝对偏移 + 旁白期 ducking + 聆听段全电平」——所以本产线走
