@@ -825,6 +825,14 @@ export async function main(argv: string[]): Promise<number> {
           midi: s.midi,
           freq: s.freq,
         })),
+        // 和弦段也落盘：状态帧要画「实测和弦铺底」，光有一个段数画不出来。
+        // **这是实测的模板分类结果，不是谱面真值**——画面上必须照实标。
+        chords: observed.segments.map((s) => ({
+          start_s: s.start * hop,
+          end_s: s.end * hop,
+          label: s.label,
+          score: Number(s.score.toFixed(3)),
+        })),
         pairs: [] as PairVerdict[],
         allOk: true,
       }

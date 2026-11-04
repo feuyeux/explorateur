@@ -657,6 +657,13 @@ describe('source：CSV 解析与检索词', () => {
     expect(res[0]!.recording!.title).toBe('good.ogg')
   })
 
+  it('广播引子 / MIDI 乐谱**在选之前**就被滤掉（不能只记录种类）', () => {
+    expect(source.isRadioStub('Inleiding deFilharmonie (audio).mp3')).toBe(true)
+    expect(source.isRadioStub('Vivaldi - Four Seasons 1 Spring.oga')).toBe(false)
+    expect(source.isScoreOnly('The Art of Fugue, Contrapunctus I.mid')).toBe(true)
+    expect(source.isScoreOnly('Spring.oga')).toBe(false)
+  })
+
   it('needsAttribution：把署名未知的件挑出来（含上一版写成 Public domain 的历史记录）', () => {
     const mk = (entry: string, license: string, attribution: string, err = '') => ({
       entry, composer: 'C', work: 'W', candidates: 1, usable: 1,
@@ -750,6 +757,10 @@ describe('narrate：旁白分段的 TTS 输入与校验', () => {
     expect(() => narrate.parseNarrationSpec(JSON.stringify({
       segments: [base, { ...base }],
     }))).toThrow(/重复/)
+    // 同一段的多语种**共用一个 id**——那不是重复
+    expect(() => narrate.parseNarrationSpec(JSON.stringify({
+      segments: [base, { ...base, locale: 'en-US' }],
+    }))).not.toThrow()
     expect(() => narrate.parseNarrationSpec(JSON.stringify({
       segments: [{ ...base, text: '  ' }],
     }))).toThrow(/text/)

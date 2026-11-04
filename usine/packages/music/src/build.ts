@@ -41,6 +41,14 @@ export interface SceneState {
   t0: number
   /** 场景内终点（秒）。 */
   t1: number
+  /**
+   * 这一 state's 播放头位置（秒）。缺省 = 段中点。
+   *
+   * 为什么要单独给：摘录场景有一段「旁白在讲、音乐还没进」的引子，
+   * 那段时间里播放头必须停在 0（**没有音乐在走**）。用段中点会把播放头
+   * 画到画面中间，看起来像音乐已经开始了——那是画面在说假话。
+   */
+  playhead_s?: number
 }
 
 /** 一个场景。 */
@@ -48,6 +56,15 @@ export interface Scene {
   id: string
   /** 场景类型（chords / melody / waveform / bio / map / credit）。 */
   kind?: string
+  /**
+   * 本场景用的录音文件（相对项目根）。
+   *
+   * 为什么要按场景覆盖：一部作品常常有**多个录音文件**（分乐章：莫扎特
+   * K.550 有三个乐章、四季有十二个协奏曲）。`project.recording.file` 只能
+   * 放一个，于是「摘录取自哪个文件」这件事没有地方写——装配时一律去取
+   * project.recording.file，摘录时间码就会指向错误的录音。
+   */
+  recording_file?: string
   /** 录音摘录的绝对区间（秒）。 */
   recording_excerpt?: { start_s: number; end_s: number }
   /** 音乐在场景内的落点（秒）。默认 = preroll。 */
@@ -294,14 +311,24 @@ export function buildProject(
   writeFileSync(injectedPath, injectData(readFileSync(htmlPath, 'utf8'), dataByScene), 'utf8')
 
   const creditScene = project.scenes.find((s) => s.credit)
-  const creditHtmlPath = creditScene
-    ? (project.credit_html ? join(root, project.credit_html) : injectedPath)
-    : null
-  if (creditScene && project.credit_html) {
+  // 制作信息页**由 facts/sources 生成**，落在 workDir/credit.html；
+  // 渲染时必须用**这一份**。第一版把生成物写到 workDir/credit.html，
+  // 却让渲染去读 project.credit_html 指向的文件——于是「回填实测数字后
+  // 重渲」这一遍重渲的还是老页面，两段式形同虚设。
+  const creditHtmlPath = creditScene ? join(workDir, 'credit.html') : null
+  if (creditScene) {
     // 制作信息页单独渲染：内容由 facts.json 回填（pass 2 才有实测数字）
-    const facts = readFileSync(join(root, project.credit?.facts ?? 'facts.json'), 'utf8')
-    const sources = existsSync(join(root, project.credit?.sources ?? 'sources.json'))
-      ? readFileSync(join(root, project.credit?.sources ?? 'sources.json'), 'utf8')
+    const factsPath = join(root, project.credit?.facts ?? 'facts.json')
+    if (!existsSync(factsPath)) {
+      throw new FeuilleError(
+        `制作信息页要读 ${factsPath}，但它不存在——`
+        + '交付信息页不许缺（facts.json 记的是实测数字，不是可选项）',
+      )
+    }
+    const facts = readFileSync(factsPath, 'utf8')
+    const sourcesPath = join(root, project.credit?.sources ?? 'sources.json')
+    const sources = existsSync(sourcesPath)
+      ? readFileSync(sourcesPath, 'utf8')
       : '{}'
     writeFileSync(
       join(workDir, 'credit.html'),
@@ -336,12 +363,14 @@ export function buildProject(
     for (let i = 0; i < scene.states.length; i++) {
       const st = scene.states[i]!
       const png = join(prefix + `-s${String(i).padStart(3, '0')}.png`)
-      // 播放头取本状态的中点：state 是一段静止画面，取中点才有「已播罩亮」
-      // 的信息量（取起点等于画面刚进入、罩亮为 0）。
-      shootState(browser, targetHtml, scene.id, i, (st.t0 + st.t1) / 2, png, w, h)
+      // 播放头默认取本状态的中点：state 是一段静止画面，取中点才有「已播罩亮」
+      // 的信息量（取起点等于画面刚进入、罩亮为 0）。state 可以显式给
+      // playhead_s（引子段用：音乐还没进，播放头必须停在 0）。
+      const ph = st.playhead_s ?? (st.t0 + st.t1) / 2
+      shootState(browser, targetHtml, scene.id, i, ph, png, w, h)
       pngs.push(png)
       durations.push(st.t1 - st.t0)
-      playheads.push((st.t0 + st.t1) / 2)
+      playheads.push(ph)
     }
 
     const donePng = join(prefix + '-done.png')
@@ -366,6 +395,10 @@ export function buildProject(
     const partFiles: string[] = []
     for (let i = 0; i < pngs.length; i++) {
       const n = counts[i]!
+      // **零帧的段不编码**：片头卡这类场景的 preroll/done 是 0 秒，
+      // 编码出来的 mp4 是空的（无视频流），后面 concat 会报
+      // 「Output file does not contain any stream」——第一版就这样炸的。
+      if (n <= 0) continue
       const part = join(workDir, `_v_${scene.id}_${String(i).padStart(3, '0')}.mp4`)
       sh([ffmpegBin(), '-y', '-loglevel', 'error', '-loop', '1', '-framerate', fps,
         '-i', pngs[i]!, '-t', (n / fps).toFixed(6), '-frames:v', n,
@@ -410,11 +443,17 @@ export function buildProject(
   const I = loud.I ?? -14
   const TP = loud.TP ?? -1.5
   const LRA = loud.LRA ?? 11
+  // 终混要**按帧数显式裁长**：loudnorm 会把音频拉长一点点（实测 +66.7ms，
+  // 因为它内部重采样到 192kHz 再回来），两流就不等长了——声画会漂。
+  // 目标时长取**视频帧数 ÷ fps**，不是 ffprobe 读回来的时长（后者已被
+  // 拉长的音频带偏）。
+  const targetSec = totalFrames / fps
   sh([ffmpegBin(), '-y', '-loglevel', 'error',
     '-i', vNoAudio, '-i', aAll,
     '-filter_complex',
     `[1:a]loudnorm=I=${I}:TP=${TP}:LRA=${LRA}[aout]`,
     '-map', '0:v', '-map', '[aout]', '-c:v', 'copy',
+    '-t', targetSec.toFixed(6),
     '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', outPath])
 
   const durationSec = probeDuration(outPath)
@@ -481,7 +520,9 @@ function buildSceneAudio(
   const musicAt = scene.music_at ?? scene.preroll ?? 0.8
   const ex = scene.recording_excerpt
   if (ex) {
-    inputs.push('-i', resolve(root, project.recording.file))
+    // 场景自带录音文件优先（多乐章作品），否则用项目级那一份。
+    const recFile = scene.recording_file ?? project.recording.file
+    inputs.push('-i', resolve(root, recFile))
     const delayMs = Math.trunc(musicAt * 1000)
     // ducking 窗口：旁白出声的区间（场景内秒）
     const windows = (scene.narration ?? [])

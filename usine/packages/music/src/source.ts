@@ -758,7 +758,15 @@ export async function sourceBatch(
       const cands = opts.searchFn
         ? await opts.searchFn(composer, work)
         : await searchAudioLadder(composer, work, { limit: opts.limit ?? 8, minDurationSec: opts.minDurationSec, intervalMs: opts.intervalMs })
-      const usable = cands.filter((c) => isUsableLicense(c.license))
+      // 可用 = 许可在白名单内 **且** 它确实是这个作品的录音。
+      //
+      // 后半个条件不能省：Commons 上有一批「Inleiding …」的荷兰电台节目引子，
+      // 检索时会系统性地命中「作曲家 + 作品名」（它们被链接在那些条目页上），
+      // 而引子里的内容是**另一首作品**。第一版只把种类记进 `pickKind`、
+      // 没有在选之前滤掉，于是重查后 14 件又挑回了广播引子。
+      const usable = cands.filter((c) => isUsableLicense(c.license)
+        && !isRadioStub(c.title) && !isScoreOnly(c.title))
+      const stubOnly = cands.length > 0 && usable.length === 0
       // 只给**要选中的那一条**读出处页：逐个候选都读会让整批慢十倍，而
       // 台账只需要选中项的署名。
       // 选择顺序：可许用许可中**已取到署名**的优先——读出处页失败的候选不该
@@ -767,7 +775,10 @@ export async function sourceBatch(
         ...usable.filter((x) => !x.attributionError),
         ...usable.filter((x) => x.attributionError),
       ]
-      let pick = ranked[0] ?? cands[0] ?? null
+      // **不许兜底到 cands[0]**：那一支可能是广播引子或 MIDI 乐谱，
+      // 兜底等于把刚滤掉的东西又捡回来（第一版就这样，10 件又带回了引子）。
+      // 没有可用候选就记成「无可用录音」——如实记，不假装有。
+      let pick = ranked[0] ?? null
       if (pick) {
         // 署名接缝可能返回**新对象**（纯函数式实现），所以要接住返回值，
         // 不能假定它原地改。
@@ -788,7 +799,11 @@ export async function sourceBatch(
         attributionError: pick?.attributionError ?? '',
         durationS: pick?.duration ?? null,
         affinity: pick ? Number(titleAffinity(pick.title, work).toFixed(2)) : 0,
-        error: pick ? undefined : '没有命中音频文件',
+        error: pick ? undefined : stubOnly
+          ? '候选全是广播引子或乐谱，不是该作品的录音'
+          : cands.length
+            ? '候选的许可不在白名单内'
+            : '没有命中音频文件',
       })
     } catch (e) {
       out.push({ entry, composer, work, candidates: 0, usable: 0, recording: null, pageUrl: null, license: null, attribution: null, attributionError: '', durationS: null, error: String((e as Error).message ?? e).slice(0, 200) })

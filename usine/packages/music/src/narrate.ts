@@ -24,8 +24,9 @@
 //   }
 //
 // 产物：
-//   <out>/<id>.mp3                    旁白音频
-//   <out>/narration-durations.json    { "<id>": 秒 }（实测，不是估算）
+//   <out>/<id>.<locale>.mp3           旁白音频（**语种进文件名**——同一段旁白
+//                                     的中文与英文是两个文件，不是两个 id）
+//   <out>/narration-durations.json    { "<id>.<locale>": 秒 }（实测，不是估算）
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -78,12 +79,15 @@ export function parseNarrationSpec(raw: string): NarrationSpec {
   if (!spec || !Array.isArray(spec.segments) || spec.segments.length === 0) {
     throw new FeuilleError('narration.json 没有 segments（或不是数组）')
   }
+  // 同一段旁白的多语种**共用一个 id**（那是「哪一句」），所以唯一性按
+  // `id.locale` 判——按 id 判会把双语稿的第二条误判成重复。
   const seen = new Set<string>()
   for (const s of spec.segments) {
     if (!s.id) throw new FeuilleError('narration 片段缺 id')
-    if (seen.has(s.id)) throw new FeuilleError(`narration 片段 id 重复：${s.id}`)
-    seen.add(s.id)
     if (!s.locale) throw new FeuilleError(`narration 片段 ${s.id} 缺 locale`)
+    const key = `${s.id}.${s.locale}`
+    if (seen.has(key)) throw new FeuilleError(`narration 片段重复：${key}`)
+    seen.add(key)
     if (!s.text || !s.text.trim()) throw new FeuilleError(`narration 片段 ${s.id} 的 text 是空的`)
   }
   return spec
@@ -134,7 +138,7 @@ export async function narrateSegments(
       throw new FeuilleError(`旁白 ${seg.id} 剥掉标点后没有可念的内容`)
     }
     const hit = await synthCached(ttsText, voice, rate, pitch, cacheDir)
-    const dest = join(outDir, `${seg.id}.mp3`)
+    const dest = join(outDir, `${seg.id}.${seg.locale}.mp3`)
     // 缓存命中时 mp3 已在缓存目录里；复制一份到 outDir，让 project.json
     // 引用的是**项目内**的路径（缓存目录不进交付）。
     if (hit.mp3 !== dest) copyFileSync(hit.mp3, dest)
@@ -145,11 +149,12 @@ export async function narrateSegments(
   }
 
   const durations: Record<string, number> = {}
-  const detail: Record<string, { locale: string; duration: number; state: string; ttsText: string }> = {}
+  const detail: Record<string, { id: string; locale: string; duration: number; state: string; ttsText: string }> = {}
   for (const r of results) {
-    durations[r.id] = Number(r.duration.toFixed(3))
-    detail[r.id] = {
-      locale: r.locale, duration: Number(r.duration.toFixed(3)),
+    const key = `${r.id}.${r.locale}`
+    durations[key] = Number(r.duration.toFixed(3))
+    detail[key] = {
+      id: r.id, locale: r.locale, duration: Number(r.duration.toFixed(3)),
       state: r.state, ttsText: r.ttsText,
     }
   }
