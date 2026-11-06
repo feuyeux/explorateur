@@ -24,6 +24,7 @@ import { FeuilleError, platform } from '@feuille/core'
 import * as poster from '../src/index.js'
 import { check, checkPatchBindings, unescapeHtml } from '../src/audit_charset.js'
 import { pyQuote, uniq } from '../src/fetch_fonts.js'
+import type { FetchLike } from '../src/fetch_fonts.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 const USINE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -69,10 +70,55 @@ describe('fetch_fonts 纯函数（Python 口径）', () => {
   })
 })
 
-describe('fetch_fonts e2e：Google Fonts css2 子集端点（免费，不在额度红线内）', () => {
-  it('fonts.json → fonts.css：@font-face 内嵌 base64 woff2 + family 改名', { timeout: 120_000 }, async () => {
+// 「取字体」拆成两条轴：离线接缝（门禁，确定性）+ 真网络（FEUILLE_LIVE=1）。
+//
+// 原来只有一条真联网用例，于是 `pnpm verify` 的通过与否取决于 fonts.googleapis.com
+// 此刻通不通（2026-11-06 实测同一个提交 10s 超时直红，代码没改）。纪律 12：
+// 验收不许长得像环境可用性测试。
+//
+// 离线那条注入假 fetch，覆盖的仍是**真逻辑**：url 构造（pyQuote/uniq）、
+// 两次往返的顺序（先 css2 拿 @font-face，再逐个 woff2 直链）、base64 内嵌、
+// family 改名、KB 统计。假的是字节，不是算法。
+describe('fetch_fonts：css2 子集端点（fetch 接缝，离线确定性）', () => {
+  const FAKE_WOFF2 = Buffer.from('wOF2-fake-subset-bytes-for-gate', 'utf8')
+
+  /** 造一个假 fetch：css2 URL 回 @font-face 清单，woff2 直链回字节。 */
+  function fakeFetch(seen: string[]): FetchLike {
+    return async (url) => {
+      seen.push(url)
+      if (url.includes('/css2?')) {
+        const body = `/* subset */
+@font-face {
+  font-family: 'Noto Sans KR';
+  font-style: normal;
+  font-weight: 400;
+  src: url(https://fonts.gstatic.com/s/notosanskr/v36/fake.woff2) format('woff2');
+}
+`
+        return {
+          ok: true, status: 200, statusText: 'OK',
+          text: async () => body,
+          arrayBuffer: async () => new ArrayBuffer(0),
+        }
+      }
+      return {
+        ok: true, status: 200, statusText: 'OK',
+        text: async () => '',
+        arrayBuffer: async () => FAKE_WOFF2.buffer.slice(
+          FAKE_WOFF2.byteOffset, FAKE_WOFF2.byteOffset + FAKE_WOFF2.byteLength,
+        ) as ArrayBuffer,
+      }
+    }
+  }
+
+  afterEach(() => {
+    poster.fetch_fonts.setFetchForTests(null)
+  })
+
+  it('fonts.json → fonts.css：@font-face 内嵌 base64 woff2 + family 改名', { timeout: 60_000 }, async () => {
     const d = makeTmp()
     try {
+      poster.fetch_fonts.setFetchForTests(fakeFetch([]))
       const spec = join(d, 'fonts.json')
       writeFileSync(spec, JSON.stringify([
         { family: 'OBS KR', google: 'Noto+Sans+KR:wght@400', text: '차' },
@@ -85,6 +131,72 @@ describe('fetch_fonts e2e：Google Fonts css2 子集端点（免费，不在额�
       expect(css).toContain("font-family: 'OBS KR'")
       expect(css).toContain('data:font/woff2;base64,')
       expect(log.join('\n')).toContain('wrote')
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+
+  it('请求顺序与 url 形态：先 css2（带 pyQuote 过的 text）再 woff2 直链，两次往返', async () => {
+    const d = makeTmp()
+    try {
+      const seen: string[] = []
+      poster.fetch_fonts.setFetchForTests(fakeFetch(seen))
+      const spec = join(d, 'fonts.json')
+      writeFileSync(spec, JSON.stringify([
+        { family: 'OBS KR', google: 'Noto+Sans+KR:wght@400', text: '차' },
+      ]), 'utf-8')
+      expect(await poster.fetch_fonts.main([spec])).toBe(0)
+      expect(seen).toHaveLength(2)
+      // css2 端点：family spec 原样透传，text 走 Python quote（차 = %EC%B0%A8 + 尾随空格 %20）
+      expect(seen[0]).toBe(
+        'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400'
+        + '&text=%EC%B0%A8%20&display=swap',
+      )
+      // 第二个是 @font-face 里的直链（必须真去抓它，不许把缩略图/占位当字节）
+      expect(seen[1]).toBe('https://fonts.gstatic.com/s/notosanskr/v36/fake.woff2')
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+
+  it('坏例：css2 回 4xx → 响亮失败（不许写出半份 fonts.css 当成功）', async () => {
+    const d = makeTmp()
+    try {
+      poster.fetch_fonts.setFetchForTests(async () => ({
+        ok: false, status: 400, statusText: 'Bad Request',
+        text: async () => '', arrayBuffer: async () => new ArrayBuffer(0),
+      }))
+      const spec = join(d, 'fonts.json')
+      writeFileSync(spec, JSON.stringify([
+        { family: 'OBS KR', google: 'Noto+Sans+KR:wght@400', text: '차' },
+      ]), 'utf-8')
+      await expect(poster.fetch_fonts.main([spec])).rejects.toThrow(/HTTP 400/)
+      // 失败时不许留下 fonts.css（半成品看着像成品）
+      expect(existsSync(join(d, 'fonts.css'))).toBe(false)
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+})
+
+// 真网络面：只在显式要求时跑（`FEUILLE_LIVE=1`）。默认不进 `pnpm verify`。
+const LIVE = process.env['FEUILLE_LIVE'] === '1'
+describe.skipIf(!LIVE)('fetch_fonts LIVE：真 Google Fonts css2 端点', () => {
+  it('真打一次：fonts.json → fonts.css（base64 woff2 可解）', { timeout: 120_000 }, async () => {
+    const d = makeTmp()
+    try {
+      const spec = join(d, 'fonts.json')
+      writeFileSync(spec, JSON.stringify([
+        { family: 'OBS KR', google: 'Noto+Sans+KR:wght@400', text: '차' },
+      ]), 'utf-8')
+      const { log } = captureLog()
+      expect(await poster.fetch_fonts.main([spec])).toBe(0)
+      const css = readFileSync(join(d, 'fonts.css'), 'utf-8')
+      expect(css).toContain('data:font/woff2;base64,')
+      expect(log.join('\n')).toContain('wrote')
+      // 真字节要能解出 woff2 签名（子集端点偶尔回空壳，这条抓的就是那个）
+      const b64 = /base64,([A-Za-z0-9+/=]+)/.exec(css)![1]!
+      expect(Buffer.from(b64, 'base64').subarray(0, 4).toString('latin1')).toBe('wOF2')
     } finally {
       rmSync(d, { recursive: true, force: true })
     }

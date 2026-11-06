@@ -21,6 +21,7 @@ import { FeuilleError, platform } from '@feuille/core'
 import { fetch_fonts } from '../src/index.js'
 import * as mk from '../src/measure_korean.js'
 import type { BMask, Comp, Rect } from '../src/measure_korean.js'
+import { koreanFontPath, writeLocalFontCss } from './local-font.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 
@@ -329,23 +330,24 @@ describe('emitRule：双值百分比定位（Chrome 百分比对齐公式）', (
 
 // ============ e2e：真字体真浏览器（免费本机渲字，零额度） ============
 
-describe('measure-korean e2e：차 全链路（fetch_fonts → measure → verify）', () => {
+describe('measure-korean e2e：차 全链路（本机真字体 → measure → verify）', () => {
   const d = mkdtempSync(join(tmpdir(), 'mk-test-'))
   afterAll(() => rmSync(d, { recursive: true, force: true }))
 
-  it(HAS_BROWSER
-    ? 'Noto Sans KR 子集 + 200px 量测 → .kCC28 规则 + verify PASS'
-    : '跳过：本机无 Chromium 系浏览器', { timeout: 300_000 }, async () => {
-    if (!HAS_BROWSER) return
-    const spec = join(d, 'fonts.json')
-    writeFileSync(spec, JSON.stringify([
-      { family: 'OBS KR', google: 'Noto+Sans+KR:wght@400', text: '차' },
-    ]), 'utf-8')
-    expect(await fetch_fonts.main([spec])).toBe(0)
+  // 字体来源是本机系统字体，**不联网**（见 test/local-font.ts 的长注释）。
+  // 没有谚文字体的机器上这条跳过——渲不出韩文时量出来的字形是错的，而错误
+  // 字形照样能生成语法正确的 CSS 规则，那种「通过」比失败更坏。
+  const RUN = HAS_BROWSER && koreanFontPath() !== null
+
+  it(RUN
+    ? '本机谚文字体 + 200px 量测 → .kCC28 规则 + verify PASS'
+    : `跳过：${HAS_BROWSER ? '本机无谚文字体' : '本机无 Chromium 系浏览器'}`, { timeout: 300_000 }, async () => {
+    if (!RUN) return
+    const font = writeLocalFontCss(d)!
     const out = join(d, 'k')
     const { log } = captureLog()
     const rc = await mk.main([
-      '차', '--family', "'OBS KR'", '--css', join(d, 'fonts.css'), '--out', out,
+      '차', '--family', `'${font.family}'`, '--css', font.cssPath, '--out', out,
     ])
     const out_ = log.join('\n')
     if (rc !== 0) console.error(out_) // 失败时把量测表吐给诊断

@@ -45,15 +45,47 @@ interface FontSpec {
   text: string
 }
 
+/**
+ * 网络接缝（给门禁用）。默认走真 `fetch`。
+ *
+ * 为什么要这个接缝：`pnpm verify` 里有两处真联网取 Google Fonts 的用例，
+ * 结果门禁的健康度取决于「今天 fonts.googleapis.com 通不通」——2026-11-06
+ * 实测同一个提交在 10 秒超时下直接 ConnectTimeout，整条 verify 变红，而代码
+ * 一行没改。那是纪律 12 明写禁止的「让验收长得像环境可用性测试」。
+ *
+ * 接缝的用法是**双向**的：
+ * - 门禁跑注入的假 fetch（离线、确定性），仍然覆盖 url 构造 / 解析 / base64
+ *   内嵌 / family 改名这些真逻辑；
+ * - `FEUILLE_LIVE=1` 时跑真网络，作为独立的 LIVE 面。
+ *
+ * 注入的是 `fetch` 而不是「返回 css 的桩」，因为要覆盖的正是**两次 HTTP 往返
+ * 的顺序**（先 css2 拿 @font-face，再逐个 woff2 直链）。
+ */
+export type FetchLike = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{
+  ok: boolean
+  status: number
+  statusText: string
+  text: () => Promise<string>
+  arrayBuffer: () => Promise<ArrayBuffer>
+}>
+
+let fetchOverride: FetchLike | null = null
+
+/** 测试专用：注入 fetch 接缝；传 null 还原。 */
+export function setFetchForTests(f: FetchLike | null): void {
+  fetchOverride = f
+}
+
 export async function main(argv: string[]): Promise<number> {
   const specPath = argv[0] !== undefined ? argv[0]! : 'fonts.json'
   const spec = JSON.parse(readFileSync(specPath, 'utf8')) as FontSpec[]
+  const doFetch: FetchLike = fetchOverride ?? (fetch as unknown as FetchLike)
   const cssOut: string[] = []
   for (const ent of spec) {
     const fam = ent['family']!
     const text = ent['text']!
     const url = `https://fonts.googleapis.com/css2?family=${ent['google']}&text=${pyQuote(uniq(text))}&display=swap`
-    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
+    const res = await doFetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}: ${url}`)
     const css = await res.text()
     const blocks = css.match(/@font-face\s*\{[^}]+\}/g) ?? []
@@ -64,7 +96,7 @@ export async function main(argv: string[]): Promise<number> {
     for (const b of blocks) {
       const m = b.match(/url\((https:\/\/[^)]+)\)\s*format\('woff2'\)/)!
       const wght = b.match(/font-weight:\s*(\d+)/)![1]
-      const dataRes = await fetch(m[1]!, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
+      const dataRes = await doFetch(m[1]!, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
       if (!dataRes.ok) throw new Error(`HTTP ${dataRes.status} ${dataRes.statusText}: ${m[1]}`)
       const data = Buffer.from(await dataRes.arrayBuffer())
       const b64 = data.toString('base64')

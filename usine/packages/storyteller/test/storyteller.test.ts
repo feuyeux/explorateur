@@ -18,7 +18,7 @@ import { createCanvas } from '@napi-rs/canvas'
 import sharp from 'sharp'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { audio, createPilDraw, platform, rig, scenes } from '@feuille/core'
+import { audio, createPilDraw, platform, rig, roundHalfEven, scenes } from '@feuille/core'
 import type { RGB } from '@feuille/core'
 
 import * as st from '../src/index.js'
@@ -321,7 +321,7 @@ describe('assemble e2e：合成帧 → 叠化转场 + 醒木混音成片', () =>
   const d = mkdtempSync(join(tmpdir(), 'storyteller-assemble-'))
   afterAll(() => rmSync(d, { recursive: true, force: true }))
 
-  it('两幕 + 转场 + gavel → 单画幅 mp4（26 帧 @5fps）', { timeout: 180_000 }, async () => {
+  it('两幕 + 转场 + gavel → 单画幅 mp4（帧数由实测 mp3 时长派生）', { timeout: 180_000 }, async () => {
     const F = join(d, 'frames')
     mkdirSync(F, { recursive: true })
     mkdirSync(join(d, 'tts'), { recursive: true })
@@ -329,33 +329,64 @@ describe('assemble e2e：合成帧 → 叠化转场 + 醒木混音成片', () =>
     await solidPng(join(d, 'video', 'cover_portrait.png'), [200, 180, 160])
     await solidPng(join(d, 'video', 'outro_card.png'), [160, 150, 140])
     synthGavel(join(F, 'gavel.wav'), 5, platform.ffmpeg()!)
+    const fps = 5
+    const TIMING = { fps, intro: 0.4, outro: 0.4, transition: 0.4, preroll: 0.2, tail: 0.2, done: 0.2 }
+    const TOKENS = [{ text: '开讲', start: 0.2 }, { text: '一段', start: 0.8 }]
+    // 幕帧数**由实测 mp3 时长派生**，不手抄常数。
+    //
+    // 为什么改（2026-11-06）：这里原先写死「26 帧 / 5.2s」，依据是造夹具那台机器上
+    // `-t 1.4` 静音 mp3 编码后实测 1.44s。libmp3lame 的尾部填充**不跨机器稳定**——
+    // 本机同一命令实测 1.400s，同一套公式算出 9 帧/幕（不是 10 帧），成片 24 帧/
+    // 4.8s，于是断言恒差 0.4s。
+    //
+    // 错的不在装配器（它按 adur 复算是对的，帧缺失还会当场崩），而在期望值抄了
+    // 一台机器的测量结果。「属性一律派生，不手抄」同样适用于测试夹具。
+    const expectedFrames: Record<string, number> = {}
     for (const [aid, col] of [['a1', [180, 60, 60]], ['a2', [60, 60, 180]]] as const) {
       lavfi(join(d, 'tts', `zh-${aid}.mp3`),
         ['-f', 'lavfi', '-i', 'anullsrc=r=24000:cl=mono', '-t', '1.4', '-c:a', 'libmp3lame'])
-      writeFileSync(join(d, 'tts', `zh-${aid}.json`), JSON.stringify({
-        text: '开讲一段。',
-        tokens: [{ text: '开讲', start: 0.2 }, { text: '一段', start: 0.8 }],
-      }))
-      // 幕帧数 = preroll(1) + 词段(3+5) + done(1) = 10 @5fps。
-      // 词段为什么是 3+5：词表尾推的词跨度合计 = adur + tail - t0 = 1.44 + 0.2 - 0.2 = 1.44s，
-      // ×5fps = 7.2 帧 → 分成两段后向上取整共 8 帧（ceil 逐段取，不是合并取）。
-      // （2026-11-04 修正：原来只造 9 帧，装配器按上式要第 10 帧 → 直接崩。）
-      for (let k = 0; k < 10; k++) {
+      writeFileSync(join(d, 'tts', `zh-${aid}.json`), JSON.stringify({ text: '开讲一段。', tokens: TOKENS }))
+      const adur = audio.probeDuration(join(d, 'tts', `zh-${aid}.mp3`))
+      // 口径 = preroll + Σ 词段 + done（尾词段还要加 tail），与 render/assemble 同式。
+      const durs: number[] = [TIMING.preroll]
+      for (let i = 0; i < TOKENS.length; i++) {
+        durs.push(i < TOKENS.length - 1
+          ? TOKENS[i + 1]!.start - TOKENS[i]!.start
+          : (adur - TOKENS[i]!.start) + TIMING.tail)
+      }
+      durs.push(TIMING.done)
+      const nFrames = durs.reduce((acc, x) => acc + roundHalfEven(x * fps), 0)
+      expectedFrames[aid] = nFrames
+      for (let k = 0; k < nFrames; k++) {
         await solidPng(join(F, `f${aid}-${String(k).padStart(4, '0')}.png`), col as [number, number, number])
       }
     }
     writeFileSync(join(d, 'acts.json'), JSON.stringify({
       formats: [{ w: 1080, h: 1920 }],
-      timing: { fps: 5, intro: 0.4, outro: 0.4, transition: 0.4, preroll: 0.2, tail: 0.2, done: 0.2 },
+      timing: TIMING,
       acts: [{ id: 'a1', gavel: true }, { id: 'a2' }],
     }))
     const out = join(d, 'out.mp4')
     const rc = await st.assemble_storyteller.main([join(d, 'acts.json'), F, out])
     expect(rc).toBe(0)
     expect(existsSync(out)).toBe(true)
-    // cover 2 + a1 10 + 转场 2 + a2 10 + outro 2 = 26 帧 @5fps = 5.2s
-    const dur = audio.probeDuration(out)
-    expect(Math.abs(dur - 5.2)).toBeLessThan(0.3)
+
+    // 全按**帧数**对账（不拿秒数近似）：cover + a1 + 转场 + a2 + outro。
+    const totalFrames = roundHalfEven(TIMING.intro * fps) + expectedFrames['a1']!
+      + roundHalfEven(TIMING.transition * fps) + expectedFrames['a2']!
+      + roundHalfEven(TIMING.outro * fps)
+    const streams = (JSON.parse(spawnSync(platform.ffprobe()!, ['-v', 'error', '-show_entries',
+      'stream=codec_type,duration,nb_frames', '-of', 'json', out], { encoding: 'utf8' }).stdout)
+      .streams ?? []) as Array<{ codec_type: string; duration: string; nb_frames: string }>
+    const v = streams.find((s) => s.codec_type === 'video')!
+    const a = streams.find((s) => s.codec_type === 'audio')!
+    // 1) 视频帧数 = 计划帧数：装配器没有多编或少编。
+    expect(Number(v.nb_frames)).toBe(totalFrames)
+    // 2) 双流对齐：音频不许短于视频（短了 = 末尾被吞，播放器黑屏）。
+    expect(Math.abs(Number(a.duration) - Number(v.duration))).toBeLessThan(0.05)
+    // 3) 总时长 = 帧数 / fps —— 帧率是硬事实，不受编码器填充影响。
+    expect(Math.abs(Number(v.duration) - totalFrames / fps)).toBeLessThan(0.05)
+
     const r = spawnSync(platform.ffmpeg()!, ['-hide_banner', '-i', out], { encoding: 'utf8' })
     expect(r.stderr).toMatch(/Audio: aac/)
   })

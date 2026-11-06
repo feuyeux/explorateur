@@ -636,7 +636,14 @@ describe.skipIf(!hasPw || pt.browserPath() === null)(
     }
   })
 
-  it('mock-D/E/F/G 存草稿：只点草稿键 / 找不到草稿键就 fail-closed / div 版草稿键也认 / B站真实 span 键也认', async () => {
+  // 超时 120s 的理由（2026-11-06）：这一条串起**四个**浏览器场景
+  // （mock-D/E/F/G），每个都真的 goto + 截图 + 等草稿键出现，其中三个还带
+  // 故意的 waitS/timeoutS 预算（5s/2s/5s/5s）——那是被测行为，不是等待浪费。
+  // 单独跑实测 25.2s；`pnpm verify` 全量并行时（50 个文件抢同一台机器）冲过
+  // 根级 30s 默认值而超时，代码没改、断言也没错。30s 是「挂死」的兜底，不是
+  // 性能断言——真挂死是整进程不返回，120s 照样抓得住。
+  it('mock-D/E/F/G 存草稿：只点草稿键 / 找不到草稿键就 fail-closed / div 版草稿键也认 / B站真实 span 键也认',
+    { timeout: 120_000 }, async () => {
     const td = mkdtempSync(join(tmpdir(), 'feuille-publish-draft-'))
     mkdirSync(EV, { recursive: true })
     for (const [name, html] of [
