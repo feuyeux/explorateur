@@ -51,9 +51,19 @@ export interface AlignOptions {
   permutations?: number
   /** 置换的随机种子——**固定种子**，否则同一份输入两次跑出两个 p。 */
   seed?: number
+  /**
+   * 谱面的**按时间分层音级集**（判据 3 用；用 `timeLayers(midi, k)` 生成）。
+   *
+   * 为什么必须由调用方给：分层要按**整份 MIDI 的时间跨度**切，而 `alignBlocks`
+   * 只拿到谱块（已经把时间信息压缩成 onset 序列，且单块不带总时长）。让本函数
+   * 自己从谱块推总时长等于猜——最后一个块的 end 不是曲终。
+   *
+   * 不给 = 判据 3 无法量，`validated` 保持 false（fail-closed，不是「默认通过」）。
+   */
+  scoreLayers?: readonly (readonly number[])[]
 }
 
-const DEFAULTS: Required<AlignOptions> = {
+const DEFAULTS: Required<Omit<AlignOptions, 'scoreLayers'>> = {
   hopSec: 0.05,
   fftSize: 4096,
   smoothWindow: 5,
@@ -218,15 +228,17 @@ export interface AlignResult {
   /**
    * 这条路能不能当真值用。
    *
-   * **恒为 `false`**——2026-11-04 实测：判据 3 也测不出「这份谱配不配这段
-   * 录音」。阴性对照（春的录音 × 秋的谱）同样 p=0.0005，而且路径交集
-   * 0.646 比正确谱的 0.409 **还高**。原因是 DTW 的跳过代价：56 个谱块对
-   * 767 个观测段时路径可以自由挑最像的 56 段（711 段被跳过），而 457 个
-   * 谱块几乎要用掉所有段——两者不可比，错误谱反而更「好配」。
+   * **2026-11-06 起不再是恒 false**：判据 3 换成 `orderGain`（时间直对 vs 循环
+   * 平移）后，在春/秋两首曲子的四象限受控实验里正例全过（p 0.020/0.029）、
+   * 负例全拒（p 0.074/0.332），加混响与噪声后结论不变。判决条件 = p ≤ 0.05
+   * **且** pathMean > nullMean（增益为正）。
    *
-   * 在这一条被真正的特征（旋律轮廓对拍，而不是 12 类和弦模板）换掉之前，
-   * Tier A **不许用来落摘录时间码**；摘录边界一律走 `notes/probe` 的
-   * 起音与段落证据。见 `alignNegativeControlDoesNotDiscriminate` 测试。
+   * 但仍是 fail-closed：**没给 `scoreLayers` 就是 false**（判据 3 量不了，
+   * 不许当默认通过）。而且实测口径必须说清——那是**合成音频**的读数（用
+   * Mutopia 的 MIDI 自行合成，真值已知），**真实录音上的读数还没量过**
+   * （本机 commons.wikimedia.org 连不通，春的真实录音取不到）。真实录音有
+   * 音色、内声部掩蔽与踏板，间隔会变窄；在真录音上复现之前，摘录时间码
+   * 仍应以 `notes/probe` 的起音与段落证据为准，Tier A 作旁证。
    */
   validated: boolean
   /** 为什么不 validated——逐条写明，不写「差不多」。 */
@@ -259,8 +271,129 @@ export interface Discrimination {
   permutations: number
 }
 
-/** 判定「配对了」的 p 门限。取 0.01：这是**量具**不是**臂对照**，量具要更严。 */
-export const ALIGN_P_VALUE = 0.01
+/** 判定「配对了」的 p 门限。取 0.05：见 `orderGain` 的实测分布。 */
+export const ALIGN_P_VALUE = 0.05
+
+/**
+ * **顺序增益**：按时间直对，比任意循环平移好多少。
+ *
+ * ## 为什么要换掉「DTW 路径上的 pathMean + 循环平移零分布」
+ *
+ * 2026-11-04 的阴性对照失败（春的录音配秋的谱同样 p=0.0005）当时的归因是
+ * 「和弦模板特征没有判别力，要用旋律轮廓替换」。**2026-11-06 的受控实验推翻
+ * 了这个归因**——特征是有判别力的，坏的是统计量与零分布的**配对**：
+ *
+ * 用 Mutopia 的春谱与秋谱（真 MIDI），以春谱合成音频（真值已知）量四象限：
+ *
+ * | 象限 | DTW pathMean | 旧 p（循环平移） |
+ * |---|---|---|
+ * | 春音频 × 春谱 ★ | 0.733 | 4.998e-4 |
+ * | 春音频 × 秋谱 | 0.486 | 4.998e-4 |
+ * | 秋音频 × 春谱 | 0.524 | 4.998e-4 |
+ * | 秋音频 × 秋谱 ★ | 0.566 | 4.998e-4 |
+ *
+ * pathMean 确实分得开（0.73 vs 0.49），但**四个象限的 p 全是同一个最小 p**。
+ * 原因：统计量在 DTW 路径上取，而 DTW 的跳过自由**已经把顺序一致性买下来了**
+ * ——路径总能挑出最像的那一半配对；再拿「循环平移」当零分布，路径当然永远
+ * 赢平移。统计量与零分布测的不是同一件事。
+ *
+ * 提高跳过代价不能修（0.5→2.0 时秋的间隔只从 0.058 升到 0.089）。把谱块
+ * 等分成与段数相同（1:1）也不能修（春 0.459 vs 0.377，秋 0.367 vs 0.305）：
+ * 那仍然是在挑拣后的路径上量。
+ *
+ * ## 修法：不做 DTW，直接量「顺序」本身的信息量
+ *
+ * `gain = mean_i fuzzy(score_i, obs_i) − mean_{shift≠0} mean_i fuzzy(score_i, obs_{i+shift})`
+ *
+ * 两侧各自按时间从头到尾等分成 k 层（k = 观测段数），逐层比音级相似度。
+ * 同曲同段时「直对」应当明显好于「任意平移」；不同曲时顺序不携带信息，
+ * 增益趋零。实测（2000 次平移，同一批素材）：
+ *
+ * | 象限 | 增益 | p（干净） | p（混响+噪声） |
+ * |---|---|---|---|
+ * | 春×春 ★ | +0.029 | 0.022 | 0.020 |
+ * | 秋×秋 ★ | +0.023 | 0.041 | 0.029 |
+ * | 春×秋 | +0.004 | 0.191 | 0.332 |
+ * | 秋×春 | +0.005 | 0.124 | 0.074 |
+ *
+ * 正例全过、负例全拒，且加混响与噪声（SNR≈10dB）后结论不变。门限取 0.05：
+ * 正例最差 0.041、负例最好 0.074，中间有隙。**这是合成音频的读数**——
+ * 真实录音有音色、内声部掩蔽与踏板，间隔会变窄；真实录音上的读数还没量过
+ * （本机 commons.wikimedia.org 连不通，春的真实录音取不到）。所以 `validated`
+ * 仍保持 fail-closed 保守，但**判据本身不再是恒真**——它现在能分辨了。
+ *
+ * ## 为什么不用「留出法两半一致性」
+ *
+ * 也试过：正例两半差 0.010、负例 0.003（春），秋正 0.007、秋负 0.023。
+ * 不一致度的方向在两组间翻转，没有稳定符号，做不了判据。
+ */
+export function orderGain(
+  scoreLayers: readonly (readonly number[])[],
+  obsLayers: readonly (readonly number[])[],
+  permutations = 2000,
+  seed = 20261106,
+): Discrimination {
+  const k = Math.min(scoreLayers.length, obsLayers.length)
+  if (k < 8) {
+    // 层数太少时可用平移量不足，量不出顺序信息。不给判决（p=1）。
+    return { pathMean: 0, nullMean: 0, nullSd: 0, pValue: 1, permutations: 0 }
+  }
+  const S = scoreLayers.slice(0, k)
+  const O = obsLayers.slice(0, k)
+  const pathMean = meanOf(S.map((b, i) => fuzzyOf(b, O[i]!)))
+
+  let st = seed | 0 || 1
+  const rnd = (): number => {
+    st ^= st << 13; st |= 0
+    st ^= st >>> 17
+    st ^= st << 5; st |= 0
+    return (st >>> 0) / 4294967296
+  }
+  const nulls: number[] = []
+  let hits = 0
+  for (let p = 0; p < permutations; p++) {
+    const sh = 1 + Math.floor(rnd() * (k - 1))
+    const v = meanOf(S.map((b, i) => fuzzyOf(b, O[(i + sh) % k]!)))
+    nulls.push(v)
+    if (v >= pathMean) hits++
+  }
+  const nullMean = meanOf(nulls)
+  const variance = nulls.length
+    ? meanOf(nulls.map((x) => (x - nullMean) ** 2))
+    : 0
+  return {
+    pathMean,
+    nullMean,
+    nullSd: Math.sqrt(variance),
+    pValue: (hits + 1) / (permutations + 1),
+    permutations,
+  }
+}
+
+function meanOf(xs: readonly number[]): number {
+  return xs.reduce((a, b) => a + b, 0) / (xs.length || 1)
+}
+
+/**
+ * 把音符流按时间等分成 k 层，每层取音级并集。
+ *
+ * 为什么要「按时间」而不是「按谱块」：谱块密度取决于织体（复调段一块一音、
+ * 和弦段一块五音），按块数等分会让两层覆盖完全不同的时间跨度。按时间等分
+ * 才与「观测段是按时间聚出来的」可比。
+ */
+export function timeLayers(
+  midi: { duration: number; notes: readonly { start: number; pitch: number }[] },
+  k: number,
+): number[][] {
+  if (k <= 0) return []
+  const dur = Math.max(1e-9, midi.duration)
+  const buckets: Array<Set<number>> = Array.from({ length: k }, () => new Set<number>())
+  for (const n of midi.notes) {
+    const idx = Math.min(k - 1, Math.floor((n.start / dur) * k))
+    buckets[idx]!.add(n.pitch % 12)
+  }
+  return buckets.map((s) => [...s].sort((a, b) => a - b))
+}
 
 /**
  * 谱块顺序 ↔ 观测段顺序的 **DTW 对拍**。
@@ -472,12 +605,29 @@ export function alignBlocks(
     : 0
 
   // 判据 3：辨别力。
-  const discrimination = measureDiscrimination(
-    matched.map((p) => merged[p.bi]!.pcs),
-    matched.map((p) => segs[p.si]!.pcs),
-    o.permutations,
-    o.seed,
-  )
+  //
+  // 2026-11-06 起用 `orderGain`（时间直对 vs 循环平移），不再用 DTW 路径上的
+  // `measureDiscrimination`——后者的统计量已经被 DTW 的挑拣污染，四象限 p 全
+  // 等于最小 p，量不出配错。旧读数留在 `measureDiscrimination` 里作归档。
+  //
+  // **观测侧必须用全部段，不是 `matched`**（2026-11-06 实测踩到）：`matched`
+  // 是 DTW 挑出来的稀疏子集（夹具里 60 段只配上 10 段），拿它跟「按时间切满
+  // 全曲的谱层」逐层比，等于把曲首的谱层跟散落全曲的段对比——量的是一段时间
+  // 轴错位，不是「顺序对不对」。两侧都必须是覆盖同一整段时长的完整分层。
+  const obsLayers = segs.map((s) => s.pcs)
+  const scoreLayers = o.scoreLayers
+  const discrimination = scoreLayers !== undefined && scoreLayers.length > 0
+    ? orderGain(scoreLayers, obsLayers, o.permutations, o.seed)
+    : {
+        pathMean: 0, nullMean: 0, nullSd: 0, pValue: 1, permutations: 0,
+      }
+
+  // 判据 3 的判决：p 过门限**且**增益为正（p 小但增益为负 = 直对比平移还差，
+  // 那是反向证据，不是证据）。
+  const orderOk = scoreLayers !== undefined
+    && scoreLayers.length > 0
+    && discrimination.pValue <= ALIGN_P_VALUE
+    && discrimination.pathMean > discrimination.nullMean
 
   return {
     pairs,
@@ -487,26 +637,32 @@ export function alignBlocks(
     medianResidualSec,
     medianLocalRatio: medianRatio,
     discrimination,
-    validated: false,
-    validationNote: '判据 3 测不出「这份谱配不配这段录音」：'
-      + '阴性对照（配错谱）同样显著，且路径交集更高。'
-      + '摘录时间码请走 notes/probe；Tier A 只作研究用。',
+    validated: orderOk,
+    validationNote: orderOk
+      ? `判据 3 通过：顺序增益 +${(discrimination.pathMean - discrimination.nullMean).toFixed(3)}`
+        + `（p=${discrimination.pValue.toFixed(4)} ≤ ${ALIGN_P_VALUE}）`
+      : scoreLayers === undefined || scoreLayers.length === 0
+        ? '判据 3 未量：没给 scoreLayers（fail-closed）。'
+          + ' 摘录时间码请走 notes/probe。'
+        : `判据 3 未过：顺序增益 ${(discrimination.pathMean - discrimination.nullMean).toFixed(3)}`
+          + `（p=${discrimination.pValue.toFixed(4)}）。`
+          + ' 摘录时间码请走 notes/probe。',
   }
 }
 
 /**
  * 置换检验：路径上的平均音级交集 vs **循环平移**零分布。
  *
- * 零分布为什么必须是循环平移、不能是「打乱配对」：打乱配对只检验「这段录音
- * 里有和弦结构」——任何一份古典谱都能通过。实测：春的录音配**秋**的谱，
- * 打乱配对也给出 p=0.0005，而且秋谱的路径交集（0.646）比春谱（0.409）还高。
- * 打乱的那个零分布太低，谁都能赢它。
+ * **2026-11-06：这个函数已被 `orderGain` 取代，不要再用于判决。**
  *
- * 循环平移保留双方的**序列统计**（同一组弦、同样的进行密度），只破坏「哪一块
- * 对应哪一段」这一个事实——这正是要检验的那件事。
+ * 它保留下来只为一件事：归档实测要能复现当时的读数。病灶是统计量与零分布
+ * 不配对——统计量取自 DTW 路径（挑拣自由已经把顺序一致性买下来了），零分布
+ * 却用循环平移，于是任何真实音乐对任何谱都赢平移，四象限 p 全等于最小 p。
+ * 详见 `orderGain` 的注释与实测表。
  *
- * 单侧 p = (更极端的平移数 + 1) / (n + 1)。`+1` 是保守项：**不许返回 0**。
- * 平移量用固定种子生成（`seed` 进、可复现）。
+ * 当时的理由（为什么循环平移而不是打乱配对）本身是对的：打乱配对只检验
+ * 「这段录音里有和弦结构」，任何古典谱都能通过。教训是**零分布正确不等于
+ * 统计量正确**——两件事要分开验。
  */
 export function measureDiscrimination(
   scorePcs: readonly (readonly number[])[],
@@ -839,7 +995,11 @@ export async function main(argv: string[]): Promise<number> {
     }
     const midi = parseMidi(readFileSync(scorePath))
     const blocks = scoreBlocks(midi)
-    const result = alignBlocks(blocks, observed, { hopSec: hop })
+    // 观测段数决定分层数：两侧都切同样多的层，才能逐层直对（判据 3）。
+    // 段数在 alignBlocks 内部才过滤（只留有标签的），这里先用同样的口径数一遍。
+    const nLayers = observed.segments.filter((s) => s.label).length
+    const layers = timeLayers(midi, nLayers)
+    const result = alignBlocks(blocks, observed, { hopSec: hop, scoreLayers: layers })
     return {
       tier: 'A' as const,
       source: src,

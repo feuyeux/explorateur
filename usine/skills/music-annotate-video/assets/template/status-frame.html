@@ -19,15 +19,37 @@
   7. 不做 CSS transition/animation：同一 state 每次截图必须逐字节一致。
 -->
 <style>
+  /* 画幅：几何的**唯一事实源**在这里。
+     ?fmt=h（默认）1920×1080；?fmt=v 1080×1920（竖版，抖音/小红书/Reels）。
+     为什么用 CSS 变量而不是写死两套：截图尺寸由 build 的 --width/--height 给，
+     而 CSS 若还写死 1920px，竖版截图会得到「1080 宽视口里一张 1920 宽的页」
+     ——右侧被裁掉，看上去像内容缺失。变量的默认值仍是横版，所以老配置不改
+     也照旧跑。
+
+     竖版不只是换个尺寸：横向排的 .head/.stage/.foot 在 1080 宽里挤不下，
+     所以下面按 --vw/--vh 的比例调字号与内边距（不是等比缩放——等比缩放会让
+     18px 的字变 10px，不可读）。 */
+  :root { --vw: 1920px; --vh: 1080px; }
+  html.v { --vw: 1080px; --vh: 1920px; }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #e8e2d4; }
+  html, body { width: var(--vw); height: var(--vh); overflow: hidden; background: #e8e2d4; }
   body { color: #2c2620; font-family: Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif; }
 
   .scene {
-    display: none; width: 1920px; height: 1080px; padding: 64px 90px 44px;
+    display: none; width: var(--vw); height: var(--vh); padding: 64px 90px 44px;
     background: #f7f2e6; flex-direction: column;
   }
   .scene.on { display: flex; }
+
+  /* 竖版：收紧横向内边距（90px 在 1080 宽里占掉 17%），纵向留白加大，
+     字号整体上一档（竖版观看距离更近、屏更窄）。 */
+  html.v .scene { padding: 96px 56px 72px; }
+  html.v h1 { font-size: 60px; }
+  html.v h1 .sub { display: block; margin-left: 0; margin-top: 12px; }
+  html.v .kicker { font-size: 24px; }
+  html.v .caption { font-size: 30px; margin-top: 24px; }
+  html.v .foot { font-size: 22px; flex-direction: column; gap: 8px; }
 
   .head { border-bottom: 2px solid #d9cdb7; padding-bottom: 20px; }
   .kicker { font-size: 22px; letter-spacing: .35em; color: #b8860b; margin-bottom: 10px; }
@@ -47,7 +69,10 @@
     display: flex; justify-content: space-between; font-size: 19px; color: #8a7e6c;
   }
 
-  .card { display: none; width: 1920px; height: 1080px; background: #f7f2e6; }
+  .card { display: none; width: var(--vw); height: var(--vh); background: #f7f2e6; }
+  html.v .card .t { font-size: 76px; text-align: center; padding: 0 40px; }
+  html.v .card .k { font-size: 24px; letter-spacing: .4em; }
+  html.v .card .s { font-size: 28px; text-align: center; padding: 0 48px; }
   .card.on { display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .card .k { font-size: 26px; letter-spacing: .5em; color: #b8860b; margin-bottom: 36px; }
   .card .t { font-size: 96px; font-weight: 700; letter-spacing: .06em; }
@@ -139,6 +164,13 @@ function mk(tag, attrs) {
 
 const scene = qs("scene") || "A";
 const state = parseInt(qs("state") || "-1", 10);
+
+// 画幅分支：必须在任何布局/测量之前设好 class，否则浏览器先按横版排一遍、
+// 再改 class 会触发一次重排（同一 state 两次截图的中间态可能不同）。
+// 判定写在 JS 里而不是 CSS 媒体查询：截图视口由 build 的 --width/--height 决定，
+// 媒体查询拿到的宽度在 headless 下与最终 PNG 尺寸未必要一致，参数才是准的。
+const FMT = qs("fmt") === "v" ? "v" : "h";
+if (FMT === "v") document.documentElement.classList.add("v");
 function show(id) { const el = document.getElementById(id); if (el) el.classList.add("on"); }
 
 // 卡片别名显式列全；其余一律当作场景裸名（§6）。
@@ -158,7 +190,15 @@ else {
   show("scene-" + scene);
   const viz = document.getElementById("viz-" + scene);
 
-  const W = 1920, H = 640;                 // stage 画布坐标（与 CSS 尺寸解耦）
+  // stage 画布：**两种画幅共用同一个坐标系**（1920×640）。
+  // DATA 里的 x0/x1/yTop/yBot 都是在 1920 宽的坐标里给的（x1 默认 1820）。
+  // 竖版若把 viewBox 改成 1080 宽，x1=1820 会直接落到框外、右侧内容被裁掉
+  // ——这正是我第一版打算做的事，靠读 DATA 默认值才发现。
+  // 正确做法：坐标系不动，让 CSS 的 width/height 决定这块 3:1 画布在竖屏里
+  // 占多高（preserveAspectRatio=meet 等比放进槽位，绝不裁、不拉伸）。
+  // 竖版因此是一块居中的 3:1 横向画布 + 上下更宽的排版留白，而不是把
+  // 横版硬掰成瘦长条。
+  const W = 1920, H = 640
   const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet" });
   const { x0, x1, yTop, yBot, dur } = d;
   const X = (t) => x0 + (t / dur) * (x1 - x0);

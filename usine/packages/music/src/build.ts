@@ -228,6 +228,11 @@ export function shootState(
   url.searchParams.set('scene', scene)
   url.searchParams.set('state', String(state))
   if (ph !== null) url.searchParams.set('ph', ph.toFixed(3))
+  // 画幅：由**截图尺寸**推出，不另外传参。竖版是 h > w，横版是 w > h。
+  // 为什么不加一个独立的 --fmt：画幅已经在 --width/--height 里表达了一遍，
+  // 再传一次就是两处事实源，必有一处会漂（纪律 7/10）。模板按这个参数切
+  // CSS 变量与排版，不靠媒体查询（headless 下媒体查询宽度未必等于 PNG 尺寸）。
+  url.searchParams.set('fmt', h > w ? 'v' : 'h')
   sh([browser,
     '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
     '--force-device-scale-factor=1', '--hide-scrollbars',
@@ -332,7 +337,10 @@ export function buildProject(
       : '{}'
     writeFileSync(
       join(workDir, 'credit.html'),
-      renderCreditHtml(JSON.parse(facts), JSON.parse(sources), opts.creditPass ?? 'placeholder'),
+      renderCreditHtml(
+        JSON.parse(facts), JSON.parse(sources),
+        opts.creditPass ?? 'placeholder', { width: w, height: h },
+      ),
       'utf8',
     )
   }
@@ -638,23 +646,31 @@ export function renderCreditHtml(
   facts: Record<string, unknown>,
   sources: Record<string, unknown>,
   pass: 'placeholder' | 'final',
+  size: { width?: number; height?: number } = {},
 ): string {
+  const w = size.width ?? 1920
+  const h = size.height ?? 1080
+  // 画幅跟着截图尺寸走。写死 1920×1080 时竖版截图会得到「1080 宽视口里一张
+  // 1920 宽的页」——右半边被裁掉，看着像字段缺失（实测）。竖版还要把两栏
+  // 改成一栏、字号上一档：1080 宽塞两栏时每栏 470px，19px 的行会频繁折行。
+  const vertical = h > w
   const L: string[] = []
   L.push(`<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8">`)
   L.push(`<style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  html,body { width:1920px; height:1080px; overflow:hidden; background:#f7f2e6; }
+  html,body { width:${w}px; height:${h}px; overflow:hidden; background:#f7f2e6; }
   body { color:#2c2620; font-family: Georgia,"Noto Serif CJK SC","Source Han Serif SC",serif;
-         padding:56px 84px; display:flex; flex-direction:column; }
-  .k { font-size:24px; letter-spacing:.5em; color:#b8860b; margin-bottom:18px; }
-  h1 { font-size:44px; font-weight:600; margin-bottom:24px; }
-  .cols { display:flex; gap:56px; flex:1; min-height:0; }
+         padding:${vertical ? '96px 56px' : '56px 84px'}; display:flex; flex-direction:column; }
+  .k { font-size:${vertical ? 24 : 24}px; letter-spacing:.5em; color:#b8860b; margin-bottom:18px; }
+  h1 { font-size:${vertical ? 54 : 44}px; font-weight:600; margin-bottom:24px; }
+  .cols { display:flex; flex-direction:${vertical ? 'column' : 'row'};
+          gap:${vertical ? 36 : 56}px; flex:1; min-height:0; }
   .col { flex:1; min-width:0; }
-  h2 { font-size:24px; color:#8a7e6c; margin-bottom:12px; font-weight:600; }
-  .row { font-size:19px; line-height:1.5; color:#5a5142; margin-bottom:9px; }
+  h2 { font-size:${vertical ? 30 : 24}px; color:#8a7e6c; margin-bottom:12px; font-weight:600; }
+  .row { font-size:${vertical ? 26 : 19}px; line-height:1.5; color:#5a5142; margin-bottom:9px; }
   .row b { color:#2c2620; }
   .foot { margin-top:auto; padding-top:14px; border-top:1px solid #d9cdb7;
-          font-size:17px; color:#8a7e6c; }
+          font-size:${vertical ? 22 : 17}px; color:#8a7e6c; }
   </style></head><body>`)
 
   if (pass === 'placeholder') {

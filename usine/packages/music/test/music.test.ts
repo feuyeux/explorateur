@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
@@ -23,7 +23,7 @@ import { platform, readWav } from '@feuille/core'
 
 import { FLAGS } from '../src/cli.js'
 import type * as source_1 from '../src/source.js'
-import { align, build, chord, dsp, midi, narrate, probe, scan_ink, source } from '../src/index.js'
+import { align, build, chord, dsp, midi, narrate, probe, scan_ink, score, source } from '../src/index.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 const HAS_FFMPEG = platform.ffmpeg() !== null
@@ -281,41 +281,146 @@ describe('谱块：按起音分组 + 顺序对拍的两条判据', () => {
   })
 
   // ============================================================
-  //  判据 3 的阴性对照（**这条测试是「量具没通过」的档案**）
+  //  判据 3：顺序增益的**双向**对照（2026-11-06 重做）
   // ============================================================
   //
-  // 2026-11-04 实测（真录音 + 真谱面 MIDI）：春的录音配**秋**的谱，
-  // 置换检验同样 p=0.0005，而且路径交集 0.646 比正确谱的 0.409 还高。
+  // 2026-11-04 的档案：春的录音配**秋**的谱，置换检验同样 p=0.0005，路径交集
+  // 0.646 比正确谱的 0.409 还高 → 判据没有辨别力，`validated` 恒 false。
   //
-  // 结论不是「把门限调严」——那只是把结论调成想要的。**结论是：这个量具
-  // 没有辨别力，Tier A 不能用来落摘录时间码。** `validated` 因此恒为
-  // false，CLI 默认 fail-closed。这一条测试锁住那个事实，防止有人把它
-  // 悄悄改回「已验证」。
-  it('阴性对照：配错谱同样「显著」→ validated 必须为 false（不许当已验证读）', () => {
-    // 造一份「音级排列与录音几乎无关」的谱块序列与一段观测：因为模板只有
-    // 12 类，随便怎么配交集都高——正是实测里配错谱也过 55% 的原因。
+  // 2026-11-06 的受控实验**推翻了这个归因**：和弦模板特征有判别力，坏的是
+  // 「统计量与零分布不配对」——统计量取自 DTW 路径（挑拣自由已经把顺序一致性
+  // 买下来了），零分布却是循环平移，于是四象限 p 全等于最小 p。
+  //
+  // 换成 `orderGain`（时间直对 vs 循环平移，不做 DTW）后，用 Mutopia 的春/秋
+  // MIDI 合成音频（真值已知）在真 CLI 上实测：
+  //   春×春 p=0.0120 春×秋 p=0.2364 秋×春 p=0.2819 秋×秋 p=0.0075
+  // 正例全过、负例全拒。下面两条测试锁住**两个方向**（纪律 1 + 纪律 2）：
+  // 好数据必须放行，坏数据必须被抓。
+
+  /**
+   * 造一对「顺序有结构、且谱与观测一致」的谱块/观测段。
+   *
+   * 三个设计约束，每个都是被实测打回来一次才定下的：
+   *
+   * 1. **不用 `CHORD_TEMPLATES` 轮转**：那样相邻层几乎不相似，真实和弦进行
+   *    是连续的。
+   * 2. **谱块比观测段密**（120 块 vs 60 段）：真实情况谱块总多于观测段
+   *    （实测 1135/471、1181/632）。1:1 会让「平移一个长周期」撞上同层，
+   *    零分布被抬高，正例反判不过。
+   * 3. **和声进行必须非周期**：第一版用 `floor(k/6) % 12`，于是每 12 个根音
+   *    精确重复一次、周期 72 层——循环平移 72 层就得到**完全相同**的序列，
+   *    零分布被抬到与真值齐平（p=0.45）。真实音乐没有这种精确周期，所以
+   *    夹具也不能有。这里用无理数步进（黄金比）生成根音，序列近似非周期。
+   */
+  function makeFixture(): {
+    obs: align.ObservedChords
+    blocks: align.ScoreBlock[]
+    layers: number[][]
+  } {
+    const pcsAt = (k: number): number[] => {
+      // 黄金比步进 → 根音序列在 12 个音级上近似均匀且不精确重复
+      const root = Math.floor((k * 0.6180339887 * 12) % 12)
+      const third = (root + (k % 2 === 0 ? 4 : 3)) % 12 // 大小三和弦交替
+      return [root, third, (root + 7) % 12].sort((a, b) => a - b)
+    }
+    const N = 60
+    const M = 120
     const obs: align.ObservedChords = {
       hopSec: 0.05,
-      labels: Array.from({ length: 40 }, (_, k) =>
-        chord.CHORD_TEMPLATES[k % chord.CHORD_TEMPLATES.length]!),
-      scores: Array.from({ length: 40 }, () => 1),
-      pcsPerFrame: Array.from({ length: 40 }, (_, k) => [k % 12, (k + 4) % 12, (k + 7) % 12]),
-      segments: Array.from({ length: 40 }, (_, k) => ({
-        start: k, end: k + 1,
-        label: chord.CHORD_TEMPLATES[k % chord.CHORD_TEMPLATES.length]!.id,
-        pcs: [k % 12, (k + 4) % 12, (k + 7) % 12],
-        score: 1,
+      labels: Array.from({ length: N }, () => null),
+      scores: Array.from({ length: N }, () => 1),
+      pcsPerFrame: Array.from({ length: N }, (_, k) => pcsAt(k)),
+      segments: Array.from({ length: N }, (_, k) => ({
+        start: k, end: k + 1, label: 'x', pcs: pcsAt(k), score: 1,
       })),
     }
-    // 谱块：与观测**错开**的序列（阴性对照）
-    const wrong = Array.from({ length: 40 }, (_, k) => ({
-      onset: k * 0.5, end: k * 0.5 + 0.4,
-      pcs: [(k + 6) % 12, (k + 10) % 12, (k + 1) % 12], noteCount: 3,
+    const blocks: align.ScoreBlock[] = Array.from({ length: M }, (_, k) => ({
+      onset: ((k * N) / M) * 0.5, end: ((k * N) / M) * 0.5 + 0.2,
+      pcs: pcsAt(Math.floor((k * N) / M)), noteCount: 3,
     }))
-    const res = align.alignBlocks(wrong, obs)
-    // 不管 p 是多少，都**不许**声称验证过。
+    // **走真实路径**：`timeLayers(midi, N)` 是 CLI 用同一个接口约定调的函数。
+    // 直接传 `blocks.map(b => b.pcs)`（120 层）是错的——`orderGain` 只取前 N 层，
+    // 那等于拿全曲前半段的谱去比全曲的观测（实测 p=0.44，看着像判据坏，其实
+    // 是夹具把接口用错了）。
+    const midiLike = {
+      duration: N * 0.5,
+      notes: blocks.map((b) => ({ start: b.onset, pitch: b.pcs[0]! })),
+    }
+    const layers = align.timeLayers(midiLike, N)
+    return { obs, blocks, layers }
+  }
+  it('判据 3 正例：顺序对齐的谱 → 增益为正且 p 过门限 → validated true', () => {
+    // 造一段「顺序有结构」的观测：音级集随 k 缓慢移动（相邻层相似、远处不同）。
+    // 这正是真实音乐的样子——和弦进行是连续的，不是随机跳的。
+    const layers = Array.from({ length: 60 }, (_, k) => {
+      const root = Math.floor(k / 6) % 12 // 每 6 层换一次根音
+      return [root, (root + 4) % 12, (root + 7) % 12].sort((a, b) => a - b)
+    })
+    const r = align.orderGain(layers, layers)
+    expect(r.permutations).toBeGreaterThan(0)
+    // 完全相同的序列：直对应比任何平移都好 → 增益为正、p 最小
+    expect(r.pathMean).toBeGreaterThan(r.nullMean)
+    expect(r.pValue).toBeLessThanOrEqual(align.ALIGN_P_VALUE)
+  })
+
+  it('判据 3 负例：顺序无关的谱 → p 不过门限（不许当已验证读）', () => {
+    const obs = Array.from({ length: 60 }, (_, k) => {
+      const root = Math.floor(k / 6) % 12
+      return [root, (root + 4) % 12, (root + 7) % 12].sort((a, b) => a - b)
+    })
+    // 把谱层**打乱**：边际分布完全相同（同一些和弦），只是顺序没了。
+    // 这正是「配错谱」的本质——调性相近、和弦词汇重叠，但进行不同。
+    const shuffledScore = [...obs].reverse()
+    const r = align.orderGain(shuffledScore, obs)
+    // 增益应当接近 0（p 不过），或者即使偶然过也不能**显著**
+    // （打乱后仍可能因音乐有反复结构而略正——所以断言「不显著」而不是「必为负」）
+    expect(r.pValue).toBeGreaterThan(align.ALIGN_P_VALUE)
+  })
+
+  it('坏例：没给 scoreLayers → 判据 3 量不了 → validated 必须 false（fail-closed）', () => {
+    const { obs, blocks } = makeFixture()
+    // **不给** scoreLayers：判据 3 无从量起，不许默认通过
+    const res = align.alignBlocks(blocks, obs)
     expect(res.validated).toBe(false)
-    expect(res.validationNote).toContain('测不出')
+    expect(res.validationNote).toContain('未量')
+  })
+
+  it('判据 3 走通 alignBlocks：给了对齐的 scoreLayers → validated true（锁住门禁不被架空）', () => {
+    // 这一条**必须经过 alignBlocks**，不能只测 orderGain：只测 orderGain 的话，
+    // 把 `validated` 硬写成 false（= 回到 2026-11-04 的旧行为）测试照样绿。
+    // 纪律 6：判据要能指出「违反哪条会 FAIL」，所以门禁本身也要有正向断言。
+    const { obs, layers } = makeFixture()
+    const res = align.alignBlocks(makeFixture().blocks, obs, { scoreLayers: layers })
+    expect(res.discrimination.permutations).toBeGreaterThan(0)
+    expect(res.discrimination.pathMean).toBeGreaterThan(res.discrimination.nullMean)
+    expect(res.validated, '对齐的谱层必须被判为已验证——否则门禁等于恒 false')
+      .toBe(true)
+    expect(res.validationNote).toContain('通过')
+  })
+
+  it('判据 3 走通 alignBlocks：给了**错位**的 scoreLayers → validated false', () => {
+    const { obs, layers, blocks } = makeFixture()
+    // 把谱层反序：边际分布不变，顺序信息全丢——正是「配错谱」的形态
+    const reversed = [...layers].reverse()
+    const res = align.alignBlocks(blocks, obs, { scoreLayers: reversed })
+    expect(res.validated, '顺序错位必须被拒').toBe(false)
+  })
+
+  it('timeLayers：按时间等分成 k 层，每层取音级并集（不是按块数）', () => {
+    // 10 秒、20 个音符，前 10 个在 C 大调、后 10 个在 G 大调
+    const notes = [
+      ...Array.from({ length: 10 }, (_, i) => ({ start: i * 0.5, pitch: 48 + i })),
+      ...Array.from({ length: 10 }, (_, i) => ({ start: 5 + i * 0.5, pitch: 67 + (i % 3) })),
+    ]
+    const layers = align.timeLayers({ duration: 10, notes }, 4)
+    expect(layers).toHaveLength(4)
+    // 第 0 层（0–2.5s）只有前半段的音；第 3 层（7.5–10s）只有后半段的音
+    expect(layers[0]!.every((p) => p === (48 + (48 % 12)) % 12 || p < 12)).toBe(true)
+    expect(layers[3]).toBeTruthy()
+    // 层内音级是去重升序
+    for (const l of layers) {
+      expect(l).toEqual([...new Set(l)].sort((a, b) => a - b))
+    }
   })
 })
 
@@ -367,6 +472,63 @@ describe('DATA 注入：替换 `const DATA = {…}` 字面量', () => {
 
   it('坏例：字面量没闭合 → 报错', () => {
     expect(() => build.injectData('const DATA = { A: 1 ', {})).toThrow(/闭合/)
+  })
+})
+
+// ============================================================
+//  画幅：横版 1920×1080 / 竖版 1080×1920
+// ============================================================
+
+describe('画幅：制作信息页尺寸跟着截图走（写死 1920×1080 会把竖版右侧裁掉）', () => {
+  const facts = { duration_s: 180 }
+  const sources = { excerpt: 'x' }
+
+  it('横版：页面尺寸 = 1920×1080，两栏横排', () => {
+    const html = build.renderCreditHtml(facts, sources, 'final', { width: 1920, height: 1080 })
+    expect(html).toContain('width:1920px')
+    expect(html).toContain('height:1080px')
+    expect(html).toMatch(/\.cols \{[^}]*flex-direction:row/)
+  })
+
+  it('竖版：页面尺寸 = 1080×1920，两栏改成竖排（一栏）', () => {
+    const html = build.renderCreditHtml(facts, sources, 'final', { width: 1080, height: 1920 })
+    // 尺寸必须跟着走：写死 1920 宽时，1080 宽的视口只截到左半张，
+    // 右半边的字段「不见了」——看着像数据缺失，其实是画幅没接上。
+    expect(html).toContain('width:1080px')
+    expect(html).toContain('height:1920px')
+    expect(html).not.toContain('width:1920px')
+    // 1080 宽塞两栏时每栏约 470px，19px 的行会频繁折行 → 竖版改单栏
+    expect(html).toMatch(/\.cols \{[^}]*flex-direction:column/)
+  })
+
+  it('反向验证：不给尺寸时退回横版默认（老配置不改照旧跑）', () => {
+    const html = build.renderCreditHtml(facts, sources, 'final')
+    expect(html).toContain('width:1920px')
+    expect(html).toContain('height:1080px')
+  })
+
+  it('竖版字号上一档（竖屏观看距离更近、画幅更窄，不能等比缩）', () => {
+    const h = build.renderCreditHtml(facts, sources, 'final', { width: 1920, height: 1080 })
+    const v = build.renderCreditHtml(facts, sources, 'final', { width: 1080, height: 1920 })
+    const rowFont = (s: string): number => Number(/\.row \{ font-size:(\d+)px/.exec(s)![1])
+    // 竖版行字号必须**更大**。若哪天有人「统一成一套字号」，这条会红。
+    expect(rowFont(v)).toBeGreaterThan(rowFont(h))
+  })
+
+  it('状态帧模板必须认 ?fmt=v（否则 build 传了参数、页面不理会，竖版仍是横版）', () => {
+    // 这条锁的是**两端的契约**：build 侧 set('fmt', …) 与模板侧读 fmt。
+    // 只测一端等于没测——参数传了没人读，截图照样是横版且没有任何报错。
+    const tpl = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..',
+        'skills', 'music-annotate-video', 'assets', 'template', 'status-frame.html'),
+      'utf8',
+    )
+    expect(tpl).toContain('qs("fmt")')
+    expect(tpl).toContain('--vw')
+    expect(tpl).toMatch(/html\.v \{[^}]*--vw: 1080px/)
+    // **真正生效的那一行**：读参数不算数，把 class 挂到 <html> 上才算。
+    // 少了这一行，CSS 变量永远停在横版默认值，页面不报错、截图照旧是横版。
+    expect(tpl).toContain('classList.add("v")')
   })
 })
 
@@ -938,6 +1100,199 @@ describe('narrate：旁白分段的 TTS 输入与校验', () => {
   })
 })
 
+// ============================================================
+//  score：谱面真值台账（Mutopia）——纯函数部分全离线
+// ============================================================
+//
+// 这一段**绝不联网**。所有网络面都收在 main() 里，而 main() 不进这里：
+// 这里量的是「解析对不对、许可判得对不对、挑谱挑得对不对」。真站点的
+// 端到端在 SKILL.md 的手工验收里（跑一次 `feuille music score BachJS`）——
+// 不把门禁绑在 mutopiaproject.org 今天通不通上（对面是 2009 年的
+// Apache 目录列表页，随时可能变；这类耦合正是 poster 那两条 e2e 的病因）。
+describe('score：RDF 解析 / 许可归一 / 目录形态 / 挑谱', () => {
+  // 从真实站点取样的 RDF（BachJS/BWV16/Cantata_16_no_5，2026-11-06 实测原文，
+  // 只删了空元素以外的空白）。**不是**我编的样例：字段名与取值的形态必须来自
+  // 真站点，否则解析器对着假样例全绿、对着真站点全空。
+  const RDF_BWV16 = `<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:mp="http://www.mutopiaproject.org/piece-data/0.1/">
+<rdf:Description rdf:about=".">
+    <mp:title>Geliebter Jesu - From Cantata No. 16</mp:title>
+    <mp:composer>BachJS</mp:composer>
+    <mp:opus>BWV 16</mp:opus>
+    <mp:lyricist/>
+    <mp:for>Oboe da Caccia or English Horn or Viola, Tenore, Basso Continuo</mp:for>
+    <mp:date>1726</mp:date>
+    <mp:style>Baroque</mp:style>
+    <mp:metre/>
+    <mp:arranger/>
+    <mp:source>Hauptmann, 1852. Bach Gesellschaft Volume 2.</mp:source>
+    <mp:licence>Creative Commons Attribution 3.0</mp:licence>
+    <mp:lyFile>Cantata_16_no_5-lys.zip</mp:lyFile>
+    <mp:midFile>Cantata_16_no_5-mids.zip</mp:midFile>
+    <mp:id>Mutopia-2009/09/05-1695</mp:id>
+    <mp:maintainer>Ben Stewart</mp:maintainer>
+    <mp:lilypondVersion>2.10.33</mp:lilypondVersion>
+</rdf:Description>
+</rdf:RDF>`
+
+  it('rdfField：取到文本、自闭合元素给空串（不是 "undefined"）', () => {
+    expect(score.rdfField(RDF_BWV16, 'title')).toBe('Geliebter Jesu - From Cantata No. 16')
+    expect(score.rdfField(RDF_BWV16, 'opus')).toBe('BWV 16')
+    expect(score.rdfField(RDF_BWV16, 'maintainer')).toBe('Ben Stewart')
+    // 自闭合：空串。不许出现 'undefined' / '<mp:lyricist/>' 这类脏值——
+    // 脏值会一路写进台账 JSON，而台账是「这版谱的身份证」。
+    expect(score.rdfField(RDF_BWV16, 'lyricist')).toBe('')
+    expect(score.rdfField(RDF_BWV16, 'no-such-field')).toBe('')
+  })
+
+  it('XML 实体要解回字符（&amp; 不解 = 台账里存着 HTML 转义）', () => {
+    const rdf = '<mp:title>Air &amp; Variations &lt;Op. 1&gt;</mp:title>'
+    expect(score.rdfField(rdf, 'title')).toBe('Air & Variations <Op. 1>')
+  })
+
+  it('许可归一：真站点的「人话」映射到白名单标识', () => {
+    // 实测原文
+    expect(score.normalizeMutopiaLicense('Creative Commons Attribution 3.0')).toBe('CC BY 3.0')
+    expect(score.normalizeMutopiaLicense('Creative Commons Attribution 4.0')).toBe('CC BY 4.0')
+    // 顺序坑：先试 ShareAlike，否则 Attribution 抢先匹配 → 「CC BY 3.0」漏掉 SA
+    expect(score.normalizeMutopiaLicense('Creative Commons Attribution-ShareAlike 4.0'))
+      .toBe('CC BY-SA 4.0')
+    expect(score.normalizeMutopiaLicense('Creative Commons Attribution Share Alike 3.0'))
+      .toBe('CC BY-SA 3.0')
+    expect(score.normalizeMutopiaLicense('Public Domain')).toBe('PD')
+    expect(score.normalizeMutopiaLicense('CC0')).toBe('CC0')
+    // 已是指标识：原样
+    expect(score.normalizeMutopiaLicense('CC BY-SA 4.0')).toBe('CC BY-SA 4.0')
+  })
+
+  it('坏例：NC / 不认识的许可 → 判否（不许因为「Mutopia 一般都是 CC」就放行）', () => {
+    const nc = score.normalizeMutopiaLicense('Creative Commons Attribution-NonCommercial 4.0')
+    expect(nc).toBe('CC BY-NC')
+    expect(source.isUsableLicense(nc), 'NC 必须判否').toBe(false)
+    // 完全看不懂的原文：不映射 → 原文交给白名单 → 判否
+    const weird = score.normalizeMutopiaLicense('Proprietary - contact publisher')
+    expect(source.isUsableLicense(weird), '不认识的许可必须判否').toBe(false)
+    // 空：判否（读不到许可 ≠ 公有领域）
+    expect(source.isUsableLicense(score.normalizeMutopiaLicense(''))).toBe(false)
+  })
+
+  it('candidateFromRdf：字段全落 + usable 由许可派生（不手抄）', () => {
+    const c = score.candidateFromRdf(RDF_BWV16, {
+      composerDir: 'BachJS',
+      midUrl: 'https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/Cantata_16_no_5-mids.zip',
+      dirUrl: 'https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/',
+    })
+    expect(c.opus).toBe('BWV 16')
+    expect(c.mutopiaId).toBe('Mutopia-2009/09/05-1695')
+    expect(c.instrumentation).toContain('Oboe da Caccia')
+    expect(c.license).toBe('CC BY 3.0')
+    expect(c.usable, 'usable 是 license 的派生量，不是第二个手写字段').toBe(true)
+    expect(c.licenseUrl).toContain('#cca')
+    expect(score.hasMidi(c)).toBe(true)
+  })
+
+  it('坏例：RDF 里只有 PDF、没有 midFile → hasMidi 为 false（不许假装有）', () => {
+    const c = score.candidateFromRdf(RDF_BWV16, {
+      composerDir: 'BachJS', midUrl: '', midUrlDirect: '',
+      dirUrl: 'https://www.mutopiaproject.org/ftp/BachJS/BWV259/bwv-259/',
+    })
+    expect(score.hasMidi(c), '没有 midUrl/midUrlDirect ⇒ 不能算「带 MIDI」').toBe(false)
+    // 许可照样合格——这两种短缺必须能分开，否则台账说不清缺的是什么
+    expect(c.usable).toBe(true)
+  })
+
+  it('parseListingDirs：从真列表页抽目录、去重、去掉 ../', () => {
+    const html = `
+      <a href="https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/Cantata_16_no_5-lys.zip">.ly</a>
+      <a href="https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/Cantata_16_no_5-mids.zip">.mid</a>
+      <a href="https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/">dir</a>
+      <a href="https://www.mutopiaproject.org/ftp/BachJS/BWV36b/bwv0036b/bwv0036b-mids.zip">.mid</a>`
+    const dirs = score.parseListingDirs(html)
+    // 同一作品的多个链接 → 一个目录（计数不虚高）
+    expect(dirs).toEqual([
+      'ftp/BachJS/BWV16/Cantata_16_no_5',
+      'ftp/BachJS/BWV36b/bwv0036b',
+    ])
+  })
+
+  it('目录形态：zip / 单 .mid / 两者都有 / 都没有', () => {
+    const base = 'https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5'
+    // 形态 A：有 -mids.zip，且没有裸 .mid
+    expect(score.midiUrlsOf(base, [
+      'Cantata_16_no_5-lys.zip', 'Cantata_16_no_5-mids.zip', 'Cantata_16_no_5-a4.pdf',
+    ])).toEqual({
+      midUrl: 'https://www.mutopiaproject.org/ftp/BachJS/BWV16/Cantata_16_no_5/Cantata_16_no_5-mids.zip',
+      midUrlDirect: '',
+    })
+    // 形态 B：实测 BWV 259 只有裸 .mid（2026-11-06 真目录）
+    expect(score.midiUrlsOf('https://www.mutopiaproject.org/ftp/BachJS/BWV259/bwv-259', [
+      'bwv-259-a4.pdf', 'bwv-259.mid', 'bwv-259.rdf', 'bwv-259.ly',
+    ])).toEqual({
+      midUrl: '',
+      midUrlDirect: 'https://www.mutopiaproject.org/ftp/BachJS/BWV259/bwv-259/bwv-259.mid',
+    })
+    // 两者都有：两条都记下来，取谁由下载路径按序决定
+    expect(score.midiUrlsOf(base, ['x-mids.zip', 'x.mid'])).toEqual({
+      midUrl: `${base}/x-mids.zip`, midUrlDirect: `${base}/x.mid`,
+    })
+    // 都没有：null（不是「空对象」——空对象会让调用方误以为有）
+    expect(score.midiUrlsOf(base, ['x-a4.pdf', 'x.ly', 'x-preview.png'])).toBeNull()
+  })
+
+  it('parseDirEntries：只收同层文件名（跳过 ../ 与 ?C= 排序链接）', () => {
+    const html = `<a href="?C=N;O=D">Name</a>
+      <a href="/ftp/BachJS/BWV259/">Parent Directory</a>
+      <a href="../">up</a>
+      <a href="bwv-259.mid">bwv-259.mid</a>
+      <a href="bwv-259.rdf">bwv-259.rdf</a>`
+    expect(score.parseDirEntries(html)).toEqual(['bwv-259.mid', 'bwv-259.rdf'])
+  })
+
+  it('挑谱：score.mid 优先（不是「第一个」——实测第一个是 continuo.mid）', () => {
+    // 实测 Cantata_16_no_5-mids.zip 的条目顺序：continuo 在最前
+    const entries = [
+      { name: 'continuo.mid', size: 5383, data: Buffer.alloc(10) },
+      { name: 'score.mid', size: 15543, data: Buffer.alloc(10) },
+      { name: 'oboedacaccia_-_original_clefs.mid', size: 5461, data: Buffer.alloc(10) },
+    ]
+    // 音数随便给：有 score.mid 时根本不该走到音数比较
+    const picked = score.pickScoreMidi(entries, () => 1)
+    expect(picked!.entry.name).toBe('score.mid')
+    expect(picked!.reason).toContain('score')
+  })
+
+  it('挑谱：没有 score.mid 时按音数最多；并列取字节大', () => {
+    const entries = [
+      { name: 'violin1.mid', size: 900, data: Buffer.from('a') },
+      { name: 'violin2.mid', size: 900, data: Buffer.from('b') },
+      { name: 'cello.mid', size: 1200, data: Buffer.from('c') },
+    ]
+    const notes: Record<string, number> = { a: 5, b: 5, c: 9 }
+    const picked = score.pickScoreMidi(entries, (buf) => notes[buf.toString()]!)
+    expect(picked!.entry.name, '音数最多的那份').toBe('cello.mid')
+    expect(picked!.reason).toContain('音数最多')
+    expect(picked!.reason).toContain('9')
+  })
+
+  it('坏例：zip 里没有 .mid → null（不许退回第一个条目）', () => {
+    const entries = [
+      { name: 'x-a4.pdf', size: 10, data: Buffer.alloc(1) },
+      { name: 'x.ly', size: 10, data: Buffer.alloc(1) },
+    ]
+    expect(score.pickScoreMidi(entries, () => 1)).toBeNull()
+    expect(score.pickScoreMidi([], () => 1)).toBeNull()
+  })
+
+  it('挑谱：大小写/目录前缀都不影响 score 判定', () => {
+    const picked = score.pickScoreMidi([
+      { name: 'dir/Score.MID', size: 10, data: Buffer.alloc(1) },
+      { name: 'other.mid', size: 99, data: Buffer.alloc(1) },
+    ], () => 1)
+    expect(picked!.entry.name).toBe('dir/Score.MID')
+  })
+})
+
 describe('cli：旗标词表与实现一致', () => {
   const leafFile: Record<string, string> = {
     probe: 'probe.ts',
@@ -946,6 +1301,7 @@ describe('cli：旗标词表与实现一致', () => {
     'scan-ink': 'scan_ink.ts',
     source: 'source.ts',
     'source-batch': 'source.ts',
+    score: 'score.ts',
     narrate: 'narrate.ts',
   }
 
