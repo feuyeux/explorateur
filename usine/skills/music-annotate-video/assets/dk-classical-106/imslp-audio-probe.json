@@ -1,0 +1,78 @@
+[
+ {
+  "title": "Symphony No.5, Op.67 (Beethoven, Ludwig van)",
+  "blocks": 27,
+  "usable": 25,
+  "byLicense": {
+   "cc-by-sa": 2,
+   "public-domain": 17,
+   "cc-by": 6,
+   "cc-nc": 2
+  },
+  "performers": [
+   "Fulda Symphonic Orchestra=orchestra",
+   "Columbia Symphony Orchestra=orchestra;Walter, Bruno=conductor",
+   "New York Philharmonic=orchestra;Bernstein, Leonard=conductor",
+   "Berliner Philharmoniker=orchestra;Karajan, Herbert von=conductor",
+   "Royal Philharmonic Orchestra=orchestra;Leibowitz, René=conductor",
+   "Columbia Symphony Orchestra=orchestra;Walter, Bruno=conductor",
+   "Orchestre de la Suisse Romande=orchestra;Ansermet, Ernest=conductor",
+   "Philharmonia Orchestra=orchestra;Klemperer, Otto=conductor",
+   "Philadelphia Orchestra=orchestra;Ormandy, Eugene=conductor",
+   "New York Philharmonic=orchestra;Walter, Bruno=conductor",
+   "Berliner Philharmoniker=orchestra;Jochum, Eugen=conductor",
+   "Karajan, Herbert von=conductor; Philharmonia Orchestra=orchestra",
+   "Berliner Philharmoniker=orchestra;Jochum, Eugen=conductor",
+   "Orchestre du Conservatoire de Paris=orchestra;Schuricht, Carl=conductor",
+   "New York Philharmonic=orchestra;Walter, Bruno=conductor",
+   "Berliner Philharmoniker=orchestra;Furtwängler, Wilhelm=conductor",
+   "Royal Concertgebouw Orchestra=orchestra;Mengelberg, Willem=conductor",
+   "Papalin=recorders",
+   "Boston Symphony Orchestra=orchestra;Munch, Charles=conductor",
+   "Synthetic soundfile (capella + vienna orchestra)",
+   "Brandon Amaro (Synthesizer)",
+   "Finale 2011",
+   "Kazue Rockzaemon Isida (Piano)",
+   "Jquesada123=synthesizer",
+   "MuseScore 4 with MuseSounds"
+  ]
+ },
+ {
+  "title": "Tristan und Isolde, WWV 90 (Wagner, Richard)",
+  "blocks": 5,
+  "usable": 4,
+  "byLicense": {
+   "public-domain": 3,
+   "cc-nc": 1,
+   "cc-by-sa": 1
+  },
+  "performers": [
+   "Suthaus, Ludwig=Tristan, tenor;Flagstad, Kirsten=Isolde, soprano;Thebom, Blanche=Brangäne, mezzo-soprano;Greindl, Josef=King Mark, bass;Fischer-Dieskau, Dietrich=Kurwenal, baritone;Schock, Rudolf=Seemann and Hirt, tenor;Evans, Edgar=Melot, tenor;Davies, Rhoderick=Steuermann, baritone;Furtwängler, Wilhelm=conductor;Philharmonia Orchestra=orchestra;Chorus of the Royal Opera House=chorus;Robinson, Douglas=chorus master",
+   "Orchestre national de France=orchestra",
+   "Fulda Symphonic Orchestra=orchestra",
+   "Destinn, Emmy=Isolde"
+  ]
+ },
+ {
+  "title": "Symphony No.1, GMW 11 (Mahler, Gustav)",
+  "blocks": 5,
+  "usable": 3,
+  "byLicense": {
+   "cc-nc": 2,
+   "public-domain": 2,
+   "cc-by": 1
+  },
+  "performers": [
+   "Israel Philharmonic Orchestra=orchestra;Kletzki, Paul=conductor",
+   "Minnesota Orchestra=orchestra;Mitropoulos, Dimitri=conductor",
+   "De Bra, Paul=accordion"
+  ]
+ },
+ {
+  "title": "Le Quattro Stagioni Op.8 (Vivaldi, Antonio)",
+  "blocks": 0,
+  "usable": 0,
+  "byLicense": {},
+  "performers": []
+ }
+]

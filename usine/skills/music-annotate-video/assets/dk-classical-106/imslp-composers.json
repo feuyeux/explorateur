@@ -1,0 +1,517 @@
+[
+ {
+  "dk": "Aaron Copland",
+  "imslp": "Copland, Aaron",
+  "hit": "OK"
+ },
+ {
+  "dk": "Adam de la Halle",
+  "imslp": "Adam de la Halle",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Anonymous",
+  "imslp": "Anonymous",
+  "hit": "OK"
+ },
+ {
+  "dk": "Anton von Webern",
+  "imslp": "Webern, Anton",
+  "hit": "OK"
+ },
+ {
+  "dk": "Antonin Dvorak",
+  "imslp": "Dvořák, Antonín",
+  "hit": "OK"
+ },
+ {
+  "dk": "Antonio Vivaldi",
+  "imslp": "Vivaldi, Antonio",
+  "hit": "OK"
+ },
+ {
+  "dk": "Aram Khachaturian",
+  "imslp": "Khachaturian, Aram",
+  "hit": "OK"
+ },
+ {
+  "dk": "Arcangelo Corelli",
+  "imslp": "Corelli, Arcangelo",
+  "hit": "OK"
+ },
+ {
+  "dk": "Arnold Schoenberg",
+  "imslp": "Schoenberg, Arnold",
+  "hit": "OK"
+ },
+ {
+  "dk": "Bedrich Smetana",
+  "imslp": "Smetana, Bedřich",
+  "hit": "OK"
+ },
+ {
+  "dk": "Bela Viktor Janos Bartok",
+  "imslp": "Bartók, Béla",
+  "hit": "OK"
+ },
+ {
+  "dk": "Benjamin Britten",
+  "imslp": "Britten, Benjamin",
+  "hit": "OK"
+ },
+ {
+  "dk": "Camille Saint-Saens",
+  "imslp": "Saint-Saëns, Camille",
+  "hit": "OK"
+ },
+ {
+  "dk": "Carl Maria von Weber",
+  "imslp": "Weber, Carl Maria von",
+  "hit": "OK"
+ },
+ {
+  "dk": "Carl Philipp Emanuel Bach",
+  "imslp": "Bach, Carl Philipp Emanuel",
+  "hit": "OK"
+ },
+ {
+  "dk": "Charles Edward Ives",
+  "imslp": "Ives, Charles",
+  "hit": "OK"
+ },
+ {
+  "dk": "Christoph Willibald Gluck",
+  "imslp": "Gluck, Christoph Willibald",
+  "hit": "OK"
+ },
+ {
+  "dk": "Claude Debussy",
+  "imslp": "Debussy, Claude",
+  "hit": "OK"
+ },
+ {
+  "dk": "Claudio Monteverdi",
+  "imslp": "Monteverdi, Claudio",
+  "hit": "OK"
+ },
+ {
+  "dk": "Colin McPhee",
+  "imslp": "McPhee, Colin",
+  "hit": "OK"
+ },
+ {
+  "dk": "Dieterich Buxtehude",
+  "imslp": "Buxtehude, Dietrich",
+  "hit": "OK"
+ },
+ {
+  "dk": "Dmitri Shostakovich",
+  "imslp": "Shostakovich, Dmitry",
+  "hit": "OK"
+ },
+ {
+  "dk": "Domenico Scarlatti",
+  "imslp": "Scarlatti, Domenico",
+  "hit": "OK"
+ },
+ {
+  "dk": "Edgard Varese",
+  "imslp": "Varèse, Edgard",
+  "hit": "OK"
+ },
+ {
+  "dk": "Edvard Grieg",
+  "imslp": "Grieg, Edvard",
+  "hit": "OK"
+ },
+ {
+  "dk": "Edward Elgar",
+  "imslp": "Elgar, Edward",
+  "hit": "OK"
+ },
+ {
+  "dk": "Edward MacDowell",
+  "imslp": "MacDowell, Edward",
+  "hit": "OK"
+ },
+ {
+  "dk": "Eric Whitacre",
+  "imslp": "Whitacre, Eric",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Erik Satie",
+  "imslp": "Satie, Erik",
+  "hit": "OK"
+ },
+ {
+  "dk": "Ethel Smyth",
+  "imslp": "Smyth, Ethel",
+  "hit": "OK"
+ },
+ {
+  "dk": "Felix Mendelssohn",
+  "imslp": "Mendelssohn, Felix",
+  "hit": "OK"
+ },
+ {
+  "dk": "Francis Poulenc",
+  "imslp": "Poulenc, Francis",
+  "hit": "OK"
+ },
+ {
+  "dk": "Francois Couperin",
+  "imslp": "Couperin, François",
+  "hit": "OK"
+ },
+ {
+  "dk": "Franz Liszt",
+  "imslp": "Liszt, Franz",
+  "hit": "OK"
+ },
+ {
+  "dk": "Franz Schubert",
+  "imslp": "Schubert, Franz",
+  "hit": "OK"
+ },
+ {
+  "dk": "Frederic Chopin",
+  "imslp": "Chopin, Frédéric",
+  "hit": "OK"
+ },
+ {
+  "dk": "Gabriel Faure",
+  "imslp": "Fauré, Gabriel",
+  "hit": "OK"
+ },
+ {
+  "dk": "Georg Philipp Telemann",
+  "imslp": "Telemann, Georg Philipp",
+  "hit": "OK"
+ },
+ {
+  "dk": "George Frideric Handel",
+  "imslp": "Handel, George Frideric",
+  "hit": "OK"
+ },
+ {
+  "dk": "George Gershwin",
+  "imslp": "Gershwin, George",
+  "hit": "OK"
+ },
+ {
+  "dk": "Giacomo Puccini",
+  "imslp": "Puccini, Giacomo",
+  "hit": "OK"
+ },
+ {
+  "dk": "Gioachino Rossini",
+  "imslp": "Rossini, Gioachino",
+  "hit": "OK"
+ },
+ {
+  "dk": "Giovanni da Palestrina",
+  "imslp": "Palestrina, Giovanni Pierluigi da",
+  "hit": "OK"
+ },
+ {
+  "dk": "Giovanni Gabrieli",
+  "imslp": "Gabrieli, Giovanni",
+  "hit": "OK"
+ },
+ {
+  "dk": "Giuseppe Verdi",
+  "imslp": "Verdi, Giuseppe",
+  "hit": "OK"
+ },
+ {
+  "dk": "Guido D'Arezzo",
+  "imslp": "Arezzo, Guido d'",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Guillaume de Machaut",
+  "imslp": "Machaut, Guillaume de",
+  "hit": "OK"
+ },
+ {
+  "dk": "Guillaume Dufay",
+  "imslp": "Dufay, Guillaume",
+  "hit": "OK"
+ },
+ {
+  "dk": "Gustav Mahler",
+  "imslp": "Mahler, Gustav",
+  "hit": "OK"
+ },
+ {
+  "dk": "Gyorgy Ligeti",
+  "imslp": "Ligeti, György",
+  "hit": "OK"
+ },
+ {
+  "dk": "Hector Berlioz",
+  "imslp": "Berlioz, Hector",
+  "hit": "OK"
+ },
+ {
+  "dk": "Heitor Villa-Lobos",
+  "imslp": "Villa-Lobos, Heitor",
+  "hit": "OK"
+ },
+ {
+  "dk": "Henry Purcell",
+  "imslp": "Purcell, Henry",
+  "hit": "OK"
+ },
+ {
+  "dk": "Hildegard of Bingen",
+  "imslp": "Hildegard von Bingen",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Iannis Xenakis",
+  "imslp": "Xenakis, Iannis",
+  "hit": "OK"
+ },
+ {
+  "dk": "Igor Stravinsky",
+  "imslp": "Stravinsky, Igor",
+  "hit": "OK"
+ },
+ {
+  "dk": "Isaac Albeniz",
+  "imslp": "Albéniz, Isaac",
+  "hit": "OK"
+ },
+ {
+  "dk": "Jacopo Peri",
+  "imslp": "Peri, Jacopo",
+  "hit": "OK"
+ },
+ {
+  "dk": "Jean Sibelius",
+  "imslp": "Sibelius, Jean",
+  "hit": "OK"
+ },
+ {
+  "dk": "Jean-Baptiste Lully",
+  "imslp": "Lully, Jean-Baptiste",
+  "hit": "OK"
+ },
+ {
+  "dk": "Jean-Philippe Rameau",
+  "imslp": "Rameau, Jean-Philippe",
+  "hit": "OK"
+ },
+ {
+  "dk": "Jennifer Higdon",
+  "imslp": "Higdon, Jennifer",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Johann Sebastian Bach",
+  "imslp": "Bach, Johann Sebastian",
+  "hit": "OK"
+ },
+ {
+  "dk": "Johann Stamitz",
+  "imslp": "Stamitz, Johann",
+  "hit": "OK"
+ },
+ {
+  "dk": "Johann Strauss II",
+  "imslp": "Strauss, Johann",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Johannes Brahms",
+  "imslp": "Brahms, Johannes",
+  "hit": "OK"
+ },
+ {
+  "dk": "John Cage",
+  "imslp": "Cage, John",
+  "hit": "OK"
+ },
+ {
+  "dk": "John Dowland",
+  "imslp": "Dowland, John",
+  "hit": "OK"
+ },
+ {
+  "dk": "Joseph Haydn",
+  "imslp": "Haydn, Joseph",
+  "hit": "OK"
+ },
+ {
+  "dk": "Josquin Desprez",
+  "imslp": "Josquin Desprez",
+  "hit": "OK"
+ },
+ {
+  "dk": "Kaija Saariaho",
+  "imslp": "Saariaho, Kaija",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Karlheinz Stockhausen",
+  "imslp": "Stockhausen, Karlheinz",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Krzysztof Penderecki",
+  "imslp": "Penderecki, Krzysztof",
+  "hit": "OK"
+ },
+ {
+  "dk": "Leonin",
+  "imslp": "Léonin",
+  "hit": "OK"
+ },
+ {
+  "dk": "Leos Janacek",
+  "imslp": "Janáček, Leoš",
+  "hit": "OK"
+ },
+ {
+  "dk": "Luciano Berio",
+  "imslp": "Berio, Luciano",
+  "hit": "OK"
+ },
+ {
+  "dk": "Ludwig van Beethoven",
+  "imslp": "Beethoven, Ludwig van",
+  "hit": "OK"
+ },
+ {
+  "dk": "Manuel de Falla",
+  "imslp": "Falla, Manuel de",
+  "hit": "OK"
+ },
+ {
+  "dk": "Maurice Ravel",
+  "imslp": "Ravel, Maurice",
+  "hit": "OK"
+ },
+ {
+  "dk": "Michael Tippett",
+  "imslp": "Tippett, Michael",
+  "hit": "OK"
+ },
+ {
+  "dk": "Modest Petrovich Mussorgsky",
+  "imslp": "Mussorgsky, Modest",
+  "hit": "OK"
+ },
+ {
+  "dk": "Muzio Clementi",
+  "imslp": "Clementi, Muzio",
+  "hit": "OK"
+ },
+ {
+  "dk": "Niccolo Paganini",
+  "imslp": "Paganini, Niccolò",
+  "hit": "OK"
+ },
+ {
+  "dk": "Olivier Messiaen",
+  "imslp": "Messiaen, Olivier",
+  "hit": "OK"
+ },
+ {
+  "dk": "Peter Maxwell Davies",
+  "imslp": "Davies, Peter Maxwell",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Philip Glass",
+  "imslp": "Glass, Philip",
+  "hit": "OK"
+ },
+ {
+  "dk": "Pierre Schaeffer/Pierre Henry",
+  "imslp": "",
+  "hit": "NOMAP"
+ },
+ {
+  "dk": "Pyotr Ilyich Tchaikovsky",
+  "imslp": "Tchaikovsky, Pyotr",
+  "hit": "OK"
+ },
+ {
+  "dk": "R. Murray Schafer",
+  "imslp": "Schafer, R. Murray",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Ralph Vaughan Williams",
+  "imslp": "Vaughan Williams, Ralph",
+  "hit": "OK"
+ },
+ {
+  "dk": "Richard Strauss",
+  "imslp": "Strauss, Richard",
+  "hit": "OK"
+ },
+ {
+  "dk": "Richard Wagner",
+  "imslp": "Wagner, Richard",
+  "hit": "OK"
+ },
+ {
+  "dk": "Robert Schumann",
+  "imslp": "Schumann, Robert",
+  "hit": "OK"
+ },
+ {
+  "dk": "Sergei Prokofiev",
+  "imslp": "Prokofiev, Sergey",
+  "hit": "OK"
+ },
+ {
+  "dk": "Steve Reich",
+  "imslp": "Reich, Steve",
+  "hit": "OK"
+ },
+ {
+  "dk": "Terry Riley",
+  "imslp": "Riley, Terry",
+  "hit": "OK"
+ },
+ {
+  "dk": "Thomas Ades",
+  "imslp": "Adès, Thomas",
+  "hit": "MISS"
+ },
+ {
+  "dk": "Thomas Tallis",
+  "imslp": "Tallis, Thomas",
+  "hit": "OK"
+ },
+ {
+  "dk": "Thomas Weelkes",
+  "imslp": "Weelkes, Thomas",
+  "hit": "OK"
+ },
+ {
+  "dk": "Toru Takemitsu",
+  "imslp": "Takemitsu, Tōru",
+  "hit": "OK"
+ },
+ {
+  "dk": "William Byrd",
+  "imslp": "Byrd, William",
+  "hit": "OK"
+ },
+ {
+  "dk": "Witold Lutoslawski",
+  "imslp": "Lutosławski, Witold",
+  "hit": "OK"
+ },
+ {
+  "dk": "Wolfgang Amadeus Mozart",
+  "imslp": "Mozart, Wolfgang Amadeus",
+  "hit": "OK"
+ }
+]
