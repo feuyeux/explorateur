@@ -3,12 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "music-annotate-video 的 TS 归流包：探针（probe）、对齐（align）、装配（build）、含墨扫描（scan_ink）。FFT / WAV 读取消费 @feuille/bgm 的唯一实现；帧网格吸附消费 @feuille/core 的唯一实现；ffmpeg / ffprobe / 浏览器解析一律走 platform.*——包内零重复，且不引入 librosa / pyin / DTW。",
+  "description": "music-annotate-video 的 TS 归流包：探针（probe）、对齐（align）、装配（build）、含墨扫描（scan_ink）、录音台账（source）、谱面台账（score）、旁白（narrate）。FFT / WAV 读取消费 @feuille/bgm 的唯一实现；帧网格吸附消费 @feuille/core 的唯一实现；ffmpeg / ffprobe / 浏览器解析一律走 platform.*——包内零重复，且不引入 librosa / pyin / DTW。",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@feuille/core": "workspace:*"
+    "@feuille/core": "workspace:*",
+    "yauzl": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/yauzl": "^3.4.0"
   }
 }

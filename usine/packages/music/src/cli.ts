@@ -21,6 +21,7 @@ export const FLAGS = {
   build: ['--out', '--credit-pass', '--width', '--height'],
   'scan-ink': ['--fps', '--gray', '--min-pct', '--json', '--self-test'],
   source: ['--out-dir', '--id', '--download', '--limit'],
+  score: ['--out-dir', '--id', '--match', '--limit'],
   'source-batch': ['--out', '--limit', '--interval', '--id-prefix', '--resume'],
   narrate: ['--out', '--cache'],
 } as const

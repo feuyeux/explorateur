@@ -35,7 +35,7 @@ import {
   fit_diag, verify_colors, check_overlay, make_covers, measure_korean,
 } from '@feuille/poster'
 import { render_act_frames, assemble_storyteller } from '@feuille/storyteller'
-import { probe, align, build, scan_ink, source, narrate } from '@feuille/music'
+import { probe, align, build, scan_ink, source, score, narrate } from '@feuille/music'
 
 import { runMain } from './capture.js'
 import { RESULT_SCHEMA, failed, fromExitCode, invalid, ok, renderResult } from './result.js'
@@ -265,7 +265,7 @@ export function familyTools(): ToolDefinition[] {
     }),
     argvTool({
       name: 'usine_music',
-      description: '古典音乐赏析产线：probe 录音探针（RMS/频段/起音，摘录边界的唯一背书）→ align 对齐（Tier A 谱面真值对拍 / Tier B 录音实测 f0）→ build 状态帧渲染 + 帧精确装配 + 旁白期 ducking → scan-ink 含墨扫描（空帧闸）。零平台流量、零额度。',
+      description: '古典音乐赏析产线：probe 录音探针（RMS/频段/起音，摘录边界的唯一背书）→ score 谱面台账（Mutopia RDF 定许可 + 挑总谱 + sha256）→ align 对齐（Tier A 谱面真值对拍 / Tier B 录音实测 f0）→ build 状态帧渲染 + 帧精确装配 + 旁白期 ducking → scan-ink 含墨扫描（空帧闸）。零平台流量、零额度。',
       actions: {
         probe: probe.main,
         align: align.main,
@@ -273,6 +273,7 @@ export function familyTools(): ToolDefinition[] {
         'scan-ink': scan_ink.main,
         source: source.main,
         'source-batch': source.batchMain,
+        score: score.main,
         narrate: narrate.main,
       },
       argvDoc: '残余参数，与 `feuille music <子命令>` 一致',

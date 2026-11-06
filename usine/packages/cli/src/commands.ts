@@ -130,6 +130,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/music-source.js'),
     desc: '录音来源台账：Commons 检索 → 读出处页 → 许可/署名/直链（署名不信 extmetadata.Artist）',
   },
+  'music/score': {
+    load: () => import('./leaves/music-score.js'),
+    desc: '谱面真值台账：Mutopia RDF → 许可白名单 → 下 mids.zip → 挑总谱 → sha256（Tier A 的输入）',
+  },
   'music/narrate': {
     load: () => import('./leaves/music-narrate.js'),
     desc: '旁白分段 TTS（每段一个 mp3；标点在源头剥；内容寻址缓存，命中零请求）',
