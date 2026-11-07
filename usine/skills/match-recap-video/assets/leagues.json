@@ -6,9 +6,16 @@
     "  structured = 逐分钟结构化（进球/换人/牌/VAR 分行）；prose = 只有叙述稿，事件在另一个标签页；",
     "  commentary = 逐分钟文字直播（事件句 + 分钟行），页面可能是虚拟列表/分月分页；",
     "  structured_liveticker = liveticker 的进球/换人/牌是结构化节点，编辑标题只是叙述素材；",
+    "  structured_api = 官方 JSON 接口（UEFA v5）：事件是结构化数组；",
     "  narrative = 叙述式直播，标题是编辑文案（进球分钟要人工读或另找数据源）；none = 抓不到可用事件流。",
     "highlights.strategy 决定母版从哪来：'match_page_embedded' = 比赛页自带官方集锦链接；",
-    "  'league_channel_search' = 联赛官方频道里找；'match_sheet_tab' = 比赛页有独立集锦标签页。"
+    "  'league_channel_search' = 联赛官方频道里找；'match_sheet_tab' = 比赛页有独立集锦标签页；",
+    "  'official_channel_search' = 俱乐部官方频道 + 联赛官方频道里找（跨赛事用）。",
+    "competition_id = 该赛事在 UEFA v5 接口里的 competitionId（只有实测有数据的才填）；",
+    "  list_url = 列表接口模板（{from_date} / {to_date} / {competition_id} 占位）；",
+    "discovery_gap = **这个赛事在本环境发现不了一条完整赛程**的事实记录（例如欧联列表接口返回空数组）——",
+    "  写下来是为了让脚本如实报缺口，不假装能列全；",
+    "club_site_fallback = 联赛官方站答不出赛程时，俱乐部官网赛程面的兜底写法（字段落在 teams.json 的 club_site）。"
   ],
   "leagues": {
     "laliga": {
@@ -322,6 +329,126 @@
       },
       "league_competition_tokens": [
         "Serie A"
+      ],
+      "match_url_carries_team_slug": false,
+      "fixture_surface_limitation": "意甲官方站在本环境**抓不动**（2026-11-07 实测）：legaseriea.it 用 firecrawl 抓会 socket hang up；en.legaseriea.it 的队页能渲染，但「Calendar and Results」是 No data available；数据接口基址是 https://api-sdp.legaseriea.it/v1/，路径形如 /v1/{project}/{sport}/seasons/…，**尚未解出完整路径，别猜着写死**。",
+      "club_site_fallback": {
+        "field": "teams.json 的 club_site.fixtures_url（模板占位 {lang} / {period}）+ club_site.parser",
+        "pattern": "AC米兰：club_site.fixtures_url = https://www.acmilan.com/en/season/active/schedule/all，parser = next_games_block（客户端渲染，需要 firecrawl 渲染后才读得到「Next Games」块）。",
+        "note": "俱乐部官网赛程页是当前**可用兜底**：它只列未赛场次——能回答「本周有没有比赛」，答不了「这场已完赛吗」；已完赛仍要靠联赛官方接口、UEFA 接口或官方赛报页。"
+      },
+      "supplemental_fact_sources": [
+        {
+          "what": "俱乐部官网赛程页（对手 + 日期 + 开球时间 + 赛事）",
+          "how": "teams.json 的 club_site.fixtures_url（AC米兰 = acmilan.com 的 schedule/all 客户端渲染页）"
+        },
+        {
+          "what": "俱乐部官方赛程公告文章（逐轮给对手 / 日期 / 开球时间 / 赛事）",
+          "how": "acmilan.com/en/news/articles/serie-a/…（如 serie-a-2026-27-dates-and-times-matchdays-6-to-12）"
+        },
+        {
+          "what": "官方 line-ups / 赛报文章 URL",
+          "how": "acmilan.com/sitemap.xml（约 3.7 万 URL，含 match-preview / match-report / official-line-ups）"
+        }
+      ]
+    },
+    "ucl": {
+      "zh": "欧冠",
+      "en": "UEFA Champions League",
+      "country": "EU",
+      "competition_id": "1",
+      "season_label": "2026/27",
+      "original_audio": "en",
+      "fact_source": {
+        "base": "https://match.uefa.com/v5/matches",
+        "list_url": "{base}?competitionId={competition_id}&fromDate={from_date}&toDate={to_date}&limit=100&offset=0",
+        "match_url": "{base}/{match_id}",
+        "match_page_url": "https://www.uefa.com/uefachampionsleague/match/{match_id}/",
+        "match_url_note": "列表接口与单场接口返回**同构的比赛对象**（列表项就是完整单场）。kickOffTime.dateTime 是 UTC；比赛页 URL 走 uefa.com 官网形态，{match_id} 是 UEFA 的比赛 id（如 2049607）。",
+        "field_shapes": {
+          "kickoff": "kickOffTime.date（YYYY-MM-DD）+ kickOffTime.dateTime（UTC）+ kickOffTime.utcOffsetInHours",
+          "teams": "homeTeam/awayTeam：id / internationalName / teamCode / translations.displayName.ZH",
+          "score": "score.total.{home,away}（score.regular 是常规时间比分）",
+          "status": "status = FINISHED（本轮实测）",
+          "matchday": "matchday.name（MD4）/ matchday.longName（Matchday 4）",
+          "competition": "competition.code（UCL）+ competition.metaData.name（**字符串**，不是对象）",
+          "attendance": "matchAttendance（示例：2049607 = 52662）",
+          "stadium": "stadium.translations.name / sponsorName / capacity",
+          "referees": "referees[].role（REFEREE / ASSISTANT_REFEREE_ONE / FOURTH_OFFICIAL / VIDEO_ASSISTANT_REFEREE …）+ person.translations.name",
+          "playerEvents": "**对象**（不是数组），子键随场次变化：scorers / redCards / penaltiesMissed…；没有换人、没有黄牌、没有 VAR；0-0 的场次整个 playerEvents 是 null"
+        }
+      },
+      "event_stream": "structured_api",
+      "yields": [
+        "score",
+        "date",
+        "kickoff",
+        "attendance",
+        "stadium",
+        "referees",
+        "winner",
+        "matchday",
+        "timeline:goal",
+        "timeline:red_card",
+        "timeline:penalty_missed"
+      ],
+      "yields_note": "只声明实测拿得到的轴：换人 / 黄牌 / VAR / 阵容 / 助攻**不在这个接口里**（拿不到就写进 gaps，不拿二手数据悄悄补齐）。",
+      "var_exposed": false,
+      "var_note": "UEFA v5 单场接口的 playerEvents 不含 VAR 判决——VAR 轴在这个接口上**做不到**。",
+      "highlights": {
+        "strategy": "official_channel_search",
+        "channel_url": "https://www.youtube.com/@uefaw",
+        "official_channels": [
+          "https://www.youtube.com/@uefaw"
+        ],
+        "note": "母版优先**俱乐部官方频道**（各队的 youtube 频道见 teams.json 的 official_channel）+ **官方联赛频道**。⚠️ 本环境实测：@uefaw 没有 videos tab（yt-dlp 报 This channel does not have a videos tab），EXTENDED HIGHLIGHTS 实际多在官方联赛频道上（实测例：@seriea 的「MILAN-ATALANTA 3-2 | EXTENDED HIGHLIGHTS | SERIE A 2026/27」1241s；@ACMilan 的单场高光只有 130s 量级）。母版时长不足 180s 时要显式接受成片更短。"
+      },
+      "verified": {
+        "at": "2026-11-07",
+        "sample_match": "https://match.uefa.com/v5/matches/2049607",
+        "sample_result": "Barcelona 3-0 Aston Villa, MD4, 2026-11-03T20:00:00Z, Camp Nou (Spotify Camp Nou), 52,662, referee Davide Massa",
+        "parsed": "列表接口一次返回该周 18 场欧冠（competitionId=1，fromDate=2026-11-02&toDate=2026-11-08）；单场接口解析出 3 个进球（7' / 52' / 64'，Lamine Yamal + Raphinha ×2），球员带国际名 / 中文名 / 球衣印字"
+      },
+      "league_competition_tokens": [
+        "UEFA Champions League",
+        "UCL"
+      ],
+      "match_url_carries_team_slug": false
+    },
+    "uel": {
+      "zh": "欧联",
+      "en": "UEFA Europa League",
+      "country": "EU",
+      "competition_id": null,
+      "season_label": "2026/27",
+      "original_audio": "en",
+      "fact_source": {
+        "base": "https://match.uefa.com/v5/matches",
+        "match_url": "{base}/{match_id}",
+        "match_page_url": "https://www.uefa.com/uefaeuropaleague/match/{match_id}/",
+        "match_url_note": "**单场接口对已知 id 可用**（与欧冠同构）；但列表接口在本环境只对 competitionId=1 返回数据。"
+      },
+      "event_stream": "unverified",
+      "yields": [],
+      "yields_note": "未实测：拿不到比赛 id 就没法实测事件流——不声明 yields。",
+      "var_exposed": false,
+      "discovery_gap": "2026-11-07 实测：UEFA v5 列表接口只对 competitionId=1（欧冠）有数据；competitionId=2/3/4/5 返回空数组，/v5/competitions 返回 404，/v5/matches/{id}/events|timeline|lineup|matchfacts 全部 404/400。⇒ **欧联比赛 id 在本环境无法通过官方列表接口发现**，只能另寻发现路径：① 俱乐部官网赛程面（只列未赛场次）；② 官方频道的视频标题反查（母版标题里带对手与比分）；③ 已知 id 的单场接口（有了 id 就能取全部事实）。发现路径补上之前，本 skill 对欧联只能「按 id 单场取事实」，不能「列全一周赛程」。",
+      "highlights": {
+        "strategy": "official_channel_search",
+        "channel_url": "https://www.youtube.com/@uefaw",
+        "official_channels": [
+          "https://www.youtube.com/@uefaw"
+        ],
+        "note": "同欧冠：俱乐部官方频道 + 官方联赛频道；@uefaw 在本环境没有 videos tab，extended highlights 实际多在官方联赛频道与俱乐部频道上。"
+      },
+      "verified": {
+        "at": null,
+        "sample_match": null,
+        "sample_result": "2026-11-07 实测：competitionId=2（欧联）列表接口返回空数组 —— 欧联场次**无法从官方列表接口发现**。AC米兰 0-2 费伦茨瓦罗斯（2026-11-05，欧联 MD4）这一场的 id 在本环境未取到。"
+      },
+      "league_competition_tokens": [
+        "UEFA Europa League",
+        "UEL"
       ],
       "match_url_carries_team_slug": false
     }

@@ -1,0 +1,2830 @@
+[
+ {
+  "id": "2049613",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 1,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T17:45:00Z",
+   "utcOffsetInHours": 0
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52707",
+   "internationalName": "Shakhtar",
+   "teamCode": "SHK",
+   "countryCode": "UKR",
+   "translations": {
+    "displayName": {
+     "ZH": "顿涅茨克矿工",
+     "EN": "Shakhtar"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50149",
+   "internationalName": "Sporting CP",
+   "teamCode": "SPO",
+   "countryCode": "POR",
+   "translations": {
+    "displayName": {
+     "ZH": "葡萄牙体育",
+     "EN": "Sporting CP"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 1,
+    "home": 0
+   },
+   "total": {
+    "away": 1,
+    "home": 0
+   }
+  },
+  "matchAttendance": 28260,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "7ef4f6ee-b55e-43d5-b9f7-8be71364ba7b",
+     "phase": "SECOND_HALF",
+     "teamId": "50149",
+     "player": {
+      "internationalName": "Issa Doumbia",
+      "clubShirtName": "I. Doumbia",
+      "clubJerseyNumber": "77",
+      "clubId": "50149",
+      "translations": {
+       "name": {
+        "ZH": "伊萨·敦比亚",
+        "EN": "Issa Doumbia"
+       }
+      }
+     },
+     "time": {
+      "minute": 59,
+      "second": 29
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049614",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 1,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T17:45:00Z",
+   "utcOffsetInHours": 3
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50067",
+   "internationalName": "Galatasaray",
+   "teamCode": "GAL",
+   "countryCode": "TUR",
+   "translations": {
+    "displayName": {
+     "ZH": "加拉塔萨雷",
+     "EN": "Galatasaray"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50107",
+   "internationalName": "Stuttgart",
+   "teamCode": "STU",
+   "countryCode": "GER",
+   "translations": {
+    "displayName": {
+     "ZH": "斯图加特",
+     "EN": "Stuttgart"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 0,
+    "home": 2
+   },
+   "total": {
+    "away": 0,
+    "home": 2
+   }
+  },
+  "matchAttendance": 45162,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "3a561380-0a88-442f-9d3f-669e5ca2023d",
+     "phase": "FIRST_HALF",
+     "teamId": "50067",
+     "player": {
+      "internationalName": "Aleksei Batrakov",
+      "clubShirtName": "BATRAKOV",
+      "clubJerseyNumber": "83",
+      "clubId": "50067",
+      "translations": {
+       "name": {
+        "ZH": "阿列克谢·巴特拉科夫",
+        "EN": "Aleksei Batrakov"
+       }
+      }
+     },
+     "time": {
+      "minute": 12,
+      "second": 15
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "7479a455-8c2a-4be0-8710-f82422a508f6",
+     "phase": "FIRST_HALF",
+     "teamId": "50067",
+     "player": {
+      "internationalName": "Aleksei Batrakov",
+      "clubShirtName": "BATRAKOV",
+      "clubJerseyNumber": "83",
+      "clubId": "50067",
+      "translations": {
+       "name": {
+        "ZH": "阿列克谢·巴特拉科夫",
+        "EN": "Aleksei Batrakov"
+       }
+      }
+     },
+     "time": {
+      "minute": 15,
+      "second": 17
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049607",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50080",
+   "internationalName": "Barcelona",
+   "teamCode": "BAR",
+   "countryCode": "ESP",
+   "translations": {
+    "displayName": {
+     "ZH": "巴塞罗那",
+     "EN": "Barcelona"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52683",
+   "internationalName": "Aston Villa",
+   "teamCode": "AVL",
+   "countryCode": "ENG",
+   "translations": {
+    "displayName": {
+     "ZH": "阿斯顿维拉",
+     "EN": "Aston Villa"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 0,
+    "home": 3
+   },
+   "total": {
+    "away": 0,
+    "home": 3
+   }
+  },
+  "matchAttendance": 52662,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "6b1def13-a3ad-49a7-9dba-31d2f8f18ddd",
+     "phase": "FIRST_HALF",
+     "teamId": "50080",
+     "player": {
+      "internationalName": "Lamine Yamal",
+      "clubShirtName": "Lamine Yamal",
+      "clubJerseyNumber": "10",
+      "clubId": "50080",
+      "translations": {
+       "name": {
+        "ZH": "拉明·亚马尔",
+        "EN": "Lamine Yamal"
+       }
+      }
+     },
+     "time": {
+      "minute": 7,
+      "second": 59
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "7bd97fee-1ccd-4bd8-80f7-2caa08b169ab",
+     "phase": "SECOND_HALF",
+     "teamId": "50080",
+     "player": {
+      "internationalName": "Raphinha",
+      "clubShirtName": "Raphinha",
+      "clubJerseyNumber": "11",
+      "clubId": "50080",
+      "translations": {
+       "name": {
+        "ZH": "拉菲尼亚",
+        "EN": "Raphinha"
+       }
+      }
+     },
+     "time": {
+      "minute": 52,
+      "second": 59
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "7e2a116d-f660-4945-9faa-77607fe076d4",
+     "phase": "SECOND_HALF",
+     "teamId": "50080",
+     "player": {
+      "internationalName": "Raphinha",
+      "clubShirtName": "Raphinha",
+      "clubJerseyNumber": "11",
+      "clubId": "50080",
+      "translations": {
+       "name": {
+        "ZH": "拉菲尼亚",
+        "EN": "Raphinha"
+       }
+      }
+     },
+     "time": {
+      "minute": 64,
+      "second": 57
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049608",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50124",
+   "internationalName": "Atleti",
+   "teamCode": "ATM",
+   "countryCode": "ESP",
+   "translations": {
+    "displayName": {
+     "ZH": "马德里竞技",
+     "EN": "Atleti"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50037",
+   "internationalName": "Bayern München",
+   "teamCode": "BAY",
+   "countryCode": "GER",
+   "translations": {
+    "displayName": {
+     "ZH": "拜仁慕尼黑",
+     "EN": "Bayern München"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 2,
+    "home": 0
+   },
+   "total": {
+    "away": 2,
+    "home": 0
+   }
+  },
+  "matchAttendance": 69821,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "3eb7f018-0b75-4114-9e58-8d9ae1778b3f",
+     "phase": "SECOND_HALF",
+     "teamId": "50037",
+     "player": {
+      "internationalName": "Lennart Karl",
+      "clubShirtName": "Karl",
+      "clubJerseyNumber": "42",
+      "clubId": "50037",
+      "translations": {
+       "name": {
+        "ZH": "伦纳特·卡尔",
+        "EN": "Lennart Karl"
+       }
+      }
+     },
+     "time": {
+      "minute": 54,
+      "second": 29
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "2cb30b80-4f62-4204-a67c-43cfefb7018b",
+     "phase": "SECOND_HALF",
+     "teamId": "50037",
+     "player": {
+      "internationalName": "Konrad Laimer",
+      "clubShirtName": "Laimer",
+      "clubJerseyNumber": "27",
+      "clubId": "50037",
+      "translations": {
+       "name": {
+        "ZH": "康拉德·莱默",
+        "EN": "Konrad Laimer"
+       }
+      }
+     },
+     "time": {
+      "minute": 74,
+      "second": 49
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049609",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 0
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52682",
+   "internationalName": "Man Utd",
+   "teamCode": "MUN",
+   "countryCode": "ENG",
+   "translations": {
+    "displayName": {
+     "ZH": "曼联",
+     "EN": "Man Utd"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50137",
+   "internationalName": "Roma",
+   "teamCode": "ROM",
+   "countryCode": "ITA",
+   "translations": {
+    "displayName": {
+     "ZH": "罗马",
+     "EN": "Roma"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 2,
+    "home": 3
+   },
+   "total": {
+    "away": 2,
+    "home": 3
+   }
+  },
+  "matchAttendance": 73747,
+  "playerEvents": {
+   "redCards": [
+    {
+     "id": "9d2c3ab8-a889-484d-9104-dc228d8414d8",
+     "phase": "SECOND_HALF",
+     "teamId": "52682",
+     "player": {
+      "internationalName": "Matheus Cunha",
+      "clubShirtName": "Cunha",
+      "clubJerseyNumber": "10",
+      "clubId": "52682",
+      "translations": {
+       "name": {
+        "ZH": "马特乌斯·库尼亚",
+        "EN": "Matheus Cunha"
+       }
+      }
+     },
+     "time": {
+      "injuryMinute": 1,
+      "minute": 90,
+      "second": 20
+     }
+    }
+   ],
+   "scorers": [
+    {
+     "id": "2f883e0c-3a8a-4e26-8cbc-ea6a6cb665f6",
+     "phase": "FIRST_HALF",
+     "teamId": "50137",
+     "player": {
+      "internationalName": "Matías Soulé",
+      "clubShirtName": "Soule",
+      "clubJerseyNumber": "18",
+      "clubId": "50137",
+      "translations": {
+       "name": {
+        "ZH": "马蒂亚斯·苏莱",
+        "EN": "Matías Soulé"
+       }
+      }
+     },
+     "time": {
+      "minute": 11,
+      "second": 49
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "ad43d751-173b-4c4f-a1b0-9767114ac5c8",
+     "phase": "FIRST_HALF",
+     "teamId": "50137",
+     "player": {
+      "internationalName": "Donyell Malen",
+      "clubShirtName": "Malen",
+      "clubJerseyNumber": "14",
+      "clubId": "50137",
+      "translations": {
+       "name": {
+        "ZH": "唐耶尔·马伦",
+        "EN": "Donyell Malen"
+       }
+      }
+     },
+     "time": {
+      "minute": 18,
+      "second": 1
+     },
+     "goalType": "PENALTY"
+    },
+    {
+     "id": "a1e307f1-2c4c-4cc2-ad9e-51f644cf17e0",
+     "phase": "SECOND_HALF",
+     "teamId": "52682",
+     "player": {
+      "internationalName": "Bruno Fernandes",
+      "clubShirtName": "B.Fernandes",
+      "clubJerseyNumber": "8",
+      "clubId": "52682",
+      "translations": {
+       "name": {
+        "ZH": "布鲁诺·费尔南德斯",
+        "EN": "Bruno Fernandes"
+       }
+      }
+     },
+     "time": {
+      "minute": 58,
+      "second": 54
+     },
+     "goalType": "PENALTY"
+    },
+    {
+     "id": "095018d8-564e-4fb6-a7d1-7336880ebc1c",
+     "phase": "SECOND_HALF",
+     "teamId": "52682",
+     "player": {
+      "internationalName": "Matheus Cunha",
+      "clubShirtName": "Cunha",
+      "clubJerseyNumber": "10",
+      "clubId": "52682",
+      "translations": {
+       "name": {
+        "ZH": "马特乌斯·库尼亚",
+        "EN": "Matheus Cunha"
+       }
+      }
+     },
+     "time": {
+      "minute": 83,
+      "second": 27
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "af376487-2331-4d5c-a8b3-628f036a44be",
+     "phase": "SECOND_HALF",
+     "teamId": "52682",
+     "player": {
+      "internationalName": "Matheus Cunha",
+      "clubShirtName": "Cunha",
+      "clubJerseyNumber": "10",
+      "clubId": "52682",
+      "translations": {
+       "name": {
+        "ZH": "马特乌斯·库尼亚",
+        "EN": "Matheus Cunha"
+       }
+      }
+     },
+     "time": {
+      "minute": 86,
+      "second": 9
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049610",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52749",
+   "internationalName": "Feyenoord",
+   "teamCode": "FEY",
+   "countryCode": "NED",
+   "translations": {
+    "displayName": {
+     "ZH": "费耶诺德",
+     "EN": "Feyenoord"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50138",
+   "internationalName": "Inter",
+   "teamCode": "INT",
+   "countryCode": "ITA",
+   "translations": {
+    "displayName": {
+     "ZH": "国际米兰",
+     "EN": "Inter"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 3,
+    "home": 0
+   },
+   "total": {
+    "away": 3,
+    "home": 0
+   }
+  },
+  "matchAttendance": 43649,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "0ef1ad8b-77d1-447b-9767-b61953825b95",
+     "phase": "FIRST_HALF",
+     "teamId": "50138",
+     "player": {
+      "internationalName": "Yann Bisseck",
+      "clubShirtName": "Bisseck",
+      "clubJerseyNumber": "31",
+      "clubId": "50138",
+      "translations": {
+       "name": {
+        "ZH": "扬·比塞克",
+        "EN": "Yann Bisseck"
+       }
+      }
+     },
+     "time": {
+      "minute": 8,
+      "second": 54
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "0ce2611f-fdd3-47ef-82b6-d47de69743c6",
+     "phase": "FIRST_HALF",
+     "teamId": "50138",
+     "player": {
+      "internationalName": "Pio Esposito",
+      "clubShirtName": "P. Esposito",
+      "clubJerseyNumber": "94",
+      "clubId": "50138",
+      "translations": {
+       "name": {
+        "ZH": "皮奥·埃斯波西托",
+        "EN": "Pio Esposito"
+       }
+      }
+     },
+     "time": {
+      "minute": 34,
+      "second": 12
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "10e6405f-2258-4199-ada8-ecc11384a10c",
+     "phase": "SECOND_HALF",
+     "teamId": "50138",
+     "player": {
+      "internationalName": "Piotr Zieliński",
+      "clubShirtName": "Zieliński",
+      "clubJerseyNumber": "7",
+      "clubId": "50138",
+      "translations": {
+       "name": {
+        "ZH": "彼得·泽林斯基",
+        "EN": "Piotr Zieliński"
+       }
+      }
+     },
+     "time": {
+      "minute": 54,
+      "second": 34
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049611",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "59333",
+   "internationalName": "Bodø/Glimt",
+   "teamCode": "BOD",
+   "countryCode": "NOR",
+   "translations": {
+    "displayName": {
+     "ZH": "博多",
+     "EN": "Bodø/Glimt"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "75797",
+   "internationalName": "Lille",
+   "teamCode": "LIL",
+   "countryCode": "FRA",
+   "translations": {
+    "displayName": {
+     "ZH": "里尔",
+     "EN": "Lille"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 0,
+    "home": 0
+   },
+   "total": {
+    "away": 0,
+    "home": 0
+   }
+  },
+  "matchAttendance": 7737,
+  "playerEvents": {}
+ },
+ {
+  "id": "2049612",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "70691",
+   "internationalName": "Villarreal",
+   "teamCode": "VIL",
+   "countryCode": "ESP",
+   "translations": {
+    "displayName": {
+     "ZH": "比利亚雷亚尔",
+     "EN": "Villarreal"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52747",
+   "internationalName": "Paris",
+   "teamCode": "PSG",
+   "countryCode": "FRA",
+   "translations": {
+    "displayName": {
+     "ZH": "巴黎圣日耳曼",
+     "EN": "Paris"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 6,
+    "home": 0
+   },
+   "total": {
+    "away": 6,
+    "home": 0
+   }
+  },
+  "matchAttendance": 20036,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "a3a20b58-e793-43cb-a4f3-4e3be3042e64",
+     "phase": "FIRST_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "João Neves",
+      "clubShirtName": "JOÃO NEVES",
+      "clubJerseyNumber": "87",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "若昂·内维斯",
+        "EN": "João Neves"
+       }
+      }
+     },
+     "time": {
+      "minute": 9,
+      "second": 35
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "7cd29c68-df9d-47b3-a69f-076581a976aa",
+     "phase": "FIRST_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "Désiré Doué",
+      "clubShirtName": "D.DOUÉ",
+      "clubJerseyNumber": "14",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "德西雷·杜埃",
+        "EN": "Désiré Doué"
+       }
+      }
+     },
+     "time": {
+      "minute": 12,
+      "second": 7
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "69e35c82-269e-49fe-ab64-3808026fc4a8",
+     "phase": "FIRST_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "Senny Mayulu",
+      "clubShirtName": "MAYULU",
+      "clubJerseyNumber": "24",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "塞尼·马尤鲁",
+        "EN": "Senny Mayulu"
+       }
+      }
+     },
+     "time": {
+      "minute": 13,
+      "second": 47
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "a958119f-c73d-4173-a030-aab4699530a5",
+     "phase": "FIRST_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "Fabián Ruiz",
+      "clubShirtName": "FABIAN",
+      "clubJerseyNumber": "8",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "法比安·鲁伊斯",
+        "EN": "Fabián Ruiz"
+       }
+      }
+     },
+     "time": {
+      "minute": 17,
+      "second": 7
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "55d2b189-e59e-4828-b988-96e9cfbae07a",
+     "phase": "SECOND_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "Fabián Ruiz",
+      "clubShirtName": "FABIAN",
+      "clubJerseyNumber": "8",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "法比安·鲁伊斯",
+        "EN": "Fabián Ruiz"
+       }
+      }
+     },
+     "time": {
+      "minute": 50,
+      "second": 31
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "492bd01f-06cc-487d-9b42-03f23d89c20f",
+     "phase": "SECOND_HALF",
+     "teamId": "52747",
+     "player": {
+      "internationalName": "David Boly",
+      "clubShirtName": "Boly",
+      "clubJerseyNumber": "42",
+      "clubId": "52747",
+      "translations": {
+       "name": {
+        "ZH": "大卫·博利",
+        "EN": "David Boly"
+       }
+      }
+     },
+     "time": {
+      "minute": 78,
+      "second": 57
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049615",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 2,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-03",
+   "dateTime": "2026-11-03T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "63405",
+   "internationalName": "LASK",
+   "teamCode": "LASK",
+   "countryCode": "AUT",
+   "translations": {
+    "displayName": {
+     "ZH": "林茨足球俱乐部",
+     "EN": "LASK"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52797",
+   "internationalName": "S. Bratislava",
+   "teamCode": "SBR",
+   "countryCode": "SVK",
+   "translations": {
+    "displayName": {
+     "ZH": "布拉迪斯拉发",
+     "EN": "S. Bratislava"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 0,
+    "home": 4
+   },
+   "total": {
+    "away": 0,
+    "home": 4
+   }
+  },
+  "matchAttendance": 17246,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "2c44535d-9406-4f2c-b617-322f7e0a932e",
+     "phase": "FIRST_HALF",
+     "teamId": "63405",
+     "player": {
+      "internationalName": "Kasper Jørgensen",
+      "clubShirtName": "Jørgensen",
+      "clubJerseyNumber": "20",
+      "clubId": "63405",
+      "translations": {
+       "name": {
+        "ZH": "卡斯帕·约根森",
+        "EN": "Kasper Jørgensen"
+       }
+      }
+     },
+     "time": {
+      "minute": 19,
+      "second": 44
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "7a73dada-1aa2-44f4-b4fd-e0d5b8ec9318",
+     "phase": "FIRST_HALF",
+     "teamId": "63405",
+     "player": {
+      "internationalName": "Kasper Jørgensen",
+      "clubShirtName": "Jørgensen",
+      "clubJerseyNumber": "20",
+      "clubId": "63405",
+      "translations": {
+       "name": {
+        "ZH": "卡斯帕·约根森",
+        "EN": "Kasper Jørgensen"
+       }
+      }
+     },
+     "time": {
+      "minute": 37,
+      "second": 51
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "73f865ad-39ea-4a1b-abcd-8caaada004dd",
+     "phase": "FIRST_HALF",
+     "teamId": "63405",
+     "player": {
+      "internationalName": "Robert Ljubičić",
+      "clubShirtName": "Ljubicic",
+      "clubJerseyNumber": "10",
+      "clubId": "63405",
+      "translations": {
+       "name": {
+        "ZH": "罗伯特·柳比契奇",
+        "EN": "Robert Ljubičić"
+       }
+      }
+     },
+     "time": {
+      "minute": 44,
+      "second": 28
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "3cb212ae-8ddd-49a8-b44a-1d569e7d8733",
+     "phase": "SECOND_HALF",
+     "teamId": "63405",
+     "player": {
+      "internationalName": "Samuel Adeniran",
+      "clubShirtName": "Adeniran",
+      "clubJerseyNumber": "7",
+      "clubId": "63405",
+      "translations": {
+       "name": {
+        "ZH": "塞缪尔·阿德尼兰",
+        "EN": "Samuel Adeniran"
+       }
+      }
+     },
+     "time": {
+      "minute": 48,
+      "second": 48
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049620",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 3,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T17:45:00Z",
+   "utcOffsetInHours": 3
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52692",
+   "internationalName": "Fenerbahçe",
+   "teamCode": "FEN",
+   "countryCode": "TUR",
+   "translations": {
+    "displayName": {
+     "ZH": "费内巴切",
+     "EN": "Fenerbahçe"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "7889",
+   "internationalName": "Liverpool",
+   "teamCode": "LIV",
+   "countryCode": "ENG",
+   "translations": {
+    "displayName": {
+     "ZH": "利物浦",
+     "EN": "Liverpool"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 2,
+    "home": 3
+   },
+   "total": {
+    "away": 2,
+    "home": 3
+   }
+  },
+  "matchAttendance": 39536,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "9e16e6cd-c1de-4701-8a09-2bc4007ca3bb",
+     "phase": "FIRST_HALF",
+     "teamId": "7889",
+     "player": {
+      "internationalName": "Trey Nyoni",
+      "clubShirtName": "Nyoni",
+      "clubJerseyNumber": "42",
+      "clubId": "7889",
+      "translations": {
+       "name": {
+        "ZH": "特雷·尼奥尼",
+        "EN": "Trey Nyoni"
+       }
+      }
+     },
+     "time": {
+      "minute": 25,
+      "second": 37
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "eb5e4473-a100-430d-ae42-edcfee5a3884",
+     "phase": "FIRST_HALF",
+     "teamId": "52692",
+     "player": {
+      "internationalName": "Mason Greenwood",
+      "clubShirtName": "Greenwood",
+      "clubJerseyNumber": "11",
+      "clubId": "52692",
+      "translations": {
+       "name": {
+        "ZH": "梅森·格林伍德",
+        "EN": "Mason Greenwood"
+       }
+      }
+     },
+     "time": {
+      "minute": 29,
+      "second": 29
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "a6e9e71e-db5e-43ea-b7c0-a4e03f59c7d2",
+     "phase": "SECOND_HALF",
+     "teamId": "7889",
+     "player": {
+      "internationalName": "Alexander Isak",
+      "clubShirtName": "Isak",
+      "clubJerseyNumber": "9",
+      "clubId": "7889",
+      "translations": {
+       "name": {
+        "ZH": "亚历山大·伊萨克",
+        "EN": "Alexander Isak"
+       }
+      }
+     },
+     "time": {
+      "minute": 69,
+      "second": 30
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "580b5e35-0fbc-44a4-9d0a-1123b077aaaa",
+     "phase": "SECOND_HALF",
+     "teamId": "52692",
+     "player": {
+      "internationalName": "Archie Brown",
+      "clubShirtName": "Brown",
+      "clubJerseyNumber": "3",
+      "clubId": "52692",
+      "translations": {
+       "name": {
+        "ZH": "阿奇·布朗",
+        "EN": "Archie Brown"
+       }
+      }
+     },
+     "time": {
+      "minute": 73,
+      "second": 51
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "49a3aab6-def8-4f14-ba08-945c8fa3f977",
+     "phase": "SECOND_HALF",
+     "teamId": "52692",
+     "player": {
+      "internationalName": "Vedat Muriqi",
+      "clubShirtName": "Muriqi",
+      "clubJerseyNumber": "19",
+      "clubId": "52692",
+      "translations": {
+       "name": {
+        "ZH": "维达特·穆里奇",
+        "EN": "Vedat Muriqi"
+       }
+      }
+     },
+     "time": {
+      "minute": 79,
+      "second": 41
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049622",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 3,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T17:45:00Z",
+   "utcOffsetInHours": 2
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50129",
+   "internationalName": "AEK Athens",
+   "teamCode": "AEK",
+   "countryCode": "GRE",
+   "translations": {
+    "displayName": {
+     "ZH": "雅典AEK",
+     "EN": "AEK Athens"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50051",
+   "internationalName": "Real Madrid",
+   "teamCode": "RMA",
+   "countryCode": "ESP",
+   "translations": {
+    "displayName": {
+     "ZH": "皇家马德里",
+     "EN": "Real Madrid"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 3,
+    "home": 2
+   },
+   "total": {
+    "away": 3,
+    "home": 2
+   }
+  },
+  "matchAttendance": 30368,
+  "playerEvents": {
+   "redCards": [
+    {
+     "id": "71d4a293-159d-4a59-9e8c-4533c3f23351",
+     "phase": "SECOND_HALF",
+     "teamId": "50129",
+     "player": {
+      "internationalName": "Aboubakary Koita",
+      "clubShirtName": "Koita",
+      "clubJerseyNumber": "11",
+      "clubId": "50129",
+      "translations": {
+       "name": {
+        "ZH": "阿布巴卡里·科伊塔",
+        "EN": "Aboubakary Koita"
+       }
+      }
+     },
+     "time": {
+      "injuryMinute": 5,
+      "minute": 90,
+      "second": 46
+     }
+    }
+   ],
+   "scorers": [
+    {
+     "id": "abeae040-123c-48ec-993b-9f2044a28f4e",
+     "phase": "FIRST_HALF",
+     "teamId": "50129",
+     "player": {
+      "internationalName": "Aboubakary Koita",
+      "clubShirtName": "Koita",
+      "clubJerseyNumber": "11",
+      "clubId": "50129",
+      "translations": {
+       "name": {
+        "ZH": "阿布巴卡里·科伊塔",
+        "EN": "Aboubakary Koita"
+       }
+      }
+     },
+     "time": {
+      "minute": 12,
+      "second": 15
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "2a1da097-6de3-480f-97e7-d543079b8147",
+     "phase": "FIRST_HALF",
+     "teamId": "50051",
+     "player": {
+      "internationalName": "Jude Bellingham",
+      "clubShirtName": "BELLINGHAM",
+      "clubJerseyNumber": "5",
+      "clubId": "50051",
+      "translations": {
+       "name": {
+        "ZH": "裘德·贝林厄姆",
+        "EN": "Jude Bellingham"
+       }
+      }
+     },
+     "time": {
+      "minute": 32,
+      "second": 58
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "2643222a-ab4f-48ba-9816-e1016beda494",
+     "phase": "SECOND_HALF",
+     "teamId": "50129",
+     "player": {
+      "internationalName": "Stavros Pilios",
+      "clubShirtName": "Pilo",
+      "clubJerseyNumber": "3",
+      "clubId": "50129",
+      "translations": {
+       "name": {
+        "ZH": "斯达夫罗斯·皮利奥斯",
+        "EN": "Stavros Pilios"
+       }
+      }
+     },
+     "time": {
+      "minute": 75,
+      "second": 31
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "a2c3ded9-07ca-456f-8186-8dc8e9182fc8",
+     "phase": "SECOND_HALF",
+     "teamId": "50051",
+     "player": {
+      "internationalName": "Kylian Mbappé",
+      "clubShirtName": "MBAPPÉ",
+      "clubJerseyNumber": "10",
+      "clubId": "50051",
+      "translations": {
+       "name": {
+        "ZH": "基利安·姆巴佩",
+        "EN": "Kylian Mbappé"
+       }
+      }
+     },
+     "time": {
+      "minute": 78,
+      "second": 31
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "a3feb582-08d9-419a-8113-74e8b2f5e686",
+     "phase": "SECOND_HALF",
+     "teamId": "50051",
+     "player": {
+      "internationalName": "Federico Valverde",
+      "clubShirtName": "VALVERDE",
+      "clubJerseyNumber": "8",
+      "clubId": "50051",
+      "translations": {
+       "name": {
+        "ZH": "费德里科·巴尔韦德",
+        "EN": "Federico Valverde"
+       }
+      }
+     },
+     "time": {
+      "injuryMinute": 2,
+      "minute": 90,
+      "second": 34
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049616",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52758",
+   "internationalName": "B. Dortmund",
+   "teamCode": "BVB",
+   "countryCode": "GER",
+   "translations": {
+    "displayName": {
+     "ZH": "多特蒙德",
+     "EN": "B. Dortmund"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52265",
+   "internationalName": "Real Betis",
+   "teamCode": "BET",
+   "countryCode": "ESP",
+   "translations": {
+    "displayName": {
+     "ZH": "贝蒂斯",
+     "EN": "Real Betis"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 1,
+    "home": 2
+   },
+   "total": {
+    "away": 1,
+    "home": 2
+   }
+  },
+  "matchAttendance": 81365,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "37b879c9-bcb1-44d8-9bcc-f7819c38571f",
+     "phase": "SECOND_HALF",
+     "teamId": "52758",
+     "player": {
+      "internationalName": "Fábio Silva",
+      "clubShirtName": "Fabio Silva",
+      "clubJerseyNumber": "21",
+      "clubId": "52758",
+      "translations": {
+       "name": {
+        "ZH": "法比奥·席尔瓦",
+        "EN": "Fábio Silva"
+       }
+      }
+     },
+     "time": {
+      "minute": 49,
+      "second": 56
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "d5e178e8-540a-4ff8-85c6-544f51646072",
+     "phase": "SECOND_HALF",
+     "teamId": "52265",
+     "player": {
+      "internationalName": "Aitor Ruibal",
+      "clubShirtName": "Aitor Ruibal",
+      "clubJerseyNumber": "24",
+      "clubId": "52265",
+      "translations": {
+       "name": {
+        "ZH": "艾托尔·鲁伊瓦尔",
+        "EN": "Aitor Ruibal"
+       }
+      }
+     },
+     "time": {
+      "minute": 67,
+      "second": 48
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "bc33379c-5933-4192-81b5-115edfe7335f",
+     "phase": "SECOND_HALF",
+     "teamId": "52758",
+     "player": {
+      "internationalName": "Konstantinos Karetsas",
+      "clubShirtName": "Karetsas",
+      "clubJerseyNumber": "19",
+      "clubId": "52758",
+      "translations": {
+       "name": {
+        "ZH": "康斯坦提诺斯·卡雷察斯",
+        "EN": "Konstantinos Karetsas"
+       }
+      }
+     },
+     "time": {
+      "minute": 72,
+      "second": 31
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049617",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 0
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50064",
+   "internationalName": "Porto",
+   "teamCode": "POR",
+   "countryCode": "POR",
+   "translations": {
+    "displayName": {
+     "ZH": "波尔图",
+     "EN": "Porto"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50136",
+   "internationalName": "Napoli",
+   "teamCode": "NAP",
+   "countryCode": "ITA",
+   "translations": {
+    "displayName": {
+     "ZH": "那不勒斯",
+     "EN": "Napoli"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 1,
+    "home": 4
+   },
+   "total": {
+    "away": 1,
+    "home": 4
+   }
+  },
+  "matchAttendance": 49190,
+  "playerEvents": {
+   "redCards": [
+    {
+     "id": "388ebd30-0314-4d33-ace0-0d0e62084a0d",
+     "phase": "SECOND_HALF",
+     "teamId": "50136",
+     "player": {
+      "internationalName": "Rafa Marín",
+      "clubShirtName": "Rafa Marin",
+      "clubJerseyNumber": "16",
+      "clubId": "50136",
+      "translations": {
+       "name": {
+        "ZH": "拉法·马林",
+        "EN": "Rafa Marín"
+       }
+      }
+     },
+     "time": {
+      "minute": 89,
+      "second": 7
+     }
+    }
+   ],
+   "scorers": [
+    {
+     "id": "106ad03e-23a6-40e1-9f14-736a8da33d4f",
+     "phase": "FIRST_HALF",
+     "teamId": "50064",
+     "player": {
+      "internationalName": "Jan Bednarek",
+      "clubShirtName": "Bednarek",
+      "clubJerseyNumber": "5",
+      "clubId": "50064",
+      "translations": {
+       "name": {
+        "ZH": "扬·贝德纳雷克",
+        "EN": "Jan Bednarek"
+       }
+      }
+     },
+     "time": {
+      "minute": 11,
+      "second": 36
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "ccbd9f7c-5256-461b-8b8b-127853cf6a47",
+     "phase": "FIRST_HALF",
+     "teamId": "50136",
+     "player": {
+      "internationalName": "Scott McTominay",
+      "clubShirtName": "Mctominay",
+      "clubJerseyNumber": "8",
+      "clubId": "50136",
+      "translations": {
+       "name": {
+        "ZH": "斯科特·麦克托米奈",
+        "EN": "Scott McTominay"
+       }
+      }
+     },
+     "time": {
+      "minute": 43,
+      "second": 34
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "817ae13e-ab65-40cc-825a-9d267e9bbddb",
+     "phase": "SECOND_HALF",
+     "teamId": "50064",
+     "player": {
+      "internationalName": "Gabriel Veiga",
+      "clubShirtName": "Gabri Veiga",
+      "clubJerseyNumber": "10",
+      "clubId": "50064",
+      "translations": {
+       "name": {
+        "ZH": "加布里埃尔·贝加",
+        "EN": "Gabriel Veiga"
+       }
+      }
+     },
+     "time": {
+      "minute": 71,
+      "second": 20
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "18713506-3377-4565-a4e4-1751d100abd5",
+     "phase": "SECOND_HALF",
+     "teamId": "50064",
+     "player": {
+      "internationalName": "Jakub Kiwior",
+      "clubShirtName": "Kiwior",
+      "clubJerseyNumber": "4",
+      "clubId": "50064",
+      "translations": {
+       "name": {
+        "ZH": "雅库布·基维奥尔",
+        "EN": "Jakub Kiwior"
+       }
+      }
+     },
+     "time": {
+      "minute": 80,
+      "second": 45
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "8f224c1e-5878-422a-91ad-3a501a27060b",
+     "phase": "SECOND_HALF",
+     "teamId": "50064",
+     "player": {
+      "internationalName": "Samu",
+      "clubShirtName": "Samu. A",
+      "clubJerseyNumber": "9",
+      "clubId": "50064",
+      "translations": {
+       "name": {
+        "ZH": "奥莫罗迪翁",
+        "EN": "Samu"
+       }
+      }
+     },
+     "time": {
+      "minute": 90,
+      "second": 15
+     },
+     "goalType": "PENALTY"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049618",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "50062",
+   "internationalName": "PSV",
+   "teamCode": "PSV",
+   "countryCode": "NED",
+   "translations": {
+    "displayName": {
+     "ZH": "埃因霍温",
+     "EN": "PSV"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "50043",
+   "internationalName": "Club Brugge",
+   "teamCode": "BRU",
+   "countryCode": "BEL",
+   "translations": {
+    "displayName": {
+     "ZH": "布鲁日",
+     "EN": "Club Brugge"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 2,
+    "home": 1
+   },
+   "total": {
+    "away": 2,
+    "home": 1
+   }
+  },
+  "matchAttendance": 34900,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "ed508ba5-ee76-47b2-a4b7-aeca1b0b0c43",
+     "phase": "FIRST_HALF",
+     "teamId": "50043",
+     "player": {
+      "internationalName": "Nicolò Tresoldi",
+      "clubShirtName": "Tresoldi",
+      "clubJerseyNumber": "7",
+      "clubId": "50043",
+      "translations": {
+       "name": {
+        "ZH": "尼科洛·特雷索尔迪",
+        "EN": "Nicolò Tresoldi"
+       }
+      }
+     },
+     "time": {
+      "minute": 25,
+      "second": 12
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "bec98a45-272f-4199-920f-a0a221b88b3c",
+     "phase": "SECOND_HALF",
+     "teamId": "50062",
+     "player": {
+      "internationalName": "Kodai Sano",
+      "clubShirtName": "Sano",
+      "clubJerseyNumber": "24",
+      "clubId": "50062",
+      "translations": {
+       "name": {
+        "ZH": "佐野航大",
+        "EN": "Kodai Sano"
+       }
+      }
+     },
+     "time": {
+      "minute": 54,
+      "second": 50
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "624dd7d6-3317-4470-83b1-445d3232c0b6",
+     "phase": "SECOND_HALF",
+     "teamId": "50043",
+     "player": {
+      "internationalName": "Carlos Forbs",
+      "clubShirtName": "Forbs",
+      "clubJerseyNumber": "9",
+      "clubId": "50043",
+      "translations": {
+       "name": {
+        "ZH": "卡洛斯·福布斯",
+        "EN": "Carlos Forbs"
+       }
+      }
+     },
+     "time": {
+      "minute": 65,
+      "second": 59
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049619",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "2603790",
+   "internationalName": "Leipzig",
+   "teamCode": "RBL",
+   "countryCode": "GER",
+   "translations": {
+    "displayName": {
+     "ZH": "RB莱比锡",
+     "EN": "Leipzig"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52919",
+   "internationalName": "Man City",
+   "teamCode": "MCI",
+   "countryCode": "ENG",
+   "translations": {
+    "displayName": {
+     "ZH": "曼城",
+     "EN": "Man City"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 3,
+    "home": 2
+   },
+   "total": {
+    "away": 3,
+    "home": 2
+   }
+  },
+  "matchAttendance": 45228,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "e54f059f-da08-4577-8eb0-3daa5290be96",
+     "phase": "FIRST_HALF",
+     "teamId": "2603790",
+     "player": {
+      "internationalName": "Castello Lukeba",
+      "clubShirtName": "Castello JR",
+      "clubJerseyNumber": "23",
+      "clubId": "2603790",
+      "translations": {
+       "name": {
+        "ZH": "卡斯泰洛·卢克巴",
+        "EN": "Castello Lukeba"
+       }
+      }
+     },
+     "time": {
+      "minute": 37,
+      "second": 42
+     },
+     "goalType": "OWN"
+    },
+    {
+     "id": "3f49f098-feb7-40aa-bb32-b89008373e6e",
+     "phase": "SECOND_HALF",
+     "teamId": "2603790",
+     "player": {
+      "internationalName": "Ridle Baku",
+      "clubShirtName": "Baku",
+      "clubJerseyNumber": "17",
+      "clubId": "2603790",
+      "translations": {
+       "name": {
+        "ZH": "里德尔·巴库",
+        "EN": "Ridle Baku"
+       }
+      }
+     },
+     "time": {
+      "minute": 49,
+      "second": 53
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "8639c29c-ceca-43b0-862e-94246f5d6a56",
+     "phase": "SECOND_HALF",
+     "teamId": "52919",
+     "player": {
+      "internationalName": "Enzo Fernández",
+      "clubShirtName": "Fernandez",
+      "clubJerseyNumber": "17",
+      "clubId": "52919",
+      "translations": {
+       "name": {
+        "ZH": "恩佐·费尔南德斯",
+        "EN": "Enzo Fernández"
+       }
+      }
+     },
+     "time": {
+      "minute": 58,
+      "second": 44
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "93f9bdc4-090c-477f-aa8f-e54611793fe0",
+     "phase": "SECOND_HALF",
+     "teamId": "2603790",
+     "player": {
+      "internationalName": "Antonio Nusa",
+      "clubShirtName": "Nusa",
+      "clubJerseyNumber": "7",
+      "clubId": "2603790",
+      "translations": {
+       "name": {
+        "ZH": "安东尼奥·努萨",
+        "EN": "Antonio Nusa"
+       }
+      }
+     },
+     "time": {
+      "minute": 61,
+      "second": 49
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "0fb8ceea-f740-4ee3-b8ef-76d44c9200e7",
+     "phase": "SECOND_HALF",
+     "teamId": "52919",
+     "player": {
+      "internationalName": "Erling Haaland",
+      "clubShirtName": "Haaland",
+      "clubJerseyNumber": "9",
+      "clubId": "52919",
+      "translations": {
+       "name": {
+        "ZH": "埃尔林·哈兰德",
+        "EN": "Erling Haaland"
+       }
+      }
+     },
+     "time": {
+      "minute": 78,
+      "second": 33
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049621",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52498",
+   "internationalName": "Slavia Praha",
+   "teamCode": "SLA",
+   "countryCode": "CZE",
+   "translations": {
+    "displayName": {
+     "ZH": "布拉格斯拉维亚",
+     "EN": "Slavia Praha"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "52280",
+   "internationalName": "Arsenal",
+   "teamCode": "ARS",
+   "countryCode": "ENG",
+   "translations": {
+    "displayName": {
+     "ZH": "阿森纳",
+     "EN": "Arsenal"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 2,
+    "home": 1
+   },
+   "total": {
+    "away": 2,
+    "home": 1
+   }
+  },
+  "matchAttendance": 19308,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "32597905-6ab3-41b7-a68b-21362366a686",
+     "phase": "FIRST_HALF",
+     "teamId": "52280",
+     "player": {
+      "internationalName": "Noni Madueke",
+      "clubShirtName": "Madueke",
+      "clubJerseyNumber": "20",
+      "clubId": "52280",
+      "translations": {
+       "name": {
+        "ZH": "诺尼·马杜埃凯",
+        "EN": "Noni Madueke"
+       }
+      }
+     },
+     "time": {
+      "minute": 9,
+      "second": 34
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "f9a6b391-06d3-4b6f-bb2b-af291d860666",
+     "phase": "FIRST_HALF",
+     "teamId": "52280",
+     "player": {
+      "internationalName": "Viktor Gyökeres",
+      "clubShirtName": "Gyökeres",
+      "clubJerseyNumber": "14",
+      "clubId": "52280",
+      "translations": {
+       "name": {
+        "ZH": "维克托·哲凯赖什",
+        "EN": "Viktor Gyökeres"
+       }
+      }
+     },
+     "time": {
+      "minute": 38,
+      "second": 6
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "1d63481c-2961-4ed0-a445-017fc25ce32d",
+     "phase": "SECOND_HALF",
+     "teamId": "52498",
+     "player": {
+      "internationalName": "Wiktor Nowak",
+      "clubShirtName": "Nowak",
+      "clubJerseyNumber": "30",
+      "clubId": "52498",
+      "translations": {
+       "name": {
+        "ZH": "维克托·诺瓦克",
+        "EN": "Wiktor Nowak"
+       }
+      }
+     },
+     "time": {
+      "minute": 90,
+      "second": 16
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049623",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52277",
+   "internationalName": "Lens",
+   "teamCode": "LEN",
+   "countryCode": "FRA",
+   "translations": {
+    "displayName": {
+     "ZH": "朗斯",
+     "EN": "Lens"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "79946",
+   "internationalName": "Como",
+   "teamCode": "COM",
+   "countryCode": "ITA",
+   "translations": {
+    "displayName": {
+     "ZH": "科莫",
+     "EN": "Como"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 9,
+    "home": 1
+   },
+   "total": {
+    "away": 9,
+    "home": 1
+   }
+  },
+  "matchAttendance": 37417,
+  "playerEvents": {
+   "scorers": [
+    {
+     "id": "aadc1281-7777-4073-ae54-64025aa10176",
+     "phase": "FIRST_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Tasos Douvikas",
+      "clubShirtName": "Douvikas",
+      "clubJerseyNumber": "9",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "阿纳斯塔西奥斯·杜维卡斯",
+        "EN": "Tasos Douvikas"
+       }
+      }
+     },
+     "time": {
+      "minute": 7,
+      "second": 55
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "24e0db08-ed94-4e2b-974b-7b9d2d9464fe",
+     "phase": "FIRST_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Tasos Douvikas",
+      "clubShirtName": "Douvikas",
+      "clubJerseyNumber": "9",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "阿纳斯塔西奥斯·杜维卡斯",
+        "EN": "Tasos Douvikas"
+       }
+      }
+     },
+     "time": {
+      "minute": 32,
+      "second": 16
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "351afb4c-46c4-4a50-b48e-30a9b1bfaa81",
+     "phase": "FIRST_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Nico Paz",
+      "clubShirtName": "Nico Paz",
+      "clubJerseyNumber": "10",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "尼科·帕斯",
+        "EN": "Nico Paz"
+       }
+      }
+     },
+     "time": {
+      "minute": 40,
+      "second": 44
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "10aefd78-7176-4380-8506-4f5391da0419",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Lucas Da Cunha",
+      "clubShirtName": "Da Cunha",
+      "clubJerseyNumber": "7",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "卢卡斯·达库尼亚",
+        "EN": "Lucas Da Cunha"
+       }
+      }
+     },
+     "time": {
+      "minute": 47,
+      "second": 24
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "84074f31-e61c-4c3d-b34e-f518f2484743",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Marc-Oliver Kempf",
+      "clubShirtName": "Kempf",
+      "clubJerseyNumber": "2",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "马克·肯普夫",
+        "EN": "Marc-Oliver Kempf"
+       }
+      }
+     },
+     "time": {
+      "minute": 53,
+      "second": 50
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "d27fa5f7-cbd1-44a1-bc36-8157c7c2e6e6",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Tasos Douvikas",
+      "clubShirtName": "Douvikas",
+      "clubJerseyNumber": "9",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "阿纳斯塔西奥斯·杜维卡斯",
+        "EN": "Tasos Douvikas"
+       }
+      }
+     },
+     "time": {
+      "minute": 57,
+      "second": 7
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "4558b4b0-789a-42a3-9202-dd96509f149b",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Mattia Liberali",
+      "clubShirtName": "Liberali",
+      "clubJerseyNumber": "30",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "马蒂亚·里贝拉里",
+        "EN": "Mattia Liberali"
+       }
+      }
+     },
+     "time": {
+      "minute": 62,
+      "second": 27
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "23471774-dc01-41f6-a56f-52d20224b0b5",
+     "phase": "SECOND_HALF",
+     "teamId": "52277",
+     "player": {
+      "internationalName": "Ruben Aguilar",
+      "clubShirtName": "Aguilar",
+      "clubJerseyNumber": "2",
+      "clubId": "52277",
+      "translations": {
+       "name": {
+        "ZH": "鲁本·阿吉拉尔",
+        "EN": "Ruben Aguilar"
+       }
+      }
+     },
+     "time": {
+      "minute": 65,
+      "second": 15
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "dcb63cc2-692e-4a80-b23d-7000580ed5ac",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Martin Baturina",
+      "clubShirtName": "Baturina",
+      "clubJerseyNumber": "20",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "马丁·巴图里纳",
+        "EN": "Martin Baturina"
+       }
+      }
+     },
+     "time": {
+      "minute": 69,
+      "second": 55
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "2311d631-4695-4f21-b38d-67cb18966b14",
+     "phase": "SECOND_HALF",
+     "teamId": "79946",
+     "player": {
+      "internationalName": "Matteo Papaccioli",
+      "clubShirtName": "Papaccioli",
+      "clubJerseyNumber": "54",
+      "clubId": "79946",
+      "translations": {
+       "name": {
+        "ZH": "Matteo Oliveira Papaccioli",
+        "EN": "Matteo Papaccioli"
+       }
+      }
+     },
+     "time": {
+      "injuryMinute": 1,
+      "minute": 90,
+      "second": 34
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2049624",
+  "status": "FINISHED",
+  "type": "GROUP_STAGE",
+  "seasonYear": "2027",
+  "sessionNumber": 4,
+  "competitionPhase": "TOURNAMENT",
+  "lineupStatus": "TACTICAL_AVAILABLE",
+  "kickOffTime": {
+   "date": "2026-11-04",
+   "dateTime": "2026-11-04T20:00:00Z",
+   "utcOffsetInHours": 1
+  },
+  "competition": {
+   "id": "1",
+   "code": "UCL",
+   "metaData": {
+    "name": "UEFA Champions League"
+   }
+  },
+  "matchday": {
+   "name": "MD4",
+   "longName": "Matchday 4",
+   "sequenceNumber": "4"
+  },
+  "homeTeam": {
+   "id": "52319",
+   "internationalName": "Viking",
+   "teamCode": "VFK",
+   "countryCode": "NOR",
+   "translations": {
+    "displayName": {
+     "ZH": "维京",
+     "EN": "Viking"
+    }
+   }
+  },
+  "awayTeam": {
+   "id": "2609356",
+   "internationalName": "Sabah",
+   "teamCode": "SAB",
+   "countryCode": "AZE",
+   "translations": {
+    "displayName": {
+     "ZH": "Sabah",
+     "EN": "Sabah"
+    }
+   }
+  },
+  "score": {
+   "regular": {
+    "away": 1,
+    "home": 4
+   },
+   "total": {
+    "away": 1,
+    "home": 4
+   }
+  },
+  "matchAttendance": 15012,
+  "playerEvents": {
+   "penaltiesMissed": [
+    {
+     "id": "7c4e8bb3-1f68-497d-8a28-0f7b8cc3ca25",
+     "phase": "SECOND_HALF",
+     "teamId": "52319",
+     "player": {
+      "internationalName": "Zlatko Tripić",
+      "clubShirtName": "Tripic",
+      "clubJerseyNumber": "10",
+      "clubId": "52319",
+      "translations": {
+       "name": {
+        "ZH": "兹拉特科·特里皮奇",
+        "EN": "Zlatko Tripić"
+       }
+      }
+     },
+     "time": {
+      "minute": 69,
+      "second": 25
+     },
+     "penaltyType": "MISSED"
+    }
+   ],
+   "redCards": [
+    {
+     "id": "c68ebb3f-3458-4b31-9b81-32f86c6b7749",
+     "phase": "SECOND_HALF",
+     "teamId": "2609356",
+     "player": {
+      "internationalName": "Aden McCarthy",
+      "clubShirtName": "MC CARTHY",
+      "clubJerseyNumber": "4",
+      "clubId": "2609356",
+      "translations": {
+       "name": {
+        "ZH": "艾登·麦卡锡",
+        "EN": "Aden McCarthy"
+       }
+      }
+     },
+     "time": {
+      "minute": 77,
+      "second": 53
+     }
+    }
+   ],
+   "scorers": [
+    {
+     "id": "812451d3-b16f-4cda-9886-28db37ccdbdc",
+     "phase": "FIRST_HALF",
+     "teamId": "2609356",
+     "player": {
+      "internationalName": "Orphé Mbina",
+      "clubShirtName": "ORPHE MBINA",
+      "clubJerseyNumber": "99",
+      "clubId": "2609356",
+      "translations": {
+       "name": {
+        "ZH": "奥菲·姆比纳",
+        "EN": "Orphé Mbina"
+       }
+      }
+     },
+     "time": {
+      "minute": 11,
+      "second": 55
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "532fccd6-1bb2-404c-addf-c9db1bde5d93",
+     "phase": "FIRST_HALF",
+     "teamId": "52319",
+     "player": {
+      "internationalName": "Erik Botheim",
+      "clubShirtName": "Botheim",
+      "clubJerseyNumber": "22",
+      "clubId": "52319",
+      "translations": {
+       "name": {
+        "ZH": "埃里克·博海姆",
+        "EN": "Erik Botheim"
+       }
+      }
+     },
+     "time": {
+      "minute": 27,
+      "second": 21
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "b2fbe0f6-b26c-48c6-86ba-c9cf3befed63",
+     "phase": "SECOND_HALF",
+     "teamId": "52319",
+     "player": {
+      "internationalName": "Zlatko Tripić",
+      "clubShirtName": "Tripic",
+      "clubJerseyNumber": "10",
+      "clubId": "52319",
+      "translations": {
+       "name": {
+        "ZH": "兹拉特科·特里皮奇",
+        "EN": "Zlatko Tripić"
+       }
+      }
+     },
+     "time": {
+      "minute": 69,
+      "second": 28
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "1b0eec22-d03e-48c9-8b0b-3e8baf388261",
+     "phase": "SECOND_HALF",
+     "teamId": "52319",
+     "player": {
+      "internationalName": "Henrik Falchener",
+      "clubShirtName": "Falchener",
+      "clubJerseyNumber": "25",
+      "clubId": "52319",
+      "translations": {
+       "name": {
+        "ZH": "亨里克·法尔切纳",
+        "EN": "Henrik Falchener"
+       }
+      }
+     },
+     "time": {
+      "minute": 81,
+      "second": 28
+     },
+     "goalType": "SCORED"
+    },
+    {
+     "id": "6e1c18ce-e00e-495d-94a9-0cacb157979b",
+     "phase": "SECOND_HALF",
+     "teamId": "52319",
+     "player": {
+      "internationalName": "Erik Botheim",
+      "clubShirtName": "Botheim",
+      "clubJerseyNumber": "22",
+      "clubId": "52319",
+      "translations": {
+       "name": {
+        "ZH": "埃里克·博海姆",
+        "EN": "Erik Botheim"
+       }
+      }
+     },
+     "time": {
+      "injuryMinute": 4,
+      "minute": 90,
+      "second": 19
+     },
+     "goalType": "SCORED"
+    }
+   ]
+  }
+ }
+]

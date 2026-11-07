@@ -4,8 +4,23 @@
     "再加一个 league 适配器（见 leagues.json）；SKILL.md 正文不写任何球队专有事实。",
     "球员中文译名不在这里——那是每场比赛的事实，走官方比赛页；每场建一份名单（字段口径见 SKILL.md 事实源纪律），旁白、字幕卡、封面都从名单取。",
     "brand 是封面/字幕卡的取色；scoreboard 一律写 'probe'，几何不许抄，见 scripts/probe_scoreboard.py。",
-    "coach 只是叙事背景参考、可能过期，任何脚本都不读它；解说与字幕卡里的主帅以两队 Wikipedia infobox 为准（SKILL.md 事实源纪律）。"
+    "coach 只是叙事背景参考、可能过期，任何脚本都不读它；解说与字幕卡里的主帅以两队 Wikipedia infobox 为准（SKILL.md 事实源纪律）。",
+    "default_lineup = **默认阵容**：五大联赛各一支，共 5 队（意甲 AC米兰 / 西甲 巴塞罗那 / 英超 利物浦 / 德甲 多特蒙德 / 法甲 巴黎圣日耳曼）。",
+    "  这是产品口径的默认值（scripts/resolve_week.py 默认就跑这 5 队）；**国际米兰不在默认阵容里**——遇「米兰德比」主角取主队 AC米兰。",
+    "  role=target = 在默认阵容里；role=baseline = 不在默认阵容（保留注册但默认不做）。",
+    "name_aliases = 该队在官方站 / 数据接口里的其它写法（如 UEFA 侧的 'B. Dortmund'、'Paris'）；跨源匹配靠它，不靠猜。",
+    "uefa_team_id = 该队在 UEFA 数据接口里的队伍 id（UEFA v5 用它做主客归属判定）；未验证的留 null。",
+    "club_site = 俱乐部官网赛程面兜底（联赛官方站答不出「最新一场」时用）：fixtures_url 是模板（{lang} / {period} 占位）。",
+    "  parser 字段说明这一面怎么解析：psg_monthly = 月度赛程页（psg.fr）；next_games_block = 「Next Games」块（客户端渲染的赛程页）。",
+    "  ⚠️ 赛程面只列**未赛场次**——能回答「本周有没有比赛」，答不了「已完赛吗」。"
   ],
+  "default_lineup": {
+    "seriea": "milan",
+    "laliga": "barcelona",
+    "premierleague": "liverpool",
+    "bundesliga": "dortmund",
+    "ligue1": "psg"
+  },
   "teams": {
     "milan": {
       "zh": "AC米兰",
@@ -13,14 +28,22 @@
       "league": "seriea",
       "club_slug": "ac-milan",
       "club_id": null,
+      "name_aliases": ["Milan", "AC Milan"],
+      "uefa_team_id": null,
+      "club_site": {
+        "fixtures_url": "https://www.acmilan.com/en/season/active/schedule/all",
+        "lang": "en",
+        "parser": "next_games_block",
+        "note": "意甲官方站在本环境抓不动（legaseriea.it socket hang up；en.legaseriea.it 队页 Calendar and Results 无数据），俱乐部官网赛程页是当前可用兜底；客户端渲染，需要 firecrawl 渲染后才读得到「Next Games」块。"
+      },
       "official_channel": {
-        "youtube": "https://www.youtube.com/@ACMilanOfficial",
+        "youtube": "https://www.youtube.com/@ACMilan",
         "site": "https://www.acmilan.com"
       },
       "brand": { "primary": "#FB090B", "secondary": "#000000", "accent": "#FFFFFF" },
       "original_audio": "it",
       "rivals": ["inter", "juventus", "atalanta", "roma", "napoli"],
-      "role": "baseline"
+      "role": "target"
     },
     "inter": {
       "zh": "国际米兰",
@@ -28,6 +51,8 @@
       "league": "seriea",
       "club_slug": "inter",
       "club_id": null,
+      "name_aliases": ["Inter", "Internazionale"],
+      "uefa_team_id": "50138",
       "official_channel": {
         "youtube": "https://www.youtube.com/@Inter",
         "site": "https://www.inter.it"
@@ -43,6 +68,8 @@
       "league": "laliga",
       "club_slug": "fc-barcelona",
       "club_id": null,
+      "name_aliases": ["Barcelona", "FC Barcelona"],
+      "uefa_team_id": "50080",
       "official_channel": {
         "youtube": "https://www.youtube.com/@FCBarcelona",
         "site": "https://www.fcbarcelona.com"
@@ -59,6 +86,8 @@
       "league": "premierleague",
       "club_slug": "liverpool",
       "club_id": "14",
+      "name_aliases": ["Liverpool", "Liverpool FC"],
+      "uefa_team_id": "7889",
       "official_channel": {
         "youtube": "https://www.youtube.com/@LiverpoolFC",
         "site": "https://www.liverpoolfc.com"
@@ -75,6 +104,8 @@
       "league": "bundesliga",
       "club_slug": "borussia-dortmund",
       "club_id": "DFL-CLU-000007",
+      "name_aliases": ["B. Dortmund", "Borussia Dortmund", "Dortmund"],
+      "uefa_team_id": "52758",
       "official_channel": {
         "youtube": "https://www.youtube.com/@BVB",
         "site": "https://www.bvb.de"
@@ -91,9 +122,12 @@
       "league": "ligue1",
       "club_slug": "paris-saint-germain",
       "club_id": "13",
+      "name_aliases": ["Paris", "Paris Saint-Germain", "Paris SG"],
+      "uefa_team_id": "52747",
       "club_site": {
         "fixtures_url": "https://www.psg.fr/{lang}/mens-football/fixtures?period={period}",
         "lang": "en",
+        "parser": "psg_monthly",
         "match_url_pattern": "https://www.psg.fr/en/matches/mens-football/20262027/",
         "note": "ligue1.com 答不出真实开球日；psg.fr 月度赛程页有日期 + 比分 + 比赛页，且比赛页有逐分钟文字直播。阵容/阵型仍要回 ligue1.com match-sheet。"
       },

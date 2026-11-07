@@ -1,0 +1,238 @@
+{
+ "id": "2049607",
+ "status": "FINISHED",
+ "type": "GROUP_STAGE",
+ "seasonYear": "2027",
+ "sessionNumber": 2,
+ "competitionPhase": "TOURNAMENT",
+ "lineupStatus": "TACTICAL_AVAILABLE",
+ "kickOffTime": {
+  "date": "2026-11-03",
+  "dateTime": "2026-11-03T20:00:00Z",
+  "utcOffsetInHours": 1
+ },
+ "competition": {
+  "id": "1",
+  "code": "UCL",
+  "metaData": {
+   "name": "UEFA Champions League"
+  }
+ },
+ "matchday": {
+  "name": "MD4",
+  "longName": "Matchday 4",
+  "sequenceNumber": "4"
+ },
+ "homeTeam": {
+  "id": "50080",
+  "internationalName": "Barcelona",
+  "teamCode": "BAR",
+  "countryCode": "ESP",
+  "translations": {
+   "displayName": {
+    "ZH": "巴塞罗那",
+    "EN": "Barcelona"
+   }
+  }
+ },
+ "awayTeam": {
+  "id": "52683",
+  "internationalName": "Aston Villa",
+  "teamCode": "AVL",
+  "countryCode": "ENG",
+  "translations": {
+   "displayName": {
+    "ZH": "阿斯顿维拉",
+    "EN": "Aston Villa"
+   }
+  }
+ },
+ "score": {
+  "regular": {
+   "away": 0,
+   "home": 3
+  },
+  "total": {
+   "away": 0,
+   "home": 3
+  }
+ },
+ "matchAttendance": 52662,
+ "stadium": {
+  "capacity": 63000,
+  "translations": {
+   "name": {
+    "ZH": "诺坎普",
+    "EN": "Camp Nou"
+   },
+   "sponsorName": {
+    "ZH": "Spotify Camp Nou",
+    "EN": "Spotify Camp Nou"
+   }
+  }
+ },
+ "playerEvents": {
+  "scorers": [
+   {
+    "id": "6b1def13-a3ad-49a7-9dba-31d2f8f18ddd",
+    "phase": "FIRST_HALF",
+    "teamId": "50080",
+    "player": {
+     "internationalName": "Lamine Yamal",
+     "clubShirtName": "Lamine Yamal",
+     "clubJerseyNumber": "10",
+     "clubId": "50080",
+     "translations": {
+      "name": {
+       "ZH": "拉明·亚马尔",
+       "EN": "Lamine Yamal"
+      }
+     }
+    },
+    "time": {
+     "minute": 7,
+     "second": 59
+    },
+    "goalType": "SCORED"
+   },
+   {
+    "id": "7bd97fee-1ccd-4bd8-80f7-2caa08b169ab",
+    "phase": "SECOND_HALF",
+    "teamId": "50080",
+    "player": {
+     "internationalName": "Raphinha",
+     "clubShirtName": "Raphinha",
+     "clubJerseyNumber": "11",
+     "clubId": "50080",
+     "translations": {
+      "name": {
+       "ZH": "拉菲尼亚",
+       "EN": "Raphinha"
+      }
+     }
+    },
+    "time": {
+     "minute": 52,
+     "second": 59
+    },
+    "goalType": "SCORED"
+   },
+   {
+    "id": "7e2a116d-f660-4945-9faa-77607fe076d4",
+    "phase": "SECOND_HALF",
+    "teamId": "50080",
+    "player": {
+     "internationalName": "Raphinha",
+     "clubShirtName": "Raphinha",
+     "clubJerseyNumber": "11",
+     "clubId": "50080",
+     "translations": {
+      "name": {
+       "ZH": "拉菲尼亚",
+       "EN": "Raphinha"
+      }
+     }
+    },
+    "time": {
+     "minute": 64,
+     "second": 57
+    },
+    "goalType": "SCORED"
+   }
+  ]
+ },
+ "referees": [
+  {
+   "role": "REFEREE_OBSERVER",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "托马斯·埃因沃勒",
+      "EN": "Thomas Einwaller"
+     }
+    }
+   }
+  },
+  {
+   "role": "ASSISTANT_REFEREE_TWO",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "Alessio Berti",
+      "EN": "Alessio Berti"
+     }
+    }
+   }
+  },
+  {
+   "role": "ASSISTANT_REFEREE_ONE",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "菲利波·梅利",
+      "EN": "Filippo Meli"
+     }
+    }
+   }
+  },
+  {
+   "role": "FOURTH_OFFICIAL",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "Fabio Maresca",
+      "EN": "Fabio Maresca"
+     }
+    }
+   }
+  },
+  {
+   "role": "ASSISTANT_VIDEO_ASSISTANT_REFEREE",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "Lukas Fähndrich",
+      "EN": "Lukas Fähndrich"
+     }
+    }
+   }
+  },
+  {
+   "role": "UEFA_DELEGATE",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "Vito Di Gioia",
+      "EN": "Vito Di Gioia"
+     }
+    }
+   }
+  },
+  {
+   "role": "REFEREE",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "大卫·马萨",
+      "EN": "Davide Massa"
+     }
+    }
+   }
+  },
+  {
+   "role": "VIDEO_ASSISTANT_REFEREE",
+   "person": {
+    "translations": {
+     "name": {
+      "ZH": "巴斯蒂安·丹科尔特",
+      "EN": "Bastian Dankert"
+     }
+    }
+   }
+  }
+ ],
+ "winner": {
+  "reason": "WIN_REGULAR",
+  "team_id": "50080"
+ }
+}
