@@ -245,11 +245,21 @@ def probe(master: Path, top: int, stitch_rows: int, seconds: int,
 
 
 def selftest() -> int:
-    """用 lavfi 合成两条视频做离线回归：带「时钟带」的必须探到并排对位置，
+    """用 lavfi 合成两条视频做离线回归：带「跳动带」的必须探到并排对位置，
     全静态的必须给出 found=False（无比分牌地板）。
 
-    正例：灰底 + 左上角一条每帧都变的高频噪声带（模拟比分牌每秒跳动）；
-    负例：纯灰底（什么都没有）。都不需要字体、不需要真集锦。"""
+    正例：灰底 + 左上角一条**低频纹理在平移**的带（模拟比分牌每秒跳动）；
+    负例：纯灰底（什么都没有）。都不需要字体、不需要真集锦。
+
+    ⚠️ 夹具为什么不是「高频随机噪声带」——这是实测踩出来的，别改回去：
+    ffmpeg 的 `scene` 分（select 滤镜的 scene 变量）**不把高频随机噪声当场景变化**：
+    纯噪声带逐帧像素平均绝对差高达 165/255，scene 分却只有 0.001–0.01；
+    真母版（1920x1080 集锦）的比分牌带每秒是 0.02–0.11。
+    ⇒ 用噪声当夹具，正例必然测不出 found=True（这一环在 ffmpeg 8.1 上是红的）。
+    而「有结构、每秒在动」的内容（低频平移纹理）实测 0.5/s，过地板 0.25/s。
+    另外 `geq` 的 `random(1)` 在不同 ffmpeg 版本上语义不同（8.1 上退化成近常量），
+    ⇒ 夹具一律只用 `sin`/`T`/`X`/`Y` 这类跨版本稳定的表达式。
+    """
     checks: list[tuple[str, bool, str]] = []
 
     def check(label, ok, detail=""):
@@ -261,14 +271,15 @@ def selftest() -> int:
         tmpdir = Path(tmp)
         clock = tmpdir / "clock.mp4"
         static = tmpdir / "static.mp4"
-        # 640x360 ⇒ 候选带 = 160x30；噪声带 (X<160, Y<30) 恰好落在 top-left 候选带里
+        # 640x360 ⇒ 候选带 = 160x30；跳动带 (X<160, Y<30) 恰好落在 top-left 候选带里
         r = subprocess.run(
             [exe, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
              "-i", "color=c=gray:s=640x360:r=30:d=8",
-             "-vf", "geq=lum='if(lt(X,160)*lt(Y,30),255*random(1),128)':cb=128:cr=128",
+             "-vf", ("geq=lum='if(lt(X,160)*lt(Y,30),"
+                     "128+120*sin(X*0.08+T*3)+60*sin(Y*0.4+T*2),128)':cb=128:cr=128"),
              "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", str(clock)],
             capture_output=True, text=True)
-        check("合成带时钟带的视频", r.returncode == 0 and clock.exists(),
+        check("合成带跳动带的视频", r.returncode == 0 and clock.exists(),
               (r.stderr or "")[-200:])
         r = subprocess.run(
             [exe, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
@@ -281,10 +292,10 @@ def selftest() -> int:
         if clock.exists():
             res = probe(clock, top=1, stitch_rows=4, seconds=8,
                         args_out=str(tmpdir / "artifacts"))
-            check("时钟带：found=True", res.get("found") is True,
+            check("跳动带：found=True", res.get("found") is True,
                   f"top={res['candidates'][0]['band']} "
                   f"{res['candidates'][0]['changes_per_sec']}/s")
-            check("时钟带：排名第一的是 top-left（噪声带所在候选）",
+            check("跳动带：排名第一的是 top-left（跳动带所在候选）",
                   res["candidates"][0]["band"] == "top-left")
         if static.exists():
             res = probe(static, top=1, stitch_rows=4, seconds=6,
