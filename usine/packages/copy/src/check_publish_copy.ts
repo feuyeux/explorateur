@@ -68,10 +68,24 @@ export const HOOK_PHRASES = ['报数', '点单', '跟读', '催更', '评论区'
 // AI 指纹（与 SKILL.md `## 失败模式` 末条同源；drift 风险同 HOOK_PHRASES——
 // 上游清单更新时这里要同步改）。「原来」只判**句首**形态：句中作叙事词的
 // 「原来」不少见，全量禁会误伤；AI 的指纹是「原来 + 揭秘句式」的开头用法。
-export const AI_FINGERPRINT_WORDS = ['yyds', 'xswl', '绝绝子', '狠狠地', '藏了心机', '宝藏', '把世界上好听的话']
+// 2026-11-07 扩充（水果系列发布词写作时的人工走查沉淀）：营销腔高频词
+// 「解锁 / 沉浸式 / 保姆级 / 干货满满 / 盛宴 / 奥秘 / 天花板 / 拉满 / 绝美 /
+// 史诗级」；句式「不止是 X，更是 Y」「让我们（一起/共同）…」「一场 X 之旅」
+// 与三个 LLM 收尾（如果你也 / 屏幕前的你 / 看到这里）＋三个总结腔（总的来说 /
+// 综上所述 / 值得一提的是）。校准锚 = 已验收归稿《落叶》（全部零命中）。
+// 「味蕾」没收：美食垂类真人在用，收了会误伤。
+export const AI_FINGERPRINT_WORDS = [
+  'yyds', 'xswl', '绝绝子', '狠狠地', '藏了心机', '宝藏', '把世界上好听的话',
+  '解锁', '沉浸式', '保姆级', '干货满满', '盛宴', '奥秘', '天花板', '拉满', '绝美', '史诗级',
+]
 export const AI_REVEAL_RE = /(?:^|\n|(?<=[。！？!]))\s*原来/
 export const AI_EXCLAIM_RUN_RE = /[!！]{2,}/ // ！！连刷（单个 ！ 合法）
 export const AI_SIMILE_RE = /像[^，。！？\n“”"']{1,12}一样的/ // 像 X 一样的 Y 模板句
+export const AI_NOTJUST_RE = /(?:不止是|不仅仅是|不仅是)[^。！？\n]{1,24}，?更是/ // 不止是 X，更是 Y
+export const AI_LETUS_RE = /让我们(?:一起|共同)/ // 让我们一起…（LLM 邀请腔）
+export const AI_JOURNEY_RE = /一场[^，。！？\n]{1,10}之旅/ // 一场 X 之旅
+export const AI_CLOSER_RE = /(?:^|\n)\s*(?:如果你也|屏幕前的你|看到这里，)/ // LLM 收尾三件套
+export const AI_SUMMARY_RE = /(?:总的来说|综上所述|值得一提的是)/ // 总结腔三件套
 export const EMOJI_PER_LINE_MAX = 3 // 一行 >3 个 emoji = 滥用（SKILL.md：一句三四个）
 
 // Python str.splitlines() 逐位镜像：按通用换行边界切（含 \v \f \x1c-\x1e
@@ -325,6 +339,11 @@ export function checkAiFingerprint(path: string, platform: string): string[] {
   if (AI_REVEAL_RE.test(raw)) problems.push('句首「原来…」揭秘句式命中——AI 指纹，用自己的话说')
   if (AI_EXCLAIM_RUN_RE.test(raw)) problems.push('连续感叹号（！！+）命中——句末感叹号刷屏')
   if (AI_SIMILE_RE.test(raw)) problems.push('「像 X 一样的 Y」模板句命中')
+  if (AI_NOTJUST_RE.test(raw)) problems.push('「不止是 X，更是 Y」命中——LLM 升华句式，改成陈述')
+  if (AI_LETUS_RE.test(raw)) problems.push('「让我们（一起/共同）…」命中——LLM 邀请腔')
+  if (AI_JOURNEY_RE.test(raw)) problems.push('「一场 X 之旅」命中——营销腔模板句')
+  if (AI_CLOSER_RE.test(raw)) problems.push('LLM 收尾（如果你也 / 屏幕前的你 / 看到这里）命中——换人话收尾')
+  if (AI_SUMMARY_RE.test(raw)) problems.push('总结腔（总的来说 / 综上所述 / 值得一提的是）命中——发布词不是报告')
   for (const ln of splitLines(raw)) {
     const n = emojiCount(ln)
     if (n > EMOJI_PER_LINE_MAX) {

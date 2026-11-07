@@ -80,7 +80,7 @@ describe('AI 指纹门', () => {
     return cpc.checkAiFingerprint(xhsFile(d, body), 'xiaohongshu')
   }
 
-  it('凿洞：7 类签名逐条命中', () => {
+  it('凿洞：13 类签名逐条命中（2026-11-07 扩充后）', () => {
     const holes: Array<[string, string]> = [
       ['这视频真的绝绝子。', '绝绝子'],
       ['看到最后我只想说 yyds。', 'yyds'],
@@ -89,10 +89,27 @@ describe('AI 指纹门', () => {
       ['原来雪花也有自己的名字。', '句首「原来…」'],
       ['这份心意像家一样的温暖。', '模板句'],
       ['🍂✨🪶👇 一行四个 emoji。', 'emoji'],
+      ['不止是水果，更是十二种语言。', '更是'],
+      ['让我们一起开口读。', '让我们'],
+      ['一场味蕾之旅。', '之旅'],
+      ['屏幕前的你不妨跟读。', '收尾'],
+      ['总的来说，值得一看。', '总结'],
+      ['解锁十二种语言。', '解锁'],
     ]
     for (const [body, w] of holes) {
       expect(fpHits(body).some((m) => m.includes(w)), body).toBe(true)
     }
+  })
+
+  it('校准锚：已验收归稿《落叶》三平台对新签名零误伤', () => {
+    for (const plat of ['xiaohongshu', 'douyin', 'bilibili']) {
+      const f = join(process.cwd(), 'skills', 'publish-copy', 'assets', 'example', plat + '.md')
+      expect(cpc.checkAiFingerprint(f, plat), plat).toEqual([])
+    }
+  })
+
+  it('反向：归稿里「不只是泥土」不是「不止是…更是」句式，不误伤', () => {
+    expect(fpHits('归的不只是泥土。')).toEqual([])
   })
 
   it('反向的反向：句中「原来」不误伤（只判句首揭秘形态）', () => {
