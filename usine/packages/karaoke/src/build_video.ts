@@ -18,7 +18,7 @@
 //   时把整个包炸掉——与 Python 脚本顶部 sys.exit 同效但更晚一步，代价是
 //   包可以安全地被 barrel 导入）。
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -73,19 +73,33 @@ async function whiteRatio(png: string, w: number, h: number): Promise<number> {
  * **精确画幅模式**：URL 直载（?lang=…&state=… 页内状态机）+ window-size=W,H，
  * 不带 --user-data-dir / --no-sandbox（AGENTS.md 实测：带 user-data-dir
  * 图能出但进程永不退出；不带 1.7s 退出）。timeout=180 兜底，挂了响亮地失败。
- * 白页哨兵同步判：>90% 近纯白 = 页面根本没渲出来，当场停。 */
+ * 白页哨兵同步判：>90% 近纯白 = 页面根本没渲出来，当场停。
+ *
+ * **视口亏空补偿（两个方向都补）**：--window-size 给的是窗口，实际视口更小
+ * （Edge 实测右 24 / 底 93 CSS px）——不补的话场景右/底被切，切掉的部分露出
+ * body 底色带（2026-11-07 水果系列 ep01 实测，用户报「画面溢出，特别是竖版」）。
+ * 与 poster 渲染「只补高度」不同：海报页是流式居中布局，宽度补了会把居中内容
+ * 推开；这里的场景是**定宽定高的精确画幅**，宽度不补会把场景右缘直接切掉。
+ * 补完把 PNG 裁回 w×h（内容锚在左上角），保证帧逐像素等于成片画幅。 */
 async function renderChrome(out: string, url: string, w: number, h: number): Promise<void> {
   const browser = platform.browserPath()
   if (!browser) {
     throw new FeuilleError('找不到 Chromium 系浏览器；装 Chrome 或 Edge，或设 CHROME_BIN')
   }
+  const deficit = platform.viewportDeficit(browser)
   sh([browser, '--headless=new', '--disable-gpu', ...platform.HEADLESS_FLAGS,
-    '--virtual-time-budget=10000', `--window-size=${w},${h}`,
+    '--virtual-time-budget=10000', `--window-size=${w + deficit.width},${h + deficit.height}`,
     '--force-device-scale-factor=1', '--hide-scrollbars',
     `--screenshot=${out}`, url], 180)
   if (!existsSync(out)) {
     throw new FeuilleError(`浏览器退出 0 但没写出 ${out}——大概率被已开着的桌面浏览器`
       + `抢占（singleton 移交）。关掉桌面浏览器后重试。\nURL was: ${url}`)
+  }
+  if (deficit.width > 0 || deficit.height > 0) {
+    const cropped = `${out}.crop.png`
+    await sharp(out).extract({ left: 0, top: 0, width: w, height: h }).png().toFile(cropped)
+    unlinkSync(out)
+    renameSync(cropped, out)
   }
   if (await whiteRatio(out, 64, 36) > 0.9) {
     throw new FeuilleError(`BLANK RENDER (page failed to load?): ${out}\nURL was: ${url}`)

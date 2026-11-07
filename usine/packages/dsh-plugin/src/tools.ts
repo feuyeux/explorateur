@@ -28,7 +28,7 @@ import {
 } from '@feuille/core'
 import { checkPublishCopy } from '@feuille/copy'
 import { gen_bgm } from '@feuille/bgm'
-import { gen_tts, build_video, verify_sync, scan_blank } from '@feuille/karaoke'
+import { gen_tts, build_video, verify_sync, scan_blank, check_edges } from '@feuille/karaoke'
 import { audio_profile, color_contrast } from '@feuille/poetry'
 import {
   fetch_fonts, assemble, render_poster, render_page, audit_charset,
@@ -254,12 +254,13 @@ export function familyTools(): ToolDefinition[] {
     }),
     argvTool({
       name: 'usine_karaoke',
-      description: '词级卡拉OK成片线：tts 词级时间线 → build 状态帧渲染+组装 → verify-sync AV 同步验收 → scan-blank 白页扫描。',
+      description: '词级卡拉OK成片线：tts 词级时间线 → build 状态帧渲染+组装 → verify-sync AV 同步验收 → scan-blank 白页扫描 → check-edges 帧边缘溢出门。',
       actions: {
         tts: gen_tts.main,
         build: build_video.main,
         'verify-sync': verify_sync.main,
         'scan-blank': scan_blank.main,
+        'check-edges': check_edges.main,
       },
       argvDoc: '残余参数，与 `feuille karaoke <子命令>` 一致',
     }),

@@ -487,6 +487,39 @@ function skillScriptFlags(): Map<string, Set<string>> {
   return out
 }
 
+/** 声明了外部产线目录的 skill：目录里的脚本入口与 skill 自己的 scripts 同权。
+ *  fruit-vocab-series 的产线脚本按仓库口径在 tools/fruitnames/（.mjs），不在
+ *  skills/<name>/scripts/——SKILL.md 写的 --engine 等旗标在那里真实可传
+ *  （2026-11-07 实测：只认库层会把 --engine 判成幻觉旗标）。 */
+const EXTRA_SKILL_SCRIPT_DIRS: Record<string, string[]> = {
+  'fruit-vocab-series': ['tools/fruitnames'],
+}
+
+/** 外部产线目录里的 '--xxx'（.py/.mjs/.ts 都算——脚本入口用什么语言是项目的事）。 */
+function extraScriptFlags(): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  for (const [skill, dirs] of Object.entries(EXTRA_SKILL_SCRIPT_DIRS)) {
+    const flags = new Set<string>()
+    for (const d of dirs) {
+      const root = fileURLToPath(new URL("../../../" + d + "/", import.meta.url))
+      if (!statSync(root, { throwIfNoEntry: false })?.isDirectory()) continue
+      const walk = (dir: string) => {
+        for (const e of readdirSync(dir)) {
+          if (e === "node_modules" || e === "test" || e === "__pycache__") continue
+          const p = join(dir, e)
+          if (statSync(p).isDirectory()) { walk(p); continue }
+          if (!/\.(py|mjs|ts)$/.test(p)) continue
+          const t = readFileSync(p, "utf8")
+          for (const m of t.matchAll(/['"](--[a-z][a-z0-9-]*)['"]/g)) flags.add(m[1]!)
+        }
+      }
+      walk(root)
+    }
+    out.set(skill, flags)
+  }
+  return out
+}
+
 /** SKILL.md 里当 CLI 旗标用的 '--xxx'（排除 CSS 自定义属性）。 */
 function skillFlags(): Array<{ skill: string; flag: string }> {
   const out: Array<{ skill: string; flag: string }> = []
@@ -507,8 +540,9 @@ describe("旗标词表 ↔ SKILL.md", () => {
     const lib = libraryFlags()
     expect(lib.size, "库层旗标词表解析为空 = 解析器失效").toBeGreaterThan(10)
     const local = skillScriptFlags()
+    const extra = extraScriptFlags()
     const unknown = skillFlags().filter(
-      ({ skill, flag }) => !lib.has(flag) && !local.get(skill)?.has(flag))
+      ({ skill, flag }) => !lib.has(flag) && !local.get(skill)?.has(flag) && !extra.get(skill)?.has(flag))
     expect(
       unknown.map((u) => `${u.skill}: ${u.flag}`),
       "SKILL.md 写了库层与本 skill 脚本都不存在的旗标——模型会照着拼一个不存在的参数",

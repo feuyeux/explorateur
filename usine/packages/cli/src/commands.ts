@@ -90,6 +90,10 @@ export const COMMANDS: Record<string, CommandLeaf> = {
     load: () => import('./leaves/karaoke-scan-blank.js'),
     desc: '全片白页扫描：唯一独立于状态帧的检查（含白帧 → 退出码 1）',
   },
+  'karaoke/check-edges': {
+    load: () => import('./leaves/karaoke-check-edges.js'),
+    desc: '帧边缘溢出门：状态帧 4px 边缘带出现非纸色像素（元素出画）→ 退出码 1',
+  },
   // ---- P5-7c poetry 诊断线（multilingual-video-poetry 归流）----
   'poetry/audio-profile': {
     load: () => import('./leaves/poetry-audio-profile.js'),

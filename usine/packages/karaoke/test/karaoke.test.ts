@@ -16,7 +16,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import { platform } from '@feuille/core'
 
-import { build_video, gen_tts, scan_blank, verify_sync } from '../src/index.js'
+import { build_video, check_edges, gen_tts, scan_blank, verify_sync } from '../src/index.js'
 
 const HAS_BROWSER = platform.browserPath() !== null
 
@@ -220,6 +220,68 @@ describe('verify_sync：灰度差口径与探点数学（真 ffmpeg，离线素�
   })
 })
 
+describe('check_edges：帧边缘溢出门', () => {
+  const d = mkdtempSync(join(tmpdir(), 'karaoke-ce-'))
+  afterAll(() => rmSync(d, { recursive: true, force: true }))
+
+  async function framePng(name: string, band: boolean): Promise<string> {
+    // 64×36 纸色帧；band = 顶部两行整条墨迹（采样步长 3 下 ≥22 命中，
+    // 必过 maxHit 12——散点墨迹会落在采样缝隙里，测不出门的真实行为）
+    const p = join(d, name)
+    const buf = await sharp({ create: { width: 64, height: 36, channels: 3, background: { r: 255, g: 252, b: 245 } } })
+      .raw().toBuffer()
+    if (band) {
+      for (let y = 0; y < 2; y++) for (let x = 0; x < 64; x++) {
+        const i = (y * 64 + x) * 3
+        buf[i] = 28; buf[i + 1] = 27; buf[i + 2] = 24
+      }
+      await sharp(buf, { raw: { width: 64, height: 36, channels: 3 } }).png().toFile(p)
+    } else {
+      await sharp(buf, { raw: { width: 64, height: 36, channels: 3 } }).png().toFile(p)
+    }
+    return p
+  }
+
+  it('干净帧 → 空 bad；边缘墨迹 → 命中名单；--skip 名单生效', async () => {
+    await framePng('clean.png', false)
+    await framePng('dirty.png', true)
+    await framePng('dirty2.png', true)
+    const clean = await check_edges.checkFrames(d, { skip: ['dirty.png', 'dirty2.png'] })
+    expect(clean.checked).toBe(1)
+    expect(clean.bad).toEqual([])
+    const all = await check_edges.checkFrames(d)
+    expect(all.checked).toBe(3)
+    expect(all.bad.sort()).toEqual(['dirty.png', 'dirty2.png'])
+  })
+
+  it('内部墨迹不算溢出（元素可以占据帧心）', async () => {
+    const dd = mkdtempSync(join(tmpdir(), 'karaoke-ce2-'))
+    const p = join(dd, 'inner.png')
+    const buf = await sharp({ create: { width: 64, height: 36, channels: 3, background: { r: 255, g: 252, b: 245 } } }).raw().toBuffer()
+    for (const [x, y] of [[20, 15], [40, 20]] as Array<[number, number]>) {
+      const i = (y * 64 + x) * 3
+      buf[i] = 28; buf[i + 1] = 27; buf[i + 2] = 24
+    }
+    await sharp(buf, { raw: { width: 64, height: 36, channels: 3 } }).png().toFile(p)
+    const v = await check_edges.checkFrames(dd)
+    expect(v.bad).toEqual([])
+    rmSync(dd, { recursive: true, force: true })
+  })
+
+  it('main：无目录 → 2；干净 → 0；溢出 → 1；目录不存在 → FeuilleError 1', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await check_edges.main([])).toBe(2)
+      expect(await check_edges.main([d, '--skip', 'dirty.png,dirty2.png,sub'])).toBe(0)
+      expect(await check_edges.main([d])).toBe(1)
+      await expect(check_edges.main([join(d, 'nope')])).rejects.toThrow()
+    } finally {
+      log.mockRestore()
+      err.mockRestore()
+    }
+  })
+})
 describe('scan_blank：白帧判定与 CLI 两态', () => {
   const d = mkdtempSync(join(tmpdir(), 'karaoke-sb-'))
   afterAll(() => rmSync(d, { recursive: true, force: true }))
