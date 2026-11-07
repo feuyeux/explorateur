@@ -104,6 +104,22 @@ directories.
   竖版平台投它；**视频本体仍是 9:16 全屏**，两者不是一回事。
   `feuille publish check-plan` 的 `COVER_RATIO` 也是按 3/4 判的：
   投 9:16 会留下一条「封面与平台原生差 25%，确认裁切框内文字是否在安全区」的提示。
+- **多词条版式（一格一词 → 一格 N 词）的拟合口径**：拟合脚本的**目标框必须是
+  定尺寸元素**（`width: 100%` / 定 px / grid 轨道）——框跟随文字收缩时，二分
+  拟合量到的是「当前字号的自身宽度」，循环依赖出 ~12px 小字（2026-11-07 水果
+  系列实测）。一格 N 词用**组拟合**双约束：每项宽 ≤ 格宽−徽章列，且**组总高 ≤
+  词区高**（scrollHeight 对照）；同一格内各项同字号。参考实现
+  `tools/fruitnames/templates/poster_fit.js`。
+- **固定宽高页面（封面/场景）的 headless 截图必须双向补视口亏空**：Edge 实测
+  视口比窗口右窄 24 / 下矮 93 CSS px。流式居中的 A4 海报只补高度（宽度补了会
+  把居中内容推开，见 `render_poster` 头注）；**定宽定高页两个方向都补**再裁回
+  （`@feuille/karaoke` build_video 是参照）。判据：补完的帧四边 4px 环内必须
+  是页面背景色——`feuille karaoke check-edges` 把它做成了门。
+- **封面变体注入要验证生效**：make-covers 的变体块靠文本锚注入（`ruby rt`
+  行 + `per-cell auto-fit` 注释）——项目的追加 CSS 改掉锚文本就**静默失效**
+  （规则进文件不进样式表，ep02 封面按海报原尺寸渲染）。两类可靠做法：① 注入
+  后探针断言（`getComputedStyle` 上 `.poster.lc` 的 width 真的变了）；② 项目
+  自包含生成封面源（fruit-vocab-series 的 build_episode，不走 make-covers）。
 
 ## Workflow
 

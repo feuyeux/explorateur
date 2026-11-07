@@ -25,12 +25,13 @@
 
 ## 三、技能库（复用入口）
 
-**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 13 个自建 SKILL（**唯一权威清单是 `usine/skills/*/SKILL.md` 的目录列举**；本表列漏了只会让人少看见一个，不会让路由失效，但漏了就补上）：
+**本工程的技能库在 `usine/skills/`**——仓库资产，随 git 版本化，共 14 个自建 SKILL（**唯一权威清单是 `usine/skills/*/SKILL.md` 的目录列举**；本表列漏了只会让人少看见一个，不会让路由失效，但漏了就补上）：
 
 | skill | 用途 |
 |---|---|
 | `one-page-poster` | 一页纸海报 / 12 语种排版 / 逐字着色 |
 | `vocab-infographic` | 单词语汇图鉴（生成式图像，不走渲染/合片） |
+| `fruit-vocab-series` | 水果系列 12 语种视频（40 种 × 12 语，每集 4 种 × 10 集；插画 + 海报 + 卡拉OK） |
 | `karaoke-video` | 海报/卡片 → 逐词高亮旁白视频 |
 | `music-annotate-video` | 真实录音欣赏科普（乐谱/录音对齐 + 听辨标注 + 帧精确装配） |
 | `multilingual-video-poetry` | 实拍母版 → 配文视频（侧链混音） |

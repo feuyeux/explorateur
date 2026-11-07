@@ -94,6 +94,7 @@ description: >
   （多幕评书）
 - 实拍视频母版 → `video-generation`（那是视频线；本 skill 出的是静态图）
 - 多词词卡册、整课课件 → `lesson-scene`
+- 系列化的批量成片（每集多种、多集连播的词汇系列视频）→ `fruit-vocab-series`
 - 出图本身走用户级图像 skill，本 skill 不拥有任何生图调用代码
 
 ## 代码归属

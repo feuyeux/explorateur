@@ -106,6 +106,13 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 （[references/lyria-field-notes.md](../bgm-bed/references/lyria-field-notes.md)）。
 同一事实存两处必然漂移，而漂移的那份没人会去核对。
 
+### 场景版式泛化（1 个词 / 一组词 都要自适应）
+
+- **主角框必须是定尺寸元素**：build_video 截图的是 `?lang=&state=` 状态页，页内脚本把主角词二分拟合到舞台框——**舞台框若跟随文字收缩（内容自适应宽），拟合量到的就是「当前字号的自身宽度」**，循环依赖把字号压到 ~12px（2026-11-07 水果系列 ep01 实测，用户圈词打回）。修法：词框 `width: 100%`（或定 px），拟合才有稳定目标。
+- **N 个词的场景**（一组水果 / 一组单词）：不加「另一份大字」——**把原有词直接放大**，当前项用卡片框 + 词的品牌底色高亮，其余项 dim ≥ 0.45。横版一行 N 卡、竖版 2×2；卡宽按「N×卡宽 + (N−1)×gap ≤ 画幅−2×padding」预算（fruit-vocab-series 的 build_episode 是参考实现）。
+- **视口亏空**：build_video 已双向补偿（窗口 = W+亏空.w / H+亏空.h，截图后裁回 W×H）——Edge 实测右 24 / 底 93 CSS px 不补的话场景右/底被切、露出 body 底色带（「画面溢出」的体感来源）。场景页是**定宽定高精确画幅**，两个方向都必须补（与 poster 渲染「只补高度」的差异见 build_video 头注）。
+- **成片验收加一道 `feuille karaoke check-edges`**（帧边缘溢出门）：状态帧 4px 边缘带出现非纸色像素 = 元素出画，退出码 1。intro/outro 封面卡自带平台契约彩色边框，`--skip intro.png,outro.png` 不进门。
+
 ## Workflow
 
 1. **Confirm the spec.** Get from the user: the items/phrases and their
