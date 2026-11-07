@@ -47,8 +47,13 @@ description: >
 
 ## 支持哪些球队 / 联赛
 
-球队与联赛是**注册表**，不是正文：`assets/teams.json`（队伍）× `assets/leagues.json`
+球队与联赛是**注册表**，不是正文：`assets/teams.json`（队伍，含 `default_lineup`）× `assets/leagues.json`
 （联赛适配器）。新增一支球队 = 加一条注册表 + 一个联赛适配器，**不改本文件的正文**。
+
+**默认阵容 = 五大联赛各一支**（`teams.json` 的 `default_lineup`：意甲 AC米兰 / 西甲 巴塞罗那 /
+英超 利物浦 / 德甲 多特蒙德 / 法甲 巴黎圣日耳曼）。这是产品口径的默认值：`scripts/resolve_week.py`
+默认就跑这 5 队。**国际米兰不在默认阵容里**——遇「米兰德比」这类同场对决，主角取主队 AC米兰。
+`role=target` = 在默认阵容里，`role=baseline` = 只保留注册、默认不做。
 
 | 队伍 | 联赛 | 官方事实源事件流 | VAR | 母版来源 | 实跑结论（2026-11-02） |
 |---|---|---|---|---|---|
@@ -156,6 +161,16 @@ description: >
   [references/league-fact-sources.md](references/league-fact-sources.md)，**不要凭印象
   拼链接**（法甲的 `club_id 90` 是巴黎 FC 不是巴黎；西甲的主客 slug 用 `-` 直连没有
   `vs`）；
+- **跨赛事（欧冠 / 欧联）**：**赛事组织者**是官方事实源——UEFA 的 `match.uefa.com/v5`
+  接口（列表 + 单场）给比分、进球（精确到分秒）、球场、观众、裁判与阵容；
+  `scripts/uefa_facts.py` 把它的 `playerEvents` 归一成 skill 既有的 `key_events` 形状
+  （进球 / 牌 / 换人 / 点球，接口没有的轴写进 `gaps`，不静默丢弃）。**已知缺口**：本环境
+  的列表接口只对 `competitionId=1`（欧冠）有数据，欧联（competitionId=2）返回空 ⇒
+  欧联比赛 id 要另寻发现路径（俱乐部官网赛程面 / 官方频道视频标题反查），别假装能列全；
+- **俱乐部官网是兜底面**：联赛官方站答不出时，用俱乐部的赛程页 / 比赛页 / 官方赛报——
+  三类形态（客户端渲染的赛程页、内嵌 JSON 的比赛页、带 timeline 的比赛页）各站不同，
+  写法与实测 URL 见 [references/league-fact-sources.md](references/league-fact-sources.md)；
+  官网赛报常有「比分 + 进球 + 牌 + 首发 + 裁判 + 观众」全套，是换人 / 牌轴最可靠的来源；
 - **主帅**：以两队 Wikipedia infobox 为准（官方比赛视频标题可作旁证）；
 - **赛季叙事**（联赛排名、赛季首败、德比背景）：两队赛季页交叉核对；
 - 比赛页没有的东西（谁抗议、谁拥抱）**只能从母版画面里看见的写**，
@@ -206,6 +221,19 @@ python3 scripts/check_roster.py selftest   # 念印字 / 首现全名 / 印字�
 
 退出码 0 = 名字口径合规；1 = 有文本念了球衣印字（报出该用的称呼）；2 = 名单契约坏了或窗口表非法。名字是**每场比赛的事实**，本文件只定口径、不记具体球员。
 
+## 「本周」要哪一场（默认口径）
+
+「本周」= asof 所在自然周（周一 ~ 周日）。这一步与「当前赛季最新一场」**不是同一件事**：`resolve_match.py` 给的是该队**赛季内**最新一场已完赛（可能在上周、甚至上个月）；「本周已完成的比赛」要在这一周里筛。跨赛事（欧冠/欧联）还会让同一周出现多场——本轮 2026-11-02~11-07 就有 4 场欧冠 + 1 场欧联。
+
+`scripts/resolve_week.py` 一条命令回答这个口径：
+
+```bash
+python3 scripts/resolve_week.py --asof 2026-11-07                      # 默认阵容 5 队，逐队给本周已完赛
+python3 scripts/resolve_week.py --asof 2026-11-07 --teams milan,dortmund --out week.json
+```
+
+它把每队的本周候选（日期 / 对阵 / 比分 / 赛事 / 来源）列出来，按**开球时间取最晚的一场**（同周多场时其余进 `alternatives` 并写明原因）；数据面缺口写进 `gaps`，**不冒充「本周无已完赛」**。选哪一场要在 fact pack 里留依据，不要凭印象挑。
+
 ## 「当前赛季最新一场」怎么定（多球队产线的入口）
 
 `scripts/resolve_match.py` 把这一步做成可复跑、可审计的脚本，而不是人工翻网页：
@@ -241,6 +269,16 @@ python3 scripts/find_master.py psg --fact-pack packs.json --download masters/
 满足的条件挡不住仿冒；`Sky Sports Premier League` 这类媒体号不会被误判成官方。
 标题里出现**不在本赛季**的年份（如往季同名对阵的 `2022/23`）会被压到后面。
 排名第一也仍要人眼核对标题与频道；脚本给的是证据，不是拍板。
+
+**频道身份以实测 `uploader_id` 为准。** 注册表里的 handle 可能写错（本轮实测：意甲那支
+的 `youtube` 写的是 `@ACMilanOfficial`，真身是 `@ACMilan`；`@ACMilanOfficial` 没有 videos
+tab，yt-dlp 会直接报 `This channel does not have a videos tab`——这个报错就是「handle 写错了」
+的信号，不是「频道不存在」）。冻结母版前按 `uploader_id` 核一遍，别拿注册表当证据。
+
+**官方俱乐部的高光通常很短。** 俱乐部官方频道的单场高光实测常在 **130–200s**（不足 180s
+就要显式接受「成片会更短」并写进交付说明）；20 分钟量级的 EXTENDED HIGHLIGHTS 多在
+**官方联赛频道**（如 `@seriea`）。持权转播商（TUDN / CBS Golazo 等）也有长版，但**不是官方
+俱乐部 / 联赛频道**，按母版权属口径只能当候选、不能当官方母版。
 
 三条硬规矩（来自纪律 12 / 19）：
 
@@ -502,18 +540,18 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 
 拥有模块：（无）
 
-本 skill 只有说明书与 skill 内脚本（`scripts/` 下十个 Python：resolve_match / find_master / probe_scoreboard / read_scoreboard / check_windows / place_voice / check_roster / make_covers / build_publish_facts / render_cards，每个都带离线 selftest）——装配层与封面、发布词判据的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio` / `copy`），与 `multilingual-video-poetry`、`publish-copy` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
+本 skill 只有说明书与 skill 内脚本（`scripts/` 下十二个 Python：resolve_match / resolve_week / uefa_facts / find_master / probe_scoreboard / read_scoreboard / check_windows / place_voice / check_roster / make_covers / build_publish_facts / render_cards，每个都带离线 selftest）——装配层与封面、发布词判据的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio` / `copy`），与 `multilingual-video-poetry`、`publish-copy` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## Requirements (fresh machine)
 
-- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的十个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
+- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的十二个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
 - **ffmpeg / ffprobe**（PATH，或 `FEUILLE_FFMPEG` / `FEUILLE_FFPROBE` 指路径）：探针、抽帧、读数、首页图底图与裁切预览都要。
 - **Node ≥ 24 + pnpm**（`pnpm exec feuille …`）：首页图渲染走 `feuille cover make`（封面机制在 library 的 `core.covers`，本 skill 不另写渲染器）；发布描述判据走 `feuille copy check`。
 - **Edge 或 Chrome**（PATH，渲字必需）：封面上的中文标题由浏览器渲——`core.covers` 经 `core.platform` 解析浏览器路径，探测不到就显式失败，不静默换人。
 - **firecrawl**（PATH）：四个联赛页面都是 JS 渲染，直连只能拿到壳（`resolve_match.py` 内置滚动抓取）。
 - **yt-dlp**（PATH）：`find_master.py` 的检索与 `--download`。
 - **rapidocr_onnxruntime**（可选，`pip install rapidocr_onnxruntime`）：只在**无视觉输入**时给 `read_scoreboard.py` 用；`selftest` 不需要它。
-- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——十个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
+- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——十二个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
 
 ## Resources
 
@@ -538,6 +576,12 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 - `scripts/resolve_match.py` —— 「当前赛季最新一场」解析器（出 fact pack + `key_events` + 来源；
   英超自动补抓 `/commentary`，巴黎自动抓 psg.fr 月度赛程 + 比赛页；
   比赛页失败 / 0 事件 / 真冲突 / 未完赛都退出非零；`selftest` 含判别逻辑负例）
+- `scripts/resolve_week.py` —— 「本周已完赛」口径解析器（asof 所在自然周；默认跑 `teams.json`
+  的 `default_lineup` 五队；逐队给本周候选与选取依据；数据缺口写 `gaps`，不冒充「本周无已完赛」；
+  `--selftest` 离线回归）
+- `scripts/uefa_facts.py` —— 欧战事实源（UEFA v5 单场 / 列表接口 → skill 的 `key_events` 形状：
+  进球 / 牌 / 换人 / 点球，带分钟与来源 URL；接口没有的轴写进 `gaps`；未识别的
+  `playerEvents` 子键原样报出、不静默丢弃；`--selftest` 离线回归）
 - `scripts/find_master.py` —— 官方频道集锦母版检索（候选 + 官方/比分/时长/赛季年排序，
   `official_basis` 分 id/name 两档并带仿冒警告；`--download` 才下载；`--selftest` 离线回归）
 - `scripts/probe_scoreboard.py` —— 比分牌几何探针（候选裁窗 + 竖拼长图 + 无比分牌地板 `found`；
@@ -549,7 +593,7 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 - `scripts/make_covers.py` —— 双平台首页图（B站 1920×1080 + 抖音 1080×1440）：版式是数据（`LAYOUTS` 带安全区）、数字对着 fact pack 校、底图从无字幕母版抽、出裁切预览；`selftest` 含版式越界与事实对账的反向用例
 - `scripts/build_publish_facts.py` —— 发布描述的数字溯源表（fact pack + ffprobe + 窗口表 → `facts.json`；每一项都有出处，不许手填）
 - `scripts/render_cards.py` —— 双语字幕卡（解说语 + 中文）：版式是数据（`LAYOUTS` 的 mono / bilingual）、字体栈与书写方向取 `languages/<locale>/manifest.json`、排版判据用**实测层盒**（`textlayer shoot` 同一次运行出图 + 量盒）；`--lang all` 覆盖注册表 14 语种；`--selftest` 含版式越界与缺测量的反向用例
-- `scripts/verify_all.py` —— 一条命令跑全验收（十个 selftest + 可选窗口表判决，聚合退出码）
+- `scripts/verify_all.py` —— 一条命令跑全验收（十二个 selftest + 可选窗口表判决，聚合退出码）
 
 **参考文档**
 

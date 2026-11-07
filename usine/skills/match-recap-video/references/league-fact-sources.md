@@ -358,9 +358,9 @@ match-sheet。
 3. 跑 `python3 scripts/resolve_match.py <key> --dry-run` 看它打算抓哪几个面；
    再跑真抓，核对 fact pack 的每个字段是否可解析。德甲/英超的 fact pack 会带
    `lineup_url`（liveticker→/lineup、overview→/lineups）；阵容仍要单独取。
-4. 跑 `python3 scripts/verify_all.py`（五个 selftest 聚合回归），或逐个：
-   `resolve_match.py selftest` · `check_windows.py selftest` ·
-   `find_master.py --selftest` · `probe_scoreboard.py selftest` ·
+4. 跑 `python3 scripts/verify_all.py`（十二个 selftest 聚合回归），或逐个：
+   `resolve_match.py selftest` · `resolve_week.py --selftest` · `uefa_facts.py --selftest` ·
+   `check_windows.py selftest` · `find_master.py --selftest` · `probe_scoreboard.py selftest` ·
    `read_scoreboard.py selftest`。
 5. 跑 `python3 scripts/find_master.py <key>` 看官方频道候选是否排得出来；
    第一名不是官方频道或比分对不上，说明 `official_channels` 或检索词要改。
@@ -401,3 +401,88 @@ match-sheet。
 
 ⚠️ 排名只是证据，不是拍板。公共搜索结果会变，频道也可能仿冒；`--download`
 只在显式要求时执行，下载后仍要人眼确认是这一场（比分牌 / 队徽 / 日期）。
+
+---
+
+## 9. 跨赛事（欧战）事实源矩阵
+
+实测日期：**2026-11-07**（欧冠 MD4 那周）。前八节讲的都是**本联赛**的面；默认阵容的五支队
+这一周有四支打欧冠、一支打欧联 ⇒ **只查联赛官网必然查不到**，这一节是欧战那一面。
+
+### 9.1 UEFA 结构化接口（跨赛事唯一结构化源）
+
+| 用途 | 端点 | 实测 |
+|---|---|---|
+| 按日期列比赛 | `GET https://match.uefa.com/v5/matches?competitionId={id}&fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&limit=100&offset=0` | `competitionId=1`（欧冠）有数据 |
+| 单场详情 | `GET https://match.uefa.com/v5/matches/{id}` | 带 `playerEvents`，**只有射手**，精确到分秒 |
+| 赛事列表 | `/v5/competitions` | **404** |
+| 单场子路径 | `/matches/{id}/events` · `/timeline` · `/lineup` · `/matchfacts` | **404 / 400**，别试 |
+
+抓取口径：`curl -s --compressed -H "User-Agent: Mozilla/5.0"`（不加 UA 会拿到空壳）。
+
+⚠️ **欧联/欧协没有可用的列表接口**：实测 `competitionId=2/3/4/5` 全部返回 `[]`（空数组，
+不是报错）。官网 HTML 里也不暴露 competitionId。⇒ **欧联赛次发现不了**，这是
+`assets/leagues.json` 里 `discovery_gap` 字段存在的理由：欧战里只有欧冠能靠接口发现，
+欧联/欧协必须靠俱乐部官网的赛报找场次。
+
+本轮实测到的欧冠 id：巴萨 2049607、巴黎 2049612、利物浦 2049620、多特 2049616。
+
+对应脚本：`scripts/uefa_facts.py`（事件归一，未识别的子键不静默丢弃）、
+`scripts/resolve_week.py`（本周已完赛判定 + 俱乐部赛程兜底）。
+
+### 9.2 俱乐部官网的三类面（AC 米兰实测）
+
+| 面 | URL 形态 | 给什么 | 不能干什么 |
+|---|---|---|---|
+| **赛程页** | `/en/season/active/schedule/all` | 「Next Games」块 = **未赛场次**（日期 / 对阵 / 球场 / 轮次） | **不能定「本周已完赛」**——它只给未来 |
+| **比赛页 / 赛报** | `/en/news/articles/{赛事}/{日期}/{slug}` | 进球 / 黄牌 / 红牌 / **双方首发** / 裁判 / 剧情细节 | 常常**没有上座人数**、没有 VAR 判决 |
+| **sitemap** | `/sitemap.xml`（本轮 3.7 万 URL） | 找比赛页 URL 的索引 | 不含内容 |
+
+三个面的分工固定：**赛报 = 已完赛场的事实源；赛程页 = 未来面；sitemap = 找 URL**。
+另外官方有「赛程公告」类文章（意甲第 6–12 轮日期表）——**轮次日期的权威源**，
+比赛程页可靠（赛程页只显示下一场）。
+
+### 9.3 五队官网实测（2026-11-07）
+
+| 队 | 官网面 | 实测能读到 |
+|---|---|---|
+| 利物浦 | `liverpoolfc.com` 比赛页 | 页面 RSC 载荷含**完整 timeline**（Goal / YellowCard / Sub + 分钟 + 双方 clubId） |
+| 多特 | `bvb.de` 赛报 | 进球 / 牌 / 双方首发 / 换人分钟 / 裁判 / 观众数 |
+| 米兰 | `acmilan.com` 赛报 | 进球 / 牌 / 红牌 / 双方首发 / 裁判 / 剧情；**无上座人数** |
+| 巴黎 | `psg.fr` 比赛页 | 逐分钟文字直播（含换人与 VAR 句） |
+| 巴萨 | `laliga.com` 俱乐部页 + 比赛页 | 见 §1（欧冠那场也在 laliga 的俱乐部页里） |
+
+### 9.4 本轮实测的三个坑
+
+1. **意甲联赛官网这一轮抓不动**：`en.legaseriea.it` 队页能渲染但 Calendar 段**无数据**；
+   `api-sdp.legaseriea.it` 的路径没解出来；firecrawl 抓 `legaseriea.it` 首页 socket hang up。
+   ⇒ 意甲队落到欧联时，**只能靠俱乐部官网**（米兰就是走的这条路）。
+2. **官方页也会写错队名**：BVB 赛报的客队小标题误写成 "Sevilla"（模板笔误，实为贝蒂斯）。
+   ⇒ 官方页的**小标题不是事实源**，以正文事件里的对手名为准；旁白绝不能照抄小标题。
+3. **官方页没有的轴就是没有**：米兰赛报没给上座人数 ⇒ fact pack 的 `gaps` 里记一条，
+   旁白不补、不猜（见 §10 第 3 条）。
+
+---
+
+## 10. 俱乐部官网兜底顺序
+
+问「这场的事实去哪拿」时按这个顺序走，**每一步都记下走了哪条**（fact pack 的
+`source_url` / `gaps`）：
+
+1. **UEFA 结构化接口** —— 有 competitionId 时首选（给精确到分的射手事件）。
+2. **联赛官网**（本联赛）—— 比赛页（事件流）+ 赛程页（排序键）。
+3. **俱乐部官网赛报** —— 欧战/杯赛场景的主力：已完赛场的事实源（首发 / 牌 / 裁判 / 剧情）。
+4. **俱乐部官网赛程页** —— 只给**未赛场次**，只能当未来面与发现面。
+5. **俱乐部 sitemap** —— 找上面两类页面的 URL。
+6. **二手源**（ESPN / 维基 / 论坛 / 社媒）—— **只用于定位官方页 URL，不作事实源**。
+7. **全都不通** —— 显式报 `data_gap`，**不冒充「本周无已完赛」**。
+
+三条由此固化的规矩：
+
+1. **发现面与定序面分开**：赛程页能发现比赛，但**没有日期/排序键的候选不参与评选**
+   （`resolve_week.py` 的纪律同 §1）。
+2. **官方页的每个字段都要落到事实包**：官方写了就采信，但**小标题/模板字段不可信**
+   （§9.4 第 2 条）。
+3. **官方页没有的轴显式降级**：上座人数、VAR 判决、xG、受伤——官方没写就是没写，
+   记进 `gaps`，旁白不补、不猜。**编出来的解说比没有解说更糟**（同 §7）。
+
