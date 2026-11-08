@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """verify_all.py — match-recap-video 的一条命令全验收。
 
-SKILL.md 的「每一步的验收判据」有多行，能离线机检的是十二个 selftest；验收靠
-agent 逐条记得跑，缺一环就是静默半成品。本脚本把十二个 selftest 聚合成一个
+SKILL.md 的「每一步的验收判据」有多行，能离线机检的是一组 selftest；验收靠
+agent 逐条记得跑，缺一环就是静默半成品。本脚本把全部 selftest 聚合成一个
 退出码（任何一环非零 = 整体非零），可选 `--windows` 连窗口表判决一起跑。
 
 用法：
-    python3 scripts/verify_all.py                     # 十二个 selftest（全离线，不联网）
+    python3 scripts/verify_all.py                     # 全部 selftest（全离线，不联网）
     python3 scripts/verify_all.py --windows win.json  # 加判一次窗口表（FAIL → 退出码 1）
 
 各 selftest 只需要 python3 与外部工具解析器能找到的工具（探针的合成视频用
@@ -29,28 +29,42 @@ HERE = Path(__file__).resolve().parent
 SELFTESTS: list[tuple[str, list[str]]] = [
     ("resolve_match（解析夹具 + 判别逻辑负例）",
      [sys.executable, str(HERE / "resolve_match.py"), "selftest"]),
-    ("check_windows（四个坏例 + 输入契约 + anchor/align）",
-     [sys.executable, str(HERE / "check_windows.py"), "selftest"]),
-    ("place_voice（绝对锚点落点 + 早/晚/叠音/缺段反例）",
-     [sys.executable, str(HERE / "place_voice.py"), "selftest"]),
-    ("check_roster（球衣印字 ≠ 解说称呼 + 缺字段/重名反例 + CLI 真路径）",
-     [sys.executable, str(HERE / "check_roster.py"), "selftest"]),
+    ("resolve_week（本周已完赛判定 + 默认阵容 + 俱乐部赛程兜底）",
+     [sys.executable, str(HERE / "resolve_week.py"), "--selftest"]),
+    ("uefa_facts（欧战接口事件归一 + 未识别子键不静默丢弃）",
+     [sys.executable, str(HERE / "uefa_facts.py"), "--selftest"]),
     ("find_master（排序判据回归）",
      [sys.executable, str(HERE / "find_master.py"), "--selftest"]),
     ("probe_scoreboard（合成视频探针回归）",
      [sys.executable, str(HERE / "probe_scoreboard.py"), "selftest"]),
     ("read_scoreboard（读数纯函数回归）",
      [sys.executable, str(HERE / "read_scoreboard.py"), "selftest"]),
+    ("cuts（lavfi 硬切视频切点检测）",
+     [sys.executable, str(HERE / "cuts.py"), "selftest"]),
+    ("frame_sheet（抽帧拼版全链，lavfi）",
+     [sys.executable, str(HERE / "frame_sheet.py"), "selftest"]),
+    ("plan_windows（切点 ∪ 时钟跳变 + 分段纯函数回归）",
+     [sys.executable, str(HERE / "plan_windows.py"), "selftest"]),
+    ("check_windows（四个坏例 + 输入契约 + anchor/align）",
+     [sys.executable, str(HERE / "check_windows.py"), "selftest"]),
+    ("check_budget（预算机检 + 陈旧 voice-report 作废 + 反例）",
+     [sys.executable, str(HERE / "check_budget.py"), "selftest"]),
+    ("place_voice（绝对锚点落点 + 早/晚/叠音/缺段反例）",
+     [sys.executable, str(HERE / "place_voice.py"), "selftest"]),
+    ("check_roster（球衣印字 ≠ 解说称呼 + 缺字段/重名反例 + CLI 真路径）",
+     [sys.executable, str(HERE / "check_roster.py"), "selftest"]),
+    ("assemble（烧录链构造；eof_action=repeat 坑钉死）",
+     [sys.executable, str(HERE / "assemble.py"), "selftest"]),
+    ("tts_windows（TS：区间解析 + 输入契约，离线）",
+     ["node", "--import", "tsx", str(HERE / "tts_windows.ts"), "selftest"]),
+    ("verify_final（lavfi 成片 ffprobe/时长对账/抽帧）",
+     [sys.executable, str(HERE / "verify_final.py"), "selftest"]),
     ("make_covers（版式安全区 + 事实对账 + 反向用例）",
      [sys.executable, str(HERE / "make_covers.py"), "selftest"]),
     ("build_publish_facts（数字溯源表回归）",
      [sys.executable, str(HERE / "build_publish_facts.py"), "selftest"]),
     ("render_cards（双语卡版式 + 实测层盒判据 + 反向用例）",
      [sys.executable, str(HERE / "render_cards.py"), "--selftest"]),
-    ("uefa_facts（欧战接口事件归一 + 未识别子键不静默丢弃）",
-     [sys.executable, str(HERE / "uefa_facts.py"), "--selftest"]),
-    ("resolve_week（本周已完赛判定 + 默认阵容 + 俱乐部赛程兜底）",
-     [sys.executable, str(HERE / "resolve_week.py"), "--selftest"]),
 ]
 
 
