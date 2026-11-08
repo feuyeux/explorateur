@@ -38,12 +38,10 @@ description: >
 
 解说按**进程轴 × 画面轴**写：进程轴说清第几分钟、谁、比分与意义，画面轴只承认这一窗画面里看得见的动作；两轴合成一句话，观众既跟得上比赛，也不会听到画面上不存在的东西。
 
-首个完整实现是 2026-27 意甲第 10 轮米兰德比（AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。同一产线已实跑四场：`examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方 highlights 裁到 162s）、`examples/barcelona-2026/`（巴萨 6-1 阿拉维斯，192s）、`examples/psg-2026/`（勒阿弗尔 1-5 巴黎，330s）、`examples/liverpool-2026/`（利物浦 0-1 阿森纳，120s）。后三场同样无视觉输入，用 `read_scoreboard.py` OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。项目产物都按内容项目落位规则放在 `usine/examples/` 下、不入库，可能已清理——**方法与实测数字已固化在本 skill 的 references 与夹具里，不依赖那些目录还在**。**装配脚手架不在本 skill 里**——从 `multilingual-video-poetry` 的入库
-样例抄：`assets/example/配文.py`（文案与名单的单一事实源）· `build_voice.py`
-（edge-tts 合成 + 实测校窗）· `subtitles.py`（三层字幕卡 → 透明层 → 烧录）·
-`mix.py`（旁白落位 + 原声压低混音）· `封面.py`（封面）。底层能力用 `packages/core/src/`
-的 `tts` / `textlayer` / `covers` / `compose` / `audio`——**本 skill 只新增赛事域的
-那一层**（时间轴来源、事实源、事件轴）。
+首个完整实现是 2026-27 意甲第 10 轮米兰德比（AC米兰 3-1 国际米兰，485.48s 母版 → 8 分钟成片）。同一产线已实跑四场：`examples/klassiker-2026/`（拜仁 2-2 多特，BVB 官方 highlights 裁到 162s）、`examples/barcelona-2026/`（巴萨 6-1 阿拉维斯，192s）、`examples/psg-2026/`（勒阿弗尔 1-5 巴黎，330s）、`examples/liverpool-2026/`（利物浦 0-1 阿森纳，120s）。后三场同样无视觉输入，用 `read_scoreboard.py` OCR 读数、窗口标 `visible: unread`，画面轴待人工复核。2026-11-08 周更轮又实跑五支跨赛事成片（欧冠第 4 轮 × 4 + 欧联第 4 轮 × 1，见 `references/weekly-batch.md`），**装配编排层自此收进本 skill**：`scripts/tts_windows.ts`（逐窗 TTS + 实测校窗）· `scripts/assemble.py`（三层卡烧录 → 落点判决 → 无 BGM 混音一条命令）。单步机制仍复用 `multilingual-video-poetry` 的入库
+样例（`assets/example/配文.py` 文案与窗口表 · `subtitles.py` 烧录机制 · `mix.py` 分轨诊断）。底层能力用 `packages/core/src/`
+的 `tts` / `textlayer` / `covers` / `compose` / `audio`——**本 skill 新增的是赛事域的
+那一层**（时间轴来源、事实源、事件轴、装配编排）。
 
 ## 支持哪些球队 / 联赛
 
@@ -142,6 +140,21 @@ description: >
    **比分变化必须和官方事件分钟互证**。
    ⚠️ 不是所有转播都给 MM:SS——德甲比分牌只有 `60'`（分钟），读数粒度就是 1 分钟；
    先确认该联赛的时钟格式，不要把「分钟」当「分秒」。
+   ⚠️ 探针的六个固定候选带可能**全部脱靶**（2026-11-08 巴萨实测：比分牌在
+   左上但整体下移约 40px，六条 y=0 起算的带全没罩住）——候选密度排名只是线索，
+   **先抽 2–3 张全帧人眼定位比分牌，再把裁窗写给 `read_scoreboard.py --crop`**；
+   探针 `found:false` 只在「全帧确认没有比分牌」时才成立。
+   ⚠️ OCR 的**比分列可能整列失败**（PSG 那场的牌是 `VIL 0 x PSG` 客队名前缀格式），
+   时钟列照常可读——进球锚点用「时钟跳变 + 官方事件分钟 + 抽帧」三样互证即可，
+   比分的**事实源永远是官方页**，不依赖 OCR 认比分。
+   ⚠️ **转播时钟 ≈ 官方事件钟 − 60s**（2026-11-08 四场欧战实测 −57～−62s 一致）：
+   标「第 X 分钟」用官方 `minute` 字段，定锚用转播 MM:SS 读数，两套数不混用。
+   ⚠️ **一个读数间隙里可能藏着不止一个跳变**（进球包的回放没有比分牌，
+   间隙 = 「跳进回放 + 跳出回放」两段）——`plan_windows.py` 只在可读读数间报一个
+   点，间隙内部要靠逐秒抽帧再分。
+   ⚠️ **进球可能被整段跳过**（现场镜头根本不在母版里，只有回放且回放无比分牌）：
+   这种窗写 `kind: jump` + `visible: absent`，say 只说进程，比分交给 `stat` 卡——
+   写成 replay 会撞判据 2（回放窗不推进进程），写错比分来源就是编造。
 3. **ffmpeg 场景检测**定位事件包：`select='gt(scene,0.25)'` 的切点聚集处 =
    进球包 / VAR 图形页 / 终场哨，与比分牌读数互相印证；
 4. **盯住跳切**：集锦会整段跳过时间（derby 实测 311→314s 从 69:46 跳到
@@ -280,6 +293,15 @@ tab，yt-dlp 会直接报 `This channel does not have a videos tab`——这个�
 **官方联赛频道**（如 `@seriea`）。持权转播商（TUDN / CBS Golazo 等）也有长版，但**不是官方
 俱乐部 / 联赛频道**，按母版权属口径只能当候选、不能当官方母版。
 
+**官方母版 ≠ 纯集锦——先看结构再决定裁剪。** 2026-11-08 实测巴萨官方
+`CXk8Er7Yf9w`（245.7s）= 集锦（0–123s）+ 两段赛后采访（~123–233s）+ 片尾卡
+（233s–末尾）；米兰、多特的母版尾部则是 BVB/MIL 品牌片尾卡。采访与片尾卡
+不进成片：按切点 + 抽帧找到最后一段比赛内容的边界，`ffmpeg -t` 裁出工作母版
+（klassiker 的「裁到 162s」是同一件事的先例），**成片时长 = 裁后母版时长**，
+对账拿裁后母版对，不拿原始下载对。下载到的文件还要防「标题对、内容错」：
+巴萨第一次下载到的是 CBS 频道的费内巴切 3-2 利物浦——冻结前抽帧核对球衣与
+比分牌（探针读数即证据），错文件改名留档，不静默覆盖。
+
 三条硬规矩（来自纪律 12 / 19）：
 
 1. **不许凭网页顺序猜「最新」。** 法甲巴黎的俱乐部页上，轮播首位、比分控件、
@@ -380,8 +402,10 @@ WARN，不冒充 FAIL。
 - **回放窗可以引用本事件的时间 / 比分**（「第 4 分钟那个球」）——「观众已经知道的」包括 `title` / `stat` 卡说过的，机检的已陈述集合含这三层；
 - **阵容卡**占开球前整段（derby：0–12s），单独一张 22 人阵型卡（`kind: 'graphic'`，名字以卡片上可读的为准）；**没有可靠首发数据时只出「比分 + 赛事信息」开场卡，不编阵容**（巴萨/巴黎/利物浦实跑中，psg.fr 无阵容、PL/西甲阵容页只是可选面，均用开场卡降级）；
 - 旁白落点由 `place_voice.py` 判决（见下节）：`start` 对齐时起句在 `anchor + LEAD`（0.45s），`end` 对齐时收句在 `anchor`；
-- **TTS 时长是实测的**：每段合成后立刻量，超窗压词不硬塞（build_voice 报
-  每段 slack，超窗退出码 1）；
+- **TTS 时长是实测的**：每段合成后立刻量，超窗压词不硬塞（`scripts/tts_windows.ts`
+  报每段实测时长，超窗退出码 1）。实测口径（zh-CN-YunjianNeural，rate −5%，
+  2026-11-08 四场欧战 51 段）：**0.24–0.40 s/字，中位数 ≈ 0.33**——写稿按
+  0.30–0.33 起，别按 0.20；压词的最小粒度是一个字 ≈ 0.3s，超零点几秒就删一个字；
 - 结尾必有一段「回顾」窗口（全场进球 / 换人次数汇总），球迷的收获沉淀在这。
 
 ## 旁白落点：绝对锚点，不按顺序拼接
@@ -412,7 +436,7 @@ python3 scripts/place_voice.py selftest                # 早 / 晚 / 叠音 / �
 
 `place_voice.py` 同时生成混音链（旁白绝对落位 + 原声被旁白侧链压低，见「装配」）。退出码 0 = 落点全部合法；1 = 越界 / 叠音 / 缺段；2 = 输入坏了（缺 `--total`、窗口表非法、voice-report 读不动）。
 
-⚠️ 本线的 `voice-report.json` 按**窗口 key** 出（`{"segments":[{key,file,duration}]}`），不是 poetry 样例里 `lang/season` 的形状——抄 `build_voice.py` 时把循环换成遍历窗口表，别让两套 key 对不上（对不上时 `place_voice.py` 报「缺实测音频」退出码 1）。
+⚠️ 本线的 `voice-report.json` 按**窗口 key** 出（`{"segments":[{key,file,duration}]}`），不是 poetry 样例里 `lang/season` 的形状——`scripts/tts_windows.ts` 已经按这个形状产（指纹缓存，改词只重合成那一段）。两条纪律：**改完窗口表必须重跑 TTS**——旧报告的实测时长与当前 `say` 不同代，会污染一切实测判据（`check_budget.py --voice` 会对每段算 s/字，出 0.10–0.60 带宽即整份作废、退回估算并显式报出来；2026-11-08 实拍：旧报告让 4 个窗被误判超窗）；报告里自带的「余量」按 `t1−t0−时长` 算，**不是落点预算**——落点预算是 `t1−anchor−LEAD`，以 `place_voice.py` 的判决为准，报告余量为正仍可能越界。
 
 ## 双语字幕卡（解说语 + 中文）
 
@@ -457,9 +481,14 @@ he-IL / hi-IN / it-IT / ja-JP / ko-KR / ru-RU / zh-CN / zh-HK）——能力夹�
 
 ## 装配（沿用 multilingual-video-poetry，不另写）
 
+- **一条命令装配走 `scripts/assemble.py`**（渲卡 → 烧录 → `place_voice.py` 落点判决 → 混音 → `final.mp4`；`python3 scripts/assemble.py selftest` 离线回归）。它的烧录链把下面两条坑钉死在代码与 selftest 里；
 - 三层字幕卡 = 透明 PNG 逐张 overlay 串接烧录；**卡片走单帧输入，不加
   `-loop 1`**——53 张卡就是 53 路 × fps 的无限 PNG 解码，实测 65s 预览
-  5 分钟不出片；overlay 默认 `eof_action=repeat` + `enable=between(t,…)` 足够；
+  5 分钟不出片；overlay 默认 `eof_action=repeat` + `enable=between(t,…)` 足够。
+  **2026-11-08 实拍坑：overlay 写成 `eof_action=pass` 会静默全灭所有卡片**——
+  单帧卡输入 EOF 后合成即停，ffprobe 照样 PASS、机检全绿，画面上一张卡都没有；
+  是「抽帧看卡」这一步才抓到的。凡是「落盘 → 渲染 → 判定」的链，产物必须
+  抽帧人眼复核，机检绿灯不证明画面在位；
 - **混音只有两层，没有 BGM**：中文旁白（loudnorm −16 LUFS）> 母版现场原声（观众 / 客场解说，压低保留作氛围）。**赛事线的底就是真实比赛的声音**——音乐床是教学线的做法，铺上来会盖掉进球瞬间的声浪，也让「这是真实比赛」这件事失真。`bgm-bed` 与本线无关，不要接回来；
 - 链由 `place_voice.py` 生成（`--chain-only` 直接可跑）：**输入 `0` = 母版（含原声），`1..N` = 旁白段**（按落点先后）；每段按 `anchor` 用 `adelay` 钉在绝对时间上 → `amix` → `loudnorm` → `asplit=2` → 原声 `volume` 压低（缺省 0.14，**换片重测**）→ `sidechaincompress` → 合并 → `alimiter`。三个经典音频坑（`asplit` 缺失 / `loudnorm` 排序 / 结尾余量）见 `multilingual-video-poetry` 的 references，**不要在这里复写**；
 - **原声电平用成片轨量出的旁白电平定**（旁白 − 原声 ≥ 8 dB，LUFS 口径；loudnorm 后语音段比单段 mp3 高 ~6.9 dB，口径混了会白调）；
@@ -540,18 +569,18 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 
 拥有模块：（无）
 
-本 skill 只有说明书与 skill 内脚本（`scripts/` 下十二个 Python：resolve_match / resolve_week / uefa_facts / find_master / probe_scoreboard / read_scoreboard / check_windows / place_voice / check_roster / make_covers / build_publish_facts / render_cards，每个都带离线 selftest）——装配层与封面、发布词判据的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio` / `copy`），与 `multilingual-video-poetry`、`publish-copy` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
+本 skill 只有说明书与 skill 内脚本（`scripts/` 下十七个 Python + 一个 TS：resolve_match / resolve_week / uefa_facts / find_master / probe_scoreboard / read_scoreboard / cuts / frame_sheet / plan_windows / check_windows / check_budget / place_voice / check_roster / make_covers / build_publish_facts / render_cards / verify_final + tts_windows.ts，每个都带离线 selftest）——装配层与封面、发布词判据的底层能力全在 **library**（`tts` / `textlayer` / `covers` / `compose` / `audio` / `copy`），与 `multilingual-video-poetry`、`publish-copy` 共用；本 skill 不拥有任何 packages/ 模块。事实源见 `usine/ownership.json`，由 @feuille/gate 的 vitest 门禁（`pnpm verify`）与本段双向机检。
 
 ## Requirements (fresh machine)
 
-- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的十二个脚本是 skill 内 Python，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络）。
+- **Python ≥ 3.10**（脚本用了 `str | None` 等语法）。本线的脚本是 skill 内 Python + 一个 TS，不进 packages/——与 `multilingual-video-poetry` 的装配脚手架同一口径，运行入口就是 `python3 scripts/…`（各脚本自带 `selftest` 子命令，不需要网络；TTS 走 `node --import tsx scripts/tts_windows.ts`，不需要 Python edge-tts）。
 - **ffmpeg / ffprobe**（PATH，或 `FEUILLE_FFMPEG` / `FEUILLE_FFPROBE` 指路径）：探针、抽帧、读数、首页图底图与裁切预览都要。
 - **Node ≥ 24 + pnpm**（`pnpm exec feuille …`）：首页图渲染走 `feuille cover make`（封面机制在 library 的 `core.covers`，本 skill 不另写渲染器）；发布描述判据走 `feuille copy check`。
 - **Edge 或 Chrome**（PATH，渲字必需）：封面上的中文标题由浏览器渲——`core.covers` 经 `core.platform` 解析浏览器路径，探测不到就显式失败，不静默换人。
 - **firecrawl**（PATH）：四个联赛页面都是 JS 渲染，直连只能拿到壳（`resolve_match.py` 内置滚动抓取）。
 - **yt-dlp**（PATH）：`find_master.py` 的检索与 `--download`。
 - **rapidocr_onnxruntime**（可选，`pip install rapidocr_onnxruntime`）：只在**无视觉输入**时给 `read_scoreboard.py` 用；`selftest` 不需要它。
-- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——十二个 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
+- 一条命令跑全验收：`python3 scripts/verify_all.py [--windows windows.json]`——全部 selftest（+ 可选窗口表判决）聚合退出码，缺环即非零，不靠 agent 逐条记得跑。
 
 ## Resources
 
@@ -587,6 +616,13 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 - `scripts/probe_scoreboard.py` —— 比分牌几何探针（候选裁窗 + 竖拼长图 + 无比分牌地板 `found`；
   `selftest` 用 lavfi 合成视频离线回归）
 - `scripts/read_scoreboard.py` —— 比分牌 OCR（逐帧分钟/比分/比分变化/跳切候选；`60'` 与 `89:58` 两种时钟都认；零读数退出码 1；`selftest` 纯函数回归，不需要 OCR 依赖）
+- `scripts/cuts.py` —— 镜头切点检测（ffmpeg scene 分 → cuts.json + 有效段；`selftest` 用 lavfi 三段硬切合成视频离线回归）
+- `scripts/frame_sheet.py` —— 带时间戳的抽帧拼版（人眼定窗/定锚的证据链；`--times` 或 `--step`；`selftest` lavfi 全链）
+- `scripts/plan_windows.py` —— 候选窗口边界 = 切点 ∪ 比分牌时钟跳变（两源互补：软切 scene 分抓不到、换机位时钟不跳；`selftest` 纯函数回归）
+- `scripts/check_budget.py` —— 旁白预算机检（TTS **之前**把「装不下」拦掉；`t1−anchor−LEAD` 预算公式；anchor 落窗尾的结构性错误显式报出；`--voice` 实测模式带**同代检测**——实测 s/字出 0.10–0.60 带宽即整份报告作废退估算；`selftest` 含陈旧报告/叠音/align=end 反例）
+- `scripts/tts_windows.ts` —— 逐窗 TTS（edge-tts 走 `packages/core/src/tts` 的 DRM 客户端，Python edge-tts 本机 403）+ 实测时长校窗 + 指纹缓存（改词只重合成那一段）；产 `voice-report.json`（place_voice 认的形状）；`selftest` 离线
+- `scripts/assemble.py` —— 一条命令装配（渲卡 → 烧录 → 落点判决 → 无 BGM 混音 → final.mp4）；烧录链的 `eof_action=repeat` 坑钉死在 selftest（写成 pass = 全部卡片静默全灭）；`selftest` 纯函数回归
+- `scripts/verify_final.py` —— 成片验收（ffprobe 可读性即 moov 判定 + 成片时长对**裁后母版**对账 + 抽帧存档 + ebur128 电平；`selftest` lavfi 全链）
 - `scripts/check_windows.py` —— 三条硬判据机检（含 §6.3 反向验证 + 输入契约；`visible=unread` 降 WARN；`anchor` / `align` 进契约）
 - `scripts/check_roster.py` —— 球员名单名字口径判决：`shirt`（球衣印字）/ `shirt_zh`（印字音译）/ `call`（解说称呼）/ `full`（全名）；`shirt_zh ≠ call` 时印字不许出现在旁白 / 字幕卡 / 发布文案（首现全名例外）；`selftest` 含念印字 / 缺字段 / 称呼重复的反向用例与 CLI 真路径（落盘 → 读回 → 判决）
 - `scripts/place_voice.py` —— 旁白落点判决：绝对锚点（`anchor` + `align` start/end）、起句不早于 `t0`、收句不越 `t1`、不叠音；同时生成**无 BGM** 的混音链（旁白 `adelay` 钉位 + 原声侧链压低）；`selftest` 含拼接漂移 / 早 / 晚 / 叠音 / 缺段的反向用例
@@ -600,7 +636,9 @@ pnpm exec feuille copy check publish/ --platform bilibili,douyin --facts publish
 - [references/league-fact-sources.md](references/league-fact-sources.md) —— **四个
   目标联赛的官方事实源实测矩阵**（URL 模式、事件流形态、坑、母版策略）——先读
 - [references/match-clock-mapping.md](references/match-clock-mapping.md) —— 比分牌
-  映射的实测坑表（先读）
+  映射的实测坑表（先读；§9 = 2026-11-08 周更五支的补坑）
+- [references/weekly-batch.md](references/weekly-batch.md) —— 周更多队产线：口径解析、
+  并发分工、每支的流水线命令、预算实测口径、收口清单（「本周五强」这类周期需求先读）
 - [references/visual-commentary.md](references/visual-commentary.md) —— 进程轴 ×
   画面轴：读画面五步、六个典型场景模板、声画同步与反向验证
 - [references/publishing-and-covers.md](references/publishing-and-covers.md) —— 双平台
