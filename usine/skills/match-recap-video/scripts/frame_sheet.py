@@ -156,8 +156,14 @@ def main(argv: list[str]) -> int:
         return 2
     out = Path(args.out) if args.out else master.with_name(
         master.stem + "-sheet.png")
-    frames = extract_frames(master, times, out.parent / (out.stem + "-frames"),
-                            find_font())
+    font = find_font()
+    if font is None:
+        # 拼版是「人眼定窗/定锚的证据链」，没有时间戳的拼版证据力大幅下降——
+        # 静默出一张无标签版，机器不会报错，但人看图时已经对不上一帧是第几秒。
+        print("⚠ 找不到时间戳字体（consola.ttf / arial.ttf）——拼版**不带时间戳**，"
+              "用它定窗/定锚时只能靠帧序，证据力下降；机器不判失败，但要人眼知道这件事。",
+              file=sys.stderr)
+    frames = extract_frames(master, times, out.parent / (out.stem + "-frames"), font)
     if not frames:
         print("一帧都没抽出来", file=sys.stderr)
         return 1

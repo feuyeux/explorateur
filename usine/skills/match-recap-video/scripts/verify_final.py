@@ -148,6 +148,17 @@ def selftest() -> int:
                     "--skip-loudness"])
         print(f"  [{'PASS' if rc2 == 1 else 'FAIL'}] 时长差 >0.5s 判 1（got {rc2}）")
         ok = ok and rc2 == 1
+        # 反向用例：母版不在 / 母版读不动 ⇒ 时长对账没法做，必须判 2（不许静默跳过判 PASS）
+        rc3 = main(["--final", str(final), "--master", str(td_path / "no-such-master.mp4"),
+                    "--frames-dir", str(td_path / "v4"), "--skip-loudness"])
+        print(f"  [{'PASS' if rc3 == 2 else 'FAIL'}] 母版不存在判 2（got {rc3}）")
+        ok = ok and rc3 == 2
+        broken = td_path / "broken-master.mp4"
+        broken.write_bytes(b"not an mp4 at all")
+        rc4 = main(["--final", str(final), "--master", str(broken),
+                    "--frames-dir", str(td_path / "v5"), "--skip-loudness"])
+        print(f"  [{'PASS' if rc4 == 2 else 'FAIL'}] 母版读不动判 2（got {rc4}）")
+        ok = ok and rc4 == 2
         print("selftest：" + ("全部通过" if ok else "有用例失败"))
         return 0 if ok else 1
 
@@ -180,14 +191,25 @@ def main(argv: list[str]) -> int:
         return 1
 
     master = Path(args.master)
-    ms = summarize(probe(master)) if master.exists() else {}
-    if ms.get("duration"):
-        diff = round(fs["duration"] - ms["duration"], 2)
-        print(f"母版: {json.dumps(ms, ensure_ascii=False)}")
-        print(f"时长差（成片 − 母版）= {diff:+.2f}s")
-        if abs(diff) > args.max_duration_diff:
-            print(f"✗ 时长差超过 {args.max_duration_diff}s——确认装配用的是**裁剪后**的母版")
-            return 1
+    if not master.exists():
+        print(f"母版不存在：{master}", file=sys.stderr)
+        print("时长对账没法做——「成片时长 = 母版时长」是硬判据，缺母版就不许判过",
+              file=sys.stderr)
+        return 2
+    ms = summarize(probe(master))
+    if "error" in ms:
+        print(f"✗ 母版读不出来（moov atom 缺失 = 渲染被杀，重跑，不要当产物用）：{ms['error']}",
+              file=sys.stderr)
+        return 2
+    if not ms.get("duration"):
+        print("✗ 母版读不出时长——时长对账没法做，不许判过", file=sys.stderr)
+        return 2
+    diff = round(fs["duration"] - ms["duration"], 2)
+    print(f"母版: {json.dumps(ms, ensure_ascii=False)}")
+    print(f"时长差（成片 − 母版）= {diff:+.2f}s")
+    if abs(diff) > args.max_duration_diff:
+        print(f"✗ 时长差超过 {args.max_duration_diff}s——确认装配用的是**裁剪后**的母版")
+        return 1
 
     if not args.skip_loudness:
         print("电平:", loudness(final))

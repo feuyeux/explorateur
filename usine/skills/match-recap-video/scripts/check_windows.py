@@ -174,7 +174,15 @@ def validate_table(doc: object) -> list[str]:
         if vis not in VISIBLE:
             errors.append(f"{key}: visible 必须是 {'|'.join(sorted(VISIBLE))}，实为 {win.get('visible')!r}")
         iv = _interval(win)
-        if iv is not None and iv[1] <= iv[0]:
+        if iv is None:
+            # 缺区间必须判死，不能「跳过检查」。没有区间就没有「哪一帧属于这一窗」，
+            # anchor 出窗 / 区间倒挂 / 窗口重叠三项检查会整段静默跳过——脚本照样判 PASS，
+            # 而坏表根本没被看过。判据依据：SKILL.md「窗口表 schema」把 t0/t1 定为正式字段。
+            errors.append(
+                f"{key}: 缺时间区间（t0/t1 或 src）——没有区间就没有「哪一帧属于这一窗」，"
+                "anchor 出窗 / 区间倒挂 / 窗口重叠三项检查会整段跳过（fail-open）；"
+                "坏表不进判据，更不冒充 PASS")
+        elif iv[1] <= iv[0]:
             errors.append(f"{key}: 时间区间非法（起点 ≥ 结点：{iv[0]}-{iv[1]}）")
         anchor = win.get("anchor")
         if anchor is not None:
@@ -395,9 +403,11 @@ def selftest() -> int:
         ("空表不是 PASS", {"windows": []}, True),
         ("缺 windows 键", {}, True),
         ("kind 枚举笔误（liive）", {"windows": [
-            {"key": "w1", "kind": "liive", "visible": "event", "say": "x", "see": "x"}]}, True),
+            {"key": "w1", "kind": "liive", "visible": "event", "t0": 1, "t1": 2,
+             "say": "x", "see": "x"}]}, True),
         ("visible 枚举笔误（evnt）", {"windows": [
-            {"key": "w1", "kind": "live", "visible": "evnt", "say": "x", "see": "x"}]}, True),
+            {"key": "w1", "kind": "live", "visible": "evnt", "t0": 1, "t1": 2,
+             "say": "x", "see": "x"}]}, True),
         ("区间倒挂", {"windows": [
             {"key": "w1", "kind": "live", "visible": "event", "t0": 30, "t1": 20,
              "say": "", "see": ""}]}, True),
@@ -407,6 +417,11 @@ def selftest() -> int:
         ("anchor 不是秒数", {"windows": [
             {"key": "w1", "kind": "live", "visible": "event", "t0": 10, "t1": 20,
              "anchor": "后半段", "say": "", "see": ""}]}, True),
+        ("缺时间区间", {"windows": [
+            {"key": "w1", "kind": "live", "visible": "event", "say": "", "see": ""}]}, True),
+        ("缺时间区间 + anchor 出窗（fail-open 反例：省字段不许放过坏 anchor）", {"windows": [
+            {"key": "w1", "kind": "live", "visible": "event", "anchor": 999,
+             "say": "", "see": ""}]}, True),
         ("合法 anchor 过契约", {"windows": [
             {"key": "w1", "kind": "live", "visible": "event", "t0": 10, "t1": 20,
              "anchor": 18.4, "say": "", "see": ""}]}, False),

@@ -24,6 +24,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# 每一环都在 skill 目录里跑（cwd 固定）：
+# ① 脚本自己的路径都基于 __file__，与 cwd 无关；
+# ② TS 那环用 `node --import tsx`，node 按 **cwd** 解析 tsx——tsx 装在
+#    usine/node_modules，从仓库根跑就会 ERR_MODULE_NOT_FOUND，而那一环本身是好的。
+#    固定 cwd 后，从哪个目录调 verify_all.py 结果都一样。
+SKILL_DIR = HERE.parent
 
 # (名字, 命令) —— 全部离线；名字只进报告，不进判定
 SELFTESTS: list[tuple[str, list[str]]] = [
@@ -70,13 +76,14 @@ SELFTESTS: list[tuple[str, list[str]]] = [
 
 def run(name: str, cmd: list[str]) -> int:
     print(f"== {name}")
-    proc = subprocess.run(cmd)
+    proc = subprocess.run(cmd, cwd=str(SKILL_DIR))
     print()
     return proc.returncode
 
 
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(description="match-recap-video 全验收聚合（十二个 selftest + 可选窗口表）")
+    ap = argparse.ArgumentParser(
+        description="match-recap-video 全验收聚合（十九个 selftest + 可选窗口表）")
     ap.add_argument("--windows", help="窗口表 JSON 路径；给了就连 check_windows 判决一起跑")
     args = ap.parse_args(argv)
 

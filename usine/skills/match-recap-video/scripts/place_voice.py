@@ -112,9 +112,23 @@ def windows_of(doc: object) -> tuple[list[dict], list[str]]:
 # ---------------------------------------------------------------- 落点
 
 
+def _interval_of(win: dict) -> tuple[float, float]:
+    """窗口区间。契约层（cw.validate_table）已保证存在，这里再兜一层。
+
+    裸解包会抛 `TypeError: cannot unpack non-iterable NoneType`——退出码 1（像落点判决失败），
+    而实际是「输入契约坏了」，该退 2。宁可报一句人话。
+    """
+    iv = cw._interval(win)
+    if iv is None:
+        key = str(win.get("key") or "?")
+        raise ValueError(
+            f"{key}: 缺时间区间（t0/t1 或 src）——输入契约坏了，请先过 check_windows.py")
+    return iv
+
+
 def anchor_of(win: dict) -> tuple[float, bool]:
     """(锚点, 是否显式给出)。缺省 = t0：画面一进就说，宁早勿晚以外的窗型才需要改。"""
-    t0, _ = cw._interval(win)  # 同一份区间解析，不在此另抄一份 schema
+    t0, _ = _interval_of(win)  # 同一份区间解析，不在此另抄一份 schema
     if win.get("anchor") is None:
         return t0, False
     return float(win["anchor"]), True
@@ -149,7 +163,7 @@ def plan(
         seg = seg_by_key.get(key)
         if seg is None:
             continue
-        t0, t1 = cw._interval(win)
+        t0, t1 = _interval_of(win)
         anchor, explicit = anchor_of(win)
         align = align_of(win)
         d = seg["duration"]
@@ -410,7 +424,11 @@ def main(argv: list[str]) -> int:
             print(f"输入契约：{e}", file=sys.stderr)
         return 2
 
-    res = plan(windows, voice, args.lead, args.total)
+    try:
+        res = plan(windows, voice, args.lead, args.total)
+    except ValueError as exc:
+        print(f"输入契约：{exc}", file=sys.stderr)
+        return 2
     res["chain"] = build_chain(
         res["segments"], args.total, None if args.no_duck else args.duck)
     res["inputs"] = ["0"] + [p["file"] for p in res["segments"]]

@@ -79,6 +79,7 @@
 - 发布类依赖（Playwright）在 `@feuille/publish` 包内声明，`pnpm install` 即装。
 - 音乐类依赖（Lyria 客户端 `@google/genai`，`@feuille/bgm` 用）同在各自包内声明。
 - Python 实现已于全量迁移（P0–P8）中退役删除：src/feuille、scripts/verify_*.py、uv 工程物不再存在；历史纪律文本里出现「脚本 / Python」字样时，读作「当时形态」，现行事实源一律是 vitest 门禁与 TS 包。
+- **例外口径：`skills/` 内的 skill 自带脚本不受上一条约束。** 框架侧（`packages/`）已全量 TS 化，但个别 skill 的运行路径仍以 skill 内脚本承担（当前：`match-recap-video`——赛事域的时间轴映射 / 事实源解析 / 判据机检是 Python，底层能力 `tts` / `textlayer` / `covers` / `compose` / `audio` 仍走 TS 包）。这类 skill 的判据自检必须挂进仓库门禁（`packages/gate/test/skills-assets.test.ts`），不许只活在文档里。
 
 ### 跨平台三条硬约定（全部实测过）
 
@@ -121,7 +122,7 @@ feuille/
                        契约合法值从 rig 的注册表现取（FACE_SPECS/JAW/POSE_CODES），不另抄
   docs/                全部文档：guide（上手）/ reference（结构与命令索引）/ record（决策与实测记录）/ dsh（宿主桥接）；两个 `dsh-host-*` 是**生成产物**（桥接实测的落盘证据），别当手写文档改
   examples/            内容项目产物示例（诗稿/文案/数据/设计稿/H3 母版；LFS 归档，绝不触碰）
-  skills/              自建 SKILL 资产（11 个：one-page-poster / vocab-infographic / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig）；~/.agents/skills/ 软链引用
+  skills/              自建 SKILL 资产（14 个：one-page-poster / vocab-infographic / karaoke-video / storyteller-video / video-generation / bgm-bed / multilingual-video-poetry / publish-copy / multilingual-video-publishing / lesson-scene / character-rig / match-recap-video / fruit-vocab-series / music-annotate-video）；~/.agents/skills/ 软链引用
 ```
 
 - 每个机制模块**同步带反向验证**（纪律 2）；逐帧像素判据保持可用（`-map 0:v`、基线按平台分桶）。

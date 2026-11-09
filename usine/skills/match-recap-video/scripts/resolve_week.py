@@ -646,7 +646,11 @@ def selftest() -> int:
 
     # 6) 俱乐部官网兜底：Next Games 块
     club_fix = FIXTURES / "pages" / "acmilan-schedule-next-games.md"
-    if club_fix.exists():
+    if not club_fix.exists():
+        # 缺夹具必须算 FAIL，不许静默不跑——否则少跑 4 条，末行仍报「自检：N/N 通过」，
+        # 覆盖度丢了却看不出来。
+        check("俱乐部赛程夹具存在", False, str(club_fix))
+    else:
         club = parse_next_games_block(club_fix.read_text(encoding="utf-8"), date(2026, 11, 7))
         check("俱乐部官网赛程块解析出一场", len(club) == 1, str(len(club)))
         if club:

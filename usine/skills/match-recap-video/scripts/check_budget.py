@@ -121,6 +121,20 @@ def detect_stale(windows: list[dict], voice: dict[str, float]) -> list[str]:
     return out
 
 
+def _interval_of(win: dict) -> tuple[float, float]:
+    """窗口区间。契约层（cw.validate_table）已保证存在，这里再兜一层。
+
+    裸解包会抛 `TypeError: cannot unpack non-iterable NoneType`——退出码 1（像判据失败），
+    而实际是「输入契约坏了」，该退 2。宁可报一句人话。
+    """
+    iv = cw._interval(win)
+    if iv is None:
+        key = str(win.get("key") or "?")
+        raise ValueError(
+            f"{key}: 缺时间区间（t0/t1 或 src）——输入契约坏了，请先过 check_windows.py")
+    return iv
+
+
 def analyse(
     windows: list[dict],
     voice: dict[str, float],
@@ -133,7 +147,7 @@ def analyse(
     rows: list[dict] = []
     for win in windows:
         key = str(win.get("key"))
-        t0, t1 = cw._interval(win)
+        t0, t1 = _interval_of(win)
         align = str(win.get("align") or "start").strip().lower()
         anchor_raw = win.get("anchor")
         anchor = float(anchor_raw) if anchor_raw is not None else t0
@@ -340,7 +354,11 @@ def main(argv: list[str]) -> int:
                 voice = {}
 
     s_per_char = args.s_per_char or measure_s_per_char(windows, voice) or DEFAULT_S_PER_CHAR
-    res = analyse(windows, voice, args.lead, s_per_char, args.min_slack_ratio)
+    try:
+        res = analyse(windows, voice, args.lead, s_per_char, args.min_slack_ratio)
+    except ValueError as exc:
+        print(f"输入契约：{exc}", file=sys.stderr)
+        return 2
 
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))

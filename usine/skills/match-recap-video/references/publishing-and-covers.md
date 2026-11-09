@@ -23,10 +23,7 @@
 ### 契约（与 `publish-copy` 同源，不另立一份）
 
 - **文件命名硬约定**：`publish/bilibili.md` / `publish/douyin.md`；段落名、字数上限（80 / 30）、末话题尾随空格、互动钩、置顶话术、AI 指纹、no-hard-wrap 全部由 `feuille copy check` 判，**判据是 publish-copy 的库实现，本 skill 不写第二份**。
-- **只查这两个平台**：赛事线的成片是横版，小红书吃竖屏，**不投小红书**。用
-  `feuille copy check publish/ --platform bilibili,douyin --facts publish/facts.json`——
-  不给 `--platform` 时三平台齐为硬门，缺 `xiaohongshu.md` 会判 FAIL，那一行与稿子质量无关。
-  未选中的平台会明说「没查，不是 PASS」。
+- **只查这两个平台**：赛事线的成片是横版，小红书吃竖屏，**不投小红书**。用 `feuille copy check publish/ --platform bilibili,douyin --facts publish/facts.json`——不给 `--platform` 时三平台齐为硬门，缺 `xiaohongshu.md` 会判 FAIL，那一行与稿子质量无关。未选中的平台会明说「没查，不是 PASS」。
 - **互动钩从赛事域取**：`publish-copy` 的钩子词表是卡拉OK线的（报数/点单/跟读）+ 通用词。赛事域用得上的是**评论区 / 弹幕 / 点单 / 催更**——「报数」「跟读」在足球内容里是假的，别硬套。
 
 ### 赛事域事实面（哪些能写进文案）

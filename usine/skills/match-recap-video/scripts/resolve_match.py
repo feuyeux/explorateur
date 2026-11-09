@@ -1799,7 +1799,11 @@ def selftest() -> int:
 
     # 2) 英超 /commentary（事件在正文后跟分钟行）
     pl_path = FIXTURES / "pages/premierleague-commentary.md"
-    if pl_path.exists():
+    if not pl_path.exists():
+        # 缺夹具必须算 FAIL，不许静默不跑——否则末行仍打「自检：21/21 通过」，
+        # 覆盖度丢了却看不出来（数量变小 ≠ 少跑了什么）。
+        check("premierleague: /commentary 夹具存在", False, str(pl_path))
+    else:
         evs = parse_premierleague_commentary(pl_path.read_text(encoding="utf-8"))
         goals = [e for e in evs if e["kind"] == "goal"]
         check("premierleague: commentary 解析出进球 16' Havertz",
@@ -1812,7 +1816,9 @@ def selftest() -> int:
 
     # 3) 巴黎赛程页：日期定序、L1 口径
     psg_fx = FIXTURES / "pages/psg-fixtures-oct.md"
-    if psg_fx.exists():
+    if not psg_fx.exists():
+        check("psg.fr: 赛程页夹具存在", False, str(psg_fx))
+    else:
         cands = parse_psg_fixtures(psg_fx.read_text(encoding="utf-8"), date(2026, 11, 2))
         best, _ = select_latest(cands, date(2026, 11, 2), "league", ["Ligue 1"])
         check("psg.fr: 最新 L1 = 2026-10-30 勒阿弗尔 1-5",
