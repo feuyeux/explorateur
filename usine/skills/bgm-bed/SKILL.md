@@ -12,7 +12,12 @@ description: >
   interpretation; a bass drone masquerading as an arrangement). Use when a
   finished video has narration but no music, when a bed must be
   reproducible, or when a bed's level must be justified by measurement
-  instead of a copied constant. Not for mixing the bed into the video
+  instead of a copied constant. Also covers the local-synthesis fallback
+  line (no key, no network — the only way out when Lyria's quota is
+  exhausted, which fails *silently*: exit code 0, no file written) and
+  the "not harsh" tonal recipe (sawtooth harmonics fold back over
+  Nyquist and are the real cause of harshness; bidirectional band
+  verdict; bed sits 22 dB under narration). Not for mixing the bed into the video
   (karaoke-video: linear amix; multilingual-video-poetry: sidechain), and
   not for TTS, subtitles, covers, speech or video generation.
 ---
@@ -26,11 +31,12 @@ description: >
 由画面来源定，都不归本 skill——本 skill 不实现任何混音滤镜图，那是
 `core.audio` 的地盘。
 
-## 两条出床线
+## 三条出床线
 
-| 线 | key | 状态（2026-10） |
+| 线 | key | 状态（2026-10 / 2026-11） |
 |---|---|---|
-| `lyria`（Google，`feuille bgm gen`） | `GEMINI_API_KEY`（统一配置 `explorateur/config/.env`） | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下） |
+| `lyria`（Google，`feuille bgm gen`） | `GEMINI_API_KEY`（统一配置 `explorateur/config/.env`） | **整链实测过**：免费层实时端点 $0 可用（出口 IP 判区，见下）。⚠️ **额度耗尽是「静默成功」**——退出码 0、一个文件不写，等窗口重试也一样，见「`local`」 |
+| `local`（自己合成，振荡器 + ADSR + 和声垫 + 旋律） | **无 key、无网络** | **整链实测过（2026-11-14，20 组床 + 236 支成片）**：Lyria 不可用时的唯一出路；同口径边车，`feuille bgm gen` 可直接复用。见「`local`」 |
 | `matrix`（MCode 内置 Matrix 工具集的音乐线） | **无 key**——用 Code 登录态，经 `mcode-tools`（**仅 MCode 运行时的 PATH 上**） | **整链实测过（2026-10-09，古典吉他纯器乐，判据 ok）**，但**不是 `feuille bgm gen` 的通路**——入参无时长字段、计费不公开，见下 |
 
 **`matrix` 为什么不进 `feuille bgm gen`**，两个原因缺一不可：① 入参没有 duration 字段
@@ -61,8 +67,8 @@ description: >
 
 ## 边界
 
-**本 skill 是「底床生成 + 床位定标」的唯一事实源**：出床线调用（Lyria / matrix）、
-采样率解读、频段与拍速自检、`gain` 反推。
+**本 skill 是「底床生成 + 床位定标」的唯一事实源**：出床线调用（Lyria / local /
+matrix）、采样率解读、频段与拍速自检、`gain` 反推、**音色的「不刺耳」口径**。
 
 **不做 / 转交**：
 
@@ -75,8 +81,8 @@ description: >
   别把它当音乐线
 - 做海报、字体子集、逐字着色 → `one-page-poster`
 - 写发布词 / 真的点发布 → `publish-copy` / `multilingual-video-publishing`
-- 用全局 `music-generation` skill 生成床 → 本工程的床只从本 skill 的两条线
-  （Lyria / matrix）出，不往它路由；它也不量频段、不反推 `gain`、没有验收判据
+- 用全局 `music-generation` skill 生成床 → 本工程的床只从本 skill 的三条线
+  （Lyria / local / matrix）出，不往它路由；它也不量频段、不反推 `gain`、没有验收判据
 
 ## 代码归属
 
@@ -109,6 +115,66 @@ feuille bgm gen \
 
 # 3) 把命令打印的 gain 写进 video.json 的 bgm 块，然后照常 build_video
 ```
+
+## `local`：本地合成兜底（第三条线，Lyria 额度耗尽时的唯一出路）
+
+Lyria 免费层额度会耗尽，而**额度耗尽的表现是「静默成功」**——进程退出码 0、
+一个文件都不写（`ai.live.music.connect()` 的 promise 永不 resolve，Node 事件循环
+空转退出）。所以**光看退出码会把「没出床」当成「出好了」**：调用方必须自己查
+「文件落盘了吗」。等窗口重试也一样。
+
+第三条线是**自己合成床**：振荡器 + ADSR + 和声垫 + 旋律，产出同口径的边车
+（`provider: 'local-synth'`、`tonal_check`、`bed_len_check`、`suggested_gain`、
+`gain_basis` 字段与 Lyria 那条完全一致），所以 `feuille bgm gen` 复用它时
+**不分提供方**。用法：Lyria 不可用（无 key / 额度耗尽 / 网络不通）时直接走这条。
+
+### 合成床的音色口径（这一路的要点，Lyria 那条不适用）
+
+**刺耳的根因是合成方式，不是音量。** 旋律的奇次谐波若用**裸锯齿波**
+（`2*(phase%1)-1`）合成，谐波会越过 Nyquist 频率**折返回来**叠成金属味噪点——
+这是「刺耳」的主因，把音量调小只会让它变成「小而尖」。所以：
+
+| 要素 | 别这么做 | 这么做 | 为什么 |
+|---|---|---|---|
+| 谐波波形 | 裸锯齿 | **纯正弦叠加**，只取前 3 个谐波，逐次 `0.55**h` 衰减 | 锯齿的无限谐波是折返噪点的来源；正弦叠加没有折返 |
+| 音区 | 分音散到几 kHz | 旋律基频之上的分音压到 **≤ 660 Hz** | 否则落进人耳最敏感的 1–3 kHz |
+| 高频层 | 和弦音 4×/6×/8× 分音 | **删掉** | 落在 3–10 kHz，正是「刺耳」的频段 |
+| 低频轰击 | 每拍一记 78 Hz 底鼓 | **删掉** | 与旁白争注意力，床位再低也显吵 |
+| 整形 | — | 80 Hz 高通 + **2600 Hz 两级低通**（−12 dB/oct） | 一次去掉嗡鸣与亮刺 |
+
+单极点低通系数必须是 `k = 1 − exp(−2π·fc/fs)`；写成 `1 − 2π·fc/fs` 会把截止
+频率压到 ~670 Hz（实测：整条床只剩闷响）。
+
+### 判据要**双向**：只判「太暗」会把床一路推到刺耳那侧
+
+这是合成床最容易踩的坑——「床不够亮就调亮」是个单边判据，而调亮过头就直接
+刺耳。所以频段判据必须两侧都有界：
+
+| 条件 | 读法 |
+|---|---|
+| `<100 Hz > 45%` | 嗡鸣（配器被带成了低音 drone） |
+| `>3 kHz > 6%` | 过亮刺耳 |
+| `1–3 kHz > 25%` | 人耳最敏感段过亮 |
+| `400 Hz–3 kHz < 3%` | 发闷 |
+
+合成床做完的实测形态：`>3 kHz` 一律 **0%**、`1–3 kHz` ≤ **6.9%**、`<100 Hz`
+**0%**、RMS −24.4 ~ −27 dBFS。
+
+⚠️ **频段占比不能用「每频段 N 个 Goertzel 探测点」算**——必须用**等间隔 bin 的
+FFT 谱**（探测点法会把某些频段的占比算偏）。单极点滤波的系数同理，见上。
+
+### 床位间距：22 dB，不是 16 dB
+
+床比旁白低 **22 dB**（不是 16 dB）。16 dB 时床已经会分走注意力——「不占主导」
+不是「还能听见」，是「听见了也知道它在垫」。目标间距写进 `TARGET_UNDER_DB`，
+**两边脚本（生成线与复用线）必须同值**，否则算出来的 gain 与判据对不上。
+
+### 听感只有人耳能判
+
+机检能证明「频段占比达标 + 音量压在旁白之下」，**证不了「听着不刺耳」**。
+所以合成/换床之后要出**两个样本**交付用户听：① 床单听（不带旁白）② 床+旁白
+的真实混音。**别自己判定「应该不刺耳」就往下走**——机检全绿而听感刺耳，是这套
+产线最典型的「绿了但没做对」。
 
 ## `matrix`：成品床来源（非脚本通路，已整链实测）
 
@@ -178,7 +244,7 @@ feuille bgm gen --out bgm_raw.wav --recheck
    `设置 → 用量与模型` 的积分余额（或 `mmx quota`）。
 
 ⚠️ **电平比 Lyria 床明显低**（−23.7 vs 常见 −10~−14 dBFS），所以 **gain 一定要按
-实测值算**：旁白 −18 dBFS、目标低 16 dB 时 `gain ≈ 0.50`，比 Lyria 边车里
+实测值算**：旁白 −18 dBFS、目标低 **22 dB** 时 `gain ≈ 0.50`，比 Lyria 边车里
 0.10 量级的常数大一截。抄常数必错（前置输入契约第 3 条）。
 
 ### 边车：这条线要手写
@@ -215,9 +281,9 @@ NARRATION_RMS_DB=-18.2 feuille bgm gen --out …/bgm_raw.wav --recheck
 | 凭据探测 | `--list-providers` ✓ | ✗ = 缺 key，转告用户缺哪把（退出码 1） |
 | 采集 | 成曲 **≥ 目标床长**（`--duration`）——收流按「凑够音频秒数」判，不按 wall 时间；请求端另垫 **1.15×** 作余量（坑 1） | 垫了还短 → `bed_len_check` ⚠ → **退出码 2**，文件落盘供排查但**不要挂床** |
 | 采样率 | 拍速反查 `ok`（仅 Lyria 实时后端） | `MISMATCH` = 采样率解读错了，文件不能用；自带容器的来源 n/a |
-| 配器 | 频段判据 `ok` | `太暗` = 拿到的是低音嗡鸣，不是配器 |
+| 配器 | 频段判据 `ok`（**双向**：太暗 = 低音嗡鸣；过亮刺耳 = `>3 kHz`/`1–3 kHz` 越界） | 单边判据会把床一路推到刺耳那侧，见「`local`」 |
 | 床长 | 床 ≥ 成片时长（`bed_len_verdict` 按目标验收） | 短了尾部裸奔；垫量 + 退出码 2 双保险 |
-| 床位（混完） | 床比旁白低 **15–18 dB** | 低了盖人声，高了抢 |
+| 床位（混完） | 床比旁白低 **22 dB** | 低了盖人声，高了抢 |
 | 连续性（混完） | 主体段逐 0.5s **零段低于 −45 dBFS** | 有段 = 断流 |
 | 平稳性（混完） | 主体段动态范围 **≤ 12 dB** | 超出 = 床自己在起伏，听感忽强忽弱 |
 | 成片 | 人声窗 − 空档窗 ≥ 8 dB（LUFS 口径） | 见 `references` |
