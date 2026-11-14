@@ -8,7 +8,13 @@ description: >
   of text being "read aloud with karaoke highlighting", narrated slides of
   words/phrases with personas doing the TTS, or a talking poster —
   typically paired with the one-page-poster skill (the scenes reuse its
-  subset fonts and per-glyph coloring). Not for general video editing or
+  subset fonts and per-glyph coloring). Also covers running MANY of
+  these at once — the acceptance gates must cover "is the element
+  present at all" (not just "is it correct"), intermediates that
+  acceptance depends on may only be cleaned after ALL acceptance has
+  run, shared fixed-name intermediates make the victim the one that
+  errors, and a full rebuild needs an explicit force flag. Not for
+  general video editing or
   generation from scratch (use video-generation), and not for subtitles over
   live-action footage (that is multilingual-video-poetry).
 ---
@@ -46,7 +52,7 @@ worked three-file source (all 12 scene markups, voices, config) lives in
 
 **本 skill 是「海报/卡片驱动的成片」的唯一事实源**：edge-tts 词级时间轴 → 逐词高亮状态帧 → 帧精确合片 → 像素级验收。画面是渲染出来的（海报/卡片帧），**不是实拍**。
 
-BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15–18 dB RMS）；需要旁白把底床**动态压住**的侧链方案在 `multilingual-video-poetry`，不要在这里实现第二份。床的生成与床位定标（Lyria 调用、采样率解读、频段自检、`gain` 反推）统一走 `bgm-bed`，本 skill 只负责把它裁到画面网格、两端淡出、定增益混进来。
+BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~22 dB RMS）；需要旁白把底床**动态压住**的侧链方案在 `multilingual-video-poetry`，不要在这里实现第二份。床的生成与床位定标（Lyria / local / matrix 三条出床线、采样率解读、频段自检、`gain` 反推、「不刺耳」的音色口径）统一走 `bgm-bed`，本 skill 只负责把它裁到画面网格、两端淡出、定增益混进来。
 
 **不做 / 转交**：
 
@@ -75,8 +81,10 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
   不再写死可执行名；`$CHROME_BIN` 可显式覆盖）；
 - network access for edge-tts (Microsoft neural voices);
 - OPTIONAL, BGM only: a bed + its `gain`, produced beforehand with the
-  `bgm-bed` skill (a Gemini API key; its Live
-  music endpoint is region-gated — see that skill). `bgm.file` accepts any
+  `bgm-bed` skill (three bed lines: Lyria with a Gemini API key — its Live
+  music endpoint is region-gated and its free quota fails *silently*;
+  local synthesis needing no key or network; the MCode Matrix tool).
+  `bgm.file` accepts any
   instrumental wav — with no such capability either drop the `bgm` block or
   point it at an existing track.
 
@@ -99,7 +107,8 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
   grid, faded at both ends, fixed linear gain, `amix … normalize=0` so the
   voice level is untouched. **gain 是派生值，不是抄来的常数**——`bgm-bed`
   从实测旁白与实测床算出该写多少（两条已归档项目的床各落在 0.10 与
-  0.13），目标床位 ~15–18 dB RMS 低于旁白，写进来之后照数字核，别信常数。
+  0.13），目标床位 **22 dB** RMS 低于旁白（不是 16 dB——那个间距床会分走
+  注意力），写进来之后照数字核，别信常数。
 
 **不要在本 skill 里重建 Lyria 那套知识**（可用模型 / 免费层配额 / 出口地区判区 /
 采样率反查 / 频段自检的阈值）——全部在 `bgm-bed`
@@ -176,6 +185,30 @@ BGM 在这里是**线性增益 `amix … normalize=0`**（床垫在旁白下 ~15
 7. Iterate on feedback, re-run the verify suite, and clean intermediates
    (`_sil*.wav`, `_vseg*.mp4`, seg wavs are all regenerable).
 
+## 成批产线：多支成片时的纪律（单支流程不管这些）
+
+一支片的流程跑通了，**不代表跑第二支、第三支也成立**——批量会引入单支没有的
+问题：共享的中间产物名、组内串行、批与批之间的时间边界。九条纪律与每条的实测
+证据在 **[references/batch-production.md](references/batch-production.md)**，
+动手跑多支前先读它。要点：
+
+1. **验收门要覆盖「产物里某个要素在不在」，而不只是「产物对不对」**——漏掉的
+   那一维在缺失时不报错而是走降级分支 ⇒ 全部门通过、产物却是残的。对每道门
+   问一句「它缺了会怎样」，答案是「跳过这条判据」就改成**缺输入直接判死**。
+2. **清理「验收依赖的中间产物」必须放在全部验收之后**——先跑的那批会把它删光，
+   后跑的同组用例必然假红（红的不是产物坏了，是依赖被自己删了）。
+3. **固定名中间产物被两个进程共用时，报错的是受害者**——症状不是「冲突」而是
+   「我要读的文件不存在」。识破点：中间产物的 **mtime 交错**（单进程只能严格串行）。
+4. **改底床/场景后要整批重渲**——驱动器会按「产物已存在」跳过，需要显式的强制
+   重排开关（`-Force`）；配一个按组过滤（`-OnlyGroup`）以支持单组重做。
+5. **状态文件要能扛住残缺**（手工清空成 `{}`、旧批次遗留别的结构）——否则
+   `report.jobs[name] = …` 抛 TypeError，整批刚跑一支就崩。
+6. **别让两处写同一个日志文件**——`Start-Process` 重定向与内部 `Tee-Object`
+   会互相锁死；stdout 也别写到逐门详细日志的同一路径（会把实测值覆盖成一行摘要）。
+7. **渲染队列跑着时不要并行跑验收**——正在构建的组帧目录不完整 ⇒ 假红。
+8. **别把子进程输出接进 `Select-Object -First N`**——它会关闭上游管道、杀掉子进程。
+9. **旧批次的遗留结论要清掉**——按「期望文件名集合 ∩ 磁盘实际」求差，别用通配符。
+
 ## Timeline model
 
 Per scene: `preroll` (all dim) → one frame per token, switching at the next
@@ -204,4 +237,9 @@ pipeline.
 - `references/delivery-check.md` — **交付前自检**：为什么门禁全绿仍然要返工、
   歧义指令的处理规则、必须亲手看的时刻清单、封面 `vw` / `scan_blank` 盲区 /
   `preroll` 下限 / 一镜一场景 / 拼接前裁尾、已确认的画面语义约定
+- `references/batch-production.md` — **成批产线纪律**（跑多支前必读）：验收门要覆盖
+  「要素在不在」（含底床门的完整设计：量法 / 期望值反推 / 判别力实测 / 无边降级
+  分支判死）、清理中间产物必须放在全部验收之后、固定名中间产物共用时**报错的是
+  受害者**（mtime 交错识破）、整批重渲的强制开关与按组过滤、状态文件残缺兜底、
+  日志落点禁忌、并行验收假红、PowerShell 管道截断、遗留结论清理
 
