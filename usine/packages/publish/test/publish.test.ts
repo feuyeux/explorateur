@@ -240,6 +240,37 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
     expect(b.draft, '没给 --draft 就是真发布模式（默认不改变既有行为）').toBe(false)
   })
 
+  it('--publish-at：定时发布时刻能解析（格式错 = 当场拒，不猜）', () => {
+    // 格式对了才拆出日期与时间两段
+    expect(bilibili.parseScheduleAt('2026-11-16 09:00')).toEqual({ date: '2026-11-16', time: '09:00' })
+    expect(bilibili.parseScheduleAt('2026-11-16T09:00')).toEqual({ date: '2026-11-16', time: '09:00' })
+    // 格式错一律 null —— 「填不进去就当没设」会让稿件当天就发出去（静默失败）
+    for (const bad of ['2026-11-16', '09:00', '明天9点', '2026/11/16 09:00', '']) {
+      expect(bilibili.parseScheduleAt(bad), `「${bad}」必须判为格式不对`).toBeNull()
+    }
+  })
+
+  it('--publish-at / --profile-name：旗标解析（没给 = null，不改变既有行为）', () => {
+    const a = base.manifestArgs(
+      ['--log-dir', 'D', '--draft', '--publish-at', '2026-11-16 09:00', '--profile-name', 'Profile 1', 'm.json'],
+      'feuille publish bilibili', { subsDir: true, publishAt: true },
+    )
+    expect('rc' in a).toBe(false)
+    if ('rc' in a) return
+    expect(a.publishAt).toBe('2026-11-16 09:00')
+    expect(a.profileName).toBe('Profile 1')
+    expect(a.draft).toBe(true)
+    // 没给 = null（保持原行为：不预置时刻、用 Chromium 的 last_used profile）
+    const b = base.manifestArgs(['--log-dir', 'D', 'm.json'], 'feuille publish bilibili', { subsDir: true, publishAt: true })
+    expect('rc' in b).toBe(false)
+    if ('rc' in b) return
+    expect(b.publishAt).toBeNull()
+    expect(b.profileName).toBeNull()
+    // 不给 --publish-at 的叶子（抖音/小红书）不许收这个旗标
+    const c = base.manifestArgs(['--log-dir', 'D', '--publish-at', 'x', 'm.json'], 'feuille publish douyin')
+    expect('rc' in c).toBe(true)
+  })
+
   it('存草稿键候选与发布键文本**不相交**（点下去的绝不可能是发布键）', () => {
     for (const [plat, texts] of Object.entries(draft.DRAFT_BTN_TEXTS)) {
       for (const t of texts) {
@@ -287,19 +318,64 @@ describe('发布系统反向验证（离线行，零平台流量）', () => {
       .toBe(false)
   })
 
-  it('B站创作声明：「自制」是**同一个 select 的选项**（不是独立字段）', () => {
-    // 实测（2026-11-03，probe_bili_statement.ts / probe_bili_selfmade.ts）：
-    // 声明区 `div.statement-main div.bcc-select` 计数 = 1，展开后完整列表 13 项，
-    // 「内容为自制：未经作者允许，禁止转载」与「内容无需标注」并列。
-    // 旧版把它当「必填 + 选填」两件事办 ⇒ 同一个 input 被后写覆盖 ⇒ 4 条全被中止。
-    // 「首选值」必须包含「自制」，且它**就是**首选（用户要的就是它）。
-    expect(bilibili.BILI_STMT_REQUIRED[0]).toBe('内容为自制：未经作者允许，禁止转载')
-    expect(bilibili.BILI_STMT_OPTIONAL).toBe('内容为自制：未经作者允许，禁止转载')
-    // 它必须同时出现在必填候选里（否则选不上 → fail-closed 放弃每一条）
+  it('B站创作声明：必填候选**只含** 6 个真选项，「内容为自制」属另一个字段', () => {
+    // 结构实测（2026-11-15，tools/probe-bili-stmt13.mjs 逐字 dump）：
+    // `ul.bcc-select-option-list` 直接子节点 9 个 —— 0..5 = 6 个必填选项
+    // （带 li.bcc-option）、6 = div.option-divider、7 = div.auth-title
+    // 「是否添加内容授权声明（非必选）」、8 = 「内容为自制…」（**无 li**）。
+    // 所以「自制」是非必选的内容授权声明，不是必填声明的一个选项。
+    //
+    // 旧版这条测试断言「自制就是必填首选」——它把一次误判固化成了门禁，
+    // 于是「点不动它」被读成选择器过时，实际是把它当错了字段（2026-11-15 推翻）。
+    expect(bilibili.BILI_STMT_REQUIRED[0]).toBe('内容无需标注')
+    expect(bilibili.BILI_STMT_REQUIRED).toHaveLength(6)
+    // 「自制」绝不许进必填候选：它那行没有 li.bcc-option，点了不写回 input
+    expect(bilibili.BILI_STMT_REQUIRED).not.toContain(bilibili.BILI_STMT_OPTIONAL)
     expect(bilibili.BILI_STMT_REQUIRED
-      .some((k) => bilibili.BILI_STMT_OPTIONAL.includes(k))).toBe(true)
-    // 旧版注释断言「自制填不满必填字段」——实测推翻：它就是必填字段的一个选项。
-    expect(bilibili.BILI_STMT_REQUIRED.length).toBeGreaterThan(1)
+      .some((k) => bilibili.BILI_STMT_OPTIONAL.includes(k))).toBe(false)
+    // 兼容名还在（调用方仍引用），但语义已更正为「非必选的内容授权声明」
+    expect(bilibili.BILI_STMT_OPTIONAL).toBe('内容为自制：未经作者允许，禁止转载')
+  })
+
+  it('B站封面取帧：目标秒数映射到帧条采样点 + 从文件名读回目标秒', () => {
+    // 结构实测（2026-11-15，probe-bili-cover18/20）：片长 41s 给 7 帧，等距采样
+    // ⇒ step = 41/6 ≈ 6.83s，第 6.0 秒落在第 1 帧（≈6.83s）上。
+    // 取帧精度被平台量化，这不是我们可选的，所以映射必须是「最近采样点」而不是「精确秒」。
+    expect(bilibili.frameIndexFor(6, 41, 7)).toBe(1)
+    expect(bilibili.frameIndexFor(0, 41, 7)).toBe(0)
+    expect(bilibili.frameIndexFor(41, 41, 7)).toBe(6)
+    // 越界钳住，不许越出帧条
+    expect(bilibili.frameIndexFor(999, 41, 7)).toBe(6)
+    expect(bilibili.frameIndexFor(-5, 41, 7)).toBe(0)
+    // 退化输入不许抛
+    expect(bilibili.frameIndexFor(6, 0, 7)).toBe(0)
+    expect(bilibili.frameIndexFor(6, 41, 0)).toBe(-1)
+    expect(bilibili.frameIndexFor(6, 41, 1)).toBe(0)
+
+    // 「第几秒」来自文件名：换 --cover-at 换文件名，这里就跟着变，不靠另一处常量
+    expect(bilibili.coverSecondOf('/x/01-碱金属-01-氢-cover@6.0s.jpg')).toBe(6)
+    expect(bilibili.coverSecondOf('/x/a-cover@0.5s.png')).toBe(0.5)
+    expect(bilibili.coverSecondOf('/x/a.jpg')).toBe(6)
+    expect(bilibili.coverSecondOf('/x/a-cover@abc.jpg')).toBe(6)
+  })
+
+  it('浏览器侧 __name 垫片：真在页面里定义出可用的 __name（tsx keepNames 的解毒剂）', async () => {
+    // 缺陷实测（2026-11-15）：tsx 的 esbuild 变换写死 keepNames:true，凡 evaluate
+    // 回调里出现具名函数就被改写成 `const vis = __name(…, "vis")`；这段源码送进
+    // 浏览器执行时 `__name` 不存在 ⇒ ReferenceError ⇒ 每个候选都「点不动」。
+    // 垫片必须在页面里真的能跑出 __name（拿 vm 起一个干净上下文验，不碰浏览器）。
+    const vm = await import('node:vm')
+    const sandbox: any = {}
+    sandbox.globalThis = sandbox
+    vm.createContext(sandbox)
+    vm.runInContext(base.PAGE_SHIM_JS, sandbox)
+    expect(typeof sandbox.__name).toBe('function')
+    const fn = () => 42
+    expect(sandbox.__name(fn, 'vis')).toBe(fn)
+    expect(fn.name).toBe('vis')
+    // 幂等：重复执行不得覆盖成别的东西（每次导航都会再跑一遍）
+    vm.runInContext(base.PAGE_SHIM_JS, sandbox)
+    expect(typeof sandbox.__name).toBe('function')
   })
 
   it('落库横幅判据：抖音的「你还有上次未发布的视频」是**唯一**的落库信号', async () => {

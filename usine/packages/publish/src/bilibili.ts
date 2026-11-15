@@ -33,26 +33,29 @@ export const BILI_WALL: readonly string[] = ['扫码登录', '密码登录', '�
 
 // 必填项的兼容默认值；具体批次应由调用方用 zone / statement 显式覆盖。
 export const BILI_ZONE = '知识'
-// 创作声明的兼容候选（首个为历史默认）。
+// 必填「创作声明」的候选（首个为默认）。
 //
-// ⚠️ 实测（2026-11-03，`examples/publish-staging/probe_bili_selfmade.ts`）：
-// 声明区 `div.statement-main div.bcc-select` 计数 = **1**，展开后的完整选项列表
-// = `ul.bcc-select-option-list` 的 13 项，其中「内容为自制：未经作者允许，禁止转载」
-// 与「内容无需标注」**并列**——它**就是**必填创作声明的一个选项，
-// 不是独立的「内容授权声明」字段。
+// ⚠️ 结构实测更正（2026-11-15，`tools/probe-bili-stmt13.mjs` 逐字 dump）：
+// `ul.bcc-select-option-list` 的直接子节点是 **9 个**，不是 7 个：
+//   0–5  `article.option-hover-tips > li.bcc-option`  ← **必填创作声明**（6 个选项）
+//   6    `div.option-divider`                          ← 分隔线
+//   7    `div.auth-title`「是否添加内容授权声明（非必选）」
+//   8    `article.option-hover-tips`「内容为自制：未经作者允许，禁止转载」
+//        （无 li 子节点，内部是 `div.auth-content > span.option-text`）
 //
-// 旧版注释说「它属于非必选的版权声明区，勾上它填不满必填字段，点投稿会报红字
-// 『请添加创作声明』」——**实测推翻**：选上「自制」后 input 的值就是它，
-// 且投稿键保持解禁。旧版真正的错不在「自制不能选」，而在
-// ① 选项列表是**扫视口**读的 ⇒ 「自制」在列表末尾、视口外，**被漏读**；
-// ② 把它当成第二个字段去「另勾」⇒ 同一个 input 被后写覆盖。
+// 也就是说**「内容为自制」不是必填声明的第 7 个选项，是另一个字段**（非必选的
+// 内容授权声明）。2026-11-03 那版注释判定「它和『内容无需标注』并列，就是必填
+// 声明的一个选项」——被这次的完整结构 dump 推翻：分隔线 + 「（非必选）」标题
+// 把它明确划到另一个控件里去了。它点不动不是因为选择器过时，而是因为它**根本
+// 不接受「当作声明选项」这种点法**。
+// ⇒ 必填候选只能取 `li.bcc-option` 那 6 项；授权声明是责任项，不由本模块默认勾。
 export const BILI_STMT_REQUIRED: readonly string[] = [
-  '内容为自制：未经作者允许，禁止转载',
   '内容无需标注', '含AI生成内容', '含虚构演绎内容',
   '内容含营销信息', '个人观点，仅供参考', '内容为转载',
 ]
-// 同上：现在它就是声明的一个**选项**，不是独立字段。保留这个名字是因为
-// 调用方还引用它；语义上它 = 「要选的那个声明」。
+// 「内容为自制：未经作者允许，禁止转载」= **非必选的内容授权声明**（另一个字段）。
+// 保留这个名字是因为调用方还引用它；它**不在** BILI_STMT_REQUIRED 里，也不会被
+// setBiliStatement 默认勾上（那是责任项，由调用方显式决定）。
 export const BILI_STMT_OPTIONAL = '内容为自制：未经作者允许，禁止转载'
 
 // B 站成功页文案是「**稿件投递成功**」，不是「投稿/提交成功」。
@@ -130,7 +133,7 @@ export async function dumpSubmitCandidates(page: base.AnyPage): Promise<void> {
     // 函数对象不可序列化 ⇒ 返回 undefined ⇒ 诊断清单恒为空。
     const btns = await page.evaluate(() => {
       const out: Array<Record<string, any>> = []
-      document.querySelectorAll('button').forEach((el: any) => {
+      document.querySelectorAll('button' as any).forEach((el: any) => {
         const r = el.getBoundingClientRect()
         if (r.width < 20 || r.height < 10) return
         const cs = getComputedStyle(el)
@@ -201,17 +204,6 @@ export async function dismissBiliDialogs(page: base.AnyPage): Promise<number> {
 }
 
 /**
- * 把预制带文字封面设上去。**必须上传成功且裁切框里看得见文字**。
- *
- * B 站的封面不是 file input：表单上那个 `* 封面` 是 `div.cover-empty` 的
- * 「+ 添加封面」占位块，点了才弹出「封面制作」编辑器；编辑器底部才有
- * 「上传封面 · 拖拽图片或点击上传」，对应 `cover-editor-panel-select-`
- * 下的 `input[type=file][accept='image/png, image/jpeg']`。
- * 弹窗里那排缩略图是「智能生成封面 / 系统推荐封面」——**不许用**。
- *
- * 编辑器有 4:3（首页推荐）和 16:9（个人空间）两个裁切框，两边都得有文字。
- */
-/**
  * 视频上传状态。返回：
  * - `done`     平台自己显示了「上传完成」
  * - `bytes-done` 字节数已满（已上传 X/Y，X==Y）但平台还没切到完成态
@@ -261,133 +253,176 @@ export async function waitVideoUploaded(page: base.AnyPage, rounds = 240): Promi
   return false
 }
 
+export type BiliCoverOutcome = 'custom' | 'auto' | 'failed'
+
+/**
+ * 从目标秒数映射到帧条上最近的采样帧序号。
+ *
+ * 帧条是片长上的等距采样点（实测 41s 的片子给 7 帧 ≈ 0 / 6.8 / 13.7 …），
+ * 所以「第 6.0 秒」只能落到最近的采样点上——取帧精度被平台量化，这是平台约束，不是我们可以选的。
+ */
+export function frameIndexFor(targetS: number, maxS: number, count: number): number {
+  if (count <= 0) return -1
+  if (!(maxS > 0) || count === 1) return 0
+  const step = maxS / (count - 1)
+  const i = Math.round(targetS / step)
+  return Math.max(0, Math.min(count - 1, i))
+}
+
+/** 从封面文件名里读回「第几秒」，读不到就按 6 秒。文件名带时刻就是为这个。 */
+export function coverSecondOf(coverPath: string): number {
+  const m = /-cover@([\d.]+)s\.[a-z]+$/i.exec(coverPath)
+  const s = m === null ? NaN : Number(m[1])
+  return Number.isFinite(s) && s >= 0 ? s : 6
+}
+
+/**
+ * 主表单封面位现在是什么。返回「长度 + 前 64 字符」当指纹。
+ *
+ * ⚠️ 封面位**永远是满的**：视频传完后 B 站会自己取一帧当默认封面，落在
+ * `div.cover-module-main div.cover-img` 的 `background-image` 上（base64，约 20 万字符），
+ * 而那个 div 里**没有任何 `<img>`**。所以「封面设上了没有」不能用
+ * `querySelectorAll('img').length` 判——那个数一直是 0，会把每次运行都判成没设上。
+ * 能判的是「指纹变没变」：变了 = 换成了我们的；没变 = 还是平台自动帧。
+ */
+async function coverFingerprint(page: base.AnyPage): Promise<string> {
+  try {
+    return await page.evaluate(() => {
+      const el = document.querySelector('div.cover-module-main div.cover-img')
+      if (el === null) return ''
+      const bg = getComputedStyle(el).backgroundImage || ''
+      return `${bg.length}:${bg.slice(0, 64)}`
+    })
+  } catch {
+    return ''
+  }
+}
+
+async function pollTrue(fn: () => Promise<boolean>, timeoutS: number): Promise<boolean> {
+  for (let i = 0; i < timeoutS; i++) {
+    if (await fn()) return true
+    await clock.sleep(1)
+  }
+  return false
+}
+
+/** 关掉封面编辑器（等于取消）。关不掉就留着，由调用方的判据去处理。 */
+async function cancelCoverEditor(page: base.AnyPage): Promise<void> {
+  try {
+    const cancel = page.locator('div.cover-editor div.button').filter({ hasText: '取消' }).first()
+    if (await base.visibleWithin(cancel, 1200)) await cancel.click({ timeout: 4000 })
+  } catch {
+    // 取消键点不动不是致命项：调用方会再看弹窗关没关
+  }
+}
+
+/**
+ * 把封面定到视频第 N 秒那一帧。返回值是**结果分类**，不是布尔：
+ *
+ * - `custom`  已把封面换成指定帧（主表单封面指纹变了，且变成 `archive.biliimg.com` 上的真封面）
+ * - `auto`    编辑器里没有可选帧 / 「完成」没落地 ⇒ 草稿用平台自动取帧。**不中止**，但要如实记下来
+ * - `failed`  封面位或「封面制作」弹窗打不开 ⇒ 页面结构变了，调用方 fail-closed
+ *
+ * 为什么把「这次没设上」和「页面结构变了」分开：前者会让 118 集里零星几集退回自动封面，
+ * 后者说明我们的选择器与被改进对象脱节，两条的处置完全不同——
+ * 混成一个 false 会让零星退化杀掉整条产线，也会让真的结构变化被当成偶发而放过。
+ *
+ * ⚠️ 不要走「上传自定义图片」那条路：`div.bcc-upload` 的隐藏 input 直灌 `setInputFiles`
+ * 会让 `input.files` 变成 1、`createObjectURL` 也被调用，但组件的 change 处理器**不接**，
+ * 上传区与画布都不动、页面零报错；走 filechooser 也时成时不成（2026-11-15 实测 2 成 6 败）。
+ * 而且即使图接住了，它也不等于「当前帧」——「完成」照样不提交。帧条这条路是确定性的。
+ */
 export async function setBiliCover(
   page: base.AnyPage,
   coverPath: string,
   tag: string,
   opts: { logDir: string },
-): Promise<boolean> {
+): Promise<BiliCoverOutcome> {
   const logDir = opts.logDir
-  // 1) 打开「添加封面」
-  let pill: any = null
-  for (const sel of ["div[class*='cover-empty-pill']", "div[class*='cover-empty']", "div[class*='cover-slot']"]) {
-    const loc = page.locator(sel).first()
-    try {
-      if (await base.visibleWithin(loc, 1500)) {
-        pill = loc
-        break
-      }
-    } catch {
-      continue
-    }
-  }
-  if (pill === null) {
-    console.log('      ⚠️ 找不到「添加封面」入口')
-    return false
-  }
-  await pill.scrollIntoViewIfNeeded()
-  await clock.sleep(0.8)
-  await pill.click()
-  await clock.sleep(3.5)
+  const fpBefore = await coverFingerprint(page)
 
-  const dlg = page.getByText('封面制作', { exact: true }).first()
-  try {
-    if (!(await base.visibleWithin(dlg, 4000))) {
-      console.log('      ⚠️ 「封面制作」弹窗没开')
-      await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-nomodal.png`) })
-      return false
-    }
-  } catch {
+  // 1) 打开「封面制作」。入口是 `div.cover-slot`；`cover-empty-pill` 在本机恒为 0，别再用它。
+  const slot = page.locator("div[class*='cover-slot']").first()
+  if (!(await base.visibleWithin(slot, 2500))) {
+    console.log('      ⚠️ 找不到封面位（视频可能还没传完）')
+    return 'failed'
+  }
+  await slot.scrollIntoViewIfNeeded()
+  await clock.sleep(0.8)
+  await slot.click()
+
+  const editor = page.locator('div.cover-editor').first()
+  if (!(await pollTrue(() => base.visibleWithin(editor, 500), 8))) {
     console.log('      ⚠️ 「封面制作」弹窗没开')
-    return false
+    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-nomodal.png`) })
+    return 'failed'
   }
   console.log('      · 已打开「封面制作」')
 
-  // 2) 喂给编辑器里那个图片上传口
-  let up = page.locator("div[class*='cover-editor-panel-select'] input[type='file']").first()
+  // 2) **选一帧**。这是整条链路上最反直觉的一步：
+  //
+  // 没选中任何帧时点「完成」，弹窗不关、主表单不变、页面**也不报错**——
+  // 看上去像「点了没反应」，实际是在等你选。2026-11-15 为此白跑了七八轮探针：
+  // 一直以为是「完成」键点得不对，真相是编辑器里压根没有「当前帧」。
+  //
+  // 帧条是片长上的等距采样点（实测 41s 给 7 帧），所以「第 N 秒」只能落到最近的采样点上。
+  const targetS = coverSecondOf(coverPath)
+  const thumbs = page.locator('div.cover-slider-image-list div.cover-slider-image')
+  let frames = 0
+  for (let i = 0; i < 15; i++) {
+    frames = await thumbs.count()
+    if (frames > 0) break
+    await clock.sleep(1)
+  }
+  if (frames === 0) {
+    console.log('      ⚠️ 帧条里没有可选的帧（平台还没出图）')
+    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-noframes.png`) })
+    await cancelCoverEditor(page)
+    return 'auto'
+  }
+  const maxS = await page.evaluate(() => {
+    const dot = document.querySelector('div.cover-slider-time .vue-slider-dot')
+    if (dot === null) return 0
+    return Number(dot.getAttribute('aria-valuemax')) || 0
+  })
+  const idx = frameIndexFor(targetS, maxS, frames)
   try {
-    if (!(await up.count())) up = page.locator("input[type='file'][accept*='image']").first()
-    await up.setInputFiles(coverPath, { timeout: 15000 })
-    console.log('      · 封面文件已送入上传口')
+    await thumbs.nth(idx).click({ timeout: 6000 })
   } catch (e) {
-    console.log(`      ⚠️ 上传口喂不进去：${base.errName(e)}`)
-    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-noup.png`) })
-    return false
+    console.log(`      ⚠️ 点第 ${idx} 帧失败：${base.errName(e)}`)
+    await cancelCoverEditor(page)
+    return 'auto'
   }
-  await clock.sleep(5)
-  await page.screenshot({ path: join(logDir, `bilicov-${tag}-uploaded.png`) })
-
-  // 3) 选中新加的那张（它会落在底部胶片条上），否则裁切框仍是旧帧
-  try {
-    const strip = page.locator("div[class*='cover-editor'] img").last()
-    await strip.click({ timeout: 4000 })
-    await clock.sleep(2)
-    console.log('      · 已选中新上传的封面')
-  } catch {
-    console.log('      ⚠️ 没能点中新缩略图（可能上传后已自动选中）')
-  }
+  console.log(`      · 已选第 ${idx} 帧（共 ${frames} 帧，片长 ${maxS}s，目标 ${targetS}s）`)
   await clock.sleep(1.5)
-  await page.screenshot({ path: join(logDir, `bilicov-${tag}-selected.png`) })
+  await page.screenshot({ path: join(logDir, `bilicov-${tag}-frame.png`) })
 
-  // 4) 完成
-  let done = false
-  for (const kw of ['完成', '确定', '保存']) {
-    try {
-      const b = page.getByText(kw, { exact: true })
-      const n = Math.min(await b.count(), 6)
-      for (let i = 0; i < n; i++) {
-        const el = b.nth(i)
-        if (!(await base.visibleWithin(el, 500))) continue
-        await el.click({ timeout: 5000 })
-        console.log(`      · 已点「${kw}」`)
-        await clock.sleep(3)
-        done = true
-        break
-      }
-      if (done) break
-    } catch {
-      continue
-    }
-  }
-  if (!done) {
-    console.log('      ⚠️ 找不到确认键')
+  // 3) 完成键精确是 `div.cover-editor div.button.submit`。
+  // `getByText('完成', {exact:true})` 点到的是别的节点：弹窗不关、表单不变、也不报错。
+  const done = page.locator('div.cover-editor div.button.submit').first()
+  if (!(await base.visibleWithin(done, 2500))) {
+    console.log('      ⚠️ 找不到「完成」键')
     await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-noconfirm.png`) })
-    return false
+    await cancelCoverEditor(page)
+    return 'auto'
+  }
+  await done.click({ timeout: 8000 })
+  const closed = await pollTrue(async () => !(await editor.isVisible().catch(() => false)), 25)
+  console.log(`      · 已点「完成」${closed ? '，弹窗已关' : '，弹窗没关'}`)
+  if (!closed) {
+    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-modalopen.png`) })
+    await cancelCoverEditor(page)
+    await pollTrue(async () => !(await editor.isVisible().catch(() => false)), 6)
   }
 
-  await clock.sleep(2)
-  // 5) 判据：**等**封面真的落到表单上（不是一次采样）。
-  //
-  // ⚠️ 原来是一次采样（`visibleWithin(..., 2500)`）⇒ 2026-11-03 10:52 条 3 被**误杀**：
-  // 「封面制作」弹窗**还没关**，主表单的封面位就还是「添加封面」空块
-  // （弹窗只是盖在它上面，空块自己有盒子 ⇒ Playwright 判它 visible），
-  // 而判据在弹窗关闭之前就采样了 ⇒ 报「封面未生效」⇒ 中止本条。
-  // 同一时刻的截图里封面**明明已经设上了** ⇒ 是判据的时序问题，不是封面没生效。
-  //
-  // ⇒ 改成轮询等：封面位不再是空块、且「封面制作」弹窗已关，才算成。
-  const coverDeadline = clock.now() + 45
-  let stillEmpty = true
-  let modalOpen = false
-  for (;;) {
-    stillEmpty = await base.visibleWithin(page.locator("div[class*='cover-empty-pill']").first(), 600)
-    modalOpen = await base.visibleWithin(page.getByText('封面制作', { exact: true }).first(), 600)
-    if (!stillEmpty && !modalOpen) break
-    if (clock.now() >= coverDeadline) break
-    await clock.sleep(1.5)
-  }
-  if (stillEmpty) {
-    console.log(`      ⚠️ 等了 45s 封面位仍是空的（封面制作弹窗${modalOpen ? '还开着' : '已关'}）→ 未生效`)
-    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-stillempty.png`) })
-    return false
-  }
-  if (modalOpen) {
-    console.log('      ⚠️ 封面已生效但「封面制作」弹窗没关 → 中止本条')
-    await page.screenshot({ path: join(logDir, `coverfail-bili-${tag}-modalopen.png`) })
-    return false
-  }
-  console.log('      ✓ 封面已设置（占位块消失、弹窗已关）')
+  // 4) 判据：指纹变了才算换成我们的。没变就是平台自动帧，如实报 'auto'。
+  const fpAfter = await coverFingerprint(page)
   await page.screenshot({ path: join(logDir, `bilicov-${tag}-done.png`) })
-  return true
+  if (fpAfter === '' || fpAfter === fpBefore) {
+    console.log('      ⚠️ 封面指纹没变（仍是平台自动取帧）')
+    return 'auto'
+  }
+  return 'custom'
 }
 
 /**
@@ -467,6 +502,404 @@ export async function setBiliZone(page: base.AnyPage, zone: string): Promise<boo
   return false
 }
 
+// ── 定时发布（稿件侧预置「几点发」） ──────────────────────────────────
+//
+// **这个能力解决的是哪一段**：日更产线要在稿件里预置「定时发布」时刻，
+// 但**终点仍然是存草稿**——脚本从不点投稿（纪律：发布永不自动）。
+// 人工在草稿箱点「投稿」后，稿件按预置时刻定时发出。
+// 两者是分工不是替代：--draft 决定终点，--publish-at 决定稿件里预置的时刻。
+//
+// ⚠️ **时刻必须晚于当前时间**：B 站拒收早于现在的定时时刻
+//   （页面自己写着「可选择距离当前最早≥5分钟/最晚≤15天的时间」）。
+// ⇒ 「今天 09:00 跑批」能预置的最早时刻是**次日 09:00**。
+//
+// ── 实测形态（2026-11-15 DOM 探针）──────────────────────────────────
+//   div.time-container
+//     ├ div.section-title-container > h3「定时发布」
+//     └ div.time-switch-wrp
+//         ├ div.switch-container        ← 自绘开关（**不是** input[type=checkbox]）
+//         ├ span.time-switch-wrp-text   ← 「可选择距离当前最早≥5分钟…」
+//         └ div.time-picker             ← 点开开关才出现
+//             └ div.d-time-container
+//                 ├ div.date-picker-timezone-wrp > div.bcc-select  ← 时区，默认 (UTC+08:00) Beijing
+//                 ├ div.date-picker-date-wrp > div.date-picker-date
+//                 │     ├ p.date-show      ← 日期显示「2026-11-15」
+//                 │     └ i.date-show-icon ← 点开日历面板
+//                 └ div.date-picker-date-wrp > div.date-picker-timer
+//                       ├ p.date-show      ← 时间显示「19:12」
+//                       └ i.date-show-icon ← 点开时分面板
+//
+//   日历面板：div.date-picker-container
+//     ├ div.date-picker-nav-wrp  ← 「2026年11月」+ 4 个 svg 箭头（左右各两个）
+//     ├ div.date-picker-body-wrp > div.date-wrp
+//     │     └ div.date-picker-body-item.date-item[.date-item-selected|.date-item-disabled]
+//     └ div.date-picker-footer-wrp > span.date-picker-select-today「默认」
+//
+//   时分面板：div.time-picker-container
+//     └ div.time-picker-body-wrp
+//         ├ div.time-picker-panel-select-wrp × 2
+//         │     第一个 = 小时（24 个 span.time-picker-panel-select-item）
+//         │     第二个 = 分钟（12 个，步长 5 分钟）
+//
+// ── 三条实测出来的硬约束（不按这三条写就会静默选不中）────────────────
+//  1. **禁用态跟当前时刻绑定**：没选日期时，早于当前小时的格子带
+//     `time-select-disabled`（点了没反应）。**必须先选日期**——
+//     选完「明天」后 24 个小时格全部解禁。
+//  2. **点小时不带分钟**：点完小时 09，分钟仍保留原值（显示 09:12）——分钟要另点。
+//  3. **分钟步长 5 分钟**：可选值 00/05/…/55；不是 5 的倍数选不中。
+//
+// ── 页面里有**两个** .time-container（一个可见、一个隐藏副本）────────
+// ⇒ 所有定位都必须在页面内**按可见性**筛，不能用 Playwright 的默认唯一性
+//   （strict mode 直接报「resolved to 2 elements」）。
+export const BILI_SCHEDULE_WORDS: readonly string[] = ['定时发布', '预约发布时间']
+
+/** 'YYYY-MM-DD HH:mm' → {date:'YYYY-MM-DD', time:'HH:mm'}；格式不对返回 null。 */
+export function parseScheduleAt(when: string): { date: string; time: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(String(when).trim())
+  if (!m) return null
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}` }
+}
+
+/** 「2026年11月」→ 月序（年*12+月），认不出返回 null。 */
+export function monthOrdinal(title: string): number | null {
+  const m = /(\d{4})\s*年\s*(\d{1,2})\s*月/.exec(String(title))
+  if (!m) return null
+  return Number(m[1]) * 12 + Number(m[2])
+}
+
+/** 分钟格只有 5 分钟步长：把分钟对齐到 ≤ 原值的最近 5 的倍数。 */
+export function alignMinute(mm: string): { value: string; exact: boolean } {
+  const n = Number(mm)
+  if (!Number.isInteger(n) || n < 0 || n > 59) return { value: '00', exact: false }
+  const v = Math.floor(n / 5) * 5
+  return { value: String(v).padStart(2, '0'), exact: v === n }
+}
+
+/**
+ * 打开「定时发布」并把时刻设成 `when`。
+ *
+ * 返回 true = 表单里的时刻**回读得到**（不是「点了就算」）。
+ */
+export async function setBiliPublishAt(
+  page: base.AnyPage,
+  when: string,
+  opts: { logDir: string; tag?: string },
+): Promise<boolean> {
+  const parsed = parseScheduleAt(when)
+  if (parsed === null) {
+    console.log(`   ⚠️ 定时发布时刻格式不对（要 'YYYY-MM-DD HH:mm'）：${when}`)
+    return false
+  }
+  const logDir = opts.logDir
+  const tag = opts.tag ?? 'schedule'
+  const dp = parsed.date.split('-')
+  const tp = parsed.time.split(':')
+  const yy = dp[0] ?? ''
+  const mo = dp[1] ?? ''
+  const dd = dp[2] ?? ''
+  const hh = tp[0] ?? ''
+  const mm = tp[1] ?? ''
+  const minute = alignMinute(mm)
+  if (!minute.exact) {
+    console.log(`   ⚠️ 分钟 ${mm} 不是 5 的倍数（平台只有 5 分钟步长）→ 按 ${minute.value} 设`)
+  }
+
+  const shot = async (name: string) => {
+    try {
+      await page.screenshot({ path: join(logDir, `schedulefail-bili-${tag}-${name}.png`) })
+    } catch {
+      // 截图只是留证
+    }
+  }
+
+  // ---- 1) 打开「定时发布」自绘开关 ----
+  const sw = await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.time-switch-wrp div.switch-container' as any)).find(vis)
+    if (!el) return 'no-switch'
+    if (/switch-container-active/.test(String(el.className || ''))) return 'already-on'
+    el.click()
+    return 'clicked'
+  })
+  if (sw === 'no-switch') {
+    console.log('   ⚠️ 找不到「定时发布」开关')
+    await shot('noswitch')
+    return false
+  }
+  await clock.sleep(1.5)
+  console.log(`   ✓ 已打开「定时发布」开关（${sw}）`)
+
+  // ---- 2) 日期 ----
+  // 2a. 开日历面板
+  await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.date-picker-date p.date-show' as any)).find(vis)
+    if (el) el.click()
+  })
+  await clock.sleep(1.2)
+
+  // 2b. 月份对齐。**翻页箭头不靠 class 猜，靠试**：
+  //     逐个点标题右侧的 svg，看月份序有没有 +1；+12 的是「下一年」不是「下一月」。
+  const wantOrd = Number(yy) * 12 + Number(mo)
+  let nextArrowIdx = -1
+  for (let i = 0; i < 18; i++) {
+    const title = await page.evaluate(() => {
+      const vis = (e: any) => {
+        const r = e.getBoundingClientRect()
+        const cs = getComputedStyle(e)
+        return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+      }
+      const t = Array.from<any>(document.querySelectorAll('p.date-picker-nav-title' as any)).find(vis)
+      return t ? (t.innerText || '').trim() : null
+    })
+    if (title === null) {
+      console.log('   ⚠️ 读不到日历月份标题')
+      await shot('nomonth')
+      return false
+    }
+    const cur = monthOrdinal(title)
+    if (cur === null) {
+      console.log(`   ⚠️ 月份标题认不出：${title}`)
+      await shot('badmonth')
+      return false
+    }
+    if (cur === wantOrd) break
+    if (cur > wantOrd) {
+      // 面板只能往后翻（平台不允许选过去）⇒ 目标月比当前月还早 = 不可能
+      console.log(`   ⚠️ 目标 ${parsed.date} 早于面板当前月份（${title}）——平台不收过去的时刻`)
+      await shot('pastmonth')
+      return false
+    }
+    // 还没到目标月 → 翻一页
+    if (nextArrowIdx < 0) {
+      // 首次：逐个试右侧箭头，找那个「月份 +1」的
+      const probed = await page.evaluate(() => {
+        const vis = (e: any) => {
+          const r = e.getBoundingClientRect()
+          const cs = getComputedStyle(e)
+          return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+        }
+        const w = Array.from<any>(document.querySelectorAll('div.date-picker-nav-wrp' as any)).find(vis)
+        if (!w) return { svgs: [] as number[], title: '' }
+        const svgs = Array.from<any>(w.querySelectorAll('svg')).filter(vis)
+        return { svgs: svgs.map((_, k) => k) }
+      })
+      let advanced = false
+      for (const k of probed.svgs) {
+        const before = await page.evaluate(() => {
+          const vis = (e: any) => {
+            const r = e.getBoundingClientRect()
+            const cs = getComputedStyle(e)
+            return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+          }
+          const t = Array.from<any>(document.querySelectorAll('p.date-picker-nav-title' as any)).find(vis)
+          return t ? (t.innerText || '').trim() : ''
+        })
+        await page.evaluate((idx: number) => {
+          const vis = (e: any) => {
+            const r = e.getBoundingClientRect()
+            const cs = getComputedStyle(e)
+            return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+          }
+          const w = Array.from<any>(document.querySelectorAll('div.date-picker-nav-wrp' as any)).find(vis)
+          if (!w) return
+          const svgs = Array.from<any>(w.querySelectorAll('svg')).filter(vis)
+          const el = svgs[idx]
+          if (el) el.click()
+        }, k)
+        await clock.sleep(0.6)
+        const after = await page.evaluate(() => {
+          const vis = (e: any) => {
+            const r = e.getBoundingClientRect()
+            const cs = getComputedStyle(e)
+            return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+          }
+          const t = Array.from<any>(document.querySelectorAll('p.date-picker-nav-title' as any)).find(vis)
+          return t ? (t.innerText || '').trim() : ''
+        })
+        const b = monthOrdinal(before)
+        const a = monthOrdinal(after)
+        if (b !== null && a !== null && a === b + 1) {
+          nextArrowIdx = k
+          advanced = true
+          break
+        }
+      }
+      if (!advanced) {
+        console.log('   ⚠️ 找不到「下一月」箭头（月份翻不动）')
+        await shot('noarrow')
+        return false
+      }
+    } else {
+      await page.evaluate((idx: number) => {
+        const vis = (e: any) => {
+          const r = e.getBoundingClientRect()
+          const cs = getComputedStyle(e)
+          return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+        }
+        const w = Array.from<any>(document.querySelectorAll('div.date-picker-nav-wrp' as any)).find(vis)
+        if (!w) return
+        const svgs = Array.from<any>(w.querySelectorAll('svg')).filter(vis)
+        const el = svgs[idx]
+        if (el) el.click()
+      }, nextArrowIdx)
+      await clock.sleep(0.6)
+    }
+  }
+
+  // 2c. 点目标日
+  const dayRes = await page.evaluate((day: string) => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const cells = Array.from<any>(document.querySelectorAll('.date-picker-body-item' as any))
+      .filter((e: any) => vis(e) && (e.textContent || '').trim() === day)
+    if (!cells.length) return 'no-cell'
+    const ok = cells.find((e: any) => !/disabled/i.test(String(e.className || '')))
+    if (!ok) return 'disabled'
+    ok.click()
+    return 'clicked'
+  }, dd)
+  if (dayRes !== 'clicked') {
+    console.log(`   ⚠️ 选日期失败：${dayRes}`)
+    await shot('nodate')
+    return false
+  }
+  await clock.sleep(1.2)
+
+  // 2d. 回读日期
+  const dateNow = await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.date-picker-date p.date-show' as any)).find(vis)
+    return el ? (el.innerText || '').trim() : null
+  })
+  if (dateNow !== parsed.date) {
+    console.log(`   ⚠️ 日期回读是「${dateNow}」，不是「${parsed.date}」`)
+    await shot('baddate')
+    return false
+  }
+  console.log(`   ✓ 日期已设为 ${dateNow}`)
+
+  // 2e. **关掉日历面板再开时间面板**：日历开着的时候时分面板拿到的是
+  //     「旧状态」的格子（禁用态没跟着日期刷新）⇒ 点小时没反应。
+  await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.date-picker-date p.date-show' as any)).find(vis)
+    if (el) el.click()
+  })
+  await clock.sleep(0.8)
+  const datePanelOpen = await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    return Array.from<any>(document.querySelectorAll('div.date-picker-container' as any)).some(vis)
+  })
+  if (datePanelOpen) {
+    await page.keyboard.press('Escape').catch(() => {})
+    await clock.sleep(0.6)
+  }
+
+  // ---- 3) 时间 ----
+  await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.date-picker-timer p.date-show' as any)).find(vis)
+    if (el) el.click()
+  })
+  await clock.sleep(1.2)
+
+  // 3a. 点小时
+  const hourRes = await page.evaluate((h: string) => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const cols = Array.from<any>(document.querySelectorAll('.time-picker-panel-select-wrp' as any)).filter(vis)
+    if (cols.length < 2) return 'no-cols'
+    const hourCol = cols.find((c: any) => c.querySelectorAll('.time-picker-panel-select-item').length >= 24)
+    if (!hourCol) return 'no-hour-col'
+    const cell = Array.from<any>(hourCol.querySelectorAll('.time-picker-panel-select-item'))
+      .find((e: any) => (e.textContent || '').trim() === h)
+    if (!cell) return 'no-cell'
+    if (/disabled/i.test(String(cell.className || ''))) return 'disabled'
+    cell.click()
+    return 'clicked'
+  }, hh)
+  if (hourRes !== 'clicked') {
+    console.log(`   ⚠️ 选小时失败：${hourRes}`)
+    await shot('nohour')
+    return false
+  }
+  await clock.sleep(0.8)
+
+  // 3b. 点分钟（**点小时不带分钟**，分钟保留原值，必须另点）
+  const minRes = await page.evaluate((m: string) => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const cols = Array.from<any>(document.querySelectorAll('.time-picker-panel-select-wrp' as any)).filter(vis)
+    if (cols.length < 2) return 'no-cols'
+    const hourCol = cols.find((c: any) => c.querySelectorAll('.time-picker-panel-select-item').length >= 24)
+    const minCol = cols.find((c: any) => c !== hourCol)
+    if (!minCol) return 'no-min-col'
+    const cell = Array.from<any>(minCol.querySelectorAll('.time-picker-panel-select-item'))
+      .find((e: any) => (e.textContent || '').trim() === m)
+    if (!cell) return 'no-cell'
+    if (/disabled/i.test(String(cell.className || ''))) return 'disabled'
+    cell.click()
+    return 'clicked'
+  }, minute.value)
+  if (minRes !== 'clicked') {
+    console.log(`   ⚠️ 选分钟失败：${minRes}`)
+    await shot('nomin')
+    return false
+  }
+  await clock.sleep(1)
+
+  // ---- 4) 回读确认（点了不算，填进去才算） ----
+  const timeNow = await page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    const el = Array.from<any>(document.querySelectorAll('div.date-picker-timer p.date-show' as any)).find(vis)
+    return el ? (el.innerText || '').trim() : null
+  })
+  if (timeNow !== `${hh}:${minute.value}`) {
+    console.log(`   ⚠️ 时间回读是「${timeNow}」，不是「${hh}:${minute.value}」`)
+    await shot('badtime')
+    return false
+  }
+  console.log(`   ✓ 定时发布时刻已预置：${dateNow} ${timeNow}`)
+  return true
+}
 const STMT_NOISE: readonly string[] = [
   '主站', '试试更多', '成为UP主', '投稿', '首页', '内容管理',
   '数据中心', '粉丝管理', '互动管理', '收益管理', '花生',
@@ -520,20 +953,22 @@ export async function setBiliStatement(
   if (!(await jsClick(page, sel))) return ''
   await clock.sleep(2.2)
 
-  // 把浮层里所有可点的选项文本捞出来
-  // 创作声明不是下拉浮层，是点开后**内联**在页面上的选项列表，
-  // 用 dropdown/popup 那套选择器读不到（栽过）。改成扫视口内可见文本。
+  // 读**必填声明区**的选项文本。
   //
-  // ⚠️ **扫视口会漏项**（实测 2026-11-03）：选项列表共 13 项，但「内容为自制：
-  // 未经作者允许，禁止转载」在列表**末尾、视口之外**，扫视口只读到 6 项
-  // （内容无需标注 / 含AI生成内容 / 含虚构演绎内容 / 内容含营销信息 /
-  //   个人观点，仅供参考 / 内容为转载）——「自制」恰好是被漏掉的那个。
+  // ⚠️ 判据必须落在结构上，不能落在「列表里有什么文字」上（2026-11-15 实测）：
+  // `ul.bcc-select-option-list` 里既有 6 个必填选项，也有「内容授权声明（非必选）」
+  // 那一块（`div.option-divider` + `div.auth-title` + 一个无 li 的 article）。
+  // 旧写法 `querySelectorAll('ul … li, ul … article')` 把两边混成一张表，于是
+  // 「内容为自制」被当成必填候选去点——它那行不接受这种点法，永远点不动，
+  // 而每个「点不动」都会让循环去点下一个候选，最后落在表里最后一项。
   //
-  // 优先读 `ul.bcc-select-option-list`（**完整**列表，不受视口限制）；
-  // 读不到才退回扫视口。
+  // 结构性判据：**必填选项都有 `li.bcc-option` 子节点，授权声明那行没有**。
+  // 首选按 li 读；读不到再按「分隔线之前的 article」读（同一条结构事实的另一种
+  // 写法）；两者都读不到就 fail-closed，**不退回扫视口**——扫视口分不清必填与
+  // 非必选，正是这条歧义的来源。
   let listItems: string[] = await page.evaluate(() => {
     const out: string[] = []
-    document.querySelectorAll('ul.bcc-select-option-list li, ul.bcc-select-option-list article')
+    document.querySelectorAll('ul.bcc-select-option-list li.bcc-option' as any)
       .forEach((li: any) => {
         const t = ((li.innerText || '') as string).trim()
         if (t && !out.includes(t)) out.push(t)
@@ -543,19 +978,15 @@ export async function setBiliStatement(
   if (!listItems.length) {
     listItems = await page.evaluate(() => {
       const out: string[] = []
-      document.querySelectorAll('body *').forEach((el: any) => {
-        const r = el.getBoundingClientRect()
-        if (r.width < 6 || r.height < 6) return
-        if (r.y < 0 || r.y > window.innerHeight) return
-        const cs = getComputedStyle(el)
-        if (cs.display === 'none' || cs.visibility === 'hidden') return
-        const own = [...el.childNodes]
-          .filter((n) => n.nodeType === 3)
-          .map((n) => (n.textContent || '').trim())
-          .join('')
-          .trim()
-        if (own && own.length < 40 && !out.includes(own)) out.push(own)
-      })
+      const ul: any = document.querySelector('ul.bcc-select-option-list')
+      if (!ul) return out
+      for (const child of Array.from(ul.children) as any[]) {
+        // 分隔线之后是「内容授权声明」区，不是必填声明
+        if ((child.className || '').toString().includes('option-divider')) break
+        if (child.tagName !== 'ARTICLE') continue
+        const t = ((child.innerText || '') as string).trim()
+        if (t && !out.includes(t)) out.push(t)
+      }
       return out
     })
   }
@@ -586,18 +1017,59 @@ export async function setBiliStatement(
     }
   }
 
-  /** 在已展开的浮层里点中 target，并以「是否回写到 input」为准。 */
+  /** 下拉是不是开着的（选项列表可见）。 */
+  const listOpen = async (): Promise<boolean> => page.evaluate(() => {
+    const vis = (e: any) => {
+      const r = e.getBoundingClientRect()
+      const cs = getComputedStyle(e)
+      return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'
+    }
+    return Array.from(document.querySelectorAll('ul.bcc-select-option-list' as any)).some(vis)
+  })
+
+  /** 确保下拉开着。关着的��话点选项等于点空白 ⇒ 浮层被关掉，后面全废。 */
+  const ensureOpen = async (): Promise<boolean> => {
+    if (await listOpen()) return true
+    if (!(await jsClick(page, sel))) return false
+    await clock.sleep(1.8)
+    return await listOpen()
+  }
+
+  /**
+   * 等 input 回写成 target。
+   *
+   * ⚠️ 为什么不能「睡固定时长再读一次」（2026-11-15 实测踩过）：B 站把选中值写回
+   * `input.value` 有**肉眼可见的延迟**（>1.5s），定长睡眠后读到空串 ⇒ 判「这一项
+   * 点不动」⇒ 继续点下一个候选 ⇒ 每个候选都真的点下去了、每次都覆盖前一个，
+   * 最后落在候选表里的**最后一个**（实测落成「含AI生成内容」），而脚本还以为
+   * 自己在「逐个试到能点动为止」。症状是「选项乱跳」，根因是等待方式。
+   * ⇒ 一律用「轮询到不变量成立」代替「睡死再读一次」。
+   */
+  const waitValue = async (target: string, timeoutS = 6): Promise<boolean> => {
+    const deadline = clock.now() + timeoutS
+    while (clock.now() < deadline) {
+      if ((await curValue()) === target) return true
+      await clock.sleep(0.25)
+    }
+    return false
+  }
+
+  /**
+   * 在已展开的浮层里点中 target，并以「是否回写到 input」为准。
+   *
+   * ⚠️ 候选取自**必填声明区**，判据是 `li.bcc-option`（结构，不是文字）：
+   * 授权声明那行「内容为自制」没有 li 子节点，它属于另一个字段（见
+   * BILI_STMT_REQUIRED 的结构 dump）。旧版把 article 层也当候选，等于把
+   * 「非必选的内容授权声明」塞进必填候选表——它永远点不动（2026-11-15 实测）。
+   */
   const pick = async (target: string): Promise<boolean> => {
-    let el: any = null
-    for (const selStr of [
-      'ul.bcc-select-option-list article.option-hover-tips span.option-text',
-      'ul.bcc-select-option-list li.bcc-option span',
-    ]) {
-      // ⚠️ **精确文本匹配**，不用 hasText（子串）。
-      // 声明选项里有「内容为转载」与「内容为自制：未经作者允许，禁止转载」——
-      // 子串匹配「内容为」会命中前者（短的先命中）⇒ 选出来的声明不是用户要的。
-      const cand = page.locator(selStr).filter({ hasText: target })
+    const sels = [
+      'ul.bcc-select-option-list li.bcc-option',
+    ]
+    for (const selStr of sels) {
+      let el: any = null
       try {
+        const cand = page.locator(selStr)
         const n = await cand.count()
         for (let i = 0; i < n; i++) {
           const one = cand.nth(i)
@@ -607,24 +1079,73 @@ export async function setBiliStatement(
             break
           }
         }
-        if (el !== null) break
       } catch {
         continue
       }
+      if (el === null) {
+        console.log(`      · 没找到「${target}」的节点（${selStr}）`)
+        continue
+      }
+      try {
+        if (!(await ensureOpen())) {
+          console.log(`      · 下拉没打开，点不了「${target}」`)
+          continue
+        }
+        // 下拉是 overflow:auto 的容器 ⇒ 选项要滚进**视口**才能点。
+        // 浏览器原生 scrollIntoView 会把 overflow 容器与页面一起滚到位。
+        await el.evaluate((e: any) => e.scrollIntoView({ block: 'center' }))
+        await clock.sleep(0.5)
+        const bb = await el.boundingBox()
+        if (!bb) continue
+        // ⚠️ **绝不在视口外点**：那里的坐标落在浮层之外 ⇒ 这一击会把下拉关掉，
+        //   后面每一个候选都点不动（实测踩过：点「内容为自制」失败后，
+        //   剩下 6 个候选全被判「点不动」，真因是浮层已经被关掉了）。
+        const vp = page.viewportSize()
+        if (vp) {
+          const inside = bb['y'] >= 0 && bb['x'] >= 0
+            && bb['y'] + bb['height'] <= vp.height
+            && bb['x'] + bb['width'] <= vp.width
+          if (!inside) {
+            console.log(`      · 「${target}」滚不进视口（y=${Math.round(bb['y'])}），换一种方式`)
+            // 兜底：直接派发 DOM click（Vue 的选项事件通常在 li 上）
+            const done = await el.evaluate((e: any) => {
+              e.click()
+              return true
+            }).catch(() => false)
+            if (done) {
+              if (await waitValue(target)) return true
+            }
+            continue
+          }
+        }
+        // 真实鼠标点击：JS 合成 click 触发不了 Vue 的选项事件
+        const cx = bb['x'] + bb['width'] / 2
+        const cy = bb['y'] + bb['height'] / 2
+        await page.mouse.click(cx, cy)
+        if (await waitValue(target)) return true
+        // 只有在没生效时才诊断：点之前先问页面「这个坐标上到底是谁」——
+        // 坐标算错、被浮层盖住、目标在视口外却给出视口内坐标，全靠这一条分辨
+        // （否则只能看到「没生效」，然后开始怀疑选择器）。
+        const afterClick = await curValue()
+        const atPoint = await page.evaluate(([px, py]: number[]) => {
+          const e: any = (document as any).elementFromPoint(px, py)
+          return e ? ((e.innerText || e.textContent || '') as string).trim().slice(0, 40) : null
+        }, [cx, cy]).catch(() => null)
+        console.log(`      · 点「${target}」没生效（点后 input=「${afterClick || '空'}」，`
+          + `点处 (${Math.round(cx)}, ${Math.round(cy)}) 上是「${atPoint || '空'}」）`)
+        // 点 li 没生效（有些项的可点层是外层 article）⇒ 再点 article
+        const parent = el.locator('xpath=..')
+        const pbb = await parent.boundingBox().catch(() => null)
+        if (pbb) {
+          await page.mouse.click(pbb['x'] + pbb['width'] / 2, pbb['y'] + pbb['height'] / 2)
+          if (await waitValue(target)) return true
+        }
+      } catch (err) {
+        console.log(`      · 点「${target}」时抛错：${String((err as any)?.message ?? err).slice(0, 200)}`)
+        continue
+      }
     }
-    if (el === null) return false
-    try {
-      await el.scrollIntoViewIfNeeded()
-      await clock.sleep(0.3)
-      const bb = await el.boundingBox()
-      if (!bb) return false
-      // 真实鼠标点击：JS 合成 click 触发不了 Vue 的选项事件
-      await page.mouse.click(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2)
-      await clock.sleep(1.5)
-    } catch {
-      return false
-    }
-    return (await curValue()) === target
+    return false
   }
 
   // 选**一个**值：声明区只有一个 select，选项互斥（后写的覆盖先写的）。
@@ -672,6 +1193,19 @@ export async function setBiliStatement(
   }
   return want
 }
+
+/**
+ * B 站的风控文案（**只等，不代填** —— 纪律 21）。
+ *
+ * 实测（2026-11-15）：上传后弹「请完成短信验证」——验证码发到该账号注册的手机号。
+ * 它用 `div.base-verify-bg` 盖住整个表单 ⇒ 标题框**点不动** ⇒ 表现成
+ * 「标题没录进去（已中止投稿）」，真实原因却是风控弹窗挡路。
+ * ⇒ 填标题之前必须先判风控、并在人工过完验证后确认遮罩真的没了。
+ */
+export const BILI_RISK_WORDS: readonly string[] = [
+  '请完成短信验证', '请完成验证', '短信验证', '获取验证码',
+  'Scan to verify', '操作过于频繁', '请稍后再试', '发布失败，请稍后重试',
+]
 
 /** 硬闸门中止：记 stage + 现场截图 + 返回结果（宁可整条不发）。 */
 async function bail(
@@ -743,6 +1277,64 @@ export async function waitFormReady(
     await clock.sleep(1.5)
   }
   return null
+}
+
+/**
+ * 填 B 站的**标签**（不是简介）。
+ *
+ * 实测（2026-11-15）：标签框是 `input[placeholder="按回车键Enter创建标签"]`，
+ * 逐个填 + 回车才会变成标签片（`xx ×` 的胶囊）。平台会**预填**几个推荐标签
+ * （实测「化学 / 初中 / 学习」），所以必填项本身不会空。
+ *
+ * ⚠️ 为什么不再把标签塞进简介（老行为）：B 站的「标签」与「话题」是两套东西——
+ * 标签决定**检索与分发**，话题只是简介里的一个链接。老做法把 '#标签' 打进简介，
+ * 结果检索侧一个标签都没有。
+ *
+ * 失败口径：输入框**找不到** → 只告警不中止（页面形态变了，或平台已预填够用）；
+ * 输入框在但**标签没贴上** → 返回 false（这是本机能做而没做好的事）。
+ */
+export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): Promise<boolean> {
+  if (!tags.length) return true
+  const input = page.locator("input[placeholder*='创建标签']").first()
+  let has = false
+  try {
+    has = await base.visibleWithin(input, 2500)
+  } catch {
+    has = false
+  }
+  if (!has) {
+    console.log('   ⚠️ 找不到标签输入框（页面形态可能变了）——跳过标签')
+    return true
+  }
+  for (const t of tags) {
+    const tag = String(t).trim().replace(/^#/, '')
+    if (!tag) continue
+    try {
+      await input.click()
+      await input.fill(tag)
+      await page.keyboard.press('Enter')
+      await clock.sleep(0.35)
+    } catch (e) {
+      console.log(`   ⚠️ 标签「${tag}」没贴上：${base.errStr(e)}`)
+      return false
+    }
+  }
+  // 回读：标签区的文本里应当能看到刚填的标签
+  const area = page.locator("input[placeholder*='创建标签']").first()
+  const areaText = await area.evaluate((el: any) => {
+    let node: any = el
+    for (let i = 0; i < 6 && node.parentElement; i++) node = node.parentElement
+    return (node.innerText || '').replace(/\s+/g, ' ')
+  })
+  const missing = tags
+    .map((t) => String(t).trim().replace(/^#/, ''))
+    .filter((t) => t !== '' && !areaText.includes(t))
+  if (missing.length) {
+    console.log(`   ⚠️ 标签没出现在标签区：${base.pyReprList(missing.slice(0, 6))}`)
+    return false
+  }
+  console.log(`   ✓ 标签已填 ${tags.length} 个`)
+  return true
 }
 
 /**
@@ -852,7 +1444,16 @@ export async function publishOne(
   page: base.AnyPage,
   t: base.Task,
   auto: boolean,
-  opts: { logDir: string; subsDir?: string | null; draft?: boolean; zone?: string; statement?: string },
+  opts: {
+    logDir: string
+    subsDir?: string | null
+    draft?: boolean
+    zone?: string
+    statement?: string
+    publishAt?: string | null
+    /** 等风控解除的分钟数（人工过短信验证用）；默认 10 分钟。 */
+    riskWaitMin?: number
+  },
 ): Promise<base.PubResult> {
   const logDir = opts.logDir
   const vid = t['video']
@@ -899,6 +1500,25 @@ export async function publishOne(
   const n = await dismissBiliDialogs(page)
   if (n) console.log(`   ✓ 已清掉 ${n} 个浮层`)
 
+  // 风控（短信验证 / 扫码）：**只等，不代填**（纪律 21）。
+  // 触发时表单被 `div.base-verify-bg` 盖住 ⇒ 标题框点不动 ⇒ 表现成
+  // 「标题没录进去」。不先判风控，就会把风控误报成标题录不进去。
+  if (await base.riskHit(page, BILI_RISK_WORDS)) {
+    const cleared = await base.waitRiskClear(page, {
+      no: t['no'],
+      logDir,
+      limitMin: opts.riskWaitMin ?? 10,
+      kws: BILI_RISK_WORDS,
+      maskSel: '.base-verify-bg, .base-verify',
+      hint: '完成短信验证（验证码已发到该账号注册的手机号）',
+    })
+    if (!cleared) {
+      return bail(res, page, logDir, `${tag}-risk`, '风控未解除（已中止投稿）',
+        '风控没过（短信验证未完成）→ 中止，不投')
+    }
+    console.log('   ✓ 风控已解除，继续填表')
+  }
+
   // 标题（纪律 19：录不进标题 = 带病发布，中止本条）
   if (!(await base.fillTitle(page, titleBox, t['title'], { limit: 80 }))) {
     return bail(res, page, logDir, `${tag}-title`, '标题未录入（已中止投稿）', '标题没录进去 → 中止，不投')
@@ -913,7 +1533,10 @@ export async function publishOne(
     return bail(res, page, logDir, `${tag}-stmt`, '创作声明未选定（已中止投稿）', '创作声明没选上 → 中止，不投')
   }
 
-  // 简介：B站正文是 contenteditable；正文+话题录不进 = 带病发布（纪律 19）
+  // 简介：B站正文是 contenteditable；正文录不进 = 带病发布（纪律 19）
+  //
+  // ⚠️ 标签**不**打进简介（B 站的「标签」是独立字段，决定检索；老做法把
+  // '#标签' 塞进简介，检索侧一个标签都没有）——见 setBiliTags 的说明。
   const desc = page.locator(DESC_SEL).first()
   let descReady = false
   try {
@@ -924,8 +1547,13 @@ export async function publishOne(
   if (!descReady) {
     return bail(res, page, logDir, `${tag}-desc`, '简介框未出现（已中止投稿）', '没找到简介框 → 中止，不投')
   }
-  if (!(await base.fillBody(page, desc, t['body'], { tags: t['tags'], pause: 0.3 }))) {
+  if (!(await base.fillBody(page, desc, t['body'], { tags: [], pause: 0.3 }))) {
     return bail(res, page, logDir, `${tag}-desc`, '简介未录入（已中止投稿）', '简介没录进去 → 中止，不投')
+  }
+
+  // 标签：填进标签框（找不到输入框只告警；贴不上才中止）
+  if (!(await setBiliTags(page, t['tags'] ?? []))) {
+    return bail(res, page, logDir, `${tag}-tags`, '标签未贴上（已中止投稿）', '标签没贴上 → 中止，不投')
   }
 
   await uploadSubtitle(page, t, subsDir)
@@ -942,13 +1570,34 @@ export async function publishOne(
   }
   console.log('   ✓ 视频已上传完成')
 
-  // 封面：必须换成预制带文字版，不允许退回视频首帧或系统推荐封面
-  const coverOk = await setBiliCover(page, cov, tag, { logDir })
-  if (!coverOk) {
+  // 封面：优先换成预制带文字版。
+  //
+  // 三种结局要分开处理（`setBiliCover` 的文档里写了为什么）：
+  // - 'custom' 换成我们的封面，继续
+  // - 'auto'   B 站封面编辑器偶发吞图 ⇒ 草稿用平台自动取帧。**不中止**，但结果里必须写明
+  // - 'failed' 封面位或「封面制作」弹窗都打不开 ⇒ 页面结构变了，fail-closed
+  const cover = await setBiliCover(page, cov, tag, { logDir })
+  res['cover'] = cover
+  if (cover === 'failed') {
     console.log(`      预制封面：${cov}`)
-    return bail(res, page, logDir, tag, '封面未生效（已中止投稿）', '封面未生效 → 中止本条，不点投稿')
+    return bail(res, page, logDir, tag, '封面编辑器打不开（已中止投稿）', '封面编辑器打不开 → 中止本条，不点投稿')
   }
-  console.log('   ✓ 封面已是预制带文字版，继续')
+  if (cover === 'auto') {
+    console.log('   ⚠️ 封面 = 平台自动取帧（指定帧没设上；草稿照样保存，交付里会列出这些集）')
+  } else {
+    console.log(`   ✓ 封面已定为视频第 ${coverSecondOf(cov)}s 帧`)
+  }
+
+  // 定时发布预置（可选）：把「几点发」写进稿件。
+  // 放在封面之后、提交键解禁之前——这个开关会改变提交键的解禁条件。
+  // ⚠️ 存草稿模式下也照填：草稿里带着预置时刻，人点投稿才按此刻发出。
+  if (opts.publishAt) {
+    const schedOk = await setBiliPublishAt(page, opts.publishAt, { logDir, tag })
+    if (!schedOk) {
+      return bail(res, page, logDir, `${tag}-schedule`, '定时发布未生效（已中止投稿）',
+        '定时发布时刻没设上 → 中止，不投')
+    }
+  }
 
   // 等投稿按钮解禁
   console.log('   ⏳ 等待提交按钮解禁…')
@@ -1008,6 +1657,18 @@ export interface BiliPublishOpts {
   /** 本批用户拍板的分区与创作声明；不给才走兼容默认值。 */
   zone?: string
   statement?: string
+  /**
+   * 稿件侧的**定时发布时刻**（'YYYY-MM-DD HH:mm'）。
+   *
+   * 与 --draft 的分工：--draft 决定**终点**（存草稿、不点投稿），
+   * publishAt 决定**稿件里预置的时刻**——人工点投稿后按此刻定时发出。
+   * 两者一起用 = 「每天 9 点定时发布、但由人点投稿」那条日更产线。
+   */
+  publishAt?: string | null
+  /** 固定用 user-data-dir 里的哪一个 profile 目录（见 base.LaunchOpts.profileName）。 */
+  profileName?: string | null
+  /** 等风控解除的分钟数（人工过短信验证）；不给 = 10 分钟。 */
+  riskWaitMin?: number
 }
 
 /** 批量投稿（骨架在 base.runTasks：异常隔离 + 循环内节流 + result JSON）。 */
@@ -1020,7 +1681,11 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
   let results: base.PubResult[] = []
   await base.launch(
     profileDir,
-    { headless: opts.headless ?? false, viewport: { width: 1600, height: 1000 } },
+    {
+      headless: opts.headless ?? false,
+      viewport: { width: 1600, height: 1000 },
+      profileName: opts.profileName ?? null,
+    },
     async (ctx, page) => {
       // 提前授予通知权限，否则上传完会弹浏览器级授权框盖住整个表单
       try {
@@ -1044,6 +1709,7 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
       const one: base.PublishOneFn = (p, t, auto, o) =>
         publishOne(p, t, auto, {
           logDir: o.logDir, subsDir, draft: o.draft, zone: opts.zone, statement: opts.statement,
+          publishAt: opts.publishAt ?? null, riskWaitMin: opts.riskWaitMin,
         })
 
       results = await base.runTasks(page, filtered, one, {
@@ -1069,7 +1735,7 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
  * 本入口取其中的 "bilibili" 段作为 tasks。
  */
 export async function main(argv: string[]): Promise<number> {
-  const a = base.manifestArgs(argv, 'feuille publish bilibili', { subsDir: true })
+  const a = base.manifestArgs(argv, 'feuille publish bilibili', { subsDir: true, publishAt: true })
   if ('rc' in a) return a.rc
   const tasks = base.manifestTasks(a.manifest, 'bilibili')
   return publish(tasks, {
@@ -1080,5 +1746,7 @@ export async function main(argv: string[]): Promise<number> {
     dryRun: a.dryRun,
     headless: a.headless,
     draft: a.draft,
+    publishAt: a.publishAt,
+    profileName: a.profileName,
   })
 }

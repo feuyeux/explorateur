@@ -154,10 +154,52 @@ export function resolveChrome(): string {
   return b[1]
 }
 
+/**
+ * 浏览器侧 `__name` 垫片 —— 修 tsx/esbuild `keepNames` 把 evaluate 回调改坏。
+ *
+ * 踩过的坑（2026-11-15，实测）：tsx 的 esbuild 变换写死 `keepNames: true`
+ * （`tsx/dist/index-*.mjs` 里 `keepNames:!0`，不可配置），凡**回调里出现具名函数**
+ * 都会被改写成 `const vis = __name((e) => …, "vis")`。这段源码被序列化后送进
+ * 浏览器执行，而 `__name` 是 Node 侧的注入物、页面里不存在 ⇒
+ * `page.evaluate: ReferenceError: __name is not defined`。
+ *
+ * 症状极具误导性：它**不会**报「回调编译失败」，而是每个候选都点不动，看上去
+ * 像选择器过时或平台改版（本次实测：创作声明 7 个选项全「点不动」，手工探针
+ * 用同一套坐标点同一批元素却全成功，差异只在「回调走没走 tsx 变换」）。
+ *
+ * 为什么在启动层垫：受影响的不是一处选择器，而是**任何**含内层辅助函数的回调
+ * （本包实测至少 6 处）。逐个改写回调只能治当下，下次谁写个 `const vis = …`
+ * 又复发，且复发时的报错指向完全无关的地方。垫一个 no-op 的 `__name` 让变换
+ * 后的代码在页面里照常跑，是把系统缺陷收在一处。
+ *
+ * 用 `{content}` 而非传函数：**这段就是要在页面里逐字执行**，传函数反而会被
+ * 同一套变换包成 `__name(...)`，在垫片自身生效之前先炸掉。
+ */
+export const PAGE_SHIM_JS = `if (typeof globalThis.__name !== 'function') {
+  globalThis.__name = function (fn, name) {
+    try { Object.defineProperty(fn, 'name', { value: name, configurable: true }) } catch (e) {}
+    return fn
+  }
+}`
+
 export interface LaunchOpts {
   headless?: boolean
   viewport?: { width: number; height: number } | null
   args?: string[] | null
+  /**
+   * 固定用 user-data-dir 里的**哪一个 profile 目录**（如 'Profile 1'）。
+   *
+   * 为什么需要它：`launchPersistentContext` 不传 `--profile-directory` 时，
+   * Chromium 会用 Local State 里 `profile.last_used` 记的那一个——也就是
+   * 「上次在这台机器上用过这个 user-data-dir 的人」。而一个 user-data-dir
+   * 里躺着多个账号时（实测 `~/.bili_creator_profile` 有 Default + Profile 1…9，
+   * 每个是一个不同的账号），别人手动开一次 Chrome 就可能把 daily job 的
+   * 登录态换成**另一个账号**——定时任务在无人值守时把片子发到错账号，
+   * 还不报错。
+   *
+   * 不给 = 保持原行为（用 last_used）。给了 = 钉死，跨项目复用时不再靠运气。
+   */
+  profileName?: string | null
 }
 
 /**
@@ -185,13 +227,20 @@ export async function launch<T>(
   // JS Playwright 的签名是 launchPersistentContext(userDataDir, options)：
   // 目录是**第一个位置参数**，写进 options 会报 "path" argument must be a string。
   // options 仍是 camelCase（executablePath；snake_case 的 executable_path 会被静默忽略）。
+  const args = [...(opts.args ?? ['--start-maximized', '--disable-blink-features=AutomationControlled'])]
+  if (opts.profileName && opts.profileName.trim() !== '') {
+    args.push(`--profile-directory=${opts.profileName.trim()}`)
+  }
   const ctx = await pw.chromium.launchPersistentContext(userDataDir, {
     executablePath: exe,
     headless: opts.headless ?? false,
     viewport: opts.viewport ?? { width: 1440, height: 900 },
-    args: opts.args ?? ['--start-maximized', '--disable-blink-features=AutomationControlled'],
+    args,
   })
   const page = ctx.pages && ctx.pages.length ? ctx.pages[0] : await ctx.newPage()
+  // 垫片要在**任何导航之前**挂上：之后每个新文档都会先跑它（见 PAGE_SHIM_JS）。
+  await ctx.addInitScript({ content: PAGE_SHIM_JS })
+  await page.addInitScript({ content: PAGE_SHIM_JS })
   try {
     return await fn(ctx, page)
   } finally {
@@ -675,6 +724,19 @@ export interface ManifestArgs {
   draft: boolean
   /** bilibili 叶子加 --subs-dir（参数表公共部分 + 平台差异项，约定见 manifestArgs）。 */
   subsDir: string | null
+  /**
+   * bilibili 叶子加 --publish-at：稿件侧的**定时发布时刻**（'YYYY-MM-DD HH:mm'）。
+   *
+   * 与 --draft 的分工：--draft 决定**终点**（存草稿，不投稿），
+   * --publish-at 决定**稿件里预置的时刻**（人工点投稿后按此刻定时发出）。
+   * 两者一起用 = 「每天 9 点定时发布，但由人点投稿」的那条产线。
+   */
+  publishAt: string | null
+  /**
+   * 固定用 user-data-dir 里的哪一个 profile 目录（如 'Profile 1'）。
+   * 不给 = 用 Chromium 的 last_used（见 LaunchOpts.profileName 的坑注）。
+   */
+  profileName: string | null
 }
 
 export type ParsedManifestArgs = ManifestArgs | { rc: number }
@@ -690,13 +752,16 @@ export type ParsedManifestArgs = ManifestArgs | { rc: number }
 export function manifestArgs(
   argv: readonly string[],
   prog: string,
-  extra: { subsDir?: boolean } = {},
+  extra: { subsDir?: boolean; publishAt?: boolean } = {},
 ): ParsedManifestArgs {
-  const valueFlags = ['--log-dir', '--only', '--frm', '--dry-run']
+  const valueFlags = ['--log-dir', '--only', '--frm', '--dry-run', '--profile-name']
   if (extra.subsDir) valueFlags.push('--subs-dir')
+  if (extra.publishAt) valueFlags.push('--publish-at')
   const usage =
     `usage: ${prog} [-h] --log-dir LOG_DIR [--only ONLY] [--frm FRM]`
-    + `${extra.subsDir ? ' [--subs-dir SUBS_DIR]' : ''} [--dry-run N] [--headless] [--draft] manifest`
+    + `${extra.subsDir ? ' [--subs-dir SUBS_DIR]' : ''}`
+    + `${extra.publishAt ? " [--publish-at 'YYYY-MM-DD HH:mm']" : ''}`
+    + " [--profile-name NAME] [--dry-run N] [--headless] [--draft] manifest"
   const fail = (why: string): { rc: 2 } => {
     process.stderr.write(`${usage}\n${prog}: error: ${why}\n`)
     return { rc: 2 }
@@ -762,6 +827,8 @@ export function manifestArgs(
     headless,
     draft,
     subsDir: m.get('--subs-dir') ?? null,
+    publishAt: m.get('--publish-at') ?? null,
+    profileName: m.get('--profile-name') ?? null,
   }
 }
 
