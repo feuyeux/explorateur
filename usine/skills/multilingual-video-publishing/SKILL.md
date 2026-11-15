@@ -9,7 +9,9 @@ description: >
   Bilibili collection or upload form controls seem unreachable, when a publish
   batch reports success but the work must be verified in the manage list, when
   a batch must stop at draft state (saved but not published) and the draft
-  landing has to be verified, or
+  landing has to be verified, when a Bilibili tag fails to attach because the
+  platform pre-filled tags ate the 10-tag quota, when the Bilibili draft box
+  hits its 30-item cap mid-batch, or
   when routing a publish run through feuille's manifest and CLI layer. Also
   use when a publish script must not guess asset filenames or platform
   limits. Not for writing the publishing copy (that is publish-copy) and not
@@ -117,7 +119,30 @@ plans 契约（video / cover 是函数不是路径），只能从项目脚本组
 
 **别拿「按钮清单」判断平台上有没有草稿键**：B站真键是 `span`，按 `button,[role=button],.semi-button,.bcc-button,a` 查清单压根查不到它，看着像「这平台没有草稿键」。要判就查 DOM——该节点 `getComputedStyle(el).cursor === 'pointer'`（浏览器算出来的光标形态，与框架无关），别靠 class 名猜「可点」。
 
+### ⚠️ 草稿箱上限 30 个 = 批量备稿的**停机线**
+
+B站草稿箱**最多 30 个稿件**（页面 tips 自己写着）。这条在批量备稿时是硬停机：第 31 条点「存草稿」不落库，重试点击被 `div.max-draft-count` 的对话框拦住，弹窗原文「保存失败 · 草稿箱已达到上限（30个），暂不支持继续添加」。
+
+- **开跑前先算**：`待备集数` vs `30 − 现有草稿数`。不够就先报差额，别开跑。
+- **跑中撞上就停**：不自动重试、**不删草稿腾位**、更不点投稿——删草稿等于毁掉已备内容，点投稿是不可撤回的对外动作，两者都只能用户决定。
+- 失败那一条**不标记 done**，配额放开后从同一条续跑。
+
+细节（现场四步、误导性日志、批量驱动的时间预算与单实例约束）见 [references/platform-capabilities.md §15](references/platform-capabilities.md)。
+
 实测细节（探针怎么摸、22 个探测的具体组合、B站草稿箱 DOM 结构与删除流程）见 [references/platform-capabilities.md §12](references/platform-capabilities.md)。
+
+### ⚠️ 投稿**不消费草稿**：发完草稿箱不会自己空
+
+B站实测（2026-11-15，两次独立确认）：投出去以后那条草稿**还躺在草稿箱里**，按 `draftId` 打开标题/简介/标签/封面全在。所以「发完 = 清空」在结构上永远不成立——草稿箱上限 30，下一批备稿照样撞线。
+
+由此两条闸门必须写进脚本，否则批量发布会静默出错：
+
+1. **跳过闸门（防重复投递）**：发布前先读**稿件管理**的标题，标题已在里面就跳过。别拿「草稿还在不在」当判据——它恒为真。判据要用**整页正文 + 标题 includes**，不要切行容器：那个列表没有稳定容器结构，切行会静默读到 0 条、闸门形同不存在，而且不报错。
+2. **清空只能显式删，且必须「先发后删」**：只删「标题已出现在稿件管理里」的草稿，没投过的一律留着（删了就得重走一遍备稿）。删草稿不可恢复，只在用户明确授权后做。
+
+另：同一天多条可以设**同一时刻**（实测 11-16 09:00 两条稳定保留），不必自行错开分钟。
+
+发布驱动与清空驱动的分工、稿件管理的读法与实测证据，见 [references/platform-capabilities.md §16](references/platform-capabilities.md)。
 
 ## 定时发布预置：稿件里存「几点发」，但终点仍是存草稿
 
@@ -141,9 +166,13 @@ B站投稿页的「定时发布」是**自绘开关**（`div.time-switch-wrp > d
 
 真因是风控，不是标题框坏。⇒ 发布器在填标题之前先判风控，命中就**等**（默认 10 分钟）并确认遮罩真的没了；**绝不代填验证码**（纪律 21）。无人值守场景撞上风控只能 fail-closed：状态**不**标记完成，下一轮仍接着同一集。
 
-## 标签：填进标签框，不是塞进简介
+## 标签：填进标签框，不是塞进简介；但**先算配额**
 
-B站有独立的**标签**字段（`input[placeholder="按回车键Enter创建标签"]`，逐个填 + 回车才成片），它决定**检索与分发**；简介里的 `#话题` 是另一套东西。把标签打进简介 ⇒ 检索侧一个标签都没有。平台会预填几个推荐标签，所以必填项本身不会空。
+B站有独立的**标签**字段（`input[placeholder="按回车键Enter创建标签"]`，逐个填 + 回车才成片），它决定**检索与分发**；简介里的 `#话题` 是另一套东西。把标签打进简介 ⇒ 检索侧一个标签都没有。
+
+⚠️ **标签有配额：上限 10 个，而平台预填的推荐标签会占名额。** 平台会预填 3 个，内容还会漂（同一账号同一天见过「化学/初中/学习」和「影视剪辑/原创/剪辑」两种）——清单 8 个 + 预填 3 个 = 11，超出的那个**静默不落**，回读只看到「缺一个」，看着像标签内容或选择器问题。
+
+⇒ 填之前**先清掉不在清单里的预填胶囊**（预填是平台猜的，不是作者写的），清理**每轮重查 DOM**（按下标遍历会漏删），删不掉就照实报 missing 并把配额计数器打进日志。判据是 `已有 + 要加的 ≤ 10`，不是「我加了 N 个」。DOM 与实测见 [references/platform-capabilities.md §14](references/platform-capabilities.md)。
 
 ## 素材命名：让存在性校验替你抓错
 
@@ -201,6 +230,8 @@ B站有独立的**标签**字段（`input[placeholder="按回车键Enter创建�
 `result JSON`**，被中断时从它读续跑点。重跑要按 `no` 过滤，
 不要从第 1 条重来——已发出的会变成重复作品。
 
+批量时发布脚本往往**一次只备一集**，驱动要自己写：外层**串行**循环（同一 user-data-dir 只许一个 Chrome，绝不并发）、每块给**时间预算**（单条命令有 3600s 上限，取 3000s 到点收口，下一块从状态文件续跑）、**`rc != 0` 立即 break**。不吞错、不跳过、不自动重试——三类阻断（风控、标签配额、草稿箱配额）中有两类是「没有安全默认值」的，只能停下来问人。
+
 ## 交付前自检
 
 1. 清单 `problems` 为空（素材齐、标题不超限）
@@ -210,6 +241,7 @@ B站有独立的**标签**字段（`input[placeholder="按回车键Enter创建�
 5. 说不清的部分**已经如实说明**，没有拿「大概可以」糊过去
 6. 本批用到的平台能力条目**没过保质期**：`references/platform-capabilities.md` 每条结论都带验证方式与日期——跨项目复用、或平台改版风声后，先用探针重摸再承诺（选择器纪律第 4 条）
 7. 存草稿批次的**核验边界写清楚了**：平台给了列表（B站）就回列表核到每一条；平台没给（抖音 PC 端）就**如实报「逐条上传 + 点存草稿键成功，但平台不提供列表，无法证明并存」**，不拿脚本自报或横幅当长期凭据
+8. **两条配额都算过**：B站标签 `已有 + 要加 ≤ 10`（预填占名额，先清不在清单里的）；草稿箱 `待备集数 ≤ 30 − 现有草稿数`。任一条不够就**在开跑前报差额**，不跑到撞墙才说
 
 ## 手册与代码
 

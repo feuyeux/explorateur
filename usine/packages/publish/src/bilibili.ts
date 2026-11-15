@@ -1280,11 +1280,76 @@ export async function waitFormReady(
 }
 
 /**
+ * 删掉标签区里**不在清单内**的平台预填胶囊，返回被删掉的文字。
+ *
+ * 为什么要删：B 站标签区的结构（2026-11-15 用 `tools/probe-bili-tags.mjs` 逐字 dump）
+ * 是
+ * ```
+ * div#tag-container.tag-container
+ *   div.tag-input-wrp > div.input-container
+ *     div.tag-pre-wrp > div.label-item-v2-container
+ *                          p.label-item-v2-content   ← 标签文字
+ *                          svg.close                 ← 删除「×」
+ *     div.input-instance > input[placeholder='按回车键Enter创建标签']
+ *     p.tag-last-wrp                                ← 「还可以添加7个标签」
+ * ```
+ * 平台会预填 3 个推荐标签（当天实测「影视剪辑 / 原创 / 剪辑」；同一账号几小时前
+ * 是「化学 / 初中 / 学习」——预填内容自己会漂），而**总上限是 10 个**：
+ * 我们的 8 个 + 预填 3 个 = 11 ⇒ 最后一个被平台拒绝，弹「允许添加的标签已经达到
+ * 上限了」，回读判 missing ⇒ 整条中止（2026-11-15 第 5 集「铷」，连撞两次）。
+ *
+ * 口径：预填的是平台猜的，不是作者写的。按 `data/publish-copy/*.json` 的标签集发，
+ * 不让平台猜测挤掉它。删不掉就留着——配额不够时后面的 missing 会照实报出来。
+ */
+async function pruneForeignTags(page: base.AnyPage, wanted: ReadonlySet<string>): Promise<string[]> {
+  const removed: string[] = []
+  const pills = page.locator('#tag-container .tag-pre-wrp .label-item-v2-container')
+  // ⚠️ 必须「每轮重查」而不是先 count 再按下标遍历：点掉一个胶囊后 DOM 会重排，
+  // 用旧下标继续点会漏掉紧邻的那个（2026-11-15 实测：预填 3 个只清掉 2 个，
+  // 「原创」被跳过）。总上限 10，所以轮数上限给 12 足够。
+  for (let round = 0; round < 12; round++) {
+    let count = 0
+    try {
+      count = await pills.count()
+    } catch {
+      break
+    }
+    let target = -1
+    let targetText = ''
+    for (let i = 0; i < count; i++) {
+      let text = ''
+      try {
+        text = ((await pills.nth(i).locator('.label-item-v2-content').innerText()) ?? '').trim()
+      } catch {
+        continue
+      }
+      if (text && !wanted.has(text)) {
+        target = i
+        targetText = text
+        break
+      }
+    }
+    if (target < 0) break
+    try {
+      await pills.nth(target).locator('svg.close').first().click({ timeout: 3000 })
+      await clock.sleep(0.3)
+      removed.push(targetText)
+    } catch {
+      // 删不掉就停手：配额不够时后面的 missing 会照实报出来，不静默
+      break
+    }
+  }
+  return removed
+}
+
+/**
  * 填 B 站的**标签**（不是简介）。
  *
  * 实测（2026-11-15）：标签框是 `input[placeholder="按回车键Enter创建标签"]`，
  * 逐个填 + 回车才会变成标签片（`xx ×` 的胶囊）。平台会**预填**几个推荐标签
- * （实测「化学 / 初中 / 学习」），所以必填项本身不会空。
+ * （实测「化学 / 初中 / 学习」，同日又实测「影视剪辑 / 原创 / 剪辑」），所以必填项
+ * 本身不会空——但**预填的占配额**（总上限 10 个），所以填之前先清掉不在清单里的
+ * 预填标签，见 `pruneForeignTags`。
  *
  * ⚠️ 为什么不再把标签塞进简介（老行为）：B 站的「标签」与「话题」是两套东西——
  * 标签决定**检索与分发**，话题只是简介里的一个链接。老做法把 '#标签' 打进简介，
@@ -1306,6 +1371,13 @@ export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): 
     console.log('   ⚠️ 找不到标签输入框（页面形态可能变了）——跳过标签')
     return true
   }
+
+  const wanted = new Set(tags.map((t) => String(t).trim().replace(/^#/, '')).filter((t) => t !== ''))
+  const removed = await pruneForeignTags(page, wanted)
+  if (removed.length) {
+    console.log(`   · 已清掉平台预填标签 ${base.pyReprList(removed)}（占标签配额）`)
+  }
+
   for (const t of tags) {
     const tag = String(t).trim().replace(/^#/, '')
     if (!tag) continue
@@ -1330,7 +1402,15 @@ export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): 
     .map((t) => String(t).trim().replace(/^#/, ''))
     .filter((t) => t !== '' && !areaText.includes(t))
   if (missing.length) {
-    console.log(`   ⚠️ 标签没出现在标签区：${base.pyReprList(missing.slice(0, 6))}`)
+    // 配额是这条判据最可能的成因（上限 10 个，预填会占名额）——把计数器一起报出来，
+    // 免得下次又只能靠截图猜。
+    let quota = ''
+    try {
+      quota = ((await page.locator('#tag-container p.tag-last-wrp').first().innerText()) ?? '').trim()
+    } catch {
+      quota = ''
+    }
+    console.log(`   ⚠️ 标签没出现在标签区：${base.pyReprList(missing.slice(0, 6))}${quota ? `（${quota}）` : ''}`)
     return false
   }
   console.log(`   ✓ 标签已填 ${tags.length} 个`)
@@ -1438,6 +1518,306 @@ export async function submitAndConfirm(
     console.log(`   ⚠️ 已提交但未确认，URL=${await base.pageUrl(page)}`)
   }
   return res
+}
+
+// ── 已存草稿 → 投稿 ─────────────────────────────────────────────────
+
+/**
+ * 草稿箱列表 URL。
+ *
+ * 实测（2026-11-15，`examples/periodic-12lang/tools/probe-bili-drafts*.mjs` 逐字 dump）：
+ * - 每页 **10 条**，行容器 `section.bcc-cmad-card`，标题 `.bcc-cmadc-title-time p.title`，
+ *   保存时间 `p.time`，分页 `li.bcc-pagination-item` / `.bcc-pagination-next`；
+ * - 列表按**保存时间倒序**（最近存的在最前）⇒「第几集」不能按位置读，必须按标题认；
+ * - 卡片右侧还有一个 `button.bcc-cmadc-btn`（**删除**）——本模块永不点它。
+ */
+export const DRAFT_LIST_URL = 'https://member.bilibili.com/platform/upload-manager/article?group=draft'
+
+export interface BiliDraftRef {
+  draftId: string
+  title: string
+  savedAt: string
+}
+
+/**
+ * 草稿编辑页 URL。
+ *
+ * 卡片上封面框 / 标题 / 「编辑」三处 `<a>` 的 href 都是
+ * `/platform/upload/video/frame?type=draft&draftId=<id>` ⇒ **免点击直达**。
+ * 别去点卡片：卡片常在首屏下方，不先滚入视口就 mouse.click 等于点在视口外
+ * （2026-11-15 第一版探针就栽在这里，URL 一点没变而看不出原因）。
+ */
+export function draftEditUrl(draftId: string): string {
+  return `${UPLOAD_URL}?type=draft&draftId=${encodeURIComponent(draftId)}`
+}
+
+/** 读当前页的草稿卡片（每页 10 条）。 */
+export async function readDraftCards(page: base.AnyPage): Promise<BiliDraftRef[]> {
+  const rows = await page.evaluate(() => {
+    const out: Array<Record<string, string>> = []
+    document.querySelectorAll('section.bcc-cmad-card').forEach((card: any) => {
+      const titleEl = card.querySelector('.bcc-cmadc-title-time p.title')
+      const timeEl = card.querySelector('.bcc-cmadc-title-time p.time')
+      const link = card.querySelector('.bcc-cmadc-title-time p.title a')
+      const href = link ? String(link.getAttribute('href') ?? '') : ''
+      const m = /draftId=(\d+)/.exec(href)
+      out.push({
+        draftId: m ? (m[1] ?? '') : '',
+        title: titleEl ? String(titleEl.innerText ?? '').trim() : '',
+        savedAt: timeEl ? String(timeEl.innerText ?? '').trim() : '',
+      })
+    })
+    return out
+  })
+  return (rows as Array<Record<string, string>>)
+    .filter((r) => (r['draftId'] ?? '') !== '' && (r['title'] ?? '') !== '')
+    .map((r) => ({
+      draftId: String(r['draftId']),
+      title: String(r['title']),
+      savedAt: String(r['savedAt'] ?? ''),
+    }))
+}
+
+/** 翻完草稿箱所有页，返回全部草稿（按 draftId 去重，保持列表顺序）。 */
+export async function listDrafts(
+  page: base.AnyPage,
+  opts: { maxPages?: number } = {},
+): Promise<BiliDraftRef[]> {
+  const maxPages = opts.maxPages ?? 12
+  await page.goto(DRAFT_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await clock.sleep(7)
+  const total = await page.evaluate(() => {
+    const el = document.querySelector('.bcc-pagination-total')
+    return el ? String(el.innerText ?? '').trim() : ''
+  })
+  console.log(`   草稿箱分页：${total === '' ? '（读不到分页总数，按空页停）' : total}`)
+  const seen = new Map<string, BiliDraftRef>()
+  for (let p = 1; p <= maxPages; p++) {
+    const rows = await readDraftCards(page)
+    let added = 0
+    for (const r of rows) {
+      if (seen.has(r.draftId)) continue
+      seen.set(r.draftId, r)
+      added++
+    }
+    console.log(`   第 ${p} 页：${rows.length} 条（新增 ${added}）`)
+    if (rows.length === 0) break
+    const moved = await page.evaluate((nextNo: number) => {
+      const items: any[] = Array.from(document.querySelectorAll('.bcc-pagination-item') as any)
+      const li = items.find((x) => String(x.innerText ?? '').trim() === String(nextNo))
+      if (!li) return false
+      const a = li.querySelector('a')
+      if (a) {
+        a.click()
+        return true
+      }
+      li.click()
+      return true
+    }, p + 1)
+    if (!moved) break
+    await clock.sleep(3.5)
+  }
+  return [...seen.values()]
+}
+
+export interface BiliPublishDraftOpts {
+  logDir: string
+  /** 'YYYY-MM-DD HH:mm'；不给则沿用草稿里已有的定时设置。 */
+  publishAt?: string | null
+  riskWaitMin?: number
+  /** 截图命名用的任务号（只影响文件名，不影响行为）。 */
+  no?: number
+}
+
+/**
+ * 把**已存在的草稿**改成定时发布并投稿。
+ *
+ * 与 `publishOne` 的分工：这里不传视频、不填标题正文标签、不设封面——草稿里
+ * 早就有了。只做三件事：
+ *   ① **核对身份**（按 draftId 打开的到底是哪条，只能靠标题回读）；
+ *   ② 改定时时刻（`setBiliPublishAt`，回读得到才算设上）；
+ *   ③ 点投稿 + 二次确认 + 成功判定（复用 `submitAndConfirm`）。
+ *
+ * 为什么①是硬闸门：按 draftId 打开成功不代表 id 就是目标那条（列表是另一台机器
+ * 生成的排序），而**投稿不可撤回**——认错稿子就是发错视频。宁可不发。
+ */
+export async function publishDraft(
+  page: base.AnyPage,
+  ref: BiliDraftRef,
+  opts: BiliPublishDraftOpts,
+): Promise<base.PubResult> {
+  const logDir = opts.logDir
+  const no = opts.no ?? 0
+  const tag = base.pad2(no)
+  const res: base.PubResult = { no, lang: '', ok: false, stage: '' }
+  console.log(`\n🚀 草稿 ${ref.draftId}（保存于 ${ref.savedAt}）`)
+  console.log(`   ${ref.title}`)
+
+  await page.goto(draftEditUrl(ref.draftId), { waitUntil: 'domcontentloaded', timeout: 90_000 })
+  await clock.sleep(6)
+
+  const titleBox = await waitFormReady(page)
+  if (titleBox === null) {
+    return bail(res, page, logDir, `${tag}-draft`, '草稿未打开（已中止投稿）', '标题框未出现 → 中止，不投')
+  }
+  const cur = String((await titleBox.inputValue().catch(() => '')) ?? '').trim()
+  const want = ref.title.trim()
+  if (cur !== want) {
+    console.log(`   ❌ 标题不符：页面「${cur}」≠ 期望「${want}」`)
+    return bail(res, page, logDir, `${tag}-draft`, '草稿身份不符（已中止投稿）', '打开的不是要找的草稿 → 中止，不投')
+  }
+  console.log('   ✓ 草稿身份核对通过（标题逐字一致）')
+
+  const n = await dismissBiliDialogs(page)
+  if (n) console.log(`   ✓ 已清掉 ${n} 个浮层`)
+
+  if (await base.riskHit(page, BILI_RISK_WORDS)) {
+    const cleared = await base.waitRiskClear(page, {
+      no,
+      logDir,
+      limitMin: opts.riskWaitMin ?? 10,
+      kws: BILI_RISK_WORDS,
+      maskSel: '.base-verify-bg, .base-verify',
+      hint: '完成短信验证（验证码已发到该账号注册的手机号）',
+    })
+    if (!cleared) {
+      return bail(res, page, logDir, `${tag}-risk`, '风控未解除（已中止投稿）', '风控没过（短信验证未完成）→ 中止，不投')
+    }
+    console.log('   ✓ 风控已解除')
+  }
+
+  if (opts.publishAt) {
+    const schedOk = await setBiliPublishAt(page, opts.publishAt, { logDir, tag })
+    if (!schedOk) {
+      return bail(res, page, logDir, `${tag}-schedule`, '定时发布未生效（已中止投稿）', '定时时刻没设上 → 中止，不投')
+    }
+  }
+
+  let ready = false
+  for (let i = 0; i < 90; i++) {
+    const [el, txt] = await submitBtn(page)
+    if (el !== null && (await el.getAttribute('disabled')) === null) {
+      ready = true
+      console.log(`   ✓ 提交键「${txt}」已可用`)
+      break
+    }
+    await clock.sleep(1)
+  }
+  if (!ready) {
+    res['stage'] = '提交按钮未就绪'
+    console.log('   ❌ 提交按钮未就绪')
+    await dumpSubmitCandidates(page)
+    return res
+  }
+
+  return submitAndConfirm(page, res, { no, lang: '', title: ref.title } as base.Task, { logDir })
+}
+
+/**
+ * 删掉草稿箱里的**一条**草稿。
+ *
+ * 这是破坏性动作（不可恢复），所以每条闸门都朝「宁可不删」一侧倒：
+ *   ① 只按**标题逐字**匹配定位卡片——绝不按位置、序号或下标（列表按保存时间倒序，
+ *      位置会随每次保存而变）；
+ *   ② 匹配到 **0 条**或**不止 1 条**都拒绝执行（认不准就不删）；
+ *   ③ 确认弹窗里只认 `button.bili-btn.ok`（实测文案「确定」；「取消」是 `.bili-btn.cancel`）；
+ *   ④ 删完**回读**：同一标题还能在列表里找到 = 失败，如实返回 false。
+ *
+ * 实测（2026-11-15，`tools/probe-bili-delete.mjs`）：点卡片右下角那个
+ * `button.bcc-cmadc-btn`（内含垃圾桶图标）会弹出确认框，正文写明要删的标题。
+ */
+export async function deleteDraft(
+  page: base.AnyPage,
+  ref: BiliDraftRef,
+  opts: { logDir: string },
+): Promise<boolean> {
+  const want = ref.title.trim()
+  const findCard = async (): Promise<{ hits: number; x: number; y: number }> => {
+    return await page.evaluate((title: string) => {
+      const cards: any[] = Array.from(document.querySelectorAll('section.bcc-cmad-card') as any)
+      const hits = cards.filter((c) => {
+        const t = c.querySelector('.bcc-cmadc-title-time p.title')
+        return t !== null && String(t.innerText ?? '').trim() === title
+      })
+      if (hits.length !== 1) return { hits: hits.length, x: 0, y: 0 }
+      const card = hits[0]
+      const btn = card.querySelector('button.bcc-cmadc-btn')
+      if (btn === null) return { hits: 1, x: 0, y: 0 }
+      card.scrollIntoView({ block: 'center' })
+      const r = btn.getBoundingClientRect()
+      return { hits: 1, x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }
+    }, want)
+  }
+
+  await page.goto(DRAFT_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  // 列表是**异步渲染**的：固定 sleep 会在「页面还在加载/重排」时读到 0 条卡片，于是这条
+  // 草稿被判成「没找到」而漏删（2026-11-15 实测：30 条清空漏掉 1 条，其余 29 条全中，
+  // 而那条其实一直在箱里）。判据要「有内容才往下走」；真空箱靠超时兜底，最终仍按
+  // 「命中 0 条」拒绝删除——朝「宁可不删」一侧倒的方向没变。
+  const waitCards = async (): Promise<number> => {
+    for (let i = 0; i < 24; i++) {
+      const n = await page.evaluate(
+        () => document.querySelectorAll('section.bcc-cmad-card').length,
+      )
+      if (n > 0) return n
+      await clock.sleep(0.5)
+    }
+    return 0
+  }
+  await clock.sleep(3)
+  await waitCards()
+  for (let p = 1; p <= 12; p++) {
+    const hit = await findCard()
+    if (hit.hits > 1) {
+      console.log(`   ⚠️ 标题命中 ${hit.hits} 条草稿（认不准），不删：${want}`)
+      return false
+    }
+    if (hit.hits === 1) {
+      if (hit.x === 0 && hit.y === 0) {
+        console.log('   ⚠️ 卡片上找不到删除键，不删')
+        return false
+      }
+      await clock.sleep(0.6)
+      await page.mouse.click(hit.x, hit.y)
+      await clock.sleep(2)
+      const okBtn = page.locator('button.bili-btn.ok')
+      if (!(await base.visibleWithin(okBtn.first(), 4000))) {
+        console.log('   ⚠️ 删除确认弹窗没出现，不删')
+        try {
+          await page.screenshot({ path: join(opts.logDir, 'del-no-dialog.png') })
+        } catch {
+          // 截图只是留证
+        }
+        return false
+      }
+      await okBtn.first().click()
+      await clock.sleep(2.5)
+      const after = await findCard()
+      if (after.hits === 0) {
+        console.log(`   🗑  已删草稿：${want}`)
+        return true
+      }
+      console.log(`   ⚠️ 点了确定但草稿还在（命中 ${after.hits}）`)
+      return false
+    }
+    const moved = await page.evaluate((nextNo: number) => {
+      const items: any[] = Array.from(document.querySelectorAll('.bcc-pagination-item') as any)
+      const li = items.find((x) => String(x.innerText ?? '').trim() === String(nextNo))
+      if (!li) return false
+      const a = li.querySelector('a')
+      if (a) {
+        a.click()
+        return true
+      }
+      li.click()
+      return true
+    }, p + 1)
+    if (!moved) break
+    await clock.sleep(3)
+    await waitCards()
+  }
+  console.log(`   ⚠️ 草稿箱里没找到这条草稿（可能已被删）：${want}`)
+  return false
 }
 
 export async function publishOne(
