@@ -80,6 +80,48 @@ export const DRAFT_SINGLE_SLOT: Record<string, boolean> = {
 }
 
 /**
+ * 各平台草稿箱的**条数硬上限**（条）。
+ *
+ * B 站 = 30：草稿箱页面自己的原文就是「草稿箱最多保存30个稿件」
+ * （2026-11-17 只读探针实测，留证在 examples/periodic-12lang/log/probe-bili/
+ * 51-draftlimit-text.txt；页脚同时写「共3页 / 30个」）。
+ *
+ * ⚠️ 这个上限**不报警**，它是「挤掉最旧的」而非「拒绝新的」：
+ * 2026-11-16 连续存了 60 条，箱里只剩最近 30 条，最早那 30 条无声消失——
+ * 于是「脚本记了 60 条 ok」与「箱里只有 30 条」能同时为真。
+ * ⇒ 任何按「已存条数」计进度的地方都必须用**箱里的真实条数**核对，
+ * 不能用「本地产出过几条」代替（见 bilibili.countDrafts）。
+ *
+ * 抖音没有草稿列表（见 DRAFT_SINGLE_SLOT），条数上限没有观测意义 ⇒ 不登记。
+ */
+export const DRAFT_CAPACITY: Record<string, number> = { bilibili: 30 }
+
+/**
+ * 「草稿箱满」弹窗的根节点选择器（B 站实测：`div.max-draft-count` 里套一层
+ * `div.dialog.bcc-dialog__wrap-mask`）。
+ *
+ * 为什么要单认它：这个模态框会**盖住整个表单**，于是后续任何点击都被
+ * 报成 `subtree intercepts pointer events`——那是「被挡住」的通用错误，
+ * 分不清是限流、是必填没录，还是草稿箱满。认出来才能给出可执行的处置。
+ */
+const DRAFT_FULL_SELECTORS: Record<string, readonly string[]> = {
+  bilibili: ['.max-draft-count'],
+}
+
+/** 草稿箱是否已经满了（满 = 平台弹「最多保存N个稿件」的模态框）。 */
+export async function draftBoxFull(page: base.AnyPage, platform: string): Promise<boolean> {
+  for (const sel of DRAFT_FULL_SELECTORS[platform] ?? []) {
+    try {
+      const el = page.locator(sel).first()
+      if (await base.visibleWithin(el, 500)) return true
+    } catch {
+      continue
+    }
+  }
+  return false
+}
+
+/**
  * 存草稿后**应该到达**的 URL 片段（判「页面已经跳到草稿列表」用）。
  *
  * ⚠️ 方向：这里是**命中即算跳走**，不是「不再含投稿页片段」。
@@ -402,6 +444,19 @@ export async function saveDraft(
   }
 
   const landed = DRAFT_LANDED_URLS[opts.platform] ?? []
+
+  // 草稿箱满：平台弹出「最多保存N个稿件」的模态框，**这一条并没有入库**。
+  // 必须当场判失败、并且**不许重试**——重试的第二次点击会被模态框挡住，
+  // 报出来的却是「Timeout ... subtree intercepts pointer events」这种通用错误，
+  // 把「箱子满了」伪装成「页面结构变了」（2026-11-17 实踩）。
+  if (await draftBoxFull(page, opts.platform)) {
+    const cap = DRAFT_CAPACITY[opts.platform]
+    res['ok'] = false
+    res['stage'] = `草稿箱已满（上限 ${cap ?? '?'} 条，本条未入库）`
+    console.log(`   ❌ 草稿箱已满（上限 ${cap ?? '?'} 条）→ 本条未入库`)
+    console.log('      处置：先投稿或删除一条草稿腾出位置；这一步不腾就永远存不进去。')
+    return res
+  }
   // 点一次没动静就再点一次：平台在某些前置条件没满足时会**静默**忽略点击
   // （键还在、点击也「成功」，但页面不动）。重试比直接报失败更接近真相，
   // 而且草稿存重复一次是无害的（同一个槽位/同一条稿）。

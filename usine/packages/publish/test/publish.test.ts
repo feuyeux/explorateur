@@ -824,3 +824,36 @@ describe('导入冒烟：两个不直接驱动的子模块 import 成功即断�
     expect(typeof veriflive.run).toBe('function')
   })
 })
+
+// 草稿箱上限：满了必须**当场判失败且不重试**，不能伪装成「未确认落库」。
+// 2026-11-17 实踩：连存 60 条后箱里只剩 30 条（平台静默挤掉最旧的），
+// 第 61 条被 max-draft-count 模态框挡住，重试报的是「pointer events 被拦截」
+// ——一个跟草稿箱毫无字面关联的错误。
+describe('草稿箱条数上限（B站）', () => {
+  /** 造一个「弹窗在 / 不在」的假 page：visibleWithin 只用到 locator().first().waitFor()。 */
+  const fakePage = (visible: boolean): any => ({
+    locator: () => ({
+      first: () => ({
+        waitFor: async () => {
+          if (!visible) throw new Error('Timeout: element is not visible')
+        },
+      }),
+    }),
+  })
+
+  it('上限登记为 30（平台原文：草稿箱最多保存30个稿件）', () => {
+    expect(draft.DRAFT_CAPACITY['bilibili']).toBe(30)
+  })
+
+  it('满箱模态框可见 ⇒ 判满；不可见 ⇒ 判不满', async () => {
+    expect(await draft.draftBoxFull(fakePage(true), 'bilibili')).toBe(true)
+    expect(await draft.draftBoxFull(fakePage(false), 'bilibili')).toBe(false)
+  })
+
+  it('没登记上限的平台不猜（抖音没有草稿列表）', async () => {
+    expect(draft.DRAFT_CAPACITY['douyin']).toBeUndefined()
+    // 即便假 page 说「可见」，抖音也不该命中 B 站的选择器
+    expect(await draft.draftBoxFull(fakePage(true), 'douyin')).toBe(false)
+  })
+})
+

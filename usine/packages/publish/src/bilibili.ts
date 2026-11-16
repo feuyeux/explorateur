@@ -31,6 +31,17 @@ declare function getComputedStyle(el: any): any
 export const UPLOAD_URL = 'https://member.bilibili.com/platform/upload/video/frame'
 export const BILI_WALL: readonly string[] = ['扫码登录', '密码登录', '手机号登录', '登录后']
 
+/**
+ * 逃生阀：允许在草稿箱已满时**仍然上传并尝试存**（默认关闭）。
+ *
+ * 为什么需要它：满箱时平台到底「拒绝新增」还是「挤掉最旧的」，实测结论自相矛盾——
+ * 2026-11-16 在同样 30 条的上限下连存 30 条全部成功（旧的最先消失），
+ * 2026-11-17 第 61 条却弹出「最多保存30个稿件」。两种结论对应完全不同的做法
+ * （前者可以一次灌满，后者必须先腾位置），而**探明它要花一次真实上传**。
+ * ⇒ 留一个显式开关做那一次实验；日常不许开，开了就要知道可能白传一条。
+ */
+const IGNORE_DRAFT_CAP = process.env['BILI_IGNORE_DRAFT_CAP'] === '1'
+
 // 必填项的兼容默认值；具体批次应由调用方用 zone / statement 显式覆盖。
 export const BILI_ZONE = '知识'
 // 必填「创作声明」的候选（首个为默认）。
@@ -1540,6 +1551,34 @@ export interface BiliDraftRef {
 }
 
 /**
+ * 读草稿箱里**真实**的条数（不是本地记过几条）。
+ *
+ * 为什么必须问平台：草稿箱有条数上限（`draft.DRAFT_CAPACITY`），到顶之后
+ * 平台**静默挤掉最旧的**。于是「本地记了 60 条成功」与「箱里只剩 30 条」
+ * 可以同时为真——2026-11-16 就是这么丢了 30 集，而脚本一直以为它们还在。
+ *
+ * 数法按页面自报：页脚 `.bcc-pagination-total` 的文本是「共3页 / 30个，」。
+ * 认不出就退回去数当前页卡片，再不行返回 null（**不许**用 0 冒充「空箱」——
+ * 那会让调用方以为可以随便存）。
+ */
+export async function countDrafts(page: base.AnyPage): Promise<number | null> {
+  try {
+    await page.goto(DRAFT_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    await clock.sleep(8)
+    const n = await page.evaluate(() => {
+      const el = document.querySelector('.bcc-pagination-total')
+      const txt = el ? ((el as any).innerText || '') : ''
+      const m = String(txt).match(/(\d+)\s*个/)
+      if (m) return Number(m[1])
+      return document.querySelectorAll('section.bcc-cmad-card').length
+    })
+    return typeof n === 'number' && Number.isFinite(n) ? n : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * 草稿编辑页 URL。
  *
  * 卡片上封面框 / 标题 / 「编辑」三处 `<a>` 的 href 都是
@@ -2058,6 +2097,9 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
   const subsDir = opts.subsDir ?? null
 
   let loginOk = true
+  // 草稿箱满而整批未开跑：与「登录超时」同级的前置失败，退出码必须非 0，
+  // 否则上游会把「一条都没存」读成「成功跑完 0 条」。
+  let draftBoxBlocked = false
   let results: base.PubResult[] = []
   await base.launch(
     profileDir,
@@ -2086,6 +2128,28 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
       }
       console.log('✅ B站创作中心就绪\n')
 
+      // 存草稿模式的**前置闸**：草稿箱有条数上限，满了再传视频是纯浪费——
+      // 上传要几十秒，而落库一定失败（平台弹「最多保存N个稿件」，本条不入库）。
+      // 先在草稿箱页读平台自报的条数，到顶就整批不跑。
+      // 读不到条数（null）不作为阻塞理由：那是判据自身的问题，不该冒充「箱子空」。
+      if (opts.draft) {
+        const cap = draft.DRAFT_CAPACITY['bilibili'] ?? 0
+        const occupied = await countDrafts(page)
+        if (occupied !== null && cap > 0) {
+          console.log(`· 草稿箱占用 ${occupied}/${cap}`)
+          if (occupied >= cap && IGNORE_DRAFT_CAP) {
+            console.log('⚠️ BILI_IGNORE_DRAFT_CAP=1：满箱仍继续（这是一次实验，可能白传一条）')
+          } else if (occupied >= cap) {
+            console.log(`❌ 草稿箱已满（${occupied}/${cap}）⇒ 不上传、不存草稿`)
+            console.log('   处置：先在草稿箱投稿或删除一条腾出位置；平台上限不腾出就存不进去。')
+            draftBoxBlocked = true
+            return
+          }
+        } else {
+          console.log('⚠️ 读不到草稿箱条数（不影响本次，但满了会以上传后失败的形式暴露）')
+        }
+      }
+
       const one: base.PublishOneFn = (p, t, auto, o) =>
         publishOne(p, t, auto, {
           logDir: o.logDir, subsDir, draft: o.draft, zone: opts.zone, statement: opts.statement,
@@ -2103,6 +2167,9 @@ export async function publish(tasks: readonly base.Task[], opts: BiliPublishOpts
     },
   )
   if (!loginOk) return 1
+  // 草稿箱满：整批一条没跑，必须非 0（别让上游把「0 条」当「跑完了」）。
+  // 退出码 3 与 argparse(2) / 单条失败(1) 区分开，便于产线脚本按码分流。
+  if (draftBoxBlocked) return 3
   return base.summarize(results, 'B站')
 }
 
