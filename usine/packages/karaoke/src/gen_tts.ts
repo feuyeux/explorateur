@@ -1,8 +1,9 @@
 // gen_tts.ts — 词级卡拉OK时间线的 TTS 生成（karaoke-video/scripts/gen_tts.py 的 TS 归流）。
 //
-// voices.json: {"tts_dir": "tts", "langs": [{locale, voice, text, tokens, persona, latin, gender}, …]}
+// voices.json: {"tts_dir": "tts", "langs": [{locale, voice, text, tokens, persona, latin, gender, rate?, pitch?}, …]}
 //   - `text`   — 精确的 TTS 输入短语（允许空格）
 //   - `tokens` — 显示 token，是 `text` 的**连续字符区间**（token 间的空格不参与匹配）
+//   - `rate`/`pitch` — 可选的人设声线基线（如 "-12%" / "-4Hz"），缺省 = 原版 +0%/+0%
 //
 // 每语种产出：
 //   <tts_dir>/<locale>.mp3    语音（24 kHz 单声道 mp3）
@@ -21,7 +22,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { stream } from '@feuille/core'
+import { stream, voiceParams } from '@feuille/core'
 
 /** Python len()/下标按码点计——用码点数组镜像。 */
 type Word = { w: string; t: number; d: number }
@@ -79,12 +80,21 @@ export function tokenTimings(tokens: readonly string[], words: readonly Word[]):
 }
 
 async function gen(outDir: string, lang: Record<string, unknown>): Promise<Record<string, unknown>> {
+  // rate / pitch：voices.json **显式带这两项**时走 core 的 voiceParams（夹安全域，
+  // 与 scene_audio 同口径）——说书人这类人设的声线基线（-12% / -4Hz）要能带进来，
+  // 否则「人设 voice 段」形同虚设。
+  // 不带时**原样保留** '+0%' / '+0%'：那是 Python 版 edge_tts.Communicate 的缺省
+  // 口径，已被既有成片逐字节消费——不能顺手「修正」成 '+0Hz'（会换一种请求，
+  // 输出跟着变）。缺省路径的字节级不变是刻意留的。
+  const voiced = lang['rate'] !== undefined || lang['pitch'] !== undefined
+  const [rate, pitch] = voiced
+    ? voiceParams((lang['rate'] ?? '+0%') as string, (lang['pitch'] ?? '+0Hz') as string)
+    : ['+0%', '+0%']
   const req = {
     text: lang['text'] as string,
     voice: lang['voice'] as string,
-    // 原版 edge_tts.Communicate(text, voice) 不带 rate/pitch → 缺省 +0%
-    rate: '+0%',
-    pitch: '+0%',
+    rate,
+    pitch,
   }
   const chunks: Uint8Array[] = []
   const words: Word[] = []

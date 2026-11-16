@@ -36,7 +36,61 @@ import {
 import type { PilDraw, RGB, RGBA } from '@feuille/core'
 
 // ---- 舞台几何（单一事实源：绘制与字卡 HTML 坐标由同一份常量注入）----
-export const GEO = {
+//
+// 几何**按画幅分开**，不是把竖版缩一缩：两个画幅的宽高比不同，缩不出来。
+// 竖版 1080×1920 的数值是历史实况（既有成片逐像素消费），一个都不许动；
+// 横版 1920×1080 另立一套（下方 LANDSCAPE），同一套空间模型按宽比重排。
+export type Rect = readonly [number, number, number, number]
+
+export interface StageGeo {
+  beam: Rect            // 顶梁
+  plaque: Rect          // 木匾（幕名）
+  ptext: Rect           // 匾内文字区（HTML 同源）
+  panel: Rect           // 台口护墙板（挡低处道具）
+  slab: Rect            // 案沿（说书人双手搭在案沿上）
+  skirt: Rect           // 案身前脸（书卷后面）
+  roll_l: Rect          // 书卷左卷尾
+  roll_r: Rect          // 书卷右卷尾
+  paper: Rect           // 案上摊开的唱词书卷
+  ktext: Rect           // 卷面唱词文字区（HTML 同源）
+  quote: Rect           // 卷面原文摘录行（有 quote 才有）
+}
+
+/** 案沿条上的道具与人物接触影（同一套坐标，竖横各一份）。 */
+export interface StageProps {
+  contact: Rect                     // 双手搭案沿的接触影
+  gavelShadow: Rect
+  gavel: Rect
+  gavelTop: Rect
+  fanShadow: Rect
+  fanHandle: Rect
+  fanPaper: Rect
+  fanRib: { from: number; to: number; step: number; y0: number; y1: number }
+}
+
+/** 卡面字号（匾与卷面）。center = 卷面文字竖直居中（横版卷面宽而矮，不居中会悬在顶边）。 */
+export interface StageCard {
+  ch: number
+  chTrack: number
+  sub: number
+  subTrack: number
+  ktext: number
+  ktextLh: number
+  quoteSize: number
+  center: boolean
+}
+
+/** 一套完整舞台：画布尺寸 + 几何 + 站位 + 道具 + 卡面字号。 */
+export interface Stage {
+  w: number
+  h: number
+  geo: StageGeo
+  actor: { x: number; y: number; s: number }
+  props: StageProps
+  card: StageCard
+}
+
+export const GEO: StageGeo = {
   beam: [0, 0, 1080, 90],            // 顶梁
   plaque: [330, 300, 750, 470],      // 木匾（幕名）
   ptext: [340, 312, 740, 462],       // 匾内文字区（HTML 同源）
@@ -48,12 +102,112 @@ export const GEO = {
   paper: [60, 1630, 1020, 1905],    // 案上摊开的唱词书卷
   ktext: [90, 1645, 990, 1872],     // 卷面唱词文字区（HTML 同源）
   quote: [100, 1878, 980, 1900],    // 卷面原文摘录行（有 quote 才有）
-} as const
+}
 
 // 说书人站位：face_geo 原生 ground=1700、头顶≈962（wide 脸型）。
 // scale 1.75 + yoff 180 + xoff −135（中轴 405）→ 头顶（含发）≈521、
 // 双手≈1567 恰在案沿 1540 之上；可见身高 521→1540 ≈ 53%（>45%）。
 export const ACTOR_X = -135.0, ACTOR_Y = 180.0, ACTOR_S = 1.75
+
+const PROPS_PORTRAIT: StageProps = {
+  contact: [180, 1544, 640, 1566],
+  gavelShadow: [146, 1598, 252, 1614],
+  gavel: [150, 1562, 242, 1600],
+  gavelTop: [154, 1566, 238, 1580],
+  fanShadow: [838, 1602, 964, 1620],
+  fanHandle: [840, 1574, 862, 1594],
+  fanPaper: [846, 1565, 950, 1602],
+  fanRib: { from: 866, to: 946, step: 12, y0: 1570, y1: 1598 },
+}
+
+const CARD_PORTRAIT: StageCard = {
+  ch: 52, chTrack: 10, sub: 28, subTrack: 12,
+  ktext: 36, ktextLh: 1.6, quoteSize: 20, center: false,
+}
+
+export const PORTRAIT_STAGE: Stage = {
+  w: 1080, h: 1920,
+  geo: GEO,
+  actor: { x: ACTOR_X, y: ACTOR_Y, s: ACTOR_S },
+  props: PROPS_PORTRAIT,
+  card: CARD_PORTRAIT,
+}
+
+// ---- 横版 1920×1080 ----
+// 宽高比 16:9 与 9:16 差太远，缩不出来，只能重排：卷面横铺（1752 宽 → 36px
+// 一行 48 字、约 4 行容量），匾缩窄上移，说书人降到 0.78 倍、中轴落在画面
+// 正中（竖版中轴 405 是偏左的，横版居中才稳）。
+//
+// 站位换算（rig 原生：头顶含发≈923、双手≈1521、ground=1700）：
+//   y = −870.4 → 双手 = −870.4 + 1700 + 0.78·(1521−1700) ≈ 690（落进案沿 664–728 条内）
+//   头顶 = −870.4 + 1700 + 0.78·(923−1700) ≈ 224（匾底 192 之下留 32px 气口）
+//   x = 420 → 中轴 = 540 + 420 = 960（画面正中）
+//   可见身高 224→690 = 466px ≈ 43%（横版低于竖版 53%，因为宽画幅要先让出卷面）
+export const LANDSCAPE_STAGE: Stage = {
+  w: 1920,
+  h: 1080,
+  geo: {
+    beam: [0, 0, 1920, 54],
+    plaque: [700, 44, 1220, 192],
+    ptext: [708, 52, 1212, 184],
+    panel: [0, 600, 1920, 664],
+    slab: [0, 664, 1920, 728],
+    skirt: [0, 728, 1920, 1080],
+    roll_l: [8, 716, 60, 1052],
+    roll_r: [1860, 716, 1912, 1052],
+    paper: [44, 728, 1876, 1044],
+    ktext: [84, 742, 1836, 992],
+    quote: [90, 1000, 1830, 1036],
+  },
+  actor: { x: 420.0, y: -870.4, s: 0.78 },
+  props: {
+    contact: [700, 668, 1220, 686],
+    gavelShadow: [196, 700, 286, 714],
+    gavel: [200, 672, 282, 704],
+    gavelTop: [204, 676, 278, 686],
+    fanShadow: [1636, 706, 1740, 720],
+    fanHandle: [1640, 686, 1658, 700],
+    fanPaper: [1646, 672, 1734, 706],
+    fanRib: { from: 1660, to: 1726, step: 10, y0: 676, y1: 702 },
+  },
+  card: {
+    ch: 52, chTrack: 10, sub: 28, subTrack: 12,
+    ktext: 36, ktextLh: 1.6, quoteSize: 22, center: true,
+  },
+}
+
+/** 画幅 → 舞台。只定义了两套（竖 1080×1920 / 横 1920×1080），别的画幅
+ * 直接判死而不是悄悄退化成竖版几何——退化的症状是「画面全错但退出 0」。 */
+export function stageGeometry(w: number, h: number): Stage {
+  if (w === PORTRAIT_STAGE.w && h === PORTRAIT_STAGE.h) return PORTRAIT_STAGE
+  if (w === LANDSCAPE_STAGE.w && h === LANDSCAPE_STAGE.h) return LANDSCAPE_STAGE
+  throw new FeuilleError(
+    `没有 ${w}×${h} 的舞台几何：只定义了 1080×1920（竖）与 1920×1080（横）。`
+    + `新画幅要在 render_act_frames 里补一套几何，不能靠缩竖版。`)
+}
+
+/** 背景落版方式：rig 语义画布（1080×1920）怎么摆进当前画幅。
+ *
+ * 竖版返回 undefined（原样，**逐像素不变**——竖版成片已交付，一个像素都不许动）。
+ *
+ * 横版 1920×1080 的墙带只有 600 高、宽 1920，rig 墙面是 1080×1450，比例差 3.16 倍：
+ * 「不变形」「不裁切」「铺满宽度」三者只能取二。这里取**不变形 + 不裁切**——
+ * 道具按竖版原尺寸摆在中段 1080 宽，两侧各 420 像素由渐变自然延伸（渐变逐行
+ * 恒定，横向延伸没有痕迹）。
+ *
+ * 另两种做法的实测代价（墙带 0–600 内可见道具占比，a02/a05）：
+ * - 整墙等比缩到护墙板线（41%）= 0.72% / 1.92%：道具糊进渐变，等于空墙；
+ * - 横向铺满、放大 1.78× 取局部 = 8.69% / 39.75%：道具被放大且上下切边。
+ */
+export function bgLayoutFor(stage: Stage): scenes.BgLayout | undefined {
+  if (stage === PORTRAIT_STAGE) return undefined
+  return { w: stage.w, h: stage.h, dx: (stage.w - rig.W) / 2, dy: -BG_NATIVE_TOP }
+}
+
+/** 横版取景窗上沿（rig 行）。560 是量出来的：13 幕道具带并集 = rig 600–1600
+ * （逐行偏差剖面：0–600 是纯渐变），窗口正好 1080 行，560–1640 上下各留 40 行
+ * 余量，道具一个都不切。 */
+const BG_NATIVE_TOP = 560
 
 // 字卡文字实色（与 matteUnpremultiply 色表一致，勿单边改）。
 // dim 态用实色暗字而不用 CSS opacity：字卡页是纯黑底，半透明墨字会被
@@ -232,28 +386,34 @@ const escapeHtml = (s: string): string =>
 export function buildCardHtml(
   cardActs: Array<[Cfg, string, Array<{ text: string; start: number }>]>,
   fontsCss: string,
+  stage: Stage = PORTRAIT_STAGE,
 ): string {
+  const C = stage.card
+  const sheetCss = C.center
+    ? 'display:flex;align-items:center;'
+    : ''
+  const ktextCss = C.center ? 'width:100%;' : ''
   const tmpl = `<!doctype html><html><head><meta charset="utf-8"><style>
 __FONTS__
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body { width:1080px; height:1920px; background:#000;
+html, body { width:${stage.w}px; height:${stage.h}px; background:#000;
   font-family:'Kaiti SC','STKaiti','Songti SC',serif; }
 section.act { display:none; }
 section.act.on { display:block; }
 .plaque { position:absolute; left:{ptx}px; top:{pty}px; width:{ptw}px; height:{pth}px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
-.plaque .ch { font-size:52px; font-weight:700; color:#2c2418; letter-spacing:10px; }
-.plaque .sub { font-size:28px; color:#b8860b; letter-spacing:12px; }
+.plaque .ch { font-size:${C.ch}px; font-weight:700; color:#2c2418; letter-spacing:${C.chTrack}px; }
+.plaque .sub { font-size:${C.sub}px; color:#b8860b; letter-spacing:${C.subTrack}px; }
 .sheet { position:absolute; left:{ktx}px; top:{kty}px; width:{ktw}px; height:{kth}px;
-  overflow:hidden; }
-.ktext { font-size:36px; line-height:1.6; color:#2c2418;
+  overflow:hidden; ${sheetCss}}
+.ktext { font-size:${C.ktext}px; line-height:${C.ktextLh}; color:#2c2418; ${ktextCss}
   text-align:justify; text-justify:inter-ideograph; }
 .ktext .tok.dim, .ktext .pun { color:#c4bcaa; }
 .ktext .tok.sung { color:#2c2418; }
 .ktext .tok.vow.sung { color:#b0552e; }
 .ktext .tok.cur, .ktext .tok.vow.cur { color:#b8860b; }
 .quote { position:absolute; left:{qtx}px; top:{qty}px; width:{qtw}px; height:{qth}px;
-  font-size:20px; color:#8a7c62; text-align:center; }
+  font-size:${C.quoteSize}px; color:#8a7c62; text-align:center; }
 </style></head><body>
 __SECTIONS__
 <script>
@@ -266,7 +426,8 @@ __SECTIONS__
   sec.classList.add('on');
   var kt = sec.querySelector('.ktext');
   // 自适应：正文超长时逐 2px 缩字号装进卷面（只依赖文本，逐状态确定）
-  for (var fs = 36; fs > 22 && kt.scrollHeight > kt.clientHeight; fs -= 2)
+  var maxFs = ${C.ktext};
+  for (var fs = maxFs; fs > 22 && kt.scrollHeight > kt.clientHeight; fs -= 2)
     kt.style.fontSize = fs + 'px';
   var n = parseInt(sec.dataset.n || '0', 10);
   sec.querySelectorAll('.tok').forEach(function (el) {
@@ -279,8 +440,8 @@ __SECTIONS__
 })();
 </script></body></html>
 `
-  const px = (k: keyof typeof GEO) => {
-    const [x0, y0, x1, y1] = GEO[k]
+  const px = (k: keyof StageGeo) => {
+    const [x0, y0, x1, y1] = stage.geo[k]
     return [String(x0), String(y0), String(x1 - x0), String(y1 - y0)] as const
   }
   const [ptx, pty, ptw, pth] = px('ptext')
@@ -327,14 +488,17 @@ __SECTIONS__
 }
 
 /** 墙侧舞台层（人物身后）：顶梁 / 台口护墙板 / 木匾。 */
-export function drawStageBack(d: PilDraw, SCENE_P: Record<string, RGB>, ident: RGB): void {
-  const beam = GEO.beam
+export function drawStageBack(
+  d: PilDraw, SCENE_P: Record<string, RGB>, ident: RGB, stage: Stage = PORTRAIT_STAGE,
+): void {
+  const geo = stage.geo
+  const beam = geo.beam
   const beamW = rig.mix(SCENE_P['wood']!, [40, 30, 20], 0.45)
   d.rectangle(beam, { fill: beamW })
   d.rectangle([beam[0], beam[3] - 12, beam[2], beam[3]], { fill: rig.mix(beamW, [0, 0, 0], 0.25) })
 
   // 台口护墙板：顶亮条（横枋）+ 板缝
-  const [x0, y0, x1, y1] = GEO.panel
+  const [x0, y0, x1, y1] = geo.panel
   const panelC = rig.mix(SCENE_P['wood']!, [52, 38, 26], 0.35)
   d.rectangle([x0, y0, x1, y1], { fill: panelC })
   d.rectangle([x0, y0, x1, y0 + 34], { fill: rig.mix(SCENE_P['wood2']!, panelC, 0.35) })
@@ -343,7 +507,7 @@ export function drawStageBack(d: PilDraw, SCENE_P: Record<string, RGB>, ident: R
   }
 
   // 木匾（幕名）：吊索 + 匾板 + 右下投影
-  const [px0, py0, px1, py1] = GEO.plaque
+  const [px0, py0, px1, py1] = geo.plaque
   for (const cx of [px0 + 40, px1 - 40]) {
     d.line([cx, beam[3], cx, py0 + 14], { fill: SCENE_P['lamp']!, width: 4 })
   }
@@ -358,15 +522,19 @@ export function drawStageBack(d: PilDraw, SCENE_P: Record<string, RGB>, ident: R
 
 /** 台前层（人物身前）：案沿窄条（双手搭上面）+ 案身 + 案上摊开的
  * 唱词书卷（卷尾圆柱 + 卷面纸）+ 醒木 + 折扇。 */
-export function drawStageFront(d: PilDraw, SCENE_P: Record<string, RGB>, ident: RGB): void {
-  const [sx0, sy0, sx1, sy1] = GEO.slab
+export function drawStageFront(
+  d: PilDraw, SCENE_P: Record<string, RGB>, ident: RGB, stage: Stage = PORTRAIT_STAGE,
+): void {
+  const geo = stage.geo
+  const P = stage.props
+  const [sx0, sy0, sx1, sy1] = geo.slab
   const slabC = rig.mix(SCENE_P['wood2']!, [150, 110, 70], 0.55)
   d.rectangle([sx0, sy0, sx1, sy1], { fill: slabC })
   d.rectangle([sx0, sy0, sx1, sy0 + 12], { fill: rig.mix(slabC, [0, 0, 0], 0.22) })  // 案沿暗线
   // 说书人双手落在案沿：条面上一道柔和接触影，把人和案锁在一起
-  d.ellipse([180, sy0 + 4, 640, sy0 + 26], { fill: [0, 0, 0, 26] as RGBA })
+  d.ellipse(P.contact, { fill: [0, 0, 0, 26] as RGBA })
   // 案身前脸：竖板缝（两侧从书卷后露出）
-  const [kx0, ky0, kx1, ky1] = GEO.skirt
+  const [kx0, ky0, kx1, ky1] = geo.skirt
   const skirtC = rig.mix(SCENE_P['wood']!, [34, 24, 16], 0.42)
   d.rectangle([kx0, ky0, kx1, ky1], { fill: skirtC })
   for (let xx = kx0 + 90; xx < kx1; xx += 150) {
@@ -374,7 +542,7 @@ export function drawStageFront(d: PilDraw, SCENE_P: Record<string, RGB>, ident: 
   }
   // 书卷卷尾（左右两根立着的卷轴圆柱，比卷面高出一线）
   const rodC = rig.mix(SCENE_P['wood']!, [28, 20, 14], 0.4)
-  for (const [rx0, ry0, rx1, ry1] of [GEO.roll_l, GEO.roll_r]) {
+  for (const [rx0, ry0, rx1, ry1] of [geo.roll_l, geo.roll_r]) {
     d.roundedRectangle([rx0 + 5, ry0 + 10, rx1 + 5, ry1 + 10], 16, { fill: [0, 0, 0, 46] as RGBA })
     d.roundedRectangle([rx0, ry0, rx1, ry1], 16, { fill: rodC })
     d.line([Math.floor((rx0 + rx1) / 2) - 4, ry0 + 16, Math.floor((rx0 + rx1) / 2) - 4, ry1 - 6],
@@ -383,20 +551,21 @@ export function drawStageFront(d: PilDraw, SCENE_P: Record<string, RGB>, ident: 
       { fill: rig.mix(rodC, [200, 170, 130], 0.22) })                    // 卷口螺旋端面
   }
   // 卷面（摊开的宣纸）：卷口顶缘阴影 + 右下投影感（底缘暗线）
-  const [ppx0, ppy0, ppx1, ppy1] = GEO.paper
+  const [ppx0, ppy0, ppx1, ppy1] = geo.paper
   d.rectangle([ppx0, ppy0, ppx1, ppy1], { fill: rig.mix(PAPER, ident, 0.05) })
   d.rectangle([ppx0, ppy0, ppx1, ppy0 + 8], { fill: rig.mix(PAPER, [0, 0, 0], 0.10) })
   d.rectangle([ppx0, ppy1 - 6, ppx1, ppy1], { fill: rig.mix(PAPER, [0, 0, 0], 0.07) })
   // 醒木（案沿条上左）：底影 + 木块 + 顶面亮
-  d.ellipse([146, 1598, 252, 1614], { fill: [0, 0, 0, 40] as RGBA })
-  d.roundedRectangle([150, 1562, 242, 1600], 8, { fill: rig.mix(SCENE_P['wood']!, [20, 14, 10], 0.30) })
-  d.roundedRectangle([154, 1566, 238, 1580], 6, { fill: rig.mix(SCENE_P['wood2']!, [60, 45, 30], 0.2) })
+  d.ellipse(P.gavelShadow, { fill: [0, 0, 0, 40] as RGBA })
+  d.roundedRectangle(P.gavel, 8, { fill: rig.mix(SCENE_P['wood']!, [20, 14, 10], 0.30) })
+  d.roundedRectangle(P.gavelTop, 6, { fill: rig.mix(SCENE_P['wood2']!, [60, 45, 30], 0.2) })
   // 折扇（案沿条上右）：扇柄 + 纸面 + 细骨线
-  d.ellipse([838, 1602, 964, 1620], { fill: [0, 0, 0, 40] as RGBA })
-  d.roundedRectangle([840, 1574, 862, 1594], 6, { fill: rig.mix(SCENE_P['wood']!, [20, 14, 10], 0.30) })
-  d.roundedRectangle([846, 1565, 950, 1602], 10, { fill: rig.mix(PAPER, [200, 190, 170], 0.35) })
-  for (let xx = 866; xx < 946; xx += 12) {
-    d.line([xx, 1570, xx, 1598], { fill: rig.mix(MUT, [0, 0, 0], 0.05), width: 2 })
+  const R = P.fanRib
+  d.ellipse(P.fanShadow, { fill: [0, 0, 0, 40] as RGBA })
+  d.roundedRectangle(P.fanHandle, 6, { fill: rig.mix(SCENE_P['wood']!, [20, 14, 10], 0.30) })
+  d.roundedRectangle(P.fanPaper, 10, { fill: rig.mix(PAPER, [200, 190, 170], 0.35) })
+  for (let xx = R.from; xx < R.to; xx += R.step) {
+    d.line([xx, R.y0, xx, R.y1], { fill: rig.mix(MUT, [0, 0, 0], 0.05), width: 2 })
   }
 }
 
@@ -431,9 +600,15 @@ export async function main(argv: string[]): Promise<number> {
     throw new FeuilleError('storyteller.json 里没有这个说书人 id')
   }
   const ident = rig.hexc(st['identity'])
-  const fps = fpsArg ?? 30
+  const timing = (cfg['timing'] ?? {}) as Cfg
+  // fps 口径必须与 assemble 同源：assemble 读 timing.fps，这里也读同一个字段，
+  // 否则「渲 30 / 合 25」会静默错长度（帧数按 30 算、装配按 25 摆，越到后面越歪）。
+  const fps = fpsArg ?? Number(timing['fps'] ?? 30)
   const formats = cfg['formats'] as Array<Cfg>
   const W = formats[0]!['w'] as number, H = formats[0]!['h'] as number
+  // 舞台几何按画幅取（未定义的画幅在这里判死，不退化成竖版）
+  const stage = stageGeometry(W, H)
+  const A = stage.actor
   const out = resolve(outDir)
   mkdirSync(out, { recursive: true })
   const browser = platform.browserPath()
@@ -461,7 +636,6 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   const here = resolve(actsJson, '..')
-  const timing = (cfg['timing'] ?? {}) as Cfg
   const preroll = Number(timing['preroll'] ?? 0.8)
   const ttsDir = join(here, 'tts')
 
@@ -481,7 +655,7 @@ export async function main(argv: string[]): Promise<number> {
   const cardsDir = join(out, '_cards')
   mkdirSync(cardsDir, { recursive: true })
   const buildHtml = join(cardsDir, 'src.html')
-  writeFileSync(buildHtml, buildCardHtml(cardActs, fontsCss), 'utf8')
+  writeFileSync(buildHtml, buildCardHtml(cardActs, fontsCss, stage), 'utf8')
   console.log(`  字卡页自生成：${buildHtml}`)
 
   for (const [actCfg, , toks] of cardActs) {
@@ -503,18 +677,26 @@ export async function main(argv: string[]): Promise<number> {
     // 背景墙面（每幕一次，按 identity 调色；低处道具由台口护墙板遮挡）
     const bgRaw = await (await scenes.prerenderBg(st, {
       scene: (actCfg['scene'] ?? []) as readonly string[],
-    })).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    }, bgLayoutFor(stage))).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    // 合成基底必须就是画幅尺寸：sharp 的 composite 校验发生在 resize **之后**，
+    // 尺寸不符时带推/摇镜头的幕会被那层放大蒙混过去，只在第一个 static 幕炸
+    // （实测 a01–a05 全过、a06 抛 Image to composite must have same dimensions）。
+    if (bgRaw.info.width !== W || bgRaw.info.height !== H) {
+      throw new FeuilleError(
+        `背景画布 ${bgRaw.info.width}×${bgRaw.info.height} 与画幅 ${W}×${H} 不符`
+        + '（prerenderBg 的布局没跟上画幅：composite 会只在 static 镜头暴露）')
+    }
 
     // 舞台静态层（墙侧/台前各一张，帧循环外缓存；SS=2 超采样抗锯齿）
     const backCanvas = createCanvas(W * 2, H * 2)
     drawStageBack(new scenes.DrawScaled(createPilDraw(backCanvas.getContext('2d')), 2),
-      rig.SCENE as Record<string, RGB>, ident)
+      rig.SCENE as Record<string, RGB>, ident, stage)
     const backBuf = await sharp(backCanvas.encodeSync('png'))
       .resize(W, H, { kernel: 'lanczos3' }).raw()
       .toBuffer({ resolveWithObject: true })
     const frontCanvas = createCanvas(W * 2, H * 2)
     drawStageFront(new scenes.DrawScaled(createPilDraw(frontCanvas.getContext('2d')), 2),
-      rig.SCENE as Record<string, RGB>, ident)
+      rig.SCENE as Record<string, RGB>, ident, stage)
     const frontBuf = await sharp(frontCanvas.encodeSync('png'))
       .resize(W, H, { kernel: 'lanczos3' }).raw()
       .toBuffer({ resolveWithObject: true })
@@ -536,7 +718,7 @@ export async function main(argv: string[]): Promise<number> {
       const canvas = createCanvas(W * 2, H * 2)
       const d = createPilDraw(canvas.getContext('2d'))
       rig.drawCharacter(canvas, d, st, tSec, {
-        scale: ACTOR_S, xoff: ACTOR_X, yoff: ACTOR_Y, squash: 0.0, xscale: 1.0,
+        scale: A.s, xoff: A.x, yoff: A.y, squash: 0.0, xscale: 1.0,
         head_dx: 0, head_dy: 0, brow_lift_extra: 0, pose,
         openness: 0.0, blink, mood: actCfg['mood'] ?? 'neutral',
         ss: 2,

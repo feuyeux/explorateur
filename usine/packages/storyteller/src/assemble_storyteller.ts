@@ -109,6 +109,10 @@ export async function main(argv: string[]): Promise<number> {
   const introD = Number(timing['intro'] ?? 3.0)
   const outroD = Number(timing['outro'] ?? 3.4)
   const transD = Number(timing['transition'] ?? 0.5)
+  // 叠化帧数是**帧量化的**（roundHalfEven）。音频推进必须用同一个值，
+  // 不能再拿裸秒数 transD：0.5s @25fps 是 12 帧 = 0.48s，每道转场差 20ms，
+  // 12 道下来末幕旁白比画面晚 0.24s（听感上就是「口型慢半拍」）。
+  const nTrans = roundHalfEven(transD * fps)
   const preroll = Number(timing['preroll'] ?? 0.8)
 
   const here = resolve(actsJson, '..')
@@ -168,7 +172,7 @@ export async function main(argv: string[]): Promise<number> {
       void prevAid
       const prevLast = join(F, `f${prevPref}-${String(prevN - 1).padStart(4, '0')}.png`)
       const curFirst = join(F, `f${fpref}-0000.png`)
-      const nt = roundHalfEven(transD * fps)
+      const nt = nTrans
       const tpaths: string[] = []
       for (let k = 1; k <= nt; k++) {
         const al = k / (nt + 1)
@@ -217,14 +221,17 @@ export async function main(argv: string[]): Promise<number> {
   const filters: string[] = []
   const ordered: string[] = []
   let nIn = 0                    // 输入计数器（len(inputs) 会把 flag+路径都数进去——28 事故）
-  let sceneStart = introD
+  let sceneStart = roundHalfEven(introD * fps) / fps   // 片头也是帧量化的（75 帧 = 3.000s）
   const gavelWav = join(F, 'gavel.wav')
   for (let gi = 0; gi < actAudio.length; gi++) {
     const [aid, mp3] = actAudio[gi]!
     void aid
     inputs.push('-i', mp3)
+    // +preroll：画面侧把第一枚 token 放在 preroll 之后才点亮（render 的
+    // boundaries[0] = roundHalfEven(preroll*fps)），旁白就必须同样晚 preroll 进场。
+    // 不加这一项，字幕会比人声晚 0.6~0.8s（实测：mp3 人声 0.18s 起、token0 在 0.8s 亮）。
     filters.push(
-      `[${nIn}:a]adelay=${Math.trunc(sceneStart * 1000)}:all=1,`
+      `[${nIn}:a]adelay=${Math.trunc((sceneStart + preroll) * 1000)}:all=1,`
       + `apad=whole_dur=${videoDur.toFixed(3)},atrim=0:${videoDur.toFixed(3)}[a${gi}]`)
     ordered.push(`[a${gi}]`); nIn += 1
     // Python get("gavel", True)：缺省真、显式 null 为 falsy（镜像，?? 会把 null 也兜成 true）
@@ -237,9 +244,11 @@ export async function main(argv: string[]): Promise<number> {
         + `apad=whole_dur=${videoDur.toFixed(3)},atrim=0:${videoDur.toFixed(3)}[g${gi}]`)
       ordered.push(`[g${gi}]`); nIn += 1
     }
-    // 幕时长（含转场帧的公共时间）——按帧数口径推进
+    // 幕时长 + **本幕后是否还有转场帧**。判据是「不是最后一幕」，不是「不是第一幕」：
+    // a01 之后就有转场，写成 `gi > 0` 会让整条旁白轨从第二幕起恒定早 0.48s
+    // （12 帧 @25fps），互相关实测就是这个数。
     const nFrames = actFrameGroups[gi]![2]!
-    sceneStart += nFrames / fps + (gi > 0 ? transD : 0.0)
+    sceneStart += nFrames / fps + (gi < actFrameGroups.length - 1 ? nTrans / fps : 0.0)
   }
 
   filters.push(`${ordered.join('')}amix=inputs=${ordered.length}:duration=longest:normalize=0[aout]`)

@@ -101,12 +101,39 @@ export interface Pal {
   readonly paper: RGB
 }
 
+/** 背景落版参数：把 rig 语义画布（1080×1920）等比摆放进目标画布。
+ *
+ * 缺省 = 原样（目标就是 rig 画布）——**竖版必须逐像素不变**，所以默认值
+ * 一个都不能有偏。非缺省用于别的画幅：场景函数只认 rig 坐标，横版这类
+ * 宽画幅没法靠改场景画出来，只能整面墙等比摆放。
+ *
+ * 语义：目标像素 = rig 坐标 × scale + (dx, dy)。dx/dy 是 rig 原点在目标
+ * 画布上的落点（像素），scale 是等比倍数（不提供非等比——非等比会把
+ * 灯笼压成椭圆）。 */
+export interface BgLayout {
+  w?: number
+  h?: number
+  scale?: number
+  dx?: number
+  dy?: number
+}
+
 /** 渐变背景（逐语义行 mix 截断）+ 地面/站位阴影 + 场景装配。
- * 返回已就绪的 sharp 管道（LANCZOS 缩回 W×H）——调用方 .png().toBuffer() 或 composite。 */
+ * 返回已就绪的 sharp 管道（LANCZOS 缩回目标 w×h）——调用方 .png().toBuffer()
+ * 或 composite。目标尺寸必须与调用方的合成画布一致：sharp 的 composite
+ * 作用在 **resize 之后** 的画布上，尺寸不一致时「镜头恰好放大」的幕能蒙混
+ * 过关、`static` 幕立刻抛 Image to composite must have same dimensions。 */
 export async function prerenderBg(
   p: { identity: string },
   card: { scene?: readonly string[] },
+  layout: BgLayout = {},
 ): Promise<SharpInstance> {
+  const tw = layout.w ?? W, th = layout.h ?? H
+  const scale = layout.scale ?? 1
+  const dx = layout.dx ?? 0, dy = layout.dy ?? 0
+  if (!(tw > 0 && th > 0 && scale > 0)) {
+    throw new Error(`bg layout 非法：w=${tw} h=${th} scale=${scale}`)
+  }
   const ident = hexc(p["identity"])
   const top = mix([246, 243, 238], ident, 0.10)
   const bottom = mix([236, 232, 224], ident, 0.20)
@@ -120,14 +147,15 @@ export async function prerenderBg(
       rows[o + 2] = c[2]
     }
   }
-  // 语义分辨率渐变 → BILINEAR 上采样到 SS 画布（sharp kernel 名 linear = PIL BILINEAR）
+  // 语义分辨率渐变 → BILINEAR 上采样到目标 SS 画布（sharp kernel 名 linear = PIL BILINEAR）。
+  // 目标是宽画幅时这里把渐变拉伸铺满——渐变逐行恒定，横向拉伸没有副作用。
   const up = await sharp(rows, { raw: { width: W, height: H, channels: 3 } })
-    .resize(W * SS, H * SS, { kernel: "linear" })
+    .resize(tw * SS, th * SS, { kernel: "linear" })
     .raw()
     .toBuffer()
-  const canvas = createCanvas(W * SS, H * SS)
+  const canvas = createCanvas(tw * SS, th * SS)
   const ctx = canvas.getContext("2d")
-  const img = ctx.createImageData(W * SS, H * SS)
+  const img = ctx.createImageData(tw * SS, th * SS)
   // up 是 3 通道 RGB raw——按步长散布进 RGBA（直接 data.set(up) 会把 RGB 字节流
   // 错位铺进 RGBA 行、尾部 1/4 留全透明；P5-7d storyteller 接线时实测抓到）
   for (let i = 0, j = 0; i < img.data.length; i += 4, j += 3) {
@@ -137,7 +165,9 @@ export async function prerenderBg(
     img.data[i + 3] = 255
   }
   ctx.putImageData(img, 0, 0)
-  const d = new DrawScaled(createPilDraw(ctx), SS)
+  // putImageData 不吃 transform（规范如此），平移放在它之后——rig 坐标落版
+  if (dx !== 0 || dy !== 0) ctx.translate(dx * SS, dy * SS)
+  const d = new DrawScaled(createPilDraw(ctx), SS * scale)
   const ground = mix([230, 226, 216], ident, 0.18)
   d.rectangle([0, 1700, W, H], { fill: ground })
   d.ellipse([310, 1682, 770, 1758], { fill: mix(ground, [50, 45, 40], 0.14) })  // 站位阴影
@@ -154,8 +184,8 @@ export async function prerenderBg(
     const fn = SCENES[name]
     if (fn) fn(d, pal)
   }
-  // SS 超采样 → LANCZOS 缩回 1080×1920（sharp lanczos3 ≈ PIL LANCZOS）
-  return sharp(canvas.encodeSync("png")).resize(W, H, { kernel: "lanczos3" })
+  // SS 超采样 → LANCZOS 缩回目标画布（sharp lanczos3 ≈ PIL LANCZOS）
+  return sharp(canvas.encodeSync("png")).resize(tw, th, { kernel: "lanczos3" })
 }
 
 
