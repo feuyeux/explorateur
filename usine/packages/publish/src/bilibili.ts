@@ -1367,9 +1367,15 @@ async function pruneForeignTags(page: base.AnyPage, wanted: ReadonlySet<string>)
  * 结果检索侧一个标签都没有。
  *
  * 失败口径：输入框**找不到** → 只告警不中止（页面形态变了，或平台已预填够用）；
- * 输入框在但**标签没贴上** → 返回 false（这是本机能做而没做好的事）。
+ * 标签**贴不上** → **照发**，缺的那几枚回填进 `report.missing`，由调用方记进结果待补
+ * （2026-11-18 决定：单枚标签被平台拒，不值得拿整集不投去换）；
+ * 只有**交互级异常**（输入框点不动、键入抛错，等于一枚都没填）才返回 false 中止。
  */
-export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): Promise<boolean> {
+export async function setBiliTags(
+  page: base.AnyPage,
+  tags: readonly string[],
+  report: { missing?: string[] } = {},
+): Promise<boolean> {
   if (!tags.length) return true
   const input = page.locator("input[placeholder*='创建标签']").first()
   let has = false
@@ -1389,17 +1395,43 @@ export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): 
     console.log(`   · 已清掉平台预填标签 ${base.pyReprList(removed)}（占标签配额）`)
   }
 
+  // 单枚标签是否真的变成胶囊：按文字**精确比对**，不靠「标签区整体文本」。
+  const pillHas = async (tag: string): Promise<boolean> => {
+    try {
+      const pills = page.locator('#tag-container .tag-pre-wrp .label-item-v2-content')
+      const n = await pills.count()
+      for (let i = 0; i < n; i++) {
+        if (((await pills.nth(i).innerText()) ?? '').trim() === tag) return true
+      }
+    } catch {
+      // 读不到就按「没贴上」处理，交给重试与最终判据，不静默当成功
+    }
+    return false
+  }
+
   for (const t of tags) {
     const tag = String(t).trim().replace(/^#/, '')
     if (!tag) continue
-    try {
-      await input.click()
-      await input.fill(tag)
-      await page.keyboard.press('Enter')
-      await clock.sleep(0.35)
-    } catch (e) {
-      console.log(`   ⚠️ 标签「${tag}」没贴上：${base.errStr(e)}`)
-      return false
+    // 2026-11-18 实测：清掉预填标签之后紧接着打的那枚标签，回车偶尔被吞。
+    // #73 用同一套标签成功，#74/#75 却只差列表首位「元素周期表」没贴上，两次复现；
+    // 重打一次就好了。所以每枚标签都回读一次，没贴上就原地重打，仍失败才判 false。
+    let landed = false
+    for (let attempt = 0; attempt < 2 && !landed; attempt++) {
+      try {
+        await input.click()
+        await input.fill(tag)
+        await page.keyboard.press('Enter')
+        await clock.sleep(0.35)
+      } catch (e) {
+        console.log(`   ⚠️ 标签「${tag}」没贴上：${base.errStr(e)}`)
+        return false
+      }
+      landed = await pillHas(tag)
+      if (!landed) {
+        console.log(`   · 标签「${tag}」第 ${attempt + 1} 次没贴上，等 2s 重打一次`)
+        // 连打会加重风控；重打前留出间隔，也给平台重排胶囊的时间。
+        await clock.sleep(2)
+      }
     }
   }
   // 回读：标签区的文本里应当能看到刚填的标签
@@ -1421,8 +1453,23 @@ export async function setBiliTags(page: base.AnyPage, tags: readonly string[]): 
     } catch {
       quota = ''
     }
+    // 把标签区**实际存在的胶囊**一并落盘：区分「这枚标签被平台拒了」与「打字没生效」，
+    // 两者后续动作相反（换标签 vs 改进键入），只报 missing 判不出来。
+    let pillsNow: string[] = []
+    try {
+      const pills = page.locator('#tag-container .tag-pre-wrp .label-item-v2-content')
+      const n = await pills.count()
+      for (let i = 0; i < n; i++) pillsNow.push(((await pills.nth(i).innerText()) ?? '').trim())
+    } catch {
+      pillsNow = []
+    }
     console.log(`   ⚠️ 标签没出现在标签区：${base.pyReprList(missing.slice(0, 6))}${quota ? `（${quota}）` : ''}`)
-    return false
+    console.log(`   · 标签区实有 ${pillsNow.length} 枚：${base.pyReprList(pillsNow)}`)
+    // 2026-11-18 用户决定：**缺标签照发**，缺的那几枚回填到 report 由调用方记进结果，
+    // 事后可补。理由：单枚标签贴不上是平台侧的事（当日「元素周期表」在 #73 之后被拒，
+    // 其余 7 枚都正常），拿整集不投去换一枚标签不划算。
+    report.missing = missing
+    return true
   }
   console.log(`   ✓ 标签已填 ${tags.length} 个`)
   return true
@@ -1970,9 +2017,15 @@ export async function publishOne(
     return bail(res, page, logDir, `${tag}-desc`, '简介未录入（已中止投稿）', '简介没录进去 → 中止，不投')
   }
 
-  // 标签：填进标签框（找不到输入框只告警；贴不上才中止）
-  if (!(await setBiliTags(page, t['tags'] ?? []))) {
-    return bail(res, page, logDir, `${tag}-tags`, '标签未贴上（已中止投稿）', '标签没贴上 → 中止，不投')
+  // 标签：填进标签框（找不到输入框只告警；缺某几枚也照发，但缺的要记进结果——
+  // 否则「哪几集少标签」会彻底查不到）。
+  const tagReport: { missing?: string[] } = {}
+  if (!(await setBiliTags(page, t['tags'] ?? [], tagReport))) {
+    return bail(res, page, logDir, `${tag}-tags`, '标签框无法操作（已中止投稿）', '标签一枚都没能填 → 中止，不投')
+  }
+  if (tagReport.missing?.length) {
+    res['tagsMissing'] = tagReport.missing
+    console.log(`   ⚠️ 缺标签照发（已记入结果，事后可补）：${base.pyReprList(tagReport.missing)}`)
   }
 
   await uploadSubtitle(page, t, subsDir)
